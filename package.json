@@ -1,0 +1,35 @@
+{
+  "name": "automotiveos-cloud-erp",
+  "version": "0.1.0",
+  "description": "AutomotiveOS Cloud ERP — Multi-Tenant B2B SaaS for automotive workshops (Paraguay), Fastify + TypeScript + Neon/Supabase",
+  "type": "module",
+  "main": "dist/app.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "db:migrate": "tsx src/shared/database/migrate.ts",
+    "db:validate": "tsx src/shared/database/validate.ts",
+    "check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "erp",
+    "automotive",
+    "paraguay",
+    "sifen",
+    "multi-tenant",
+    "fastify"
+  ],
+  "author": "AutomotiveOS",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "postgres": "^3.4.9"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "project": "AutomotiveOS Cloud ERP",
+  "environment": "OpenCode Minimalist Engine",
+  "hardware_constraints": {
+    "max_local_ram_overhead": "50MB",
+    "architecture": "Cloud-Tethered (Fastify + TypeScript)",
+    "database": "Remote PostgreSQL (Neon/Supabase Serverless)"
+  },
+  "domain_rules": {
+    "fiscal": "DNIT SIFEN V150, RG 90 Marangatu, Ley 1034/83",
+    "automotive": "EV/HEV High Voltage Safety, Launch/Thinkcar DTC Mapping"
+  },
+  "state": {
+    "current_sprint": "Sprint 1 - Environment Configuration",
+    "completed_stages": []
+  }
+}
