@@ -20,13 +20,22 @@ import { syncPlugin } from "./plugins/sync.js";
 import { errorHandler } from "./shared/middleware/error-handler.js";
 
 async function buildApp() {
+  // Use pino-pretty transport only if installed, fall back to plain JSON
+  let transportOpt = undefined;
+  if (env.NODE_ENV !== "production") {
+    try {
+      // Dynamic import to avoid crash if pino-pretty is missing
+      await import("pino-pretty");
+      transportOpt = { target: "pino-pretty", options: { colorize: true } };
+    } catch {
+      transportOpt = undefined;
+    }
+  }
+
   const app = Fastify({
     logger: {
       level: env.LOG_LEVEL,
-      transport:
-        env.NODE_ENV !== "production"
-          ? { target: "pino-pretty", options: { colorize: true } }
-          : undefined,
+      transport: transportOpt,
     },
   });
 

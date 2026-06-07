@@ -11,7 +11,6 @@
 
 import type { FastifyInstance } from "fastify";
 import { validateConnection } from "../shared/database/connection.js";
-import { env } from "../config/env.js";
 import type { HealthCheckResponse } from "../shared/types/index.js";
 
 const startTime = Date.now();
