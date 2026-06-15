@@ -21,11 +21,11 @@ let sql: postgres.Sql | null = null;
 export function getDb(): postgres.Sql {
   if (!sql) {
     sql = postgres(env.DATABASE_URL, {
-      max: 5,               // Max connections in pool — lean for <50MB
-      idle_timeout: 30,     // Close idle connections after 30s
-      connect_timeout: 10,  // Fail fast if DB is unreachable
-      prepare: false,       // Disable prepared statements (Neon serverless friendly)
-      ssl: true,            // Always use SSL for remote PostgreSQL
+      max: 5,                      // Max connections in pool — lean for <50MB
+      idle_timeout: 30,            // Close idle connections after 30s
+      connect_timeout: 10,         // Fail fast if DB is unreachable
+      prepare: false,              // Disable prepared statements (serverless friendly)
+      ssl: { rejectUnauthorized: false }, // Supabase pooler uses self-signed cert
     });
   }
   return sql;

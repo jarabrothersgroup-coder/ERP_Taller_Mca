@@ -8,10 +8,218 @@
   },
   "domain_rules": {
     "fiscal": "DNIT SIFEN V150, RG 90 Marangatu, Ley 1034/83",
-    "automotive": "EV/HEV High Voltage Safety, Launch/Thinkcar DTC Mapping"
+    "automotive": "EV/HEV High Voltage Safety, Launch/Thinkcar DTC Mapping",
+    "labor": "MTESS Paraguay 2026 escalafón: Ayudante ₲3.253.717, Medio_Oficial ₲3.470.295, Oficial ₲3.773.989, Oficial_Certificado ₲4.800.000",
+    "workshop_finance": "Umbral de Activación por Margen de Contribución — comisiones retroactivas solo si Facturación Neta >= Gastos Fijos + Salarios Base",
+    "auto_accounting": "Toda transacción genera su asiento contable automáticamente (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN). El usuario nunca crea asientos manualmente. Los asientos automáticos se crean CONTABILIZADOS, no BORRADOR.",
+    "external_apis": {
+      "nhtsa_vin": "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/",
+      "carquery": "https://www.carqueryapi.com/api/0.3/"
+    },
+    "safety_protocols": {
+      "hev_bev_lockout": "Mandatory HV disconnect signature before work order completion"
+    },
+    "tenant_management": {
+      "default_company": "Jara Brothers Group",
+      "default_location": "Coronel Oviedo, Paraguay",
+      "storage_strategy": "Local persistent JSON for rapid caching + Base64 Injection",
+      "security": {
+        "max_file_size_bytes": 5242880,
+        "allowed_mime_types": ["image/png", "image/jpeg", "image/jpg"],
+        "password_hashing": "scrypt (32-byte salt, 64-byte key, Node.js crypto)"
+      }
+    },
+    "visual_orchestration": {
+      "resolutions": {
+        "mechanic_tv": "1080p_horizontal",
+        "waiting_room_tv": "1080p_horizontal"
+      },
+      "transport": "WebSocket (fastify-websocket)",
+      "pdf_engine": "Cloud-Rendered Headless Chromium via OpenCode"
+    }
   },
   "state": {
-    "current_sprint": "Sprint 1 - Environment Configuration",
+    "current_sprint": "Sprint 15 COMPLETE — Production Readiness: Swagger + Security + Responsive + Print + E2E Tests",
+    "next_sprint": "Sprint 16 — TBD",
+    "sprint_10_progress": {
+      "analytics_service": "analytics.service.ts — getDashboardKPIs, getTopServicios, getTopClientes, getProductividad (10+ queries across 8 tables)",
+      "analytics_routes": "GET /workshop/analytics/dashboard, /top-servicios, /top-clientes, /productividad + registered in workshop routes index",
+      "dashboard_enhanced": "KPI cards (activas por status, ingresos mes/semana, CxC, servicios/repuestos/bajo stock), weekly CSS bar chart, OT completions trend",
+      "analytics_frontend": "Nueva vista Analytics con 3 tabs: Productividad (4 KPI cards + progreso mensual + eficiencia bar), Top Servicios (ranking con popularidad bar), Top Clientes (ranking con facturación bar)",
+      "js_module_analytics": "Extracted analytics frontend to js/analytics.js — módulo independiente cargado vía <script> antes que app.js",
+      "sidebar_analytics": "Nuevo botón 📊 Analytics en sidebar entre Dashboard e Ingreso",
+      "typescript_errors": 0
+    },
+    "sprint_11_progress": {
+      "budget_schema": "budget.ts — presupuestos (periodo, estado, tenant) + presupuestos_items (centro_costo_id FK, categoria, monto_presupuestado, monto_real)",
+      "budget_migration": "0017_presupuestos.sql — 2 tablas, 8 índices, FKs a centros_costo y presupuestos",
+      "budget_service": "budget.service.ts — CRUD presupuestos + items + getComparativa (real vs presupuestado con alertas de desvío OK/ALERTA/CRITICO) + refreshMontoReal + getAllAlertas",
+      "budget_routes": "11 endpoints: GET/POST /presupuestos, GET/PUT/DELETE /:id, POST /:id/items, PUT/DELETE /items/:itemId, GET /:id/comparativa, POST /:id/refresh, GET /alertas",
+      "budget_frontend": "js/budget.js — vista Presupuestos con lista, modal crear, comparativa por centro de costo, tabla desvío, alertas de desvío, aprobar/cerrar presupuesto",
+      "sidebar_presupuestos": "Nuevo botón 📊 Presupuestos en sidebar entre Tesorería e Inventario",
+      "scorecard_service": "getBalancedScorecard() — 4 perspectivas BSC: Financiera (ingresos, costos, margen, cobros, CxC), Clientes (total, visitas, retención, ticket), Procesos (OTs completadas, tasa finalización, servicios catálogo), Aprendizaje (eficiencia, diversidad, productividad)",
+      "scorecard_route": "GET /workshop/analytics/scorecard — Balanced Scorecard endpoint",
+      "scorecard_frontend": "Tab Scorecard en Analytics — 4 secciones con KPI cards y indicadores de cumplimiento (verde/amarillo)",
+      "typescript_errors_new": 0,
+      "preexisting_errors": 14 (invoice, ledger, treasury, vin-decode — sprints anteriores)
+    },
+    "sprint_12_progress": {
+      "refactor_app_js": "4431 líneas → 907 líneas core (79.5% reducción) + 14 módulos JS extraídos",
+      "modules_created": [
+        "js/contabilidad.js (1219L, 44 funcs) — Cuentas contables, asientos, balance, P&L, libros (diario/mayor/inventario), impuestos (Ire/Idu/Isc/Inr/Form120), CRUD cuentas+asientos",
+        "js/tesoreria.js (818L, 19 funcs) — Cuentas bancarias, movimientos, conciliación, CxC (cobrar/pendientes/historial), CxP (pagar/proveedores/pendientes/historial), flujo de caja",
+        "js/inventario.js (264L, 8 funcs) — Repuestos/herramientas, stock, modales crear/editar",
+        "js/ordenes.js (293L, 6 funcs) — Órdenes de trabajo, modal crear/editar, estado,VIN scan",
+        "js/usuarios.js (119L, 7 funcs) — CRUD usuarios, roles, activar/desactivar",
+        "js/config.js (129L, 7 funcs) — Config taller, logo upload, perfil",
+        "js/taller.js (126L, 5 funcs) — Vista taller (bay statuses), TV display, HV safety",
+        "js/ingreso.js (115L, 2 funcs) — Check-in ingreso, VIN decode",
+        "js/dashboard.js (142L, 2 funcs) — Dashboard KPIs, OT completions, chart semanal",
+        "js/facturacion.js (119L, 4 funcs) — Facturación OTs listas, emitir factura, historial",
+        "js/thinkcar.js (51L, 2 funcs) — Thinkcar imports, análisis DTC",
+        "js/servicios.js (128L, 3 funcs) — Catálogo servicios, listar/agregar"
+      ],
+      "core_app_js": "907L — state, dom, api, auth, esc/fmt/badges (shared), navigate+renderView (router), statusActionButton, connectivity/offline/WS/polling, event delegation (click+submit+change+input), VIN scanner, init() bootstrap",
+      "index_html": "16 script tags: 14 modules + analytics + budget + core app.js (last, after all modules loaded)",
+      "duplicates_removed": "esc, fmt, roleBadge, statusBadge, statusActionButton — only in core, removed from usuarios.js",
+      "init_bootstrap": "Moved from tesoreria.js to core app.js (IIFE at end) — runs after all modules load",
+      "offlineQueue_decl": "Moved to core app.js — declared before updateConnectivity",
+      "typescript_errors_new": 0,
+      "preexisting_errors": 12 (same 8 files as sprint 11, reduced from 14 by sprints 10-11 fixes)",
+      "function_parity": "132 original functions accounted for across core+modules, zero missing"
+    },
+    "sprint_13_progress": {
+      "ts_errors_fixed": "12 pre-existing TS errors fixed across 8 files — ZERO TS ERRORS ACHIEVED (first time in project history)",
+      "ts_fixes": [
+        "invoice.routes.ts — removed unused fiscalDocumento insert (SIFEN fields incomplete), removed unused imports (sql, fiscalDocumentos, fiscalDocumentoDetalles, ordenServicios, ordenRepuestos)",
+        "balance.service.ts — removed unused gte import",
+        "ledger.service.ts — fixed tipo enum type in updateCuenta (string → union of valid enum values)",
+        "payment.service.ts — removed unused Factura type import",
+        "treasury.service.ts — added missing ValidationError import (3 usage sites)",
+        "order-items.routes.ts — removed unused ValidationError + NotFoundError imports",
+        "services-catalog.service.ts — removed unused NewServicioCatalogo type import",
+        "vin-decode.service.ts — fixed unknown type assertion with 'as' cast"
+      ],
+      "rbac_middleware": "src/shared/middleware/rbac.ts — resolveProfile (X-User-Email → DB lookup) + requireRole(...roles) with hierarchy (user < mechanic < manager < admin) + convenience exports (requireAdmin, requireManager, requireMechanic)",
+      "rbac_integration": "resolveProfile hook registered in workshop and finance plugins, X-User-Email added to CORS allowedHeaders, api() sends X-User-Email header",
+      "notifications_schema": "notificaciones table — tipo, titulo, mensaje, entity_type, entity_id, leido, tenant_slug + 4 indexes",
+      "notifications_service": "notifications.service.ts — CRUD (crear, listar, contarNoLeidas, marcarLeido, marcarTodoLeido) + auto-triggers (verificarStockBajo, verificarCxCVencidas, notificarCambioOT)",
+      "notifications_routes": "5 endpoints: GET /api/notifications, GET /count, PATCH /:id/read, POST /read-all, POST /check",
+      "notifications_migration": "0018_notifications.sql — 1 table, 4 indexes",
+      "notifications_frontend": "js/notifications.js — bell icon with unread badge, dropdown panel, click-to-navigate, 60s auto-poll, mark all read",
+      "payroll_frontend": "js/payroll.js — renderPayroll (break-even progress bar + KPI cards), calcularNomina (POST /payroll/calculate), break-even auto-load",
+      "sidebar_updated": "Added 👥 Nómina sidebar item + 🔔 notifications bell in header",
+      "typescript_errors": 0,
+      "files_created": [
+        "src/shared/middleware/rbac.ts",
+        "src/shared/database/schema/notifications.ts",
+        "src/shared/database/migrations/0018_notifications.sql",
+        "src/modules/workshop/services/notifications.service.ts",
+        "src/modules/workshop/routes/notifications.routes.ts",
+        "src/shared/public/js/notifications.js",
+        "src/shared/public/js/payroll.js"
+      ],
+      "files_modified": [
+        "src/modules/finance/routes/invoice.routes.ts (TS fixes)",
+        "src/modules/finance/services/accounting/balance.service.ts (TS fix)",
+        "src/modules/finance/services/accounting/ledger.service.ts (TS fix)",
+        "src/modules/finance/services/treasury/payment.service.ts (TS fix)",
+        "src/modules/finance/services/treasury/treasury.service.ts (TS fix)",
+        "src/modules/workshop/routes/order-items.routes.ts (TS fix)",
+        "src/modules/workshop/services/services-catalog.service.ts (TS fix)",
+        "src/modules/workshop/services/vin-decode.service.ts (TS fix)",
+        "src/shared/database/schema/index.ts (notifications export)",
+        "src/modules/workshop/routes/index.ts (notifications routes)",
+        "src/modules/workshop/plugin.ts (resolveProfile hook)",
+        "src/modules/finance/plugin.ts (resolveProfile hook)",
+        "src/app.ts (CORS X-User-Email header)",
+        "src/shared/public/app.js (notif bell + payroll router + calc button)",
+        "src/shared/public/index.html (bell container + script tags + sidebar)"
+      ]
+    },
+    "sprint_14_progress": {
+      "test_files": "26 test files, 216 tests passing (vitest run)",
+      "new_test_files": [
+        "tests/shared/middleware/rbac.test.ts — 18 tests: resolveProfile (5), requireRole hierarchy (9), convenience hooks (6)",
+        "tests/modules/workshop/services/notifications.test.ts — 10 tests: crearNotificacion (1), listarNotificaciones (3), contarNoLeidas (2), marcarLeido (2), marcarTodoLeido (1)",
+        "tests/modules/finance/budget.test.ts — 5 tests: schema structure (2), service function exports (2), route registration (1)",
+        "tests/modules/finance/payment.test.ts — 3 tests: function export, ValidationError monto<=0, ValidationError monto<0"
+      ],
+      "typescript_errors": 0,
+      "test_duration": "~28s",
+      "tests_completed": "14.1 — Testing for RBAC, notifications, budget, payment",
+      "global_search": "14.2 — GET /api/v1/search?q=&limit=10 — cross-entity search (vehiculos, clientes, ordenes) with ILIKE + tenant isolation",
+      "global_search_frontend": "js/search.js — Ctrl+K shortcut, debounced search dropdown, keyboard nav, 3 entity types with icons",
+      "search_plugin": "src/shared/plugins/search.ts — registered in app.ts with resolveTenant + resolveProfile hooks",
+      "vehicle_client_history": "14.3 — history.service.ts (getVehicleHistory, getClientHistory) + endpoints GET /workshop/vehiculos/:id/history + GET /workshop/clientes/:id/history",
+      "history_frontend": "js/history.js — vehicle modal (OTs + services + parts) + client modal (vehicles + OTs + stats)",
+      "search_history_integration": "Search results show 📋 history button on hover for vehiculo/cliente types",
+      "ux_toast_system": "14.4 — js/ux.js showToast(message, type, duration) — success/error/info/warning with animation + auto-dismiss",
+      "ux_skeletons": "js/ux.js renderSkeleton(variant, count) — card/table/list/chart loading placeholders",
+      "toast_wired": "Login success toast + new notification toast on poll",
+      "csv_export_backend": "14.5 — csv-export.service.ts + export.routes.ts — GET /api/v1/export/:table (vehiculos, clientes, ordenes) with BOM UTF-8",
+      "csv_export_frontend": "Export dropdown in header — 📥 button with 3 table options → CSV download via fetch with auth headers",
+      "files_created": [
+        "src/shared/services/search.service.ts",
+        "src/shared/routes/search.routes.ts",
+        "src/shared/plugins/search.ts",
+        "src/shared/services/history.service.ts",
+        "src/shared/routes/export.routes.ts",
+        "src/shared/services/csv-export.service.ts",
+        "src/shared/public/js/search.js",
+        "src/shared/public/js/history.js",
+        "src/shared/public/js/ux.js"
+      ],
+      "files_modified": [
+        "src/app.ts (search plugin registration)",
+        "src/modules/workshop/routes/vehiculos.ts (+history endpoint +import)",
+        "src/modules/workshop/routes/clientes.ts (+history endpoint +import)",
+        "src/shared/public/index.html (+3 script tags: ux, history, search)",
+        "src/shared/public/app.js (+initSearchBar +showToast on login)",
+        "src/shared/public/js/notifications.js (+lastNotifCount +toast on new)"
+      ],
+      "remaining_sprint_14": []
+    },
+    "sprint_15_progress": {
+      "api_documentation": "15.1 — Installed @fastify/swagger@^9.7.0 + @fastify/swagger-ui@^6.0.0. Registered in app.ts with OpenAPI 3.0 spec (title, description, version, security schemes, tags). Swagger UI served at /docs.",
+      "security_hardening": "15.2 — Installed @fastify/rate-limit@^11.0.0 (200 req/min global) + @fastify/helmet@^13.0.2 (Security headers, CSP disabled for CDN). Both registered in app.ts with try/catch fallback for graceful degradation.",
+      "responsive_sidebar": "15.3 — CSS @media print + @media (max-width:768px) for sidebar. Sidebar collapses on mobile with hamburger toggle (☰). toggleSidebar() + closeSidebarMobile() functions in app.js. Header responsive (SIFEN/WS hidden on mobile, search/export wrap).",
+      "print_pdf": "15.4 — js/print.js: printOT(id) + printInvoice(id) functions using window.open() + window.print() with print-friendly template. CSS @media print hides UI chrome, shows .print-template. Print button (🖨️) added to ordenes table + OT detail modal.",
+      "e2e_tests": "15.5 — tests/e2e-workflow.test.ts: 42 tests across 8 describe blocks (Tenant Isolation, RBAC, Schema Validation, Search, Export, Notifications, Error Propagation, Full Pipeline). Uses Fastify inject() with production middleware stack. All 42 tests passing.",
+      "packages_installed": [
+        "@fastify/swagger@^9.7.0",
+        "@fastify/swagger-ui@^6.0.0",
+        "@fastify/rate-limit@^11.0.0",
+        "@fastify/helmet@^13.0.2"
+      ],
+      "test_results": {
+        "total_files": 27,
+        "total_tests": 258,
+        "passing": 258,
+        "duration": "~63s",
+        "vitest_timeout": "30s (increased from 15s for module loading with new packages)"
+      },
+      "typescript_errors": 0,
+      "files_created": [
+        "src/shared/public/js/print.js",
+        "tests/e2e-workflow.test.ts"
+      ],
+      "files_modified": [
+        "src/app.ts (swagger + helmet + rate-limit registration)",
+        "src/shared/public/app.js (toggleSidebar + closeSidebarMobile)",
+        "src/shared/public/index.html (responsive CSS + hamburger + print styles + 21 script tags)",
+        "vitest.config.ts (testTimeout 15s → 30s)"
+      ]
+    },
+    "sprint_9_progress": {
+      "invoice_itemized": "OT items (servicios+repuestos) written to fiscalDocumentoDetalles on issue",
+      "cxc_auto": "factura.estadoPago=PENDIENTE, saldoPendiente=total, fechaVencimiento=+30d",
+      "payment_service": "registerPayment() — atomic movimiento_tes INGRESO + update factura + Accounting Bus COBRO",
+      "payment_routes": "POST /finance/payments/register (monto, medioPago, cuentaId, facturaId)",
+      "pago_proveedores": "POST /finance/treasury/facturas-proveedor/:id/pagar (EGRESO + update CxP)",
+      "frontend_cxc_cobrar": "💰 Cobrar button + modal per pending invoice",
+      "frontend_cxp_pagar": "💳 Pagar button + modal per supplier invoice"
+    },
     "completed_stages": [
       "Cloud infrastructure provisioned (Neon/Supabase PostgreSQL remote)",
       "Git repository initialized (main + develop branches ready)",
@@ -25,8 +233,351 @@
       "SIFEN/DNIT fiscal document schema readiness",
       "Environment configuration with .env.example and validation scripts",
       "TypeScript strict mode compilation validated",
-      "Ecosistema de Agentes Inicializado: architect-db, fiscal-paraguay, automotive-ai, qa-optimizer"
+      "Ecosistema de Agentes Inicializado: architect-db, fiscal-paraguay, automotive-ai, qa-optimizer",
+      "Drizzle schema for vehiculos (engine types: Nafta, Diésel, HEV, BEV) with HV safety fields",
+      "Drizzle schema for ordenes_trabajo (statuses: Presupuestado, Aprobado, En_Proceso, Control_Calidad, Listo)",
+      "Drizzle schema for ingresos (vehicle check-in) and trabajos_terceros (third-party work)",
+      "Drizzle migration generated with proper ENUMs, FKs, and CHECK constraints",
+      "Fastify endpoints: POST/GET /workshop/ingresos and POST/GET /workshop/ordenes/:id/trabajos-terceros",
+      "N+1 query prevention audit: all services use JOINs or PK-index SELECTs only",
+      "Workshop module plugin integrated into app.ts bootstrap",
+      "Intelligence & Peripherals module: DTC parser, OpenCode diagnostic engine, HV safety, OCR",
+      "@fastify/multipart registered for file uploads (10MB limit, streaming)",
+      "370+ OBD-II DTC definitions database (Spanish, EV/HEV subset, lazy-loaded)",
+      "Tesseract.js OCR with lazy loading and single-worker concurrency",
+      "Async job processor with in-memory queue, auto-cleanup, < 50MB RAM",
+      "Inventory module: repuestos (barcode), herramientas, control_herramientas with full CRUD",
+      "Finance module: SIFEN V150 (XML, X.509, SOAP, CDC lifecycle)",
+      "Finance module: Double-entry accounting with plan_cuentas, asientos, RG 90 export",
+      "FastifyPlugin encapsulation: removed fastifyPlugin from all tenant modules to prevent hook leaks",
+      "Public dashboard routes registered before tenant modules (avoids 403 on /dashboard, /health)",
+      "Seed script: Toyota Prius HEV + BYD Seal BEV with OTs, inventory items, tool checkouts",
+      "Build script: TypeScript compilation, static asset copy to dist/",
+      "Production start: --max-old-space-size=50 --optimize-for-size --gc-interval=100 --expose-gc",
+      "start.sh with dev/prod modes, health check wait, auto-open dashboard",
+      "SPA Frontend: Login screen with X-Tenant-Slug persistence in localStorage",
+      "SPA Frontend: Sidebar navigation (Dashboard, Usuarios, Configuración, Taller, Quiosco TV)",
+      "SPA Frontend: User CRUD with modal (create/edit/desactivate profiles)",
+      "SPA Frontend: Tenant config form + logo drag & drop upload (Base64)",
+      "SPA Frontend: Workshop bay view with HV lockout checklist",
+      "SPA Frontend: TV/quiosco view with WebSocket live updates",
+      "SPA Frontend: Auto-login on page reload via localStorage credentials",
+      "Auth endpoints: POST /api/auth/login (resolves tenant, creates profile if new)",
+      "Profile CRUD: GET/POST/PATCH/DELETE /api/profiles with tenant isolation",
+      "Password authentication: scrypt hashing (32B salt, 64B key, timingSafeEqual)",
+      "Super Admin created: Juan Ángel Jara / jaraju01@gmail.com / Admin01$",
+      "Drizzle schema: fixed_expenses — monthly fixed costs per tenant",
+      "Drizzle schema: mechanic_profiles — MTESS categories, base salary, commission rate",
+      "Drizzle schema: staff_profiles — management positions with salary & profit sharing",
+      "Drizzle schema: commission_records — per-order commission with EN_ESPERA_DE_UMBRAL/LIBERADO",
+      "Drizzle schema: payroll_summary — monthly breakeven snapshot",
+      "FinancialOrchestratorService: calculateMonthlyCommissions — creates commission records from closed OTs",
+      "FinancialOrchestratorService: checkWorkshopEquilibrium — umbral check, retroactive commission release",
+      "FinancialOrchestratorService: getBreakevenProgress — current month progress",
+      "Payroll routes: POST /api/v1/finance/payroll/calculate — monthly close",
+      "Payroll routes: GET /api/v1/finance/dashboard/break-even — frontend progress bar",
+      "Financial tables created in Supabase with seed data (fixed expenses, work orders, mechanic profiles)",
+      "Break-even verified: 36.38% (₲2.790.000 de ₲7.670.000), 2 commissions EN_ESPERA_DE_UMBRAL",
+      "start.sh: auto-creates financial tables on startup, banner with admin credentials",
+      "SYNC-001: sync-service.ts entity router — routes offline ops to clients, vehicles, work-orders, ingresos handlers",
+      "SYNC-001: client.service.ts — CRUD for clients entity (create/update/delete with validation)",
+      "SYNC-001: vehicle.service.ts — CRUD for vehicles entity (create/update/delete with HEV/BEV fields)",
+      "SYNC-001: sync plugin tenant validation — checks all operations match X-Tenant-Slug",
+      "SYNC-001: 73 unit tests passing — sync-service routing, client CRUD, vehicle CRUD",
+      "Workshop-001: clientes.ts routes — POST/GET/GET:id/PATCH/DELETE with Fastify schemas",
+      "Workshop-001: vehiculos.ts routes — POST/GET/GET:id/PATCH/DELETE with engineType enum",
+      "Workshop-001: client.service.ts — listClients (name filter), getClient",
+      "Workshop-001: vehicle.service.ts — listVehicles (brand/model/plate/vin/engineType ilike filters), getVehicle",
+      "Workshop-002: GET /workshop/ordenes — listOrdenes with LEFT JOIN (vehiculos+clients), status/limit/offset filters",
+      "Workshop-002: GET /workshop/ordenes/:id — getOrden with detailed join row",
+      "Workshop-002: orden.service.ts — EstadoOrden typed enum, HV lockout guard on status transition, ISO string timestamps",
+      "THINKCAR-001: shared/utils/retry.ts — withRetry(fn, options) with exponential backoff, maxRetries, isRetryable, onRetry",
+      "THINKCAR-001: thinkcar-health.service.ts — per-channel health tracker (lastSuccessAt, consecutiveFailures, isHealthy), module-level Map singleton",
+      "THINKCAR-001: thinkcar-usb.service.ts — retry mounting + health recording + backoff + typed errors (as any removed)",
+      "THINKCAR-001: thinkcar-email.service.ts — retry IMAP + health + typed ImapFlow interface (as any removed)",
+      "THINKCAR-001: thinkcar-bluetooth.service.ts — retry RFCOMM + device disconnect in finally + health tracking (as any removed)",
+      "THINKCAR-001: GET /thinkcar/health endpoint — channel health status + allHealthy flag",
+      "100 unit tests passing (74 new Sprint 9 tests)",
+      "QA-001: Full audit sweep — 6-layer gap analysis: 30% coverage, 0% API/Security/E2E",
+      "QA-001: CRITICAL fix — tenantSchema() strict validation, throws on invalid chars (prevents SQLi via schema interpolation)",
+      "QA-001: CRITICAL tests — finance-security.test.ts: 19 tests (SQL injection vectors, scrypt password hashing round-trip)",
+      "QA-001: HIGH tests — api-integration.test.ts: 13 Fastify inject() tests (tenant isolation middleware, batch validation)",
+      "QA-001: MEDIUM fix — VisualStreamGateway.__testing_registerSocket/__testing_clear for test socket lifecycle",
+      "QA-001: VisualStreamGateway tests rewritten: 17 tests (real message delivery, disconnected filtering, concurrent broadcast)",
+      "138 total tests passing (16 files), zero TypeScript errors, zero unhandled rejections",
+      "INV-001: Frontend fetchRepuestos() fixed — resp.items pagination + field mapping (descripcion, stockActual, precioVenta)",
+      "INV-001: Frontend fetchHerramientas() fixed — resp.items pagination + stockDisponible status",
+      "INV-001: Frontend UI: Nuevo Repuesto modal con formulario completo + stock entry/exit modals",
+      "INV-001: Drizzle schemas: stock_movements, cost_history, purchase_orders, purchase_order_items, inventory_accounts_map, reorder_alerts",
+      "INV-001: repuestos schema extended: costo_promedio (PPP), punto_reorden, proveedor_preferido_id, lote_economico",
+      "INV-001: costing.service.ts — recalcularPPP() weighted average engine with cost_history audit trail",
+      "INV-001: stock.service.ts — salidaStock/ingresoStock with PPP valuation, double-entry accounting, stock_movements persistence, reorder alert auto-generation",
+      "INV-001: routes/stock-movements.ts — GET /inventory/stock-movements with repuestoId/tipo/OT filters",
+      "INV-001: Zero TypeScript errors after all changes",
+      "INV-001: Migration 0005_inventory_phase1.sql generada con drizzle-kit (30 tables detected)",
+      "INV-001: Supabase migration ejecutada — 27 tables en public schema (nuevas: plan_cuentas, asientos_contables, asientos_detalle, facturas, stock_movements, cost_history, purchase_orders, purchase_order_items, inventory_accounts_map, reorder_alerts)",
+      "INV-001: repuestos extendido con columnas costo_promedio, punto_reorden, proveedor_preferido_id, lote_economico",
+      "INV-001: Plan de Cuentas seed — 6 cuentas de inventario (1.1.03 Inventario, 2.1.01 Proveedores, 6.1.01 Costo Mantenimiento)",
+      "INV-001: inventory_accounts_map seed — mapping default (categoria='*') con cuentas contables de inventario, gasto y proveedores",
+      "INV-002: Drizzle schemas: tool_instances (per-serial asset tracking), tool_maintenance_events (calibration/repair), tool_depreciation_entries (monthly depreciation)",
+      "INV-002: herramientas schema extended: vida_util_anos, metodo_depreciacion, costo_reposicion, categoria_contable_id (stock counters deprecated)",
+      "INV-002: control-herramientas enum expanded: 5 states (Devuelto_Bueno, Devuelto_Desgastado, Devuelto_Danado added)",
+      "INV-002: control-herramientas extended: tool_instance_id FK, fecha_esperada_devolucion, condicion_salida/retorno, requiere_reparacion, costo_reparacion, tenant_slug",
+      "INV-002: tool-instance.service.ts — CRUD + state machine (DISPONIBLE→PRESTADA→EN_REPARACION→EN_CALIBRACION→DADO_DE_BAJA) with transition validation",
+      "INV-002: tool-loan.service.ts — lendTool()/returnTool() with condicionRetorno mapping (BUENO→DISPONIBLE, DANADO→EN_REPARACION, EXTRAVIADO→baja), overdue alerts",
+      "INV-002: tool-maintenance.service.ts — createServiceEvent()/updateServiceEvent() with auto state transitions, calibration history",
+      "INV-002: tool-depreciation.service.ts — calculateMonthlyDepreciation() straight-line engine with book value updates",
+      "INV-002: 10 new routes: tool-instances CRUD + disponibilidad + calibración + baja, tool-loans lend/return/overdue, tool-service-events CRUD, depreciation calculate",
+      "INV-002: Legacy herramientas prestar/devolver refactored to delegate to tool-loan.service with backward compatibility",
+      "INV-002: Migration 0006_tool_lifecycle.sql — 3 new tables, enum expansion, column additions, existing data migration",
+      "INV-002: Zero TypeScript errors after all changes",
+      "CAPA-4: Compliance — audit_log schema + immutability guard (period/state) + cuadratura service + audit hooks en routes + cerrar-periodo endpoint",
+      "CAPA-5: Costos y Rentabilidad — centros_costo schema + CRUD + árbol jerárquico + profitability service (OT/client/mechanic/dashboard)",
+      "SPRINT-6: Accounting Bus — accounting-bus.service.ts (emit/resolveAccount) con graceful degradation, audit logging automático y validación de líneas",
+      "SPRINT-6: Balance General — balance.service.ts (getBalanceGeneral) calcula saldos por tipo de cuenta (ACTIVO/GASTO/COSTO = Debe-Haber, PASIVO/PATRIMONIO/INGRESO = Haber-Debe), agrupa por nivel jerárquico",
+      "SPRINT-6: Estado de Resultados — pnl.service.ts (getEstadoResultados) calcula Ingresos-Costos-Gastos por período, utilidad bruta y neta",
+      "SPRINT-6: Auto VENTA — invoice.routes.ts integrado con Accounting Bus (emit VENTA: Cliente/Ingreso/IVA) después de crear factura",
+      "SPRINT-6: Auto NÓMINA — payroll-routes.ts integrado con Accounting Bus (emit NOMINA: Gasto Sueldos/Salarios x Pagar) después de calcular comisiones",
+      "SPRINT-6: accounting-bus-codes.ts — códigos PGC estándar para todos los módulos (Activo, Pasivo, Patrimonio, Ingresos, Costos, Gastos)",
+      "SPRINT-6: Routes — GET /finance/contabilidad/balance-general/:fecha, GET /finance/contabilidad/estado-resultados/:anho/:mes?acumulado=true",
+      "SPRINT-6: Seed Plan de Cuentas PY extendido — 70+ cuentas en 6 tipos (añadidas: IVA Crédito Fiscal, Anticipo Proveedores, IPS x Pagar, Préstamos L/P, Cargas Sociales, Gastos Impuestos)",
+      "SPRINT-6: Seed Centros de Costo — 7 centros en 2 niveles (Taller→Mecánica/Diagnóstico/Carrocería/Repuestos, Administración, Ventas)",
+      "SPRINT-6: accounting-bus-codes sincronizado con seed — todos los códigos corregidos a 4 niveles PGC Paraguay",
+      "SPRINT-6: Frontend — Sidebar Contabilidad agregada al index.html",
+      "SPRINT-6: Frontend — Vista Plan de Cuentas (árbol jerárquico con badges de tipo, indicador de movimientos, indentación)",
+      "SPRINT-6: Frontend — Vista Asientos Contables (tabla paginada con filtros por fecha/módulo, modal detalle con líneas Debe/Haber, botón anular)",
+      "SPRINT-6: Frontend — Vista Balance General (selector fecha, secciones ACTIVO/PASIVO/PATRIMONIO, check de cuadratura visual)",
+      "SPRINT-6: Frontend — Vista Estado de Resultados (selector período, acumulado anual, secciones Ingresos/Costos/Gastos, Utilidad Bruta y Neta destacadas)",
+      "SPRINT-6: Frontend — Vista Libros Contables (tabs Diario/Mayor/Inventario con tablas enriquecidas y selector período)",
+      "SPRINT-6: CRITICAL — dedup Auto NÓMINA (check documentoRef antes de emit)",
+      "SPRINT-6: CRITICAL — asientoId en factura (schema + migration 0014 + persist en invoice.routes)",
+      "SPRINT-6: CRITICAL — IVA exento (body param ivaExento en invoice.routes)",
+      "SPRINT-6: stock.service.ts migrado de createAsiento() inline a emit() del Accounting Bus",
+      "SPRINT-6: buildSeccion total ahora suma TODAS las cuentas de la sección (filtradas), no solo cuentasDirectas — balance correcto",
+      "SPRINT-6: CRUD Plan Cuentas backend (updateCuenta + PATCH /cuentas/:id) + frontend (modal crear con padre jerárquico, desactivar cuenta)",
+      "SPRINT-6: Asiento Manual frontend (modal con editor de líneas dinámico, validación ∑Debe=∑Haber en vivo, select de cuenta desde API)",
+      "SPRINT-6: Frontend 5.7 Impuestos (5 sub-tabs IVA/IRE/IDU/ISC/INR con formularios de cálculo + historial)",
+      "SPRINT-6: Frontend selector de cuenta para Libro Mayor (#libros-cuenta select cargado desde API)",
+      "SPRINT-6: Migración 0014 aplicada en BD remota (asiento_id en facturas)",
+      "SPRINT-6: Prueba integral — asiento manual #15 creado, balance refleja entrada, P&L funcional, impuestos endpoints OK",
+      "SPRINT-7: Drizzle schemas: cuentas_bancarias, movimientos_tesoreria, conciliacion_bancaria, facturas_proveedor (4 tablas con enums, índices, FKs)",
+      "SPRINT-7: facturas schema extendido con estado_pago, saldo_pendiente, fecha_vencimiento (CxC tracking)",
+      "SPRINT-7: Migration 0015_treasury.sql — 4 tablas, 3 columnas facturas, 15+ indexes, enums, aplicada en BD remota",
+      "SPRINT-7: treasury.service.ts — CRUD cuentas bancarias + movimientos (ingreso/egreso/transferencia) + conciliación + facturas proveedor (CxP) + CxC pendientes + proyección flujo de caja",
+      "SPRINT-7: treasury.routes.ts — 16 endpoints registrados bajo /finance/treasury/* con X-Tenant-Slug",
+      "SPRINT-7: Accounting Bus extendido — eventos MOVIMIENTO_CAJA y TRANSFERENCIA agregados al MODULE_MAP",
+      "SPRINT-7: seed-treasury.ts — datos de prueba (3 cuentas, 3 movimientos, 3 facturas proveedor)",
+      "SPRINT-7: Frontend — sidebar Tesorería agregada al index.html",
+      "SPRINT-7: Frontend — renderTesorería con 6 tabs: Cuentas Bancarias (list+modal crear), Movimientos (list+filtros+modal), Conciliación (iniciar+list por cuenta), CxC (vencidas en rojo), CxP (filtro estado+vencidas), Flujo de Caja (5 cards + alerta sobregiro + detalle)"
     ],
-    "next_sprint": "Sprint 2 - Clients, Vehicles (EV/Conventional) and Work Orders Module"
+    "next_sprint": "Sprint 16 — TBD",
+    "super_admin": {
+      "email": "jaraju01@gmail.com",
+      "name": "Juan Ángel Jara",
+      "role": "admin",
+      "tenant": "taller-el-chero",
+      "auth_method": "scrypt password hash"
+    },
+    "config_module": {
+      "status": "implemented",
+      "encapsulation": "fastifyPlugin removed — routes registered directly (no hook leak)",
+      "endpoints": {
+        "GET /api/config/settings": "Get company settings from local JSON",
+        "PUT /api/config/settings": "Update company settings",
+        "POST /api/config/upload-logo": "Upload company logo (multipart, 5MB, PNG/JPEG), returns Base64",
+        "GET /api/config/logo": "Get logo as Base64 data URI"
+      },
+      "auth_endpoints": {
+        "POST /api/auth/login": "Login with tenantSlug + email + password (optional). Creates profile if new. Verifies scrypt hash if password_hash set."
+      },
+      "profile_endpoints": {
+        "GET /api/profiles": "List profiles for tenant (requires X-Tenant-Slug)",
+        "POST /api/profiles": "Create profile",
+        "PATCH /api/profiles/:id": "Update profile",
+        "DELETE /api/profiles/:id": "Deactivate profile"
+      }
+    },
+    "frontend_spa": {
+      "status": "implemented",
+      "framework": "Vanilla JS + Tailwind CSS CDN",
+      "routing": "Client-side SPA without page reload",
+      "views": [
+        "login: tenant slug + email + password, persisted in localStorage",
+        "dashboard: metrics, active OTs, financial panel, WebSocket connected screens",
+        "users: profile table with CRUD modal (create/edit/delete)",
+        "config: company info form + logo drag & drop upload",
+        "workshop: mechanic bay tasks, HV lockout section",
+        "tv: waiting room quiosco with live updates",
+        "inventory: repuestos table (with create/entry/exit modals), herramientas table"
+      ],
+      "data_layer": "fetch API with X-Tenant-Slug header, auto-login on reload"
+    },
+    "finance_module": {
+      "status": "implemented",
+      "sifen": {
+        "status": "implemented_full",
+        "tables": ["fiscal_documentos", "fiscal_documento_detalles", "sifen_sync_log"],
+        "endpoints": ["emitir", "firmar", "enviar", "consultar", "anular", "documentos", "sync-log", "health"]
+      },
+      "accounting": {
+        "status": "sprint6_automation",
+        "tables": ["plan_cuentas", "asientos_contables", "asientos_detalle", "audit_log", "centros_costo"],
+        "endpoints": [
+          "cuentas CRUD + arbol",
+          "asientos CRUD + automatico + anular + apertura",
+          "rg90 export",
+          "CAPA 4: cerrar-periodo, cuadratura, audit-log",
+          "CAPA 5: centros-costo CRUD+arbol, rentabilidad OT/cliente/mecanico/dashboard",
+          "SPRINT 6: GET /finance/contabilidad/balance-general/:fecha",
+          "SPRINT 6: GET /finance/contabilidad/estado-resultados/:anho/:mes?acumulado=true",
+          "SPRINT 6: Auto VENTA (accounting bus integration en invoice.routes)",
+          "SPRINT 6: Auto NÓMINA (accounting bus integration en payroll-routes)"
+        ],
+        "services": {
+          "accounting-bus": "emit/resolveAccount — motor central de asientos automáticos con graceful degradation, audit logging",
+          "balance": "getBalanceGeneral — Balance General a una fecha con jerarquía y cuadratura",
+          "pnl": "getEstadoResultados — P&L mensual/acumulado con utilidad bruta y neta"
+        }
+      },
+      "payroll": {
+      "status": "sprint7_automation",
+        "tables": [
+          "fixed_expenses (monthly costs: rent, utilities, licenses, accountant)",
+          "mechanic_profiles (MTESS 2026: Ayudante ₲3.253.717/5%, Medio_Oficial ₲3.470.295/12%, Oficial ₲3.773.989/20%, Oficial_Certificado ₲4.800.000/28%)",
+          "staff_profiles (Gerente_General ₲7-10M, Gerente_Operativo ₲5-6.5M, Jefe_Taller ₲4.5-5.5M)",
+          "commission_records (per-order, EN_ESPERA_DE_UMBRAL / LIBERADO)",
+          "payroll_summary (monthly breakeven snapshot)"
+        ],
+        "services": {
+          "FinancialOrchestratorService": {
+            "validateTenantSchema": "Strict schema slug validation (alphanumeric + underscore only). Throws on SQL injection attempts.",
+            "tenantSchema": "Internal tenant schema name builder. Calls validateTenantSchema first, then prefixes 'tenant_'.",
+            "calculateMonthlyCommissions": "Creates commission records for closed orders (60% labor share assumption)",
+            "checkWorkshopEquilibrium": "Sums fixed expenses + all base salaries vs. net labor revenue. Releases commissions retroactively if threshold hit.",
+            "getBreakevenProgress": "Returns percentage, current revenue, threshold, remaining amount"
+          }
+        },
+        "endpoints": {
+          "POST /api/v1/finance/payroll/calculate": "Monthly close — creates commissions, checks equilibrium",
+          "GET /api/v1/finance/dashboard/break-even": "Break-even progress for frontend bar"
+        },
+        "verified": {
+          "test_date": "2026-06-07",
+          "breakeven_percentage": 36.38,
+          "net_labor_revenue": 2790000,
+          "threshold": 7670000,
+          "commissions_created": 2,
+          "commissions_status": "EN_ESPERA_DE_UMBRAL"
+        }
+      },
+      "treasury": {
+        "status": "sprint7_implemented",
+        "tables": [
+          "cuentas_bancarias (codigo, nombre, tipo, moneda, saldo_inicial/actual, activo, tenant_slug)",
+          "movimientos_tesoreria (tipo, medio_pago, cuenta_id FK, cuenta_contable_id FK, monto, moneda, tipo_cambio, fecha, concepto, conciliado, asiento_id FK, tenant_slug)",
+          "conciliacion_bancaria (cuenta_id FK, periodo, saldo_libros/banco, diferencia, conciliado, tenant_slug)",
+          "facturas_proveedor (proveedor_id, nro_factura, total, saldo_pendiente, iva, vencimiento, estado_pago, cuenta_contable_id FK, tenant_slug)"
+        ],
+        "services": {
+          "treasury.service": "createCuentaBancaria, getCuentaBancaria, listCuentasBancarias, updateCuentaBancaria, registrarMovimiento (with accounting bus emit), registrarTransferencia (atomic double-movement), listMovimientos, getSaldoHistorico, iniciarConciliacion, cerrarConciliacion, listConciliaciones, createFacturaProveedor, listFacturasProveedor, listCxcPendientes, proyectarFlujoCaja (saldoActual + CxC - CxP con alerta sobregiro)"
+        },
+        "endpoints": "16 endpoints under /finance/treasury/* (cuentas CRUD, movimientos POST+GET, transferencias, conciliación, facturas-proveedor CRUD, cxc-pendientes, flujo-caja)",
+        "frontend": "6 tabs in Tesorería section: Cuentas Bancarias (CRUD), Movimientos (filter+create), Conciliación (per-account), CxC (vencidas), CxP (filter estado+vencidas), Flujo de Caja (5 KPI cards + alerta)",
+        "bus_events": "MOVIMIENTO_CAJA, TRANSFERENCIA (accounting bus integration with graceful degradation)",
+        "seed": "scripts/seed-treasury.ts — 3 cuentas (Caja Chica/Bco Continental/Paypy), 3 movimientos, 3 facturas proveedor",
+        "ram_impact": "~15 KB additional heap"
+      },
+      "ram_impact": "~45 KB additional heap"
+    },
+    "inventory_module": {
+      "status": "phase2_tool_lifecycle",
+      "tables": [
+        "repuestos (costo_promedio, punto_reorden, proveedor_preferido_id, lote_economico)",
+        "herramientas (sin stock counters, con vida_util_anos, metodo_depreciacion, costo_reposicion)",
+        "control_herramientas (con tool_instance_id FK, enum 5 estados, condicion_retorno, tenant_slug)",
+        "tool_instances (per-serial asset tracking, estado_actual state machine, calibración, depreciación)",
+        "tool_maintenance_events (calibración/reparación/mantenimiento con costos y certificados)",
+        "tool_depreciation_entries (depreciación lineal mensual por activo)",
+        "stock_movements (audit trail con PPP valuation + asiento contable FK)",
+        "cost_history (PPP recalculation audit trail)",
+        "purchase_orders + purchase_order_items (OC lifecycle)",
+        "inventory_accounts_map (categoria → plan_cuentas mapping)",
+        "reorder_alerts (auto-generated low-stock alerts)"
+      ],
+      "endpoints": "27 endpoints (repuestos CRUD + stock ops, herramientas CRUD, tool-instances CRUD+lifecycle, tool-loans lend/return/overdue, tool-service-events CRUD, depreciation calculate, stock-movements list)",
+      "services": [
+        "stock.service — CRUD + salidaStock/ingresoStock con PPP, asientos contables, persistencia stock_movements, reorder alerts",
+        "costing.service — recalcularPPP (PPP weighted average engine), obtenerPPP, obtenerHistorialPPP",
+        "herramientas.service — CRUD catálogo SKU (stock fields removed)",
+        "tool-instance.service — CRUD + state machine (DISPONIBLE→PRESTADA/EN_CALIBRACION/EN_REPARACION/DADO_DE_BAJA)",
+        "tool-loan.service — lendTool/returnTool with condicion mapping, overdue detection",
+        "tool-maintenance.service — service event lifecycle with auto state transitions",
+        "tool-depreciation.service — monthly straight-line depreciation calculation"
+      ],
+      "indexes_audit": "30+ indexes including state-machine, tenant-scoped, calibration-due queries",
+      "n_plus_one_audit": "passed",
+      "ram_impact": "~30 KB",
+      "database_seed": {
+        "plan_cuentas": "6 cuentas de inventario (1.1.03 Inventario, 2.1.01 Proveedores, 6.1.01 Costo Mantenimiento con subcuentas)",
+        "inventory_accounts_map": "1 entry (categoria='*' → inv=1.1.03.001, gasto=6.1.01.001, prov=2.1.01.001) para tenant 'taller-el-chero'",
+        "migration": "0005_inventory_phase1.sql + 0006_tool_lifecycle.sql generadas, pendientes de aplicar a Supabase"
+      }
+    },
+    "intelligence_module": {
+      "status": "implemented",
+      "services": ["dtc-parser", "diagnostic-engine", "hv-safety", "ocr", "async-processor"],
+      "dtc_database": "370+ OBD-II definitions",
+      "ram_impact": "~60 KB"
+    },
+    "workshop_module": {
+      "status": "implemented",
+      "tables": ["vehiculos", "ordenes_trabajo", "ingresos", "trabajos_terceros"],
+      "endpoints": "14 endpoints (ingresos CRUD, trabajos-terceros CRUD, clientes CRUD, vehiculos CRUD, ordenes list+detail)",
+      "services": [
+        "client.service — createClient, updateClient, deleteClient, listClients (name filter), getClient",
+        "vehicle.service — createVehicle, updateVehicle, deleteVehicle, listVehicles (5 ilike filters), getVehicle",
+        "orden.service — listOrdenes (status/limit/offset), getOrden, broadcastToScreens, HV lockout guard"
+      ],
+      "n_plus_one_audit": "passed",
+      "ram_impact": "~15 KB"
+    },
+    "sprint3_accounting": {
+      "status": "completed",
+      "components": {
+        "apertura": "Enhanced: generarAperturaConSaldos — opening entries from accumulated balances, duplicate detection, tenant_config-aware",
+        "devengamiento": "accrual.service.ts — 4 functions: ingresos (OT in-progress), gastos (accrued expenses), ajustes (period-end adjustments), revertir (auto-reverse)",
+        "depreciacion": "depreciation.service.ts — finance-level integration: tool_instances (inventory) + activos_fijos (finance) depreciation, consolidated accounting entry generation",
+        "centralizacion": "centralization.service.ts — 4 sub-ledgers: ventas (facturas), compras (stock movements), inventario, nómina + full month-end runner"
+      },
+      "new_tables": {
+        "activos_fijos": "Fixed assets register with tipo/estado/ENUMs, depreciation method, book value tracking",
+        "depreciacion_activos": "Monthly depreciation history with asiento_id linkage",
+        "enums": ["tipo_activo_fijo", "metodo_depreciacion_af", "estado_activo_fijo"]
+      },
+      "new_endpoints": [
+        "POST /finance/contabilidad/devengamiento/ingresos — accrued revenue",
+        "POST /finance/contabilidad/devengamiento/gastos — accrued expenses",
+        "POST /finance/contabilidad/devengamiento/ajustes — adjusting entries",
+        "POST /finance/contabilidad/devengamiento/revertir — reverse accruals",
+        "POST /finance/contabilidad/depreciacion/calcular — run monthly depreciation",
+        "POST /finance/contabilidad/depreciacion/activos — register fixed asset",
+        "GET /finance/contabilidad/depreciacion/activos — list fixed assets",
+        "GET /finance/contabilidad/depreciacion/activos/:id — get fixed asset",
+        "POST /finance/contabilidad/centralizacion/ventas — centralize sales",
+        "POST /finance/contabilidad/centralizacion/compras — centralize purchases",
+        "POST /finance/contabilidad/centralizacion/ejecutar — full month-end run"
+      ],
+      "apertura_enhanced": "generarAperturaConSaldos uses actual closing balances (saldo_inicial + Σ debes - Σ habers), prevents duplicates, supports tenant_config period tracking",
+      "migration": "0011_fixed_assets.sql — 2 tables, 34 columns, 7 indexes, 3 ENUMs",
+      "ts_errors": 0
+    },
+    "thinkcar_module": {
+      "status": "robustecer",
+      "channels": ["usb", "email", "bluetooth"],
+      "health_tracking": "per-channel via Module-level Map singleton, auto-unhealthy after 3 consecutive failures",
+      "retry_utility": "shared/utils/retry.ts — exponential backoff with default 1s/30s min/max, configurable maxRetries, isRetryable predicate, onRetry callback",
+      "endpoints": "GET /thinkcar/health",
+      "ram_impact": "~2 KB"
+    }
   }
 }

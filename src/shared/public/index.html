@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es-PY">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutomotiveOS — ERP Taller</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  body { background: #030712; }
+  .card-glow { box-shadow: 0 0 20px rgba(59,130,246,0.05); }
+  .hv-pulse { animation: hvPulse 2s infinite; }
+  @keyframes hvPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .tv-card { transition: transform 0.2s, box-shadow 0.2s; }
+  .tv-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+  .ws-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .progress-bar { transition: width 0.8s ease-in-out; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #111827; }
+  ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
+  .sidebar-item { transition: all 0.15s; }
+  .sidebar-item:hover { background: rgba(59,130,246,0.1); }
+  .sidebar-item.active { background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; color: #60a5fa; }
+  .modal-overlay { animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-content { animation: slideUp 0.2s ease; }
+  .drop-zone { transition: all 0.2s; }
+  .drop-zone.drag-over { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+  .status-badge { font-size: 0.75rem; padding: 0.125rem 0.625rem; border-radius: 9999px; font-weight: 500; }
+  .fade-transition { transition: opacity 0.2s; }
+  @media (min-width: 1920px) {
+    .tv-text-xl { font-size: 1.8rem; }
+    .tv-text-2xl { font-size: 2.4rem; }
+  }
+  .scanner-overlay { animation: fadeIn 0.15s ease; z-index: 9999; }
+  #scanner-video { transform: scaleX(-1); }
+  #scanner-canvas { display: none; }
+  /* Responsive sidebar */
+  @media (max-width: 768px) {
+    #sidebar { position: fixed; z-index: 40; transform: translateX(-100%); }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-overlay { display: none; }
+    #sidebar-overlay.open { display: block; }
+  }
+  @media (min-width: 769px) {
+    #sidebar { position: relative; transform: translateX(0) !important; }
+    #sidebar-overlay { display: none !important; }
+    #hamburger-btn { display: none !important; }
+  }
+  /* Print styles */
+  @media print {
+    body { background: white !important; color: black !important; }
+    #sidebar, #hamburger-btn, #sidebar-overlay, header, #modal-overlay,
+    .no-print, button, .sidebar-item, #search-trigger, #export-trigger,
+    #notif-bell-container, #sifen-status, #ws-dot, #ws-label, #clock,
+    #offline-badge { display: none !important; }
+    #app-layout { display: block !important; }
+    #view-content { padding: 0 !important; overflow: visible !important; }
+    .print-only { display: block !important; }
+    .print-template { background: white !important; color: black !important; border: 1px solid #ccc !important; padding: 20px !important; max-width: 800px !important; margin: 0 auto !important; }
+    .print-template h1, .print-template h2, .print-template h3 { color: black !important; }
+    .print-template table { border-collapse: collapse !important; width: 100% !important; }
+    .print-template th, .print-template td { border: 1px solid #ccc !important; padding: 6px 10px !important; color: black !important; font-size: 12px !important; }
+    .print-template .status-badge { border: 1px solid #999 !important; }
+  }
+  .print-only { display: none; }
+</style>
+</head>
+<body class="text-white min-h-screen">
+
+<div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950">
+  <div class="w-full max-w-sm p-6">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">🔧</div>
+      <h1 class="text-3xl font-extrabold tracking-tight">AutomotiveOS</h1>
+      <p class="text-gray-500 text-sm mt-1">Cloud ERP · Taller Mecánico</p>
+    </div>
+    <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+      <h2 class="text-base font-semibold text-gray-200">Acceder al Sistema</h2>
+      <div>
+        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Slug del Taller</label>
+        <input id="login-slug" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="ej: taller-el-chero">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Correo Electrónico</label>
+        <input id="login-email" type="email" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="nombre@taller.com">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Contraseña</label>
+        <input id="login-password" type="password" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="••••••••">
+      </div>
+      <button id="login-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition text-sm">Ingresar</button>
+      <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
+      <div id="login-loading" class="hidden text-center text-sm text-gray-400">
+        <span class="inline-block animate-spin mr-2">⟳</span> Conectando...
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="app-layout" class="hidden min-h-screen flex">
+  <!-- Mobile sidebar overlay -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30" onclick="toggleSidebar()"></div>
+  <aside id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0 transition-all duration-300">
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-800">
+      <div id="sidebar-logo-wrap" class="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <img id="sidebar-logo" class="w-full h-full object-contain" src="" alt="">
+      </div>
+      <div class="min-w-0 flex-1">
+        <p id="sidebar-company" class="text-sm font-bold truncate">AutomotiveOS</p>
+        <p id="sidebar-slug" class="text-xs text-gray-500 truncate"></p>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-2">
+      <button class="sidebar-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dashboard">
+        <span class="text-lg">📊</span> Dashboard
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="users">
+        <span class="text-lg">👥</span> Usuarios
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="config">
+        <span class="text-lg">⚙️</span> Configuración
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ordenes">
+        <span class="text-lg">📋</span> Órdenes
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="analytics">
+        <span class="text-lg">📊</span> Analytics
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ingreso">
+        <span class="text-lg">🚗</span> Ingreso
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="workshop">
+        <span class="text-lg">🔧</span> Taller
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tv">
+        <span class="text-lg">📺</span> Quiosco TV
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="facturacion">
+        <span class="text-lg">💰</span> Facturación
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="servicios">
+        <span class="text-lg">🛠️</span> Servicios
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="thinkcar">
+        <span class="text-lg">🔬</span> Thinkcar
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="contabilidad">
+        <span class="text-lg">📒</span> Contabilidad
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tesoreria">
+        <span class="text-lg">💳</span> Tesorería
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="presupuestos">
+        <span class="text-lg">📊</span> Presupuestos
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="inventario">
+        <span class="text-lg">📦</span> Inventario
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="nomina">
+        <span class="text-lg">👥</span> Nómina
+      </button>
+    </nav>
+
+    <div class="border-t border-gray-800 p-3">
+      <button id="logout-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-900/10 transition">
+        <span>🚪</span> Cerrar Sesión
+      </button>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col min-w-0">
+    <header class="flex items-center justify-between px-4 md:px-6 py-3 border-b border-gray-800 bg-gray-900/50">
+      <div class="flex items-center gap-3">
+        <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1" onclick="toggleSidebar()" title="Menú">☰</button>
+        <div>
+          <h2 id="view-title" class="text-lg font-bold">Dashboard</h2>
+          <p id="view-subtitle" class="text-xs text-gray-500">Resumen del taller</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
+        <div id="notif-bell-container"></div>
+        <div id="sifen-status" class="hidden md:flex items-center gap-2 text-xs" title="Conexión DNIT SIFEN">
+          <span class="ws-dot bg-red-500" id="sifen-dot"></span>
+          <span id="sifen-label" class="text-gray-500">SIFEN: —</span>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-xs">
+          <span id="offline-badge" class="hidden bg-yellow-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full" title="Operaciones pendientes sin conexión">0</span>
+          <span class="ws-dot bg-red-500" id="ws-dot"></span>
+          <span id="ws-label" class="text-gray-500">Desconectado</span>
+        </div>
+        <span id="clock" class="text-gray-500 text-xs font-mono"></span>
+      </div>
+    </header>
+
+    <div id="view-content" class="flex-1 p-6 overflow-y-auto"></div>
+  </main>
+</div>
+
+<div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-overlay">
+  <div id="modal-content" class="modal-content bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"></div>
+</div>
+
+<!-- Modules: order-independent (globals resolved at call-time, not load-time) -->
+<script src="js/ux.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/budget.js"></script>
+<script src="js/servicios.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/usuarios.js"></script>
+<script src="js/config.js"></script>
+<script src="js/taller.js"></script>
+<script src="js/ingreso.js"></script>
+<script src="js/ordenes.js"></script>
+<script src="js/facturacion.js"></script>
+<script src="js/thinkcar.js"></script>
+<script src="js/inventario.js"></script>
+<script src="js/contabilidad.js"></script>
+<script src="js/tesoreria.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/payroll.js"></script>
+<script src="js/history.js"></script>
+<script src="js/print.js"></script>
+<script src="js/search.js"></script>
+<!-- Core: state, api, auth, routing, event delegation, WS/polling — MUST load AFTER modules -->
+<script src="app.js"></script>
+</body>
+</html>

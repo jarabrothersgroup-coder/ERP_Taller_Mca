@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — CI/CD Pipeline
+# Triggers: push / PR to main
+# Stages:  audit → test → build (Docker)
+# ─────────────────────────────────────────────────────────
+
+name: AutomotiveOS CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ─── Job 1: Audit, type-check & test ──────────────────
+  audit-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar tipado TypeScript (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Ejecutar suite de pruebas (Vitest)
+        run: npx vitest run --reporter=verbose
+        env:
+          NODE_ENV: test
+          THINKCAR_EMAIL_USER: ci-mock@test.com
+          THINKCAR_EMAIL_PASSWORD: ci-mock-app-password
+          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock
+
+      - name: Verificar compilación (tsc → dist/)
+        run: npm run build
+
+  # ─── Job 2: Build Docker image (main only) ────────────
+  build-container:
+    needs: audit-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extraer metadatos para la imagen
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: automotiveos-erp
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Compilar imagen Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/automotiveos-erp.tar
+
+      - name: Escanear vulnerabilidades (trivy)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: image
+          input: /tmp/automotiveos-erp.tar
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL

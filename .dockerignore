@@ -1,0 +1,54 @@
+# ─── Git ─────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ─── Dependencies (fresh install in container) ─
+node_modules/
+
+# ─── Build output (rebuilt in container) ──────
+dist/
+*.tsbuildinfo
+
+# ─── Environment (never ship secrets) ─────────
+.env
+.env.*
+!.env.example
+
+# ─── Tests & Coverage ────────────────────────
+tests/
+coverage/
+__snapshots__/
+
+# ─── Docs & Specs ────────────────────────────
+docs/
+*.md
+!README.md
+
+# ─── IDE / Editor ────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── CI / Ops config (not needed at runtime) ─
+.github/
+.dockerignore
+Dockerfile
+
+# ─── OS artifacts ────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# ─── Agent / AI config files ─────────────────
+.opencode/
+.opencode-*
+*.opencode-master-context.md
+AGENTS.md
+
+# ─── Misc ────────────────────────────────────
+tsconfig.json
+tsconfig.*.json
+.vitest/

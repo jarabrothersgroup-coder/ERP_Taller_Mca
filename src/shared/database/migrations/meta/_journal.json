@@ -1,0 +1,97 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780860516872,
+      "tag": "0000_free_bullseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780861818978,
+      "tag": "0001_bumpy_jane_foster",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780861919240,
+      "tag": "0002_nifty_jimmy_woo",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780865341997,
+      "tag": "0003_familiar_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0004_thinkcar_imports",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781084675480,
+      "tag": "0005_inventory_phase1",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781164800000,
+      "tag": "0006_tool_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781251200000,
+      "tag": "0007_analytical_dimensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781337600000,
+      "tag": "0008_fiscal_forms",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781424000000,
+      "tag": "0009_liquidaciones_ire",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781510400000,
+      "tag": "0010_tenant_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781596800000,
+      "tag": "0011_fixed_assets",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782115200000,
+      "tag": "0012_sprint4",
+      "breakpoints": true
+    }
+  ]
+}

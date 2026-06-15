@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es-PY" class="bg-gray-950">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920">
+<title>AutomotiveOS — Taller</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  .hv-badge { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+  .status-bar { transition: width 1s ease-in-out; }
+</style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen p-8">
+<div class="max-w-7xl mx-auto" id="app">
+  <header class="flex items-center justify-between mb-8">
+    <div class="flex items-center gap-4">
+      <img id="company-logo" class="h-12 w-12 object-contain rounded-lg bg-white/10" src="" alt="Logo">
+      <div>
+        <h1 id="company-name" class="text-4xl font-bold tracking-tight">AutomotiveOS</h1>
+        <p class="text-gray-400 text-lg"><span id="company-ruc"></span> — <span id="time" class="font-mono"></span></p>
+      </div>
+    </div>
+    <div id="connection-badge" class="px-4 py-2 rounded-full text-sm font-medium bg-green-800 text-green-200">
+      ● CONECTADO
+    </div>
+  </header>
+
+  <div id="no-data" class="text-center py-32">
+    <p class="text-6xl mb-4">🔧</p>
+    <p class="text-2xl text-gray-500">Esperando órdenes de trabajo...</p>
+    <p class="text-gray-600 mt-2">Las pantallas se actualizarán automáticamente</p>
+  </div>
+
+  <div id="workorder" class="hidden space-y-6">
+    <div class="grid grid-cols-3 gap-6">
+      <div class="col-span-2 bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <div class="flex items-start justify-between">
+          <div>
+            <p class="text-sm text-gray-400 uppercase tracking-wider">Vehículo</p>
+            <h2 id="vehicle" class="text-3xl font-bold mt-1">—</h2>
+            <p id="plate" class="text-xl text-gray-400 mt-1"></p>
+          </div>
+          <div id="hv-badge" class="hv-badge hidden px-4 py-2 rounded-lg bg-red-900/50 border border-red-500 text-red-300 text-sm font-bold">
+            ⚡ ALTA TENSIÓN
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+        <p class="text-sm text-gray-400 uppercase tracking-wider">Estado</p>
+        <p id="status" class="text-2xl font-bold mt-1">—</p>
+        <p id="eta" class="text-sm text-gray-500 mt-1"></p>
+      </div>
+    </div>
+
+    <div id="torque-section" class="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+      <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <span>🔩</span> Especificaciones de Torque
+      </h3>
+      <div id="torque-list" class="grid grid-cols-2 gap-3"></div>
+    </div>
+
+    <div id="dtc-section" class="hidden bg-gray-900 rounded-2xl p-6 border border-gray-800">
+      <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <span>⚠️</span> Códigos de Falla (DTC)
+      </h3>
+      <div id="dtc-list" class="flex flex-wrap gap-2"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ws = new WebSocket(`ws://${location.host}/api/v1/visual/stream`);
+  const els = {
+    time: document.getElementById('time'),
+    badge: document.getElementById('connection-badge'),
+    noData: document.getElementById('no-data'),
+    wo: document.getElementById('workorder'),
+    vehicle: document.getElementById('vehicle'),
+    plate: document.getElementById('plate'),
+    status: document.getElementById('status'),
+    eta: document.getElementById('eta'),
+    hvBadge: document.getElementById('hv-badge'),
+    torqueList: document.getElementById('torque-list'),
+    dtcSection: document.getElementById('dtc-section'),
+    dtcList: document.getElementById('dtc-list'),
+  };
+
+  setInterval(() => {
+    els.time.textContent = new Date().toLocaleTimeString('es-PY');
+  }, 1000);
+
+  ws.onopen = () => {
+    els.badge.className = 'px-4 py-2 rounded-full text-sm font-medium bg-green-800 text-green-200';
+    els.badge.textContent = '● CONECTADO';
+  };
+
+  ws.onclose = () => {
+    els.badge.className = 'px-4 py-2 rounded-full text-sm font-medium bg-red-800 text-red-200';
+    els.badge.textContent = '● DESCONECTADO';
+    setTimeout(() => location.reload(), 5000);
+  };
+
+  const STATUS_MAP = {
+    DIAGNOSTICO: { label: '🔍 Diagnóstico', color: 'text-yellow-400' },
+    REPARACION: { label: '🔧 Reparación', color: 'text-blue-400' },
+    AJUSTE_FINAL: { label: '🔩 Ajuste Final', color: 'text-purple-400' },
+    CONTROL_CALIDAD: { label: '✅ Control de Calidad', color: 'text-green-400' },
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    if (msg.event === 'CONNECTED' && msg.tenant) {
+      document.getElementById('company-name').textContent = msg.tenant.companyName || 'AutomotiveOS';
+      document.getElementById('company-ruc').textContent = msg.tenant.ruc ? `RUC: ${msg.tenant.ruc}` : '';
+      if (msg.tenant.logoBase64) {
+        document.getElementById('company-logo').src = msg.tenant.logoBase64;
+      }
+    }
+    if (msg.event === 'WORKSHOP_UPDATE') {
+      const d = msg.data;
+      if (d.companyName) document.getElementById('company-name').textContent = d.companyName;
+      if (d.logoBase64) document.getElementById('company-logo').src = d.logoBase64;
+      if (d.ruc) document.getElementById('company-ruc').textContent = `RUC: ${d.ruc}`;
+      const d = msg.data;
+      els.noData.classList.add('hidden');
+      els.wo.classList.remove('hidden');
+
+      els.vehicle.textContent = d.vehicleModel;
+      els.plate.textContent = d.plate ? `Chapa: ${d.plate}` : '';
+
+      const st = STATUS_MAP[d.status] || { label: d.status, color: 'text-white' };
+      els.status.textContent = st.label;
+      els.status.className = `text-2xl font-bold mt-1 ${st.color}`;
+
+      els.eta.textContent = d.estimatedCompletion ? `Est. finalización: ${d.estimatedCompletion}` : '';
+
+      els.hvBadge.classList.toggle('hidden', !d.isHighVoltage);
+
+      els.torqueList.innerHTML = d.torqueSpecs.map(t =>
+        `<div class="bg-gray-800 rounded-xl p-4 flex justify-between items-center">
+          <span class="text-gray-300">${t.component}</span>
+          <span class="text-xl font-bold text-cyan-400">${t.value}</span>
+        </div>`
+      ).join('');
+
+      if (d.dtcCodes && d.dtcCodes.length) {
+        els.dtcSection.classList.remove('hidden');
+        els.dtcList.innerHTML = d.dtcCodes.map(c =>
+          `<span class="px-3 py-1 rounded-full bg-red-900/30 text-red-300 text-sm font-mono">${c}</span>`
+        ).join('');
+      } else {
+        els.dtcSection.classList.add('hidden');
+      }
+    }
+  };
+</script>
+</body>
+</html>
