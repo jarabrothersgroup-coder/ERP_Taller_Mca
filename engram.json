@@ -39,8 +39,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 15 COMPLETE — Production Readiness: Swagger + Security + Responsive + Print + E2E Tests",
-    "next_sprint": "Sprint 16 — TBD",
+    "current_sprint": "Sprint 16 COMPLETE — PWA + Performance + PDF Reports + Accessibility + Testing",
+    "next_sprint": "Sprint 17 — TBD",
     "sprint_10_progress": {
       "analytics_service": "analytics.service.ts — getDashboardKPIs, getTopServicios, getTopClientes, getProductividad (10+ queries across 8 tables)",
       "analytics_routes": "GET /workshop/analytics/dashboard, /top-servicios, /top-clientes, /productividad + registered in workshop routes index",
@@ -211,6 +211,46 @@
         "vitest.config.ts (testTimeout 15s → 30s)"
       ]
     },
+    "sprint_16_progress": {
+      "pwa_core": "16.1 — manifest.json (standalone, dark theme, es-PY), sw.js (cache-first for static, network-first for API, stale-while-revalidate for CDN), js/pwa.js (SW registration, offline indicator, background sync, push notifications)",
+      "pwa_meta": "index.html — theme-color, apple-mobile-web-app-capable, apple-touch-icon, manifest link, PWA meta tags",
+      "offline_ui": "Offline badge in header, yellow banner in content area when offline, toast on online/offline events, CSS transitions for offline state",
+      "performance_bundling": "16.2 — esbuild bundling script (scripts/build-frontend.js) — all 21 JS modules + app.js → single app.bundle.js with minification, tree-shaking, IIFE format",
+      "performance_compression": "@fastify/compress registered in app.ts — gzip, deflate, brotli encoding support",
+      "pdf_reports": "16.3 — pdf-report.service.ts (puppeteer-core) — generateOtPdf + generateInvoicePdf with professional HTML templates (A4, Guaraní currency, signatures, status badges)",
+      "pdf_routes": "GET /reports/health, GET /reports/ot/:id, GET /reports/factura/:id — registered in app.ts with graceful degradation if Chromium not available",
+      "pdf_chromium": "Auto-detects Chromium path (system, Alpine/Docker, macOS, Snap, which fallback)",
+      "accessibility": "16.4 — js/a11y.js — live region announcements, focus trap for modals, keyboard navigation (arrow keys in sidebar, Escape for modals), empty state component, ARIA label auto-enhancement, skip-to-content link, reduced motion support, high contrast mode support",
+      "aria_html": "index.html — ARIA labels on login inputs, sidebar nav (role=navigation), main (role=main), view-content (aria-live=polite), hamburger (aria-expanded), logout, notification bell, form (role=form)",
+      "testing": "16.5 — tests/sprint16.test.ts: 15 tests (PDF routes 3, PDF service 2, E2E pipeline 2, accessibility 2, PWA files 4, build script 2)",
+      "test_results": {
+        "total_files": 28,
+        "total_tests": 273,
+        "passing": 273,
+        "duration": "~48s"
+      },
+      "packages_installed": [
+        "esbuild (devDependency)",
+        "@fastify/compress",
+        "puppeteer-core"
+      ],
+      "typescript_errors": 0,
+      "files_created": [
+        "src/shared/public/manifest.json",
+        "src/shared/public/sw.js",
+        "src/shared/public/js/pwa.js",
+        "src/shared/public/js/a11y.js",
+        "src/shared/public/icon.svg",
+        "src/shared/services/pdf-report.service.ts",
+        "src/shared/routes/pdf-report.routes.ts",
+        "scripts/build-frontend.js",
+        "tests/sprint16.test.ts"
+      ],
+      "files_modified": [
+        "src/app.ts (+compress plugin +pdf routes)",
+        "src/shared/public/index.html (+PWA meta +aria labels +a11y.js +pwa.js scripts)"
+      ]
+    },
     "sprint_9_progress": {
       "invoice_itemized": "OT items (servicios+repuestos) written to fiscalDocumentoDetalles on issue",
       "cxc_auto": "factura.estadoPago=PENDIENTE, saldoPendiente=total, fechaVencimiento=+30d",
@@ -370,7 +410,7 @@
       "SPRINT-7: Frontend — sidebar Tesorería agregada al index.html",
       "SPRINT-7: Frontend — renderTesorería con 6 tabs: Cuentas Bancarias (list+modal crear), Movimientos (list+filtros+modal), Conciliación (iniciar+list por cuenta), CxC (vencidas en rojo), CxP (filtro estado+vencidas), Flujo de Caja (5 cards + alerta sobregiro + detalle)"
     ],
-    "next_sprint": "Sprint 16 — TBD",
+    "next_sprint": "Sprint 17 — TBD",
     "super_admin": {
       "email": "jaraju01@gmail.com",
       "name": "Juan Ángel Jara",

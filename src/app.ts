@@ -78,6 +78,17 @@ async function buildApp() {
     app.log.warn("Rate limiter not available — rate limiting disabled");
   }
 
+  // ─── Gzip Compression ───────────────────────
+  try {
+    await app.register((await import("@fastify/compress")).default, {
+      global: true,
+      encodings: ['gzip', 'deflate', 'br'],
+    });
+    app.log.info("Gzip/Brotli compression registered");
+  } catch {
+    app.log.warn("Compression not available — responses not compressed");
+  }
+
   // ─── OpenAPI / Swagger ──────────────────────
   try {
     await app.register((await import("@fastify/swagger")).default, {
@@ -224,6 +235,13 @@ async function buildApp() {
   // tenant-isolated via X-Tenant-Slug header.
   await app.register(
     (await import("./shared/plugins/search.js")).default,
+  );
+
+  // ─── PDF Report Module ──────────────────────
+  // Server-side PDF generation for OT + Invoice reports.
+  // Requires Chromium (graceful degradation if not available).
+  await app.register(
+    (await import("./shared/routes/pdf-report.routes.js")).pdfReportRoutes,
   );
 
   // ─── Startup health check ──────────────────

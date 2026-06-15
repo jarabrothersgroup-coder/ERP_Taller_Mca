@@ -1,0 +1,23 @@
+{
+  "name": "AutomotiveOS — ERP Taller",
+  "short_name": "AutomotiveOS",
+  "description": "Cloud ERP para talleres mecánicos — Gestión de órdenes, facturación, inventario y contabilidad",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#1e40af",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "es-PY",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
