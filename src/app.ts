@@ -42,11 +42,189 @@ async function buildApp() {
   // ─── Global error handler ──────────────────
   app.setErrorHandler(errorHandler);
 
+  // ─── CORS ──────────────────────────────────
+  await app.register((await import("@fastify/cors")).default, {
+    origin: env.NODE_ENV === "production"
+      ? [env.CORS_ORIGIN].filter(Boolean)
+      : true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Tenant-Slug", "X-User-Email"],
+  });
+
+  // ─── Security Headers (Helmet) ──────────────
+  try {
+    await app.register((await import("@fastify/helmet")).default, {
+      contentSecurityPolicy: false, // Disabled for CDN scripts (Tailwind, etc.)
+    });
+    app.log.info("Helmet security headers registered");
+  } catch {
+    app.log.warn("Helmet not available — security headers disabled");
+  }
+
+  // ─── Rate Limiting ──────────────────────────
+  try {
+    await app.register((await import("@fastify/rate-limit")).default, {
+      max: 200, // 200 requests per minute per IP
+      timeWindow: "1 minute",
+      errorResponseBuilder: (_req, context) => ({
+        statusCode: 429,
+        error: "Too Many Requests",
+        message: `Límite de ${context.max} requests por minuto alcanzado. Intente más tarde.`,
+      }),
+    });
+    app.log.info("Rate limiting registered (200 req/min)");
+  } catch {
+    app.log.warn("Rate limiter not available — rate limiting disabled");
+  }
+
+  // ─── OpenAPI / Swagger ──────────────────────
+  try {
+    await app.register((await import("@fastify/swagger")).default, {
+      openapi: {
+        openapi: "3.0.0",
+        info: {
+          title: "AutomotiveOS Cloud ERP API",
+          description: "API completa para gestión de talleres automotores en Paraguay. Incluye módulos de Taller, Inventario, Contabilidad, Tesorería, SIFEN y más.",
+          version: "1.0.0",
+          contact: { name: "Jara Brothers Group", email: "jaraju01@gmail.com" },
+          license: { name: "Proprietary" },
+        },
+        servers: [
+          { url: "http://localhost:3000", description: "Development" },
+        ],
+        components: {
+          securitySchemes: {
+            tenantHeader: {
+              type: "apiKey",
+              in: "header",
+              name: "X-Tenant-Slug",
+              description: "Tenant slug for multi-tenant isolation",
+            },
+            userHeader: {
+              type: "apiKey",
+              in: "header",
+              name: "X-User-Email",
+              description: "User email for RBAC resolution",
+            },
+          },
+        },
+        security: [{ tenantHeader: [], userHeader: [] }],
+        tags: [
+          { name: "Auth", description: "Autenticación y login" },
+          { name: "Workshop", description: "Módulo de Taller (vehículos, OTs, ingresos)" },
+          { name: "Inventory", description: "Inventario (repuestos, herramientas, stock)" },
+          { name: "Finance", description: "Contabilidad, facturación, tesorería" },
+          { name: "Search", description: "Búsqueda global" },
+          { name: "Export", description: "Exportación CSV" },
+          { name: "Config", description: "Configuración del taller" },
+        ],
+      },
+    });
+    await app.register((await import("@fastify/swagger-ui")).default, {
+      routePrefix: "/docs",
+      uiConfig: {
+        docExpansion: "list",
+        deepLinking: true,
+        defaultModelsExpandDepth: -1,
+      },
+    });
+    app.log.info("Swagger UI available at /docs");
+  } catch {
+    app.log.warn("Swagger not available — API docs disabled");
+  }
+
   // ─── Plugins ───────────────────────────────
   await app.register(healthCheckPlugin);
 
+  // ─── Visual Orchestration Module ───────────────
+  // WebSocket gateway for TV displays (waiting room & mechanic bay).
+  // Real-time JSON streaming (< 1KB/event) — zero GPU/rendering on server.
+  // Registered early so its public routes aren't affected by tenant hooks.
+  await app.register(
+    (await import("./modules/intelligence/visual/plugin.js")).default,
+  );
+
+  // ─── Tenant Configuration Module ──────────────
+  // Company identity management: logo, RUC, address, operator signatures.
+  // Settings persist in config/tenant_settings.json.
+  // Logo upload via multipart with 5MB limit, Base64 injection for TV/PDF.
+  await app.register(
+    (await import("./modules/config/plugin.js")).default,
+  );
+
+  // Supabase auth / storage / realtime (lazy init)
+  await app.register((await import("./plugins/supabase.js")).default);
+
   // Offline-first sync endpoints (tenant-scoped)
   await app.register(syncPlugin);
+
+  // ─── File upload support (multipart) ────────
+  // Required by: Intelligence OCR endpoints for image uploads
+  try {
+    await app.register((await import("@fastify/multipart")).default, {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB max per file
+        files: 1,                    // Max 1 file per request
+      },
+    });
+  } catch (err) {
+    app.log.warn({ err }, "@fastify/multipart not available — file uploads disabled");
+  }
+
+  // ─── Tenants Classification Module ──────────────
+  // MIC classification, IRE regime, obligatory books management.
+  // Tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./modules/tenants/plugin.js")).default,
+  );
+
+  // ─── Workshop Core Module ───────────────────
+  // Vehicle check-in (ingresos) + third-party work (trabajos de terceros)
+  // Tenant-isolated via X-Tenant-Slug header
+  await app.register(
+    (await import("./modules/workshop/plugin.js")).default,
+  );
+
+  // ─── Inventory Module ──────────────────────────
+  // Spare parts (repuestos) stock management with barcode/QR support,
+  // tool master catalog (herramientas), and tool checkout control
+  // (control_herramientas) linked to work orders and mechanics.
+  await app.register(
+    (await import("./modules/inventory/plugin.js")).default,
+  );
+
+  // ─── Intelligence & Peripherals Module ───────
+  // DTC parsing (Launch/Thinkcar), OpenCode diagnostic engine,
+  // HV safety protocols, computer vision (OCR) for plates & cédulas.
+  // All heavy processing runs in async job queue (RAM-safe).
+  await app.register(
+    (await import("./modules/intelligence/plugin.js")).default,
+  );
+
+  // ─── Thinkcar Automated Importer Module ───────
+  // Triple-channel ingestion (USB/MTP, Bluetooth RFCOMM, Email IMAP)
+  // with SHA-256 deduplication, PDF parsing, and smart VIN→Vehicle→OT→Client linking.
+  await app.register(
+    (await import("./modules/thinkcar/plugin.js")).default,
+  );
+
+  // ─── Finance Module (SIFEN + Accounting) ──────
+  // SIFEN V150 electronic invoicing with X.509 digital signature
+  // (signed async via worker_threads to prevent RAM spikes — @qa-optimizer validated).
+  // HTTPS/SOAP client for DNIT web services (CDC reception).
+  // Double-entry accounting (Plan de Cuentas, Asientos Contables)
+  // and RG 90 Marangatu export engine.
+  await app.register(
+    (await import("./modules/finance/plugin.js")).default,
+  );
+
+  // ─── Global Search Module ───────────────────
+  // Cross-entity search (vehiculos, clientes, ordenes_trabajo)
+  // tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./shared/plugins/search.js")).default,
+  );
 
   // ─── Startup health check ──────────────────
   app.addHook("onReady", async () => {
@@ -74,10 +252,14 @@ async function start(): Promise<void> {
 
   try {
     await app.listen({ port: env.PORT, host: env.HOST });
+    const url = `http://${env.HOST}:${env.PORT}`;
     app.log.info(
       { port: env.PORT, env: env.NODE_ENV },
-      "AutomotiveOS Cloud ERP started",
+      `AutomotiveOS Cloud ERP iniciado — ${url}`,
     );
+    app.log.info(`[HEALTH] ${url}/health`);
+    app.log.info(`[SPA]    ${url}/dashboard`);
+    app.log.info(`[TV]     ${url}/api/v1/visual/tv`);
   } catch (err) {
     app.log.error(err, "Failed to start server");
     process.exit(1);

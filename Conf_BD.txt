@@ -1,0 +1,9 @@
+Resumen de lo configurado:
+Ítem	Estado
+.env con pooler URL	✅ postgresql://postgres.owzezszeeouqwabxtugn:****@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+SSL auto-firmado aceptado	✅ ssl: { rejectUnauthorized: false } en connection.ts
+Supabase skills instalados	✅ 2 skills: supabase + supabase-postgres-best-practices
+Health check /health	✅ database: connected, status 200
+Next.js migration files	✅ en utils/supabase/
+Fastify Supabase plugin	✅ app.supabase.admin y app.supabase.anon
+Memoria heap	✅ ~20 MB (muy por debajo del límite de 50 MB)

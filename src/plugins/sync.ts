@@ -7,9 +7,10 @@
  * @module plugins/sync
  */
 
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { processSyncQueue, getSyncConfig, type SyncOperation } from "../shared/offline/sync-service.js";
 import { resolveTenant } from "../shared/middleware/tenant-resolver.js";
+import { ForbiddenError } from "../shared/errors/app-error.js";
 
 /**
  * Registers sync-related routes on the Fastify instance.
@@ -24,7 +25,7 @@ export async function syncPlugin(app: FastifyInstance): Promise<void> {
    * POST /sync — Submit a batch of offline operations.
    * Body: { operations: SyncOperation[] }
    */
-  app.post("/sync", async (request, reply) => {
+  app.post("/sync", async (request: FastifyRequest, reply: FastifyReply) => {
     const { operations } = request.body as { operations: SyncOperation[] };
 
     if (!Array.isArray(operations) || operations.length === 0) {
@@ -39,6 +40,15 @@ export async function syncPlugin(app: FastifyInstance): Promise<void> {
         error: "ValidationError",
         message: "Max 50 operations per batch",
       });
+    }
+
+    // Validate all operations belong to the requesting tenant
+    for (const op of operations) {
+      if (op.tenant !== request.tenantSlug) {
+        throw new ForbiddenError(
+          `Operation ${op.id} belongs to tenant '${op.tenant}', not '${request.tenantSlug}'`,
+        );
+      }
     }
 
     const results = await processSyncQueue(operations);

@@ -1,0 +1,13 @@
+{
+  "companyName": "Jara Brothers Group",
+  "rucOrTaxId": "80000000-1",
+  "address": "Coronel Oviedo, Paraguay",
+  "phone": "+595 981 123 456",
+  "email": "soporte@jarabrothers.com",
+  "logoPath": "assets/uploads/company_logo.png",
+  "currentUser": {
+    "name": "Jara",
+    "role": "Ingeniero de Diagnóstico / Administrador",
+    "signatureToken": "USER_SIG_01"
+  }
+}

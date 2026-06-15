@@ -13,6 +13,7 @@ dist/
 # ─── IDE / Editor ────────────────────────────
 .vscode/
 .idea/
+.obsidian/
 *.swp
 *.swo
 *~
