@@ -42,6 +42,12 @@ async function buildApp() {
   // ─── Global error handler ──────────────────
   app.setErrorHandler(errorHandler);
 
+  // ─── Request Logging & Tracing ─────────────
+  const { requestIdHook, requestTimingHook, metricsHook } = await import("./shared/middleware/logger.js");
+  app.addHook("onRequest", requestIdHook);
+  app.addHook("onRequest", requestTimingHook);
+  app.addHook("onResponse", metricsHook);
+
   // ─── CORS ──────────────────────────────────
   await app.register((await import("@fastify/cors")).default, {
     origin: env.NODE_ENV === "production"
