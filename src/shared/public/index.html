@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e40af">
+<meta name="description" content="Cloud ERP para talleres mecánicos — Gestión de órdenes, facturación, inventario y contabilidad">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AutomotiveOS">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <title>AutomotiveOS — ERP Taller</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,7 +77,7 @@
   .print-only { display: none; }
 </style>
 </head>
-<body class="text-white min-h-screen">
+<body class="text-white min-h-screen" role="application" aria-label="AutomotiveOS Cloud ERP">
 
 <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-blue-950">
   <div class="w-full max-w-sm p-6">
@@ -78,21 +86,21 @@
       <h1 class="text-3xl font-extrabold tracking-tight">AutomotiveOS</h1>
       <p class="text-gray-500 text-sm mt-1">Cloud ERP · Taller Mecánico</p>
     </div>
-    <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+    <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-4" role="form" aria-label="Formulario de inicio de sesión">
       <h2 class="text-base font-semibold text-gray-200">Acceder al Sistema</h2>
       <div>
         <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Slug del Taller</label>
-        <input id="login-slug" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="ej: taller-el-chero">
+        <input id="login-slug" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="ej: taller-el-chero" aria-label="Slug del taller" required>
       </div>
       <div>
         <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Correo Electrónico</label>
-        <input id="login-email" type="email" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="nombre@taller.com">
+        <input id="login-email" type="email" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="nombre@taller.com" aria-label="Correo electrónico" required>
       </div>
       <div>
         <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Contraseña</label>
-        <input id="login-password" type="password" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="••••••••">
+        <input id="login-password" type="password" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="••••••••" aria-label="Contraseña" required>
       </div>
-      <button id="login-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition text-sm">Ingresar</button>
+      <button id="login-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition text-sm" aria-label="Ingresar al sistema">Ingresar</button>
       <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
       <div id="login-loading" class="hidden text-center text-sm text-gray-400">
         <span class="inline-block animate-spin mr-2">⟳</span> Conectando...
@@ -115,7 +123,7 @@
       </div>
     </div>
 
-    <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-2">
+    <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-2" role="navigation" aria-label="Menú principal">
       <button class="sidebar-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dashboard">
         <span class="text-lg">📊</span> Dashboard
       </button>
@@ -167,23 +175,23 @@
     </nav>
 
     <div class="border-t border-gray-800 p-3">
-      <button id="logout-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-900/10 transition">
-        <span>🚪</span> Cerrar Sesión
+      <button id="logout-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-900/10 transition" aria-label="Cerrar sesión">
+        <span aria-hidden="true">🚪</span> Cerrar Sesión
       </button>
     </div>
   </aside>
 
-  <main class="flex-1 flex flex-col min-w-0">
+  <main class="flex-1 flex flex-col min-w-0" role="main" aria-label="Contenido principal">
     <header class="flex items-center justify-between px-4 md:px-6 py-3 border-b border-gray-800 bg-gray-900/50">
       <div class="flex items-center gap-3">
-        <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1" onclick="toggleSidebar()" title="Menú">☰</button>
+        <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1" onclick="toggleSidebar()" title="Menú" aria-label="Abrir menú de navegación" aria-expanded="false">☰</button>
         <div>
           <h2 id="view-title" class="text-lg font-bold">Dashboard</h2>
           <p id="view-subtitle" class="text-xs text-gray-500">Resumen del taller</p>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
-        <div id="notif-bell-container"></div>
+        <div id="notif-bell-container" role="status" aria-label="Notificaciones"></div>
         <div id="sifen-status" class="hidden md:flex items-center gap-2 text-xs" title="Conexión DNIT SIFEN">
           <span class="ws-dot bg-red-500" id="sifen-dot"></span>
           <span id="sifen-label" class="text-gray-500">SIFEN: —</span>
@@ -197,7 +205,7 @@
       </div>
     </header>
 
-    <div id="view-content" class="flex-1 p-6 overflow-y-auto"></div>
+    <div id="view-content" class="flex-1 p-6 overflow-y-auto" aria-live="polite" aria-atomic="true"></div>
   </main>
 </div>
 
@@ -226,6 +234,8 @@
 <script src="js/history.js"></script>
 <script src="js/print.js"></script>
 <script src="js/search.js"></script>
+<script src="js/pwa.js"></script>
+<script src="js/a11y.js"></script>
 <!-- Core: state, api, auth, routing, event delegation, WS/polling — MUST load AFTER modules -->
 <script src="app.js"></script>
 </body>
