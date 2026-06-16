@@ -39,8 +39,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 16 COMPLETE — PWA + Performance + PDF Reports + Accessibility + Testing",
-    "next_sprint": "Sprint 17 — TBD",
+    "current_sprint": "Sprint 17 COMPLETE — Security + Observability + Keyboard Shortcuts + Theme + Bulk Import + Benchmarks + Backup",
+    "next_sprint": "Sprint 18 — TBD",
     "sprint_10_progress": {
       "analytics_service": "analytics.service.ts — getDashboardKPIs, getTopServicios, getTopClientes, getProductividad (10+ queries across 8 tables)",
       "analytics_routes": "GET /workshop/analytics/dashboard, /top-servicios, /top-clientes, /productividad + registered in workshop routes index",
@@ -251,6 +251,63 @@
         "src/shared/public/index.html (+PWA meta +aria labels +a11y.js +pwa.js scripts)"
       ]
     },
+    "sprint_17_progress": {
+      "validation_schemas": "17.1 — Zod-based input validation schemas for all entities: client, vehicle, orden, invoice, payment, treasury, notification, budget, search, auth, profile. validate() helper with {success, data/errors} shape.",
+      "xss_security": "17.1 — xss.ts: escapeHtml (6 entities), stripDangerousHtml (script/iframe/object/embed/form/onerror/javascript:), sanitize (escape+strip), isSqlSafe (11 injection patterns), generateNonce (16-byte base64)",
+      "logger_middleware": "17.2 — logger.ts: requestIdHook (X-Request-ID generation/passthrough), requestTimingHook (structured request logging with duration/tenant/user), metricsHook (request counters by status/tenant), getMetrics() for /health/metrics, slowRequestCheck (>5s threshold)",
+      "keyboard_shortcuts": "17.3 — shortcuts.js: Ctrl+K command palette (search, navigate views, shortcuts list), Ctrl+1-9 for view navigation, Escape to close modals/palette, arrow key navigation, screen reader announcements",
+      "theme_system": "17.4 — theme.js: dark/light mode toggle with CSS variables, 6 accent colors (blue/green/purple/red/orange/teal), localStorage persistence, ARIA toggle button in header",
+      "bulk_import": "17.5 — bulk-import.service.ts: CSV parsing with csv-parse/sync, Zod validation for clients/vehicles/repuestos, dry-run mode, error reporting by row, CSV template generators, toCsv() export helper",
+      "performance_benchmarks": "17.6 — scripts/benchmark.ts: Schema validation throughput (~50K-82K ops/s), CSV parsing (~73K rows/sec), JSON serialization, XSS escape (~43K ops/s), memory profiling. Run via npx tsx scripts/benchmark.ts",
+      "backup_service": "17.7 — backup.service.ts: pg_dump-based backup with compression, restore with dry-run, list/delete backups, auto-cleanup (max 30), size formatting",
+      "bug_fixes": [
+        "Fixed validate() helper: result.error.errors → result.error.issues (Zod v3 API change)",
+        "Fixed parseAndValidate: result.error.errors → result.error.issues (same Zod bug)"
+      ],
+      "packages_installed": ["csv-parse"],
+      "test_results": {
+        "total_files": 29,
+        "total_tests": 311,
+        "passing": 311,
+        "duration": "~50s"
+      },
+      "new_tests": {
+        "sprint17_test_file": "tests/sprint17.test.ts — 38 tests across 7 describe blocks",
+        "test_blocks": [
+          "Zod Validation Schemas (10 tests): createClient, createVehicle VIN/engineType, createOrden, issueInvoice, registerPayment, registrarMovimiento, login slug, validate() helper",
+          "XSS Security (8 tests): escapeHtml, stripDangerousHtml (script/onerror/javascript:), sanitize, isSqlSafe (6 patterns), generateNonce",
+          "Logger Middleware (4 tests): getMetrics, recordRequest, requestIdHook (generate + passthrough)",
+          "Bulk Import Service (7 tests): parseAndValidate (valid/invalid/multi-row), templates, toCsv (basic/quotes/empty)",
+          "Backup Service (4 tests): listBackups, createBackup (no DB_URL), restoreBackup (not found), restoreBackup (dryRun)",
+          "Frontend Modules (3 tests): shortcuts.js content, theme.js content, index.html script tags",
+          "E2E Pipeline Integration (2 tests): validation+XSS combo, bulk import with XSS in CSV"
+        ]
+      },
+      "benchmark_results": {
+        "schema_validation_client": "49.9K-82.8K ops/s",
+        "schema_validation_vehicle": "35.9K-75.3K ops/s",
+        "csv_parsing": "~73K rows/sec (1000 rows in ~14ms)",
+        "json_stringify": "743 ops/s (1000 records)",
+        "json_parse": "227 ops/s (1000 records)",
+        "xss_escape": "43.3K ops/s",
+        "heap_used": "~46-52 MB"
+      },
+      "typescript_errors": 0,
+      "files_created": [
+        "src/shared/validation/schemas.ts",
+        "src/shared/security/xss.ts",
+        "src/shared/middleware/logger.ts",
+        "src/shared/services/bulk-import.service.ts",
+        "src/shared/services/backup.service.ts",
+        "src/shared/public/js/shortcuts.js",
+        "src/shared/public/js/theme.js",
+        "scripts/benchmark.ts",
+        "tests/sprint17.test.ts"
+      ],
+      "files_modified": [
+        "src/shared/public/index.html (+shortcuts.js +theme.js script tags)"
+      ]
+    },
     "sprint_9_progress": {
       "invoice_itemized": "OT items (servicios+repuestos) written to fiscalDocumentoDetalles on issue",
       "cxc_auto": "factura.estadoPago=PENDIENTE, saldoPendiente=total, fechaVencimiento=+30d",
@@ -410,7 +467,7 @@
       "SPRINT-7: Frontend — sidebar Tesorería agregada al index.html",
       "SPRINT-7: Frontend — renderTesorería con 6 tabs: Cuentas Bancarias (list+modal crear), Movimientos (list+filtros+modal), Conciliación (iniciar+list por cuenta), CxC (vencidas en rojo), CxP (filtro estado+vencidas), Flujo de Caja (5 cards + alerta sobregiro + detalle)"
     ],
-    "next_sprint": "Sprint 17 — TBD",
+    "next_sprint": "Sprint 18 — TBD",
     "super_admin": {
       "email": "jaraju01@gmail.com",
       "name": "Juan Ángel Jara",
