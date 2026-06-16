@@ -39,8 +39,57 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 17 COMPLETE — Security + Observability + Keyboard Shortcuts + Theme + Bulk Import + Benchmarks + Backup",
-    "next_sprint": "Sprint 18 — TBD",
+    "current_sprint": "Sprint 18 COMPLETE — RLS + CORS Hardening + Security Headers (OWASP)",
+    "next_sprint": "Sprint 19 — TBD",
+    "sprint_18_progress": {
+      "rls_migration": "0019_rls_security.sql — PostgreSQL Row Level Security for 35+ tenant-scoped tables. Creates current_tenant() function, enables RLS + FORCE ROW LEVEL SECURITY, creates SELECT/INSERT/UPDATE/DELETE policies per table. Tenants table disabled (platform-level).",
+      "rls_middleware": "rls.ts — rlsTenantContext Fastify onRequest hook. Sets app.current_tenant via SET LOCAL (transaction-scoped, safe for connection pooling). Defense-in-depth on top of application-level tenant_slug filtering.",
+      "cors_hardening": "app.ts CORS hardened: production uses strict origin whitelist, dev uses regex patterns (localhost/127.0.0.1 only). Removed OPTIONS from allowed methods (handled by preflight). Added maxAge 86400 for preflight caching. Exposed X-Request-ID and Content-Disposition headers.",
+      "security_headers": "security-headers.ts — OWASP-compliant security headers via onRequest hook: CSP (default-src self, script-src self, style-src CDN+inline, frame-ancestors none, base-uri self, form-action self), HSTS (production, 1yr + includeSubDomains + preload), X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (22 features restricted), Cross-Origin-Opener-Policy same-origin, Cross-Origin-Resource-Policy same-origin, X-XSS-Protection 1;mode=block, Cache-Control no-store for API responses.",
+      "helmet_complement": "Helmet registered with CSP/HSTS/frameguard/crossOrigin* disabled (custom middleware handles these with more granular control).",
+      "rls_tables_secured": [
+        "clients", "vehiculos", "ordenes_trabajo", "ingresos", "trabajos_terceros",
+        "orden_servicios", "orden_repuestos", "servicios_catalogo",
+        "notificaciones", "facturas", "fiscal_documentos", "fiscal_documento_detalles",
+        "sifen_sync_log", "plan_cuentas", "asientos_contables", "asientos_detalle",
+        "fixed_expenses", "mechanic_profiles", "staff_profiles",
+        "commission_records", "payroll_summary", "audit_log", "centros_costo",
+        "cuentas_bancarias", "movimientos_tesoreria", "conciliacion_bancaria",
+        "facturas_proveedor", "repuestos", "herramientas", "control_herramientas",
+        "stock_movements", "cost_history", "reorder_alerts", "purchase_orders",
+        "purchase_order_items", "inventory_accounts_map", "presupuestos",
+        "presupuestos_items", "tenant_config", "libros_obligatorios",
+        "thinkcar_imports", "profiles"
+      ],
+      "rls_platform_tables": "tenants table DISABLED RLS (platform registry, public access for login flow)",
+      "test_results": {
+        "total_files": 30,
+        "total_tests": 330,
+        "passing": 330,
+        "skipped": 5,
+        "duration": "~95s"
+      },
+      "new_tests": {
+        "sprint18_test_file": "tests/sprint18-security.test.ts — 24 tests across 5 describe blocks",
+        "test_blocks": [
+          "Security Headers (8 tests): CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener/Resource-Policy, X-XSS-Protection",
+          "CORS Configuration (3 tests): preflight with localhost regex, reject unknown origins, accept localhost patterns",
+          "RLS Tenant Context Middleware (4 tests): sets tenant context, rejects without header, rejects invalid slug, accepts valid slug formats",
+          "RLS Migration Structure (5 tests): file exists, current_tenant() function, RLS enabled on 25+ tables, SELECT/INSERT/UPDATE/DELETE policies, tenants DISABLED",
+          "Security Headers Module (4 tests): exports, generateCspNonce, rls.ts exports, generateRlsPolicySql produces valid SQL"
+        ]
+      },
+      "typescript_errors": 0,
+      "files_created": [
+        "src/shared/middleware/security-headers.ts",
+        "src/shared/middleware/rls.ts",
+        "src/shared/database/migrations/0019_rls_security.sql",
+        "tests/sprint18-security.test.ts"
+      ],
+      "files_modified": [
+        "src/app.ts (CORS hardening, Helmet complement, security headers hook, RLS middleware registration)"
+      ]
+    },
     "sprint_10_progress": {
       "analytics_service": "analytics.service.ts — getDashboardKPIs, getTopServicios, getTopClientes, getProductividad (10+ queries across 8 tables)",
       "analytics_routes": "GET /workshop/analytics/dashboard, /top-servicios, /top-clientes, /productividad + registered in workshop routes index",

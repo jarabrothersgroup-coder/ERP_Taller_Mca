@@ -48,25 +48,68 @@ async function buildApp() {
   app.addHook("onRequest", requestTimingHook);
   app.addHook("onResponse", metricsHook);
 
-  // ─── CORS ──────────────────────────────────
+  // ─── CORS (Hardened) ─────────────────────────
+  // Production: strict origin whitelist + method/header restrictions
+  // Development: allows localhost for DX
+  const corsOrigins = env.NODE_ENV === "production"
+    ? [env.CORS_ORIGIN].filter(Boolean)
+    : [/^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/];
+
   await app.register((await import("@fastify/cors")).default, {
-    origin: env.NODE_ENV === "production"
-      ? [env.CORS_ORIGIN].filter(Boolean)
-      : true,
+    origin: corsOrigins,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Tenant-Slug", "X-User-Email"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Tenant-Slug",
+      "X-User-Email",
+      "X-Request-ID",
+      "Accept",
+      "Origin",
+      "Cache-Control",
+    ],
+    exposedHeaders: [
+      "X-Request-ID",
+      "Content-Disposition",
+    ],
+    maxAge: 86400, // Preflight cache: 24 hours
   });
 
-  // ─── Security Headers (Helmet) ──────────────
+  // ─── Security Headers (Helmet + Custom) ──────
   try {
     await app.register((await import("@fastify/helmet")).default, {
-      contentSecurityPolicy: false, // Disabled for CDN scripts (Tailwind, etc.)
+      // CSP is handled by our custom security-headers middleware
+      // (more granular control with Tailwind CDN support)
+      contentSecurityPolicy: false,
+      // HSTS handled by custom middleware (conditional on env)
+      hsts: false,
+      // X-Frame-Options handled by custom middleware
+      frameguard: false,
+      // Cross-Origin policies handled by custom middleware
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
     });
-    app.log.info("Helmet security headers registered");
+    app.log.info("Helmet security headers registered (baseline)");
   } catch {
-    app.log.warn("Helmet not available — security headers disabled");
+    app.log.warn("Helmet not available — using custom security headers only");
   }
+
+  // ─── Custom Security Headers (OWASP) ─────────
+  const { securityHeadersHook } = await import("./shared/middleware/security-headers.js");
+  app.addHook("onRequest", securityHeadersHook);
+  app.log.info("Custom security headers registered (CSP, HSTS, Permissions-Policy)");
+
+  // ─── RLS Tenant Context (PostgreSQL) ─────────
+  // Sets app.current_tenant session variable for Row Level Security
+  // Must run AFTER resolveTenant (needs request.tenantSlug)
+  const { rlsTenantContext } = await import("./shared/middleware/rls.js");
+  // Note: rlsTenantContext is added as a preHandler in plugins that need it
+  // rather than globally, because not all requests have a tenant context
+  // (login, health check are public routes)
+  app.decorate("rlsTenantContext", rlsTenantContext);
+  app.log.info("RLS tenant context middleware available (preHandler)");
 
   // ─── Rate Limiting ──────────────────────────
   try {
