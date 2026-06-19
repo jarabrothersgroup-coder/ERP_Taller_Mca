@@ -19,6 +19,20 @@
   const DB_NAME = 'automotiveos-offline';
   const DB_VERSION = 1;
 
+  // Sprint 57: IndexedDB storage quota limits (prevents OOM on low-end tablets)
+  const STORAGE_QUOTA = {
+    maxTotalBytes: 50 * 1024 * 1024,    // 50 MB total
+    maxPerStore: {
+      ordenes: 20 * 1024 * 1024,        // 20 MB for work orders
+      inventario: 15 * 1024 * 1024,     // 15 MB for inventory
+      clientes: 5 * 1024 * 1024,        // 5 MB for clients
+      syncQueue: 5 * 1024 * 1024,       // 5 MB for sync queue
+      config: 1 * 1024 * 1024,          // 1 MB for config
+      metadata: 1 * 1024 * 1024,        // 1 MB for metadata
+    },
+    warningThreshold: 0.8,              // Warn at 80% usage
+  };
+
   const STORES = {
     ordenes: { keyPath: 'id', indexes: ['status', 'clienteId', 'updatedAt'] },
     inventario: { keyPath: 'id', indexes: ['codigo', 'categoria', 'stock'] },
@@ -71,6 +85,95 @@
 
       request.onerror = () => reject(request.error);
     });
+  }
+
+  // ═════════════════════════════════════════════════
+  //  STORAGE QUOTA MANAGEMENT (Sprint 57)
+  // ═════════════════════════════════════════════════
+
+  /**
+   * Check if writing to a store would exceed the quota.
+   * @param {string} storeName - Store to check
+   * @param {number} dataSize - Approximate size of data to write (bytes)
+   * @returns {Promise<{ allowed: boolean, usage: number, quota: number }>}
+   */
+  async function checkQuota(storeName, dataSize) {
+    var storeLimit = STORAGE_QUOTA.maxPerStore[storeName] || STORAGE_QUOTA.maxTotalBytes;
+    var currentUsage = await getStoreUsage(storeName);
+    var allowed = currentUsage + dataSize <= storeLimit;
+    var totalUsage = await getTotalUsage();
+
+    // Warn if approaching total quota
+    if (totalUsage / STORAGE_QUOTA.maxTotalBytes > STORAGE_QUOTA.warningThreshold) {
+      console.warn('[offline-db] Storage quota warning: ' +
+        Math.round(totalUsage / 1024 / 1024) + 'MB / ' +
+        Math.round(STORAGE_QUOTA.maxTotalBytes / 1024 / 1024) + 'MB used');
+    }
+
+    return {
+      allowed: allowed && totalUsage + dataSize <= STORAGE_QUOTA.maxTotalBytes,
+      usage: currentUsage,
+      quota: storeLimit,
+    };
+  }
+
+  /**
+   * Get approximate usage of a specific store (bytes).
+   * @param {string} storeName
+   * @returns {Promise<number>}
+   */
+  async function getStoreUsage(storeName) {
+    try {
+      var records = await getAll(storeName);
+      var totalSize = 0;
+      for (var i = 0; i < records.length; i++) {
+        totalSize += JSON.stringify(records[i]).length * 2; // UTF-16 = 2 bytes per char
+      }
+      return totalSize;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Get total storage usage across all stores (bytes).
+   * @returns {Promise<number>}
+   */
+  async function getTotalUsage() {
+    var total = 0;
+    for (var storeName in STORES) {
+      total += await getStoreUsage(storeName);
+    }
+    return total;
+  }
+
+  /**
+   * Get storage usage stats for all stores.
+   * @returns {Promise<Object>}
+   */
+  async function getStorageStats() {
+    var stats = {};
+    var total = 0;
+    for (var storeName in STORES) {
+      var usage = await getStoreUsage(storeName);
+      var limit = STORAGE_QUOTA.maxPerStore[storeName] || STORAGE_QUOTA.maxTotalBytes;
+      stats[storeName] = {
+        usage: usage,
+        usageMB: Math.round(usage / 1024 / 1024 * 100) / 100,
+        limit: limit,
+        limitMB: Math.round(limit / 1024 / 1024),
+        percent: Math.round(usage / limit * 100),
+      };
+      total += usage;
+    }
+    stats._total = {
+      usage: total,
+      usageMB: Math.round(total / 1024 / 1024 * 100) / 100,
+      limit: STORAGE_QUOTA.maxTotalBytes,
+      limitMB: Math.round(STORAGE_QUOTA.maxTotalBytes / 1024 / 1024),
+      percent: Math.round(total / STORAGE_QUOTA.maxTotalBytes * 100),
+    };
+    return stats;
   }
 
   // ═════════════════════════════════════════════════

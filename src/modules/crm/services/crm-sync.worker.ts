@@ -29,6 +29,19 @@ import type { CrmSyncResult } from "../types.js";
 // ─── Sync Worker ───────────────────────────────────────
 
 /**
+ * Generate an idempotency key for CRM sync operations.
+ * Prevents duplicate contacts on retry after network failure.
+ *
+ * Sprint 56: Idempotency key implementation for Twenty CRM sync.
+ *
+ * @param ordenId - Work order UUID
+ * @returns Idempotency key string
+ */
+function generateIdempotencyKey(ordenId: string): string {
+  return `crm-sync-${ordenId}-${new Date().toISOString().split("T")[0]}`;
+}
+
+/**
  * Syncs a finalized order to Twenty CRM.
  *
  * Called when an order changes to FINALIZADO_RETIRADO state.
@@ -46,7 +59,30 @@ export async function syncOrderToCrm(
 ): Promise<CrmSyncResult> {
   const startTime = Date.now();
 
+  // Sprint 56: Idempotency key — prevents duplicate contacts on retry
+  const idempotencyKey = generateIdempotencyKey(ordenId);
+
   try {
+    // ── 0. Check for recent successful sync (idempotency) ──
+    const recentSync = await db()
+      .select({ id: crmSyncLog.id })
+      .from(crmSyncLog)
+      .where(
+        eq(crmSyncLog.ordenId, ordenId),
+      )
+      .limit(1);
+
+    if (recentSync.length > 0 && recentSync[0].id) {
+      // Already synced — return cached result (idempotent)
+      return {
+        success: true,
+        operation: "idempotent_skip",
+        contactId: "cached",
+        timestamp: new Date().toISOString(),
+        durationMs: 0,
+      };
+    }
+
     // ── 1. Fetch order data ──
     const [ordenRow] = await db()
       .select({

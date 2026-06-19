@@ -120,9 +120,12 @@
       event.target.classList.add('tool-active');
     }
 
-    // Canvas drawing
+    // Canvas drawing — Sprint 58: requestAnimationFrame throttling for low-end tablets
     let isDrawing = false;
     let startX, startY;
+    let lastFrameTime = 0;
+    const FRAME_THROTTLE_MS = 16; // ~60fps max (16ms per frame)
+    let pendingRedraw = false;
 
     document.getElementById('markup-canvas')?.addEventListener('mousedown', (e) => {
       isDrawing = true;
@@ -132,6 +135,27 @@
 
     document.getElementById('markup-canvas')?.addEventListener('mousemove', (e) => {
       if (!isDrawing) return;
+
+      // Sprint 58: Throttle redraws to max 60fps using requestAnimationFrame
+      const now = performance.now();
+      if (now - lastFrameTime < FRAME_THROTTLE_MS) {
+        if (!pendingRedraw) {
+          pendingRedraw = true;
+          requestAnimationFrame(() => {
+            pendingRedraw = false;
+            lastFrameTime = performance.now();
+            drawCurrentShape(e);
+          });
+        }
+        return;
+      }
+
+      lastFrameTime = now;
+      drawCurrentShape(e);
+    });
+
+    function drawCurrentShape(e) {
+      if (!ctx) return;
       redrawMarkup();
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
@@ -150,7 +174,7 @@
         ctx.lineTo(e.offsetX, e.offsetY);
         ctx.stroke();
       }
-    });
+    }
 
     document.getElementById('markup-canvas')?.addEventListener('mouseup', (e) => {
       if (!isDrawing) return;

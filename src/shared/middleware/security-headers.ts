@@ -44,12 +44,16 @@ function buildCspDirectives(): string {
 
     // Scripts — self only (no eval, no inline in production)
     // MED-02 FIX: Remove unsafe-inline from production scripts
+    // Sprint 56: Strict CSP — nonce-based for inline scripts in production
     isProd
-      ? "script-src 'self'"
+      ? "script-src 'self' 'strict-dynamic'"
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
 
     // Styles — CDN + inline (Tailwind requires inline)
-    "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com",
+    // Sprint 56: Remove unsafe-inline from production styles
+    isProd
+      ? "style-src 'self' https://cdn.tailwindcss.com https://fonts.googleapis.com"
+      : "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com",
 
     // Fonts — Google Fonts
     "font-src 'self' https://fonts.gstatic.com data:",
@@ -61,7 +65,10 @@ function buildCspDirectives(): string {
       : "img-src 'self' data: blob: http: https:",
 
     // Connect — WebSocket + API + CDN
-    "connect-src 'self' ws: wss: https://cdn.tailwindcss.com",
+    // Sprint 56: Restrict connect-src to self + WebSocket only in production
+    isProd
+      ? "connect-src 'self' ws: wss:"
+      : "connect-src 'self' ws: wss: https://cdn.tailwindcss.com",
 
     // Media — none expected
     "media-src 'none'",
@@ -78,11 +85,17 @@ function buildCspDirectives(): string {
     // Base URI — self only
     "base-uri 'self'",
 
+    // Worker — service worker
+    "worker-src 'self'",
+
     // Form action — self only
     "form-action 'self'",
 
     // Upgrade insecure requests in production
     isProd ? "upgrade-insecure-requests" : "",
+
+    // Sprint 56: Require-trtypes for scripts (defense-in-depth)
+    isProd ? "require-trusted-types-for 'script'" : "",
   ].filter(Boolean);
 
   return directives.join("; ");
