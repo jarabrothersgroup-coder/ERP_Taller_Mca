@@ -14,7 +14,7 @@
  * @module crm/services/crm-sync.worker
  */
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import {
   ordenesTrabajo,
@@ -25,6 +25,11 @@ import {
 import { crmSyncLog } from "../schema/crm-sync-log.js";
 import { upsertContact } from "./twenty-crm.service.js";
 import type { CrmSyncResult } from "../types.js";
+
+// ─── In-Progress Lock ────────────────────────────────────
+// Sprint 58+: Prevents concurrent CRM syncs for the same order.
+// If a sync is already running for an order, subsequent calls return early.
+const _inProgressLocks = new Set<string>();
 
 // ─── Sync Worker ───────────────────────────────────────
 
@@ -62,18 +67,34 @@ export async function syncOrderToCrm(
   // Sprint 56: Idempotency key — prevents duplicate contacts on retry
   const idempotencyKey = generateIdempotencyKey(ordenId);
 
+  // Sprint 58+: In-progress lock — prevent concurrent syncs for same order
+  if (_inProgressLocks.has(ordenId)) {
+    return {
+      success: true,
+      operation: "idempotent_skip",
+      contactId: "in_progress",
+      timestamp: new Date().toISOString(),
+      durationMs: 0,
+    };
+  }
+  _inProgressLocks.add(ordenId);
+
   try {
-    // ── 0. Check for recent successful sync (idempotency) ──
+    // ── 0. Check for recent SUCCESSFUL sync (idempotency) ──
+    // Sprint 58+: Only skip if a SUCCESSFUL sync exists — failed syncs should be retried
     const recentSync = await db()
       .select({ id: crmSyncLog.id })
       .from(crmSyncLog)
       .where(
-        eq(crmSyncLog.ordenId, ordenId),
+        and(
+          eq(crmSyncLog.ordenId, ordenId),
+          eq(crmSyncLog.status, "success"),
+        ),
       )
       .limit(1);
 
     if (recentSync.length > 0 && recentSync[0].id) {
-      // Already synced — return cached result (idempotent)
+      // Already synced successfully — return cached result (idempotent)
       return {
         success: true,
         operation: "idempotent_skip",
@@ -218,6 +239,9 @@ export async function syncOrderToCrm(
       timestamp: new Date().toISOString(),
       durationMs: Date.now() - startTime,
     };
+  } finally {
+    // Sprint 58+: Release in-progress lock
+    _inProgressLocks.delete(ordenId);
   }
 }
 

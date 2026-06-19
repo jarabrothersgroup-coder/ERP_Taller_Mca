@@ -1,0 +1,241 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — Production Docker Compose
+# Hybrid Bridge: On-Premise (Taller) + Supabase Cloud
+# ─────────────────────────────────────────────────────────
+# Arquitectura:
+#   ┌─────────────────────────────────────────────────┐
+#   │  ON-PREMISE (Taller)                            │
+#   │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
+#   │  │ ERP      │ │ Redis    │ │ Sync Worker      ││
+#   │  │ Backend  │ │ (Cache)  │ │ (pg_dump→Supabase││
+#   │  │ :3000    │ │ :6379    │ │  cron cada 5min) ││
+#   │  └────┬─────┘ └──────────┘ └────────┬─────────┘│
+#   │       │                              │          │
+#   │  ┌────▼──────────────────────────────▼─────────┐│
+#   │  │ PostgreSQL (Local)                          ││
+#   │  │ datos_críticos + cache_fallas               ││
+#   │  └────────────────────┬────────────────────────┘│
+#   └───────────────────────┼─────────────────────────┘
+#                           │ pg_dump / pg_restore
+#                           │ (cada 5 min + on-demand)
+#   ┌───────────────────────▼─────────────────────────┐
+#   │  SUPABASE CLOUD                                │
+#   │  ┌──────────────────────────────────────────┐  │
+#   │  │ PostgreSQL (Réplica + Backup Automático) │  │
+#   │  │ Supavisor (Connection Pooling)           │  │
+#   │  │ Acceso remoto desde cualquier dispositivo │  │
+#   │  └──────────────────────────────────────────┘  │
+#   └─────────────────────────────────────────────────┘
+#
+# Uso:
+#   cp .env.example .env    # Configurar variables
+#   docker compose -f docker-compose.prod.yml up -d
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ─── ERP Backend (Fastify + TypeScript) ───────
+  erp:
+    image: automotiveos/erp-backend:latest
+    container_name: erp-backend-prod
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: "0.0.0.0"
+      # Supavisor: Transaction mode (puerto 6543)
+      # IMPORTANTE: Cambiar de ?sslmode=require a ?pgbouncer=true
+      DATABASE_URL: postgresql://${SUPABASE_DB_USER:-postgres}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_ID}.supabase.co}:6543/postgres?pgbouncer=true&sslmode=require
+      SUPABASE_URL: https://${SUPABASE_PROJECT_ID}.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      TENANT_SCHEMA_PREFIX: ${TENANT_SCHEMA_PREFIX:-tenant_}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      # WhatsApp / Evolution API
+      WHATSAPP_API_URL: http://evolution-api:8080
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY}
+      # Twenty CRM
+      TWENTY_API_URL: http://twenty-crm:3000
+      TWENTY_API_KEY: ${TWENTY_API_KEY}
+      TWENTY_GRAPHQL_URL: http://twenty-crm:3000/graphql
+      # SIFEN
+      SIFEN_CERT_PATH: ${SIFEN_CERT_PATH:-}
+      SIFEN_CERT_PASS: ${SIFEN_CERT_PASS:-}
+      SIFEN_USE_TEST: ${SIFEN_USE_TEST:-false}
+      # RAG
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      redis:
+        condition: service_healthy
+      evolution-api:
+        condition: service_started
+    networks:
+      - erp-network
+
+  # ─── Redis (Cache Layer — Query Cache) ────────
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis-prod
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-erp_redis_prod_password}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-erp_redis_prod_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ─── Twenty CRM ──────────────────────────────
+  twenty-crm:
+    image: twentycrm/twenty:latest
+    container_name: erp-twenty-crm-prod
+    restart: unless-stopped
+    ports:
+      - "${TWENTY_PORT:-3001}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    shm_size: "128mb"
+    environment:
+      PG_DATABASE_URL: postgresql://${SUPABASE_DB_USER:-postgres}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_ID}.supabase.co}:6543/${TWENTY_DB:-twenty_crm}?pgbouncer=true&sslmode=require
+      SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3001}
+      ACCESS_TOKEN_SECRET: ${TWENTY_ACCESS_TOKEN_SECRET}
+      LOGIN_TOKEN_SECRET: ${TWENTY_LOGIN_TOKEN_SECRET}
+      REFRESH_TOKEN_SECRET: ${TWENTY_REFRESH_TOKEN_SECRET}
+      FILE_TOKEN_SECRET: ${TWENTY_FILE_TOKEN_SECRET}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-erp_redis_prod_password}@redis:6379
+      FRONT_BASE_URL: ${TWENTY_FRONT_BASE_URL:-http://localhost:3001}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── Evolution API (WhatsApp Gateway) ─────────
+  evolution-api:
+    image: atendai/evolution-api:v2.2.3
+    container_name: erp-evolution-api-prod
+    restart: unless-stopped
+    ports:
+      - "${EVOLUTION_API_PORT:-8080}:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    environment:
+      SERVER_URL: ${EVOLUTION_API_URL:-http://localhost:8080}
+      AUTHENTICATION_API_KEY: ${WHATSAPP_API_KEY}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${SUPABASE_DB_USER:-postgres}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_ID}.supabase.co}:6543/${EVOLUTION_DB:-evolution_api}?pgbouncer=true&sslmode=require
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      S3_ENABLED: "false"
+      WEBHOOK_GLOBAL_ENABLED: "true"
+      WEBHOOK_GLOBAL_URL: http://erp:3000/api/v1/whatsapp/webhook
+      WEBHOOK_GLOBAL_BY_EVENTS: "true"
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      CONFIG_SESSION_PHONE_CLIENT: ERP_Taller
+      CONFIG_SESSION_PHONE_NAME: Chrome
+    volumes:
+      - evolution_instances_prod:/evolution/instances
+      - evolution_store_prod:/evolution/store
+    networks:
+      - erp-network
+
+  # ─── Sync Worker (Hybrid Bridge: Local → Cloud) ──
+  sync-worker:
+    image: automotiveos/erp-backend:latest
+    container_name: erp-sync-worker
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+    environment:
+      NODE_ENV: production
+      SYNC_MODE: "local_to_cloud"
+      SYNC_INTERVAL_MS: "300000"  # 5 minutes
+      LOCAL_DB_URL: postgresql://erp_user:${POSTGRES_PASSWORD:-erp_prod_password}@postgres-local:5432/automotive_os
+      CLOUD_DB_URL: postgresql://${SUPABASE_DB_USER:-postgres}:${SUPABASE_DB_PASSWORD}@${SUPABASE_DB_HOST:-db.${SUPABASE_PROJECT_ID}.supabase.co}:6543/postgres?sslmode=require
+      # Tables to sync (critical data only)
+      SYNC_TABLES: "ordenes_trabajo,facturas,clients,vehiculos,repuestos,asientos_contables"
+    volumes:
+      - ./sync/sync-to-cloud.sh:/app/sync.sh:ro
+      - sync_logs:/app/logs
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── PostgreSQL Local (On-Premise) ────────────
+  postgres-local:
+    image: postgres:16-alpine
+    container_name: erp-postgres-local
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-automotive_os}
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_prod_password}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-automotive_os}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  evolution_instances_prod:
+  evolution_store_prod:
+  sync_logs:
+
+networks:
+  erp-network:
+    driver: bridge

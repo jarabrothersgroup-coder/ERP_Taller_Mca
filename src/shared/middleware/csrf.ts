@@ -33,7 +33,12 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/health",
   "/health/live",
   "/health/ready",
+  "/health/modules",
   "/health/metrics",
+  "/health/performance",
+  "/health/security-audit",
+  "/health/deep",
+  "/metrics",
   "/docs",
 ]);
 

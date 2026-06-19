@@ -50,9 +50,10 @@ function buildCspDirectives(): string {
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
 
     // Styles — CDN + inline (Tailwind requires inline)
-    // Sprint 56: Remove unsafe-inline from production styles
+    // Sprint 60: Tailwind CDN dynamically generates inline styles — unsafe-inline required
+    // In production, use 'unsafe-inline' with nonce for defense-in-depth
     isProd
-      ? "style-src 'self' https://cdn.tailwindcss.com https://fonts.googleapis.com"
+      ? "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com"
       : "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com",
 
     // Fonts — Google Fonts

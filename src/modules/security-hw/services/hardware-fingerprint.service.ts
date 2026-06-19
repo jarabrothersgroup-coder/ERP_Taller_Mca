@@ -9,7 +9,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { randomBytes, createHash, createCipheriv, createDecipheriv, pbkdf2Sync } from "node:crypto";
+import { randomBytes, createHash, createCipheriv, createDecipheriv, pbkdf2Sync, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { platform, hostname, arch } from "node:os";
@@ -349,10 +349,26 @@ export function validateHardwareToken(tokenBase64: string): TokenValidationResul
       diskSerial: parts[2],
     };
 
+    // C-04 FIX: Use constant-time comparison to prevent timing attacks
+    // Standard === leaks byte-by-byte timing information
+    const compareField = (a: string, b: string): boolean => {
+      const bufA = Buffer.from(a, "utf-8");
+      const bufB = Buffer.from(b, "utf-8");
+      if (bufA.length !== bufB.length) {
+        // Still do the comparison to avoid timing leak on length
+        timingSafeEqual(
+          Buffer.alloc(bufA.length, 0),
+          Buffer.alloc(bufB.length, 0),
+        );
+        return false;
+      }
+      return timingSafeEqual(bufA, bufB);
+    };
+
     const hardwareMatch =
-      tokenFingerprint.motherboardUuid === currentFingerprint.motherboardUuid &&
-      tokenFingerprint.cpuSerial === currentFingerprint.cpuSerial &&
-      tokenFingerprint.diskSerial === currentFingerprint.diskSerial;
+      compareField(tokenFingerprint.motherboardUuid, currentFingerprint.motherboardUuid) &&
+      compareField(tokenFingerprint.cpuSerial, currentFingerprint.cpuSerial) &&
+      compareField(tokenFingerprint.diskSerial, currentFingerprint.diskSerial);
 
     return {
       valid: hardwareMatch,
