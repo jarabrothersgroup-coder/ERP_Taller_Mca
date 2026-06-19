@@ -27,6 +27,31 @@ const NS_SIFEN = "http://www.dnit.gov.py/sifen/150";
 const SIFEN_VERSION = "150";
 
 /**
+ * C-03 FIX: Format date in Paraguay timezone (America/Asuncion, UTC-4).
+ * SIFEN V150 requires local Paraguay time — not UTC.
+ * Uses Intl.DateTimeFormat for reliable timezone conversion without deps.
+ *
+ * @param date - Date object to format
+ * @returns Formatted string "YYYY-MM-DDTHH:MM:SS" in Paraguay time
+ */
+function formatParaguayTime(date: Date): string {
+  // Intl.DateTimeFormat with 'America/Asuncion' gives us the correct local time
+  // including DST adjustments (Paraguay uses UTC-3 in summer, UTC-4 in winter)
+  const formatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Asuncion",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  // "sv-SE" format is "YYYY-MM-DD HH:MM:SS" — replace space with T
+  return formatter.format(date).replace(" ", "T");
+}
+
+/**
  * Mapeo de códigos de IVA según catálogo SIFEN.
  * Paraguay: 0 = exento, 5 = reducido, 10 = general
  */
@@ -121,9 +146,11 @@ export function buildDTEXml(data: EmitirDTERequest): string {
     receptorDireccion?: string;
   };
 
+  // C-03 FIX: SIFEN requires Paraguay local time (UTC-4), not UTC
+  // new Date().toISOString() returns UTC — DNIT will reject documents with wrong timezone
   const fecha = fechaEmision
-    ? new Date(fechaEmision).toISOString().slice(0, 19)
-    : new Date().toISOString().slice(0, 19);
+    ? formatParaguayTime(new Date(fechaEmision))
+    : formatParaguayTime(new Date());
 
   // ── Build XML manually for full control ──
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';

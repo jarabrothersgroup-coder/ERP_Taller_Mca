@@ -42,6 +42,21 @@ import { tenants, clients, fiscalDocumentos } from "../../../shared/database/sch
 import { sifenSyncLog } from "../schema/fiscal-docs.js";
 import type { EmitirDTERequest, ConsultaDTEQuery, SIFENSoapResponse } from "../types.js";
 
+// C-03 FIX: Paraguay timezone helper for SIFEN timestamps
+function formatParaguayTime(date: Date): string {
+  const formatter = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Asuncion",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  return formatter.format(date).replace(" ", "T");
+}
+
 // ─── Route registration ────────────────────────
 
 /**
@@ -268,7 +283,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
 
       return reply.status(201).send({
         documento: docFinal,
-        emitidoEn: new Date().toISOString(),
+        emitidoEn: formatParaguayTime(new Date()),
       });
     },
   );

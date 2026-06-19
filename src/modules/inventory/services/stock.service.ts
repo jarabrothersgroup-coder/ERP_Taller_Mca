@@ -341,32 +341,39 @@ export async function salidaStock(
     throw new ValidationError("La cantidad debe ser mayor a cero");
   }
 
-  // ── 2. Fetch repuesto and check stock ──
-  const repuesto = await getRepuestoById(repuestoId);
-
-  if (repuesto.stockActual < cantidad) {
-    throw new ValidationError(
-      `Stock insuficiente. Actual: ${repuesto.stockActual}, solicitado: ${cantidad}`,
-    );
-  }
-
-  // ── 3. Get current PPP for valuation ──
-  const ppVigente = repuesto.costoPromedio
-    ? Number(repuesto.costoPromedio)
-    : 0;
-  const costoTotalSalida = ppVigente * cantidad;
-
-  // ── 4. Atomic stock reduction ──
-  const stockAnterior = repuesto.stockActual;
-
+  // ── 2. C-02 FIX: Atomic stock check + reduction (prevents TOCTOU race) ──
+  // Instead of: read → check → update (3 steps, race window)
+  // Use: UPDATE with WHERE stock >= cantidad → 0 rows = insufficient stock
   const [updated] = await db()
     .update(repuestos)
     .set({
       stockActual: sql`${repuestos.stockActual} - ${cantidad}`,
       updatedAt: sql`NOW()`,
     })
-    .where(eq(repuestos.id, repuestoId))
+    .where(
+      and(
+        eq(repuestos.id, repuestoId),
+        sql`${repuestos.stockActual} >= ${cantidad}`,  // Atomic guard: fail if insufficient
+      ),
+    )
     .returning();
+
+  if (!updated) {
+    // Either repuesto not found OR stock insufficient — check which
+    const repuesto = await getRepuestoById(repuestoId);
+    throw new ValidationError(
+      `Stock insuficiente. Actual: ${repuesto.stockActual}, solicitado: ${cantidad}`,
+    );
+  }
+
+  // ── 3. Get current PPP for valuation (after atomic update) ──
+  const ppVigente = updated.costoPromedio
+    ? Number(updated.costoPromedio)
+    : 0;
+  const costoTotalSalida = ppVigente * cantidad;
+
+  // ── 4. Stock already reduced atomically in step 2 ──
+  const stockAnterior = Number(updated.stockActual) + Number(cantidad);
 
   // ── 5. Look up accounts for journal entry ──
   let asientoId: string | null = null;
@@ -389,7 +396,7 @@ export async function salidaStock(
         fecha: new Date(),
         referenciaId: repuestoId,
         referenciaTipo: "movimiento_stock",
-        descripcion: `Salida de stock: ${repuesto.descripcion} x${cantidad} (PPP: ${ppVigente})`,
+        descripcion: `Salida de stock: ${updated.descripcion} x${cantidad} (PPP: ${ppVigente})`,
         ordenTrabajoId: ordenTrabajoId ?? null,
         lineas: [
           {
@@ -437,8 +444,8 @@ export async function salidaStock(
 
   // ── 7. Check reorder point ──
   if (
-    repuesto.puntoReorden !== null &&
-    updated.stockActual <= repuesto.puntoReorden
+    updated.puntoReorden !== null &&
+    updated.stockActual <= updated.puntoReorden
   ) {
     // Check if there's already a pending alert for this repuesto
     const existingAlert = await db()
@@ -457,7 +464,7 @@ export async function salidaStock(
       await db().insert(reorderAlerts).values({
         repuestoId,
         stockActual: updated.stockActual,
-        puntoReorden: repuesto.puntoReorden,
+        puntoReorden: updated.puntoReorden,
         estado: "PENDIENTE",
         tenantSlug,
       });
@@ -552,7 +559,7 @@ export async function ingresoStock(
         .from(inventoryAccountsMap)
         .where(
           and(
-            eq(inventoryAccountsMap.categoria, repuesto.categoria ?? "*"),
+          eq(inventoryAccountsMap.categoria, updated.categoria ?? "*"),
             eq(inventoryAccountsMap.tenantSlug, tenantSlug),
           ),
         )

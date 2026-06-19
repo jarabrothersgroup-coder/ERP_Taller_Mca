@@ -6,6 +6,9 @@
  *   - `/health/live` — Liveness probe (Kubernetes)
  *   - `/health/ready` — Readiness probe (DB + modules)
  *   - `/health/modules` — Module status check
+ *   - `/health/deep` — Deep check with external services (Redis, Supabase, Evolution API, Twenty CRM)
+ *
+ * Sprint 60: Added /health/deep for production readiness validation.
  *
  * @module plugins/health-check
  */
@@ -21,6 +24,15 @@ interface ModuleStatus {
   name: string;
   status: "ok" | "degraded" | "error";
   message?: string;
+  latencyMs?: number;
+}
+
+/** Deep service check result */
+interface DeepServiceCheck {
+  name: string;
+  status: "ok" | "degraded" | "error" | "skip";
+  latencyMs: number;
+  message?: string;
 }
 
 /** Get status of all registered modules */
@@ -28,11 +40,13 @@ async function getModuleStatuses(): Promise<ModuleStatus[]> {
   const modules: ModuleStatus[] = [];
 
   // Database
+  const dbStart = Date.now();
   const dbHealthy = await validateConnection();
   modules.push({
     name: "database",
     status: dbHealthy ? "ok" : "error",
     message: dbHealthy ? "Connected" : "Disconnected",
+    latencyMs: Date.now() - dbStart,
   });
 
   // Memory
@@ -60,6 +74,44 @@ async function getModuleStatuses(): Promise<ModuleStatus[]> {
   });
 
   return modules;
+}
+
+/**
+ * Ping an external service with timeout.
+ * Returns status and latency without throwing.
+ */
+async function pingService(
+  name: string,
+  url: string,
+  timeoutMs: number = 3000,
+): Promise<DeepServiceCheck> {
+  const start = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
+      method: "HEAD",
+      signal: controller.signal,
+      headers: { "User-Agent": "AutomotiveOS-HealthCheck/1.0" },
+    });
+    clearTimeout(timer);
+    const latencyMs = Date.now() - start;
+    return {
+      name,
+      status: res.ok ? "ok" : "degraded",
+      latencyMs,
+      message: `HTTP ${res.status}`,
+    };
+  } catch (err: any) {
+    const latencyMs = Date.now() - start;
+    const isTimeout = err?.name === "AbortError";
+    return {
+      name,
+      status: "error",
+      latencyMs,
+      message: isTimeout ? `Timeout after ${timeoutMs}ms` : err?.message || "Connection failed",
+    };
+  }
 }
 
 /**
@@ -114,6 +166,49 @@ export async function healthCheckPlugin(app: FastifyInstance): Promise<void> {
     reply.status(statusCode).send({
       status: hasErrors ? "degraded" : "ok",
       modules,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Sprint 60: Deep health check — pings all external services
+  app.get("/health/deep", async (_request, reply) => {
+    const deepStart = Date.now();
+
+    // Parallel pings to all external services
+    const [db, redis, supabase, evolutionApi, twentyCrm] = await Promise.all([
+      // DB — reuse existing validator
+      (async (): Promise<DeepServiceCheck> => {
+        const s = Date.now();
+        const ok = await validateConnection();
+        return { name: "database", status: ok ? "ok" : "error", latencyMs: Date.now() - s, message: ok ? "Connected" : "Disconnected" };
+      })(),
+      // Redis — check if port is reachable
+      pingService("redis", "http://localhost:6379", 2000).catch(() => ({
+        name: "redis", status: "skip" as const, latencyMs: 0, message: "Not configured",
+      })),
+      // Supabase — ping the project API
+      pingService("supabase", `${process.env.SUPABASE_URL || "https://placeholder.supabase.co"}/rest/v1/`, 5000),
+      // Evolution API — ping health endpoint
+      pingService("evolution-api", `${process.env.EVOLUTION_API_URL || "http://localhost:8080"}/health`, 3000),
+      // Twenty CRM — ping health endpoint
+      pingService("twenty-crm", `${process.env.TWENTY_CRM_URL || "http://localhost:3000"}/health`, 3000),
+    ]);
+
+    const services = [db, redis, supabase, evolutionApi, twentyCrm];
+    const errors = services.filter((s) => s.status === "error").length;
+    const degraded = services.filter((s) => s.status === "degraded").length;
+    const totalLatencyMs = Date.now() - deepStart;
+
+    // Overall status: error if any critical service is down
+    let overallStatus: "ok" | "degraded" | "error" = "ok";
+    if (errors > 0) overallStatus = "error";
+    else if (degraded > 0) overallStatus = "degraded";
+
+    const statusCode = overallStatus === "error" ? 503 : 200;
+    reply.status(statusCode).send({
+      status: overallStatus,
+      services,
+      totalLatencyMs,
       timestamp: new Date().toISOString(),
     });
   });

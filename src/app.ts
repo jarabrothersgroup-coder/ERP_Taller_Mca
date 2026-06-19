@@ -223,6 +223,11 @@ async function buildApp() {
   // ─── Plugins ───────────────────────────────
   await app.register(healthCheckPlugin);
 
+  // Sprint 60: Prometheus metrics endpoint (/metrics)
+  await app.register(
+    (await import("./plugins/metrics.js")).metricsPlugin,
+  );
+
   // ─── Lead Capture (Public — no auth/tenant required) ──
   await app.register(
     (await import("./modules/marketing/routes/lead.routes.js")).leadRoutes,
@@ -477,17 +482,47 @@ async function start(): Promise<void> {
     process.exit(1);
   }
 
-  // Graceful shutdown
+  // Sprint 60: Improved graceful shutdown with drain period
+  let isShuttingDown = false;
+  const SHUTDOWN_TIMEOUT_MS = 10_000; // 10s max drain period
+
   const shutdown = async (signal: string) => {
-    app.log.info({ signal }, "Shutting down gracefully");
+    if (isShuttingDown) return; // Prevent double-shutdown
+    isShuttingDown = true;
+
+    app.log.info({ signal }, "Shutting down gracefully — draining in-flight requests");
+
+    // Stop accepting new connections
     await app.close();
-    const { closeDb } = await import("./shared/database/connection.js");
-    await closeDb();
+
+    // Wait up to SHUTDOWN_TIMEOUT_MS for in-flight requests to complete
+    const forceExitTimer = setTimeout(() => {
+      app.log.warn("Shutdown timeout reached — forcing exit with in-flight requests");
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    forceExitTimer.unref(); // Don't keep process alive for this timer
+
+    // Close database connections
+    try {
+      const { closeDb } = await import("./shared/database/connection.js");
+      await closeDb();
+      app.log.info("Database connections closed");
+    } catch (err) {
+      app.log.error(err, "Error closing database connections");
+    }
+
+    clearTimeout(forceExitTimer);
+    app.log.info("Shutdown complete");
     process.exit(0);
   };
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  // Prevent unhandled rejections from crashing in production
+  process.on("unhandledRejection", (reason) => {
+    app.log.error({ reason }, "Unhandled promise rejection");
+  });
 }
 
 start();

@@ -39,8 +39,29 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 58 COMPLETED — CSP + EXIF + Bluetooth + IndexedDB + Canvas",
-    "next_sprint": "Sprint 59 — CI/CD Pipeline + Production Deployment",
+    "current_sprint": "Sprint 61 COMPLETED — Chaos Audit + Critical Security Patches",
+    "next_sprint": "Sprint 62 — TODO",
+    "chaos_audit": {
+      "date": "2026-06-19",
+      "auditor": "Ingeniero Principal de Caos / Auditor Forense de Código",
+      "layers_audited": 5,
+      "risks_found": 12,
+      "critical_patches": 4,
+      "findings": {
+        "C-01": "RLS bypass por SET LOCAL fallido — FIXED: fail-closed en rls.ts",
+        "C-02": "Race condition stock TOCTOU — FIXED: atomic UPDATE WHERE stock >= cantidad",
+        "C-03": "SIFEN timezone UTC vs Paraguay — FIXED: Intl.DateTimeFormat America/Asuncion",
+        "C-04": "Timing attack USB token — FIXED: crypto.timingSafeEqual",
+        "C-05": "Sin CHECK constraints en DB — OPEN: requiere migración SQL",
+        "C-06": "Split-brain sync híbrido — OPEN: requiere ON_ERROR_STOP=on",
+        "C-07": "Cache stampede Redis — OPEN: requiere SETNX lock",
+        "C-08": "Canvas DVI sin auto-save — OPEN: requiere localStorage auto-save",
+        "C-09": "Bluetooth listeners zombi — OPEN: requiere beforeunload handlers",
+        "C-10": "Idempotencia CRM por día — OPEN: requiere nonce único",
+        "C-11": "WhatsApp queue sin timeout — OPEN: requiere AbortSignal.timeout",
+        "C-12": "RLS bypass en vistas LEFT JOIN — OPEN: requiere auditoría de vistas"
+      }
+    },
     "sprint_32_progress": {
       "architecture": "REGLA DE ORO: Agendamiento vive en CRM (comercial), Ejecución vive ERP (OT). Check-in convierte turno en OT.",
       "state_machine": "5 estados: RESERVADO → CONFIRMADO → PROCESADO_EN_ERP / AUSENTE / CANCELADO. Transiciones validadas.",

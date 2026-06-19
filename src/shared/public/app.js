@@ -1117,6 +1117,25 @@ window.addEventListener('error', (event) => {
   showToast('Error del sistema: ' + (event.error?.message || 'Error desconocido'), 'error');
 });
 
+// ─── WebSocket Cleanup on Navigation (P2 Security) ────────
+// Sprint 58+: Gracefully close WebSocket connections before page unload
+// to prevent server-side zombie connections and resource leaks.
+window.addEventListener('beforeunload', () => {
+  if (state.ws) {
+    state.ws.onclose = null; // Prevent reconnect attempt
+    state.ws.close();
+    state.ws = null;
+  }
+  if (state.wsReconnectTimer) {
+    clearTimeout(state.wsReconnectTimer);
+    state.wsReconnectTimer = null;
+  }
+  if (state.pollTimer) {
+    clearInterval(state.pollTimer);
+    state.pollTimer = null;
+  }
+});
+
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   const colors = type === 'error' ? 'bg-red-900/90 border-red-700 text-red-200' :

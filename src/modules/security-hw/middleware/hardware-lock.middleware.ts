@@ -24,6 +24,14 @@ import { join } from "node:path";
 /** Paths to exclude from USB validation (health checks, docs, etc.) */
 const EXEMPT_PATHS = [
   "/health",
+  "/health/live",
+  "/health/ready",
+  "/health/modules",
+  "/health/metrics",
+  "/health/performance",
+  "/health/security-audit",
+  "/health/deep",
+  "/metrics",
   "/docs",
   "/swagger",
   "/security/hw/status",

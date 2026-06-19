@@ -52,13 +52,14 @@ export async function rlsTenantContext(
     const safeSlug = tenantSlug.replace(/[^a-zA-Z0-9_-]/g, "");
     await sql`SELECT set_config('app.current_tenant', ${safeSlug}, true)`;
   } catch (err) {
-    // If SET LOCAL fails, log but don't block the request
-    // The application-level tenant_slug filtering is still active
-    // RLS policies will default to blocking if the setting is missing
-    console.warn(
-      `[RLS] Failed to set tenant context for ${tenantSlug}:`,
+    // C-01 FIX: If SET LOCAL fails, BLOCK the request (fail-closed)
+    // Previously this was a silent warn — allowing RLS bypass via NULL
+    console.error(
+      `[RLS] CRITICAL: Failed to set tenant context for ${tenantSlug} — BLOCKING request`,
       err instanceof Error ? err.message : err,
     );
+    // Throw to prevent request from proceeding without tenant context
+    throw new Error("Tenant context setup failed — request blocked for security");
   }
 }
 

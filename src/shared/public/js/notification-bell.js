@@ -20,6 +20,7 @@ let _notifState = {
   unreadCount: 0,
   isOpen: false,
   connected: false,
+  heartbeatInterval: null,
 };
 
 // ─── WebSocket Connection ───────────────────
@@ -127,11 +128,27 @@ function initNotificationBell() {
   connectNotificationWS();
 
   // Start heartbeat
-  setInterval(() => {
+  _notifState.heartbeatInterval = setInterval(() => {
     if (_notifState.ws?.readyState === WebSocket.OPEN) {
       _notifState.ws.send(JSON.stringify({ type: "ping" }));
     }
   }, 30000);
+}
+
+// ─── WebSocket Cleanup on Navigation (P2 Security) ────────
+// Sprint 58+: Gracefully close notification WebSocket before page unload.
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
+    if (_notifState.heartbeatInterval) {
+      clearInterval(_notifState.heartbeatInterval);
+      _notifState.heartbeatInterval = null;
+    }
+    if (_notifState.ws) {
+      _notifState.ws.onclose = null; // Prevent reconnect attempt
+      _notifState.ws.close();
+      _notifState.ws = null;
+    }
+  });
 }
 
 // ─── Data Loading ───────────────────────────

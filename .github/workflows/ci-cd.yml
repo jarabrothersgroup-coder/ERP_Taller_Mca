@@ -1,0 +1,245 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — CI/CD Pipeline (GitHub Actions)
+# ─────────────────────────────────────────────────────────
+# Trigger: push a main, pull_request a main
+# Etapas: Lint → Test → DB Push → Build Docker → Deploy
+#
+# Requeridos en GitHub Secrets:
+#   SUPABASE_ACCESS_TOKEN   — Token de Supabase CLI
+#   SUPABASE_PROJECT_ID     — ID del proyecto Supabase
+#   DOCKERHUB_USERNAME      — Usuario Docker Hub
+#   DOCKERHUB_TOKEN         — Token de acceso Docker Hub
+#   DEPLOY_SSH_KEY           — Clave SSH para servidor on-premise
+#   DEPLOY_HOST              — IP/hostname del servidor destino
+#   DEPLOY_USER              — Usuario SSH del servidor
+# ─────────────────────────────────────────────────────────
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "22"
+  SUPABASE_CLI_VERSION: "1.200.0"
+  IMAGE_NAME: "automotiveos/erp-backend"
+  IMAGE_TAG: ${{ github.sha }}
+
+# Cancel runs in progress for same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ═══════════════════════════════════════════════════
+  #  ETAPA 1: Lint + Type Check
+  # ═══════════════════════════════════════════════════
+  lint:
+    name: "🔍 Lint & Type Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript compilation check
+        run: npx tsc --noEmit
+
+      - name: Lint SQL migrations (Supabase)
+        run: |
+          # Install Supabase CLI
+          curl -sS https://get.supabase.com | sudo bash
+          supabase --version
+          # Lint migrations directory
+          supabase db lint --project-id ${{ secrets.SUPABASE_PROJECT_ID }} || echo "⚠️ Lint warnings (non-blocking)"
+
+  # ═══════════════════════════════════════════════════
+  #  ETAPA 2: Unit + Integration Tests
+  # ═══════════════════════════════════════════════════
+  test:
+    name: "🧪 Tests (1398+)"
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npx vitest run --reporter=verbose
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgresql://test:test@localhost:5432/test_db"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
+
+  # ═══════════════════════════════════════════════════
+  #  ETAPA 3: Supabase DB Push (Migraciones)
+  # ═══════════════════════════════════════════════════
+  db-push:
+    name: "🗄️ DB Migrations"
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          curl -sS https://get.supabase.com | sudo bash
+          supabase --version
+
+      - name: Link to Supabase project
+        run: |
+          supabase link \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} \
+            --token ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Push migrations to Supabase
+        run: |
+          echo "🔄 Applying pending migrations..."
+          supabase db push --linked
+          echo "✅ Migrations applied successfully"
+
+      - name: Verify migration status
+        run: |
+          supabase migration list --linked
+
+  # ═══════════════════════════════════════════════════
+  #  ETAPA 4: Build Docker Image
+  # ═══════════════════════════════════════════════════
+  build:
+    name: "🐳 Build Docker Image"
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ERP backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Image size report
+        run: |
+          docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker inspect ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} --format='{{.Size}}' | awk '{printf "📦 Image size: %.1f MB\n", $1/1024/1024}'
+
+  # ═══════════════════════════════════════════════════
+  #  ETAPA 5: Deploy to On-Premise Server
+  # ═══════════════════════════════════════════════════
+  deploy:
+    name: "🚀 Deploy to Server"
+    runs-on: ubuntu-latest
+    needs: [db-push, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            echo "🔄 Deploying AutomotiveOS ERP..."
+
+            # Navigate to project directory
+            cd /opt/automotiveos
+
+            # Pull latest code
+            git pull origin main
+
+            # Pull new Docker image
+            docker pull ${{ env.IMAGE_NAME }}:latest
+
+            # Stop existing containers (preserves data volumes)
+            docker compose -f docker-compose.prod.yml down
+
+            # Run database migrations locally (if using local DB)
+            docker compose -f docker-compose.prod.yml run --rm erp npx drizzle-kit push
+
+            # Start all services
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Health check
+            sleep 10
+            curl -sf http://localhost:3000/api/v1/health || {
+              echo "❌ Health check failed — rolling back"
+              docker compose -f docker-compose.prod.yml down
+              docker tag ${{ env.IMAGE_NAME }}:previous ${{ env.IMAGE_NAME }}:latest
+              docker compose -f docker-compose.prod.yml up -d
+              exit 1
+            }
+
+            # Cleanup old images
+            docker image prune -f
+
+            echo "✅ Deploy complete — $(date)"
+
+      - name: Notify deployment
+        if: success()
+        run: |
+          echo "✅ **Deployment successful**" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: \`${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ **Deployment failed**" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Check logs for details" >> $GITHUB_STEP_SUMMARY
