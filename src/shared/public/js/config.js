@@ -51,6 +51,11 @@ function renderConfig(container) {
     </div>`;
   loadConfigForm();
   setupLogoUpload();
+  // WhatsApp config section (defined in whatsapp.js)
+  if (typeof renderWhatsAppConfig === 'function') {
+    const wrapper = container.querySelector('.max-w-2xl') || container;
+    renderWhatsAppConfig(wrapper);
+  }
 }
 
 async function loadConfigForm() {

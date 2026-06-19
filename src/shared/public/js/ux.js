@@ -151,3 +151,100 @@ window.showToast = showToast;
 window.renderSkeleton = renderSkeleton;
 window.showSkeleton = showSkeleton;
 window.hideSkeleton = hideSkeleton;
+
+// ═════════════════════════════════════════════════
+//  FORM VALIDATION HELPERS
+// ═════════════════════════════════════════════════
+
+/**
+ * Validate a form field and show error state.
+ *
+ * @param {HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement} field - Field to validate
+ * @param {function} validator - (value) => true | error message string
+ * @returns {boolean} true if valid
+ */
+function validateField(field, validator) {
+  const value = field.value?.trim();
+  const result = validator(value);
+  const errorEl = document.getElementById(`${field.id}-error`);
+
+  if (result === true) {
+    field.classList.remove('border-red-500');
+    field.classList.add('border-gray-700');
+    if (errorEl) errorEl.classList.add('hidden');
+    return true;
+  } else {
+    field.classList.remove('border-gray-700');
+    field.classList.add('border-red-500');
+    if (errorEl) {
+      errorEl.textContent = result;
+      errorEl.classList.remove('hidden');
+    }
+    return false;
+  }
+}
+
+/**
+ * Validate an entire form by mapping fields to validators.
+ *
+ * @param {Object} schema - { fieldId: validatorFn }
+ * @returns {boolean} true if all valid
+ */
+function validateForm(schema) {
+  let allValid = true;
+  for (const [fieldId, validator] of Object.entries(schema)) {
+    const field = document.getElementById(fieldId);
+    if (field && !validateField(field, validator)) {
+      allValid = false;
+    }
+  }
+  return allValid;
+}
+
+/**
+ * Common validators for Paraguayan workshop forms.
+ */
+const Validators = {
+  required: (msg = 'Campo obligatorio') => (v) => v ? true : msg,
+  minLength: (min, msg) => (v) => v.length >= min ? true : (msg || `Mínimo ${min} caracteres`),
+  maxLength: (max, msg) => (v) => v.length <= max ? true : (msg || `Máximo ${max} caracteres`),
+  email: (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? true : 'Email inválido',
+  ruc: (v) => !v || /^\d{6,8}-\d$/.test(v) ? true : 'RUC inválido (formato: 1234567-8)',
+  numeric: (v) => !v || !isNaN(Number(v)) ? true : 'Debe ser numérico',
+  positive: (v) => !v || Number(v) > 0 ? true : 'Debe ser mayor a 0',
+  phone: (v) => !v || /^\+?[\d\s-]{8,15}$/.test(v) ? true : 'Teléfono inválido',
+  plate: (v) => !v || /^[A-Z]{3}-?\d{3,4}$/i.test(v) ? true : 'Formato de patente inválido (ABC-1234)',
+  vin: (v) => !v || /^[A-HJ-NPR-Z0-9]{17}$/i.test(v) ? true : 'VIN debe tener 17 caracteres alfanuméricos',
+};
+
+/**
+ * Add real-time validation to a form.
+ *
+ * @param {string} formId - Form element ID
+ * @param {Object} schema - { fieldId: validatorFn }
+ */
+function attachValidation(formId, schema) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  for (const [fieldId, validator] of Object.entries(schema)) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.addEventListener('blur', () => validateField(field, validator));
+      field.addEventListener('input', () => {
+        if (field.classList.contains('border-red-500')) validateField(field, validator);
+      });
+    }
+  }
+  form.addEventListener('submit', (e) => {
+    if (!validateForm(schema)) {
+      e.preventDefault();
+      showToast('Corrige los errores antes de continuar', 'warning');
+    }
+  });
+}
+
+// Expose validation utilities
+window.validateField = validateField;
+window.validateForm = validateForm;
+window.Validators = Validators;
+window.attachValidation = attachValidation;

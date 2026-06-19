@@ -145,13 +145,27 @@ export {
   facturas,
   tipoFacturacionEnum,
   sifenStatusEnum,
+  facturaDetalles,
 } from "../../../modules/finance/schema/index.js";
 export type {
   Factura,
   NewFactura,
   TipoFacturacion,
   SifenStatus,
+  FacturaDetalle,
+  NewFacturaDetalle,
 } from "../../../modules/finance/schema/index.js";
+
+export {
+  ordenServicios,
+  ordenRepuestos,
+} from "../../../modules/workshop/schema/index.js";
+export type {
+  OrdenServicio,
+  NewOrdenServicio,
+  OrdenRepuesto,
+  NewOrdenRepuesto,
+} from "../../../modules/workshop/schema/index.js";
 
 export {
   tenantConfig,

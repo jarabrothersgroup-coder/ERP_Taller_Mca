@@ -251,7 +251,7 @@ function invoiceTemplate(factura: any, items: any[], cliente: any): string {
           <td>${item.descripcion || item.servicioNombre || "—"}</td>
           <td>${item.cantidad || 1}</td>
           <td>₲ ${(item.precioUnitario || item.monto || 0).toLocaleString("es-PY")}</td>
-          <td> gồ ${((item.precioUnitario || item.monto || 0) * (item.cantidad || 1)).toLocaleString("es-PY")}</td>
+          <td>₲ ${((item.precioUnitario || item.monto || 0) * (item.cantidad || 1)).toLocaleString("es-PY")}</td>
         </tr>
       `).join("")}
     </tbody>
@@ -273,9 +273,216 @@ function invoiceTemplate(factura: any, items: any[], cliente: any): string {
 </html>`;
 }
 
-// ─── PDF Generation ────────────────────────────
+export function vehicleHistoryTemplate(vehiculo: any, cliente: any, ots: any[], facturas: any[]): string {
+  const totalOt = ots.length;
+  const totalFacturado = facturas.reduce((sum: number, f: any) => sum + (f.total || 0), 0);
+  const totalPagado = facturas.reduce((sum: number, f: any) => sum + ((f.total || 0) - (f.saldoPendiente || 0)), 0);
 
-async function generatePdf(html: string): Promise<Buffer> {
+  return `<!DOCTYPE html>
+<html lang="es-PY">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+    body { color: #1f2937; padding: 40px; font-size: 13px; line-height: 1.5; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e40af; padding-bottom: 16px; margin-bottom: 24px; }
+    .company { font-size: 20px; font-weight: 800; color: #1e40af; }
+    .doc-title { font-size: 24px; font-weight: 700; text-align: right; color: #374151; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+    .info-box h3 { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .info-box p { font-size: 13px; color: #1f2937; margin-bottom: 4px; }
+    .info-box .label { color: #6b7280; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th { background: #1e40af; color: white; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .summary-box { background: #f9fafb; border: 2px solid #1e40af; border-radius: 8px; padding: 16px; text-align: center; }
+    .summary-value { font-size: 24px; font-weight: 700; color: #1e40af; }
+    .summary-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-top: 4px; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status-Listo { background: #d1fae5; color: #065f46; }
+    .status-En_Proceso { background: #dbeafe; color: #1e40af; }
+    .status-Presupuestado { background: #fef3c7; color: #92400e; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">🔧 AutomotiveOS</div>
+      <div style="color: #6b7280; font-size: 12px; margin-top: 4px;">Cloud ERP · Taller Mecánico</div>
+    </div>
+    <div>
+      <div class="doc-title">HISTORIAL DEL VEHÍCULO</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Propietario</h3>
+      <p><strong>${cliente?.name || "—"}</strong></p>
+      <p><span class="label">RUC:</span> ${cliente?.ruc || "—"}</p>
+      <p><span class="label">Tel:</span> ${cliente?.phone || "—"}</p>
+    </div>
+    <div class="info-box">
+      <h3>Vehículo</h3>
+      <p><strong>${vehiculo.brand || ""} ${vehiculo.model || ""}</strong></p>
+      <p><span class="label">Patente:</span> ${vehiculo.plate || "—"}</p>
+      <p><span class="label">VIN:</span> ${vehiculo.vin || "—"}</p>
+      <p><span class="label">Año:</span> ${vehiculo.year || "—"}</p>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-box">
+      <div class="summary-value">${totalOt}</div>
+      <div class="summary-label">Órdenes de Trabajo</div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-value">₲ ${totalFacturado.toLocaleString("es-PY")}</div>
+      <div class="summary-label">Total Facturado</div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-value">₲ ${totalPagado.toLocaleString("es-PY")}</div>
+      <div class="summary-label">Total Pagado</div>
+    </div>
+  </div>
+
+  <h3 style="margin-bottom: 8px; color: #374151;">Historial de Órdenes</h3>
+  <table>
+    <thead><tr><th>OT</th><th>Fecha</th><th>Estado</th><th>Total</th><th>Factura</th></tr></thead>
+    <tbody>
+      ${ots.map((ot: any) => {
+        const factura = facturas.find((f: any) => f.ordenId === ot.id);
+        return `
+        <tr>
+          <td>${ot.id?.slice(0, 8) || "—"}</td>
+          <td>${ot.createdAt ? new Date(ot.createdAt).toLocaleDateString("es-PY") : "—"}</td>
+          <td><span class="status-badge status-${ot.status || "Presupuestado"}">${ot.status || "Presupuestado"}</span></td>
+          <td>₲ ${(ot.totalCost || 0).toLocaleString("es-PY")}</td>
+          <td>${factura ? `Nº ${factura.serie}-${factura.numero}` : "—"}</td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Documento generado por AutomotiveOS Cloud ERP — ${new Date().toLocaleDateString("es-PY")} ${new Date().toLocaleTimeString("es-PY")}
+  </div>
+</body>
+</html>`;
+}
+
+export function clientStatementTemplate(cliente: any, facturas: any[]): string {
+  const totalFacturado = facturas.reduce((sum: number, f: any) => sum + (f.total || 0), 0);
+  const totalPagado = facturas.reduce((sum: number, f: any) => sum + ((f.total || 0) - (f.saldoPendiente || 0)), 0);
+  const saldoPendiente = facturas.reduce((sum: number, f: any) => sum + (f.saldoPendiente || 0), 0);
+
+  return `<!DOCTYPE html>
+<html lang="es-PY">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+    body { color: #1f2937; padding: 40px; font-size: 13px; line-height: 1.5; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #7c3aed; padding-bottom: 16px; margin-bottom: 24px; }
+    .company { font-size: 20px; font-weight: 800; color: #7c3aed; }
+    .doc-title { font-size: 24px; font-weight: 700; text-align: right; color: #374151; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+    .info-box h3 { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .info-box p { font-size: 13px; color: #1f2937; margin-bottom: 4px; }
+    .info-box .label { color: #6b7280; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th { background: #7c3aed; color: white; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .summary-box { background: #f9fafb; border: 2px solid #7c3aed; border-radius: 8px; padding: 16px; text-align: center; }
+    .summary-value { font-size: 24px; font-weight: 700; color: #7c3aed; }
+    .summary-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-top: 4px; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .status-PENDIENTE { background: #fef3c7; color: #92400e; }
+    .status-PAGADA { background: #d1fae5; color: #065f46; }
+    .status-PARCIAL { background: #dbeafe; color: #1e40af; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">🔧 AutomotiveOS</div>
+      <div style="color: #6b7280; font-size: 12px; margin-top: 4px;">Cloud ERP · Taller Mecánico</div>
+    </div>
+    <div>
+      <div class="doc-title">ESTADO DE CUENTA</div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-box">
+      <h3>Cliente</h3>
+      <p><strong>${cliente.name || "—"}</strong></p>
+      <p><span class="label">RUC:</span> ${cliente.ruc || "—"}</p>
+      <p><span class="label">Email:</span> ${cliente.email || "—"}</p>
+      <p><span class="label">Tel:</span> ${cliente.phone || "—"}</p>
+    </div>
+    <div class="info-box">
+      <h3>Resumen</h3>
+      <p><span class="label">Fecha de Emisión:</span> ${new Date().toLocaleDateString("es-PY")}</p>
+      <p><span class="label">Total Facturas:</span> ${facturas.length}</p>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-box">
+      <div class="summary-value">₲ ${totalFacturado.toLocaleString("es-PY")}</div>
+      <div class="summary-label">Total Facturado</div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-value">₲ ${totalPagado.toLocaleString("es-PY")}</div>
+      <div class="summary-label">Total Pagado</div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-value">₲ ${saldoPendiente.toLocaleString("es-PY")}</div>
+      <div class="summary-label">Saldo Pendiente</div>
+    </div>
+  </div>
+
+  <h3 style="margin-bottom: 8px; color: #374151;">Detalle de Facturas</h3>
+  <table>
+    <thead><tr><th>Nº Factura</th><th>Fecha</th><th>Total</th><th>Pagado</th><th>Saldo</th><th>Estado</th></tr></thead>
+    <tbody>
+      ${facturas.map((f: any) => {
+        const pagado = (f.total || 0) - (f.saldoPendiente || 0);
+        const estado = (f.saldoPendiente || 0) === 0 ? "PAGADA" : pagado > 0 ? "PARCIAL" : "PENDIENTE";
+        return `
+        <tr>
+          <td>${f.serie && f.numero ? `${f.serie}-${f.numero}` : f.id?.slice(0, 8) || "—"}</td>
+          <td>${f.createdAt ? new Date(f.createdAt).toLocaleDateString("es-PY") : "—"}</td>
+          <td>₲ ${(f.total || 0).toLocaleString("es-PY")}</td>
+          <td>₲ ${pagado.toLocaleString("es-PY")}</td>
+          <td>₲ ${(f.saldoPendiente || 0).toLocaleString("es-PY")}</td>
+          <td><span class="status-badge status-${estado}">${estado}</span></td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Documento generado por AutomotiveOS Cloud ERP — ${new Date().toLocaleDateString("es-PY")} ${new Date().toLocaleTimeString("es-PY")}
+  </div>
+</body>
+</html>`;
+}
+
+// ─── Public API ────────────────────────────────
+
+export async function generatePdf(html: string): Promise<Buffer> {
   if (!CHROMIUM_PATH) {
     throw new Error("Chromium not found. Install chromium-browser or set PUPPETEER_EXECUTABLE_PATH.");
   }
@@ -307,8 +514,6 @@ async function generatePdf(html: string): Promise<Buffer> {
     await browser.close();
   }
 }
-
-// ─── Public API ────────────────────────────────
 
 export async function generateOtPdf(
   ot: any,

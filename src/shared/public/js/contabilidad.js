@@ -32,6 +32,7 @@ function showContabTab(tab) {
   else if (tab === 'resultados') renderContabResultados(content);
   else if (tab === 'libros') renderContabLibros(content);
   else if (tab === 'impuestos') renderContabImpuestos(content);
+  else if (tab === 'auditoria') renderContabAuditoria(content);
 }
 
 // ─── Plan de Cuentas ──────────────────────
@@ -1215,5 +1216,120 @@ async function guardarNuevoAsiento() {
     showContabTab('asientos');
   } catch (e) {
     if (errEl) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+  }
+}
+
+// ─── Auditoría (Audit Log) ──────────────────────
+
+let auditPage = 0;
+const auditPageSize = 50;
+
+async function renderContabAuditoria(container) {
+  container.innerHTML = `
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <select id="audit-entidad" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Filtrar por entidad">
+        <option value="">Todas las entidades</option>
+        <option value="ORDEN_TRABAJO">Órdenes de Trabajo</option>
+        <option value="FACTURA">Facturas</option>
+        <option value="ASIENTO_CONTABLE">Asientos Contables</option>
+        <option value="PAGO">Pagos</option>
+        <option value="REPUESTO">Repuestos</option>
+      </select>
+      <select id="audit-accion" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Filtrar por acción">
+        <option value="">Todas las acciones</option>
+        <option value="CREAR">Crear</option>
+        <option value="MODIFICAR">Modificar</option>
+        <option value="ANULAR">Anular</option>
+        <option value="PAGAR">Pagar</option>
+        <option value="EMITIR">Emitir</option>
+      </select>
+      <input id="audit-desde" type="date" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Fecha desde">
+      <input id="audit-hasta" type="date" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Fecha hasta">
+      <button id="btn-cargar-audit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
+    </div>
+    <div id="audit-result" class="text-center py-8 text-gray-500">Selecciona filtros y haz clic en "Cargar"</div>
+    <div id="audit-pagination" class="flex justify-center gap-2 mt-4 hidden">
+      <button id="audit-prev" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">← Anterior</button>
+      <span id="audit-page-info" class="px-3 py-1.5 text-sm text-gray-400"></span>
+      <button id="audit-next" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">Siguiente →</button>
+    </div>`;
+
+  document.getElementById('btn-cargar-audit')?.addEventListener('click', () => { auditPage = 0; cargarAuditoria(); });
+  document.getElementById('audit-prev')?.addEventListener('click', () => { if (auditPage > 0) { auditPage--; cargarAuditoria(); } });
+  document.getElementById('audit-next')?.addEventListener('click', () => { auditPage++; cargarAuditoria(); });
+}
+
+async function cargarAuditoria() {
+  const resultDiv = document.getElementById('audit-result');
+  const pagDiv = document.getElementById('audit-pagination');
+  if (!resultDiv) return;
+  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+
+  const entidad = document.getElementById('audit-entidad')?.value || '';
+  const accion = document.getElementById('audit-accion')?.value || '';
+  const desde = document.getElementById('audit-desde')?.value || '';
+  const hasta = document.getElementById('audit-hasta')?.value || '';
+
+  const params = new URLSearchParams();
+  if (entidad) params.set('entidad', entidad);
+  if (accion) params.set('accion', accion);
+  if (desde) params.set('desde', desde);
+  if (hasta) params.set('hasta', hasta);
+  params.set('limit', String(auditPageSize));
+  params.set('offset', String(auditPage * auditPageSize));
+
+  try {
+    const data = await api(`/finance/contabilidad/audit-log?${params.toString()}`);
+    const entries = data?.entries || [];
+    const total = data?.total || 0;
+
+    if (!entries.length) {
+      resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Sin registros de auditoría</div>';
+      if (pagDiv) pagDiv.classList.add('hidden');
+      return;
+    }
+
+    const accionBadge = (a) => {
+      const colors = { CREAR: 'bg-green-900/50 text-green-300', MODIFICAR: 'bg-blue-900/50 text-blue-300', ANULAR: 'bg-red-900/50 text-red-300', PAGAR: 'bg-yellow-900/50 text-yellow-300', EMITIR: 'bg-purple-900/50 text-purple-300' };
+      return `<span class="px-2 py-0.5 rounded text-xs ${colors[a] || 'bg-gray-700 text-gray-300'}">${a}</span>`;
+    };
+
+    resultDiv.innerHTML = `
+      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+            <th class="text-left px-4 py-3">Fecha</th>
+            <th class="text-left px-4 py-3">Acción</th>
+            <th class="text-left px-4 py-3">Entidad</th>
+            <th class="text-left px-4 py-3">Detalle</th>
+            <th class="text-left px-4 py-3">Módulo</th>
+          </tr></thead>
+          <tbody>
+            ${entries.map(e => `
+              <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+                <td class="px-4 py-3 text-xs text-gray-400">${e.createdAt ? new Date(e.createdAt).toLocaleString('es-PY') : '—'}</td>
+                <td class="px-4 py-3">${accionBadge(e.accion)}</td>
+                <td class="px-4 py-3 text-xs font-mono">${e.entidad} <span class="text-gray-600">(${e.entidadId?.slice(0, 8) || '—'})</span></td>
+                <td class="px-4 py-3 text-xs text-gray-300 max-w-xs truncate">${esc(e.detalle || '—')}</td>
+                <td class="px-4 py-3 text-xs text-gray-500">${e.moduloOrigen || '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+
+    if (pagDiv) {
+      const totalPages = Math.ceil(total / auditPageSize);
+      if (totalPages > 1) {
+        pagDiv.classList.remove('hidden');
+        document.getElementById('audit-page-info').textContent = `Página ${auditPage + 1} de ${totalPages} (${total} registros)`;
+        document.getElementById('audit-prev').disabled = auditPage === 0;
+        document.getElementById('audit-next').disabled = auditPage >= totalPages - 1;
+      } else {
+        pagDiv.classList.add('hidden');
+      }
+    }
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    if (pagDiv) pagDiv.classList.add('hidden');
   }
 }

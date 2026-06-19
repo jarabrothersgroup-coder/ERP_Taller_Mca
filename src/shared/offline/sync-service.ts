@@ -248,6 +248,128 @@ const inventoryHandler: EntityHandler = async (action, _payload) => {
   }
 };
 
+/**
+ * Handler for the "dvi" entity (Digital Vehicle Inspection).
+ *
+ * Supports creating and updating DVI inspections.
+ */
+const dviHandler: EntityHandler = async (action, payload, context) => {
+  switch (action) {
+    case "create": {
+      const { createDvi } = await import("../../modules/dvi/services/dvi.service.js");
+      const result = await createDvi(
+        {
+          ordenTrabajoId: payload["ordenTrabajoId"] as string,
+          inspectorNombre: payload["inspectorNombre"] as string,
+          observaciones: payload["observaciones"] as string,
+        },
+        context?.tenantSlug,
+      );
+      return { operationId: "", status: "applied" };
+    }
+    case "update": {
+      const id = payload["id"] as string;
+      if (!id) {
+        return { operationId: "", status: "failed", error: "Se requiere 'id' para actualizar DVI" };
+      }
+      // Update inspection items if provided
+      if (payload["items"] && Array.isArray(payload["items"])) {
+        const { addItem } = await import("../../modules/dvi/services/dvi.service.js");
+        for (const item of payload["items"] as Array<{ nombre: string; estado: string; categoria: string }>) {
+          await addItem(id, item, context?.tenantSlug);
+        }
+      }
+      return { operationId: "", status: "applied" };
+    }
+    case "delete": {
+      return {
+        operationId: "",
+        status: "failed",
+        error: "Las inspecciones DVI no se eliminan. Use el ciclo de estados.",
+      };
+    }
+    default:
+      return { operationId: "", status: "failed", error: `Acción desconocida: ${action}` };
+  }
+};
+
+/**
+ * Handler for the "signatures" entity (Digital Signatures).
+ */
+const signaturesHandler: EntityHandler = async (action, payload, context) => {
+  switch (action) {
+    case "create": {
+      const { saveSignature } = await import("../../modules/workshop/services/signature.service.js");
+      await saveSignature(
+        {
+          ordenTrabajoId: payload["ordenTrabajoId"] as string,
+          tipo: payload["tipo"] as string,
+          firmaBase64: payload["firmaBase64"] as string,
+          clienteNombre: payload["clienteNombre"] as string,
+          clienteDocumento: payload["clienteDocumento"] as string,
+          observaciones: payload["observaciones"] as string,
+        },
+        context?.tenantSlug,
+      );
+      return { operationId: "", status: "applied" };
+    }
+    case "update":
+    case "delete": {
+      return {
+        operationId: "",
+        status: "failed",
+        error: `Las firmas digitales no se pueden ${action === "update" ? "actualizar" : "eliminar"}.`,
+      };
+    }
+    default:
+      return { operationId: "", status: "failed", error: `Acción desconocida: ${action}` };
+  }
+};
+
+/**
+ * Handler for the "scheduling" entity (Appointments).
+ */
+const schedulingHandler: EntityHandler = async (action, payload, context) => {
+  switch (action) {
+    case "create": {
+      const { createAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await createAppointment(
+        {
+          clienteNombre: payload["clienteNombre"] as string,
+          telefono: payload["telefono"] as string,
+          vehiculoId: payload["vehiculoId"] as string,
+          fecha: payload["fecha"] as string,
+          hora: payload["hora"] as string,
+          tipoServicio: payload["tipoServicio"] as string,
+          notas: payload["notas"] as string,
+        },
+        context?.tenantSlug,
+      );
+      return { operationId: "", status: "applied" };
+    }
+    case "update": {
+      const id = payload["id"] as string;
+      if (!id) {
+        return { operationId: "", status: "failed", error: "Se requiere 'id' para actualizar turno" };
+      }
+      const { updateAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await updateAppointment(id, payload, context?.tenantSlug);
+      return { operationId: "", status: "applied" };
+    }
+    case "delete": {
+      const id = payload["id"] as string;
+      if (!id) {
+        return { operationId: "", status: "failed", error: "Se requiere 'id' para cancelar turno" };
+      }
+      const { cancelAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await cancelAppointment(id, context?.tenantSlug);
+      return { operationId: "", status: "applied" };
+    }
+    default:
+      return { operationId: "", status: "failed", error: `Acción desconocida: ${action}` };
+  }
+};
+
 // ─── Handler Registry ──────────────────────────
 
 const entityHandlers: Record<string, EntityHandler> = {
@@ -256,6 +378,9 @@ const entityHandlers: Record<string, EntityHandler> = {
   "work-orders": workOrdersHandler,
   "ingresos": ingresosHandler,
   "inventory": inventoryHandler,
+  "dvi": dviHandler,
+  "signatures": signaturesHandler,
+  "scheduling": schedulingHandler,
 };
 
 // ─── Public API ────────────────────────────────

@@ -13,6 +13,7 @@ import { ocrRoutes } from "./ocr.js";
 import { safetyRoutes } from "./safety.js";
 import { vehicleIntelligenceRoutes } from "./vehicle-intelligence.js";
 import { ragRoutes } from "../rag/rag-routes.js";
+import { aiDTCAssistantRoutes } from "./ai-dtc-assistant.routes.js";
 
 /**
  * Registers all intelligence routes on the given Fastify instance.
@@ -38,6 +39,7 @@ export async function intelligenceRoutes(app: FastifyInstance): Promise<void> {
   await app.register(safetyRoutes);
   await app.register(vehicleIntelligenceRoutes);
   await app.register(ragRoutes);
+  await app.register(aiDTCAssistantRoutes);
 
   app.log.info("Intelligence & Peripherals routes registered");
 }

@@ -7,8 +7,8 @@
  * @module shared/services/backup.service
  */
 
-import { execSync } from "child_process";
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "fs";
+import { execFileSync } from "child_process";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // ─── Configuration ─────────────────────────────
@@ -40,11 +40,10 @@ export function createBackup(label?: string): { path: string; size: string; dura
   const startTime = Date.now();
 
   try {
-    // pg_dump with custom format for compression
-    execSync(
-      `pg_dump "${databaseUrl}" --format=custom --compress=9 --file="${filepath}"`,
-      { timeout: 300_000, stdio: "pipe" } // 5 min timeout
-    );
+    // ALTO-04 FIX: Use execFileSync with array arguments (no shell interpolation)
+    execFileSync("pg_dump", [
+      databaseUrl, "--format=custom", "--compress=9", `--file=${filepath}`,
+    ], { timeout: 300_000, stdio: "pipe" });
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     const size = formatSize(statSync(filepath).size);
@@ -56,10 +55,10 @@ export function createBackup(label?: string): { path: string; size: string; dura
   } catch (err: any) {
     // Fallback: plain SQL dump
     try {
-      execSync(
-        `pg_dump "${databaseUrl}" --format=plain > "${filepath}"`,
-        { timeout: 300_000, stdio: "pipe" }
-      );
+      const dump = execFileSync("pg_dump", [databaseUrl, "--format=plain"], {
+        timeout: 300_000, stdio: "pipe",
+      });
+      writeFileSync(filepath, dump);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       const size = formatSize(statSync(filepath).size);
       cleanupOldBackups();
@@ -97,20 +96,17 @@ export function restoreBackup(
     };
   }
 
-  try {
-    // Try pg_restore for custom format
-    execSync(
-      `pg_restore "${databaseUrl}" --clean --if-exists "${backupPath}"`,
-      { timeout: 600_000, stdio: "pipe" } // 10 min timeout
-    );
+    try {
+      execFileSync("pg_restore", [
+        databaseUrl, "--clean", "--if-exists", backupPath,
+      ], { timeout: 600_000, stdio: "pipe" });
     return { success: true, message: `Restored from ${backupPath}` };
   } catch {
     // Fallback: psql for plain SQL
     try {
-      execSync(
-        `psql "${databaseUrl}" < "${backupPath}"`,
-        { timeout: 600_000, stdio: "pipe" }
-      );
+      execFileSync("psql", [databaseUrl, "-f", backupPath], {
+        timeout: 600_000, stdio: "pipe",
+      });
       return { success: true, message: `Restored from ${backupPath} (plain SQL)` };
     } catch (err: any) {
       throw new Error(`Restore failed: ${err.message}`);

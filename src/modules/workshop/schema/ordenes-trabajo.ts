@@ -100,6 +100,9 @@ export const ordenesTrabajo = pgTable(
     /** Total estimated / final cost (Gs. or USD) */
     totalCost: numeric("total_cost", { precision: 10, scale: 2 }).default("0"),
 
+    /** Branch where this OT was created (FK → sucursales) */
+    sucursalId: uuid("sucursal_id"),
+
     /** Tenant slug for multi-tenant isolation */
     tenantSlug: text("tenant_slug").notNull(),
 

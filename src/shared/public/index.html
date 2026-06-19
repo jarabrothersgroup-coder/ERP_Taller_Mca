@@ -46,17 +46,39 @@
   .scanner-overlay { animation: fadeIn 0.15s ease; z-index: 9999; }
   #scanner-video { transform: scaleX(-1); }
   #scanner-canvas { display: none; }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .animate-slide-up { animation: slideUp 0.3s ease; }
   /* Responsive sidebar */
   @media (max-width: 768px) {
-    #sidebar { position: fixed; z-index: 40; transform: translateX(-100%); }
-    #sidebar.open { transform: translateX(0); }
+    #sidebar { position: fixed; z-index: 40; transform: translateX(-100%); width: 280px; }
+    #sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     #sidebar-overlay { display: none; }
     #sidebar-overlay.open { display: block; }
+    #view-content { padding: 16px; }
+    .grid { gap: 8px !important; }
+    table { font-size: 12px; }
+    th, td { padding: 6px 8px !important; }
+    button { min-height: 44px; }
+    input, select, textarea { min-height: 44px; font-size: 16px !important; }
+    .modal-content { margin: 16px; max-height: 85vh; }
+    .dvi-tool-btn { min-height: 44px; min-width: 44px; }
+    .flex-wrap { gap: 8px; }
+    .stat-card { padding: 12px !important; }
+    .card-glow { padding: 12px !important; }
   }
   @media (min-width: 769px) {
-    #sidebar { position: relative; transform: translateX(0) !important; }
+    #sidebar { position: relative; transform: translateX(0) !important; width: 256px; }
     #sidebar-overlay { display: none !important; }
     #hamburger-btn { display: none !important; }
+  }
+  @media (max-width: 480px) {
+    .stat-card { flex-direction: column; text-align: center; }
+    .stat-card .stat-value { font-size: 1.5rem; }
+    .stat-card .stat-label { font-size: 0.75rem; }
+    .grid-cols-2 { grid-template-columns: 1fr !important; }
+    .grid-cols-3 { grid-template-columns: 1fr !important; }
+    .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
+    .hide-on-mobile { display: none !important; }
   }
   /* Print styles */
   @media print {
@@ -125,58 +147,92 @@
 
     <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-2" role="navigation" aria-label="Menú principal">
       <button class="sidebar-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dashboard">
-        <span class="text-lg">📊</span> Dashboard
+        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.dashboard">Dashboard</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="users">
-        <span class="text-lg">👥</span> Usuarios
+        <span class="text-lg" aria-hidden="true">👥</span> <span data-i18n="sidebar.users">Usuarios</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="config">
-        <span class="text-lg">⚙️</span> Configuración
+        <span class="text-lg" aria-hidden="true">⚙️</span> <span data-i18n="sidebar.config">Configuración</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ordenes">
-        <span class="text-lg">📋</span> Órdenes
+        <span class="text-lg" aria-hidden="true">📋</span> <span data-i18n="sidebar.ordenes">Órdenes</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="analytics">
-        <span class="text-lg">📊</span> Analytics
+        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.analytics">Analytics</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ingreso">
-        <span class="text-lg">🚗</span> Ingreso
+        <span class="text-lg" aria-hidden="true">🚗</span> <span data-i18n="sidebar.ingreso">Ingreso</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="workshop">
-        <span class="text-lg">🔧</span> Taller
+        <span class="text-lg" aria-hidden="true">🔧</span> <span data-i18n="sidebar.workshop">Taller</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tv">
-        <span class="text-lg">📺</span> Quiosco TV
+        <span class="text-lg" aria-hidden="true">📺</span> <span data-i18n="sidebar.tv">Quiosco TV</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="facturacion">
-        <span class="text-lg">💰</span> Facturación
+        <span class="text-lg" aria-hidden="true">💰</span> <span data-i18n="sidebar.facturacion">Facturación</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="servicios">
-        <span class="text-lg">🛠️</span> Servicios
+        <span class="text-lg" aria-hidden="true">🛠️</span> <span data-i18n="sidebar.servicios">Servicios</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="thinkcar">
-        <span class="text-lg">🔬</span> Thinkcar
+        <span class="text-lg" aria-hidden="true">🔬</span> <span data-i18n="sidebar.thinkcar">Thinkcar</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="contabilidad">
-        <span class="text-lg">📒</span> Contabilidad
+        <span class="text-lg" aria-hidden="true">📒</span> <span data-i18n="sidebar.contabilidad">Contabilidad</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tesoreria">
-        <span class="text-lg">💳</span> Tesorería
+        <span class="text-lg" aria-hidden="true">💳</span> <span data-i18n="sidebar.tesoreria">Tesorería</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="presupuestos">
-        <span class="text-lg">📊</span> Presupuestos
+        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.presupuestos">Presupuestos</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="inventario">
-        <span class="text-lg">📦</span> Inventario
+        <span class="text-lg" aria-hidden="true">📦</span> <span data-i18n="sidebar.inventario">Inventario</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="nomina">
-        <span class="text-lg">👥</span> Nómina
+        <span class="text-lg" aria-hidden="true">👥</span> <span data-i18n="sidebar.nomina">Nómina</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp">
+        <span class="text-lg" aria-hidden="true">💬</span> <span data-i18n="sidebar.whatsapp">WhatsApp</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dvi">
+        <span class="text-lg" aria-hidden="true">📸</span> <span data-i18n="sidebar.dvi">DVI</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="calendario">
+        <span class="text-lg" aria-hidden="true">📅</span> <span data-i18n="sidebar.calendario">Calendario</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="marketing">
+        <span class="text-lg" aria-hidden="true">📢</span> <span data-i18n="sidebar.marketing">Marketing</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="fleet">
+        <span class="text-lg" aria-hidden="true">🚛</span> <span data-i18n="sidebar.fleet">Flotas</span>
+      </button>
+      <div class="border-t border-gray-800 my-2 mx-3"></div>
+      <p class="px-4 py-1 text-[10px] text-gray-600 uppercase tracking-widest" data-i18n="sidebar.monitors">Monitores</p>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="sifen-monitor">
+        <span class="text-lg" aria-hidden="true">🛑</span> <span data-i18n="sidebar.sifenMonitor">SIFEN Fiscal</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp-monitor">
+        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.waColas">WA Colas</span>
+      </button>
+      <div class="border-t border-gray-800 my-2 mx-3"></div>
+      <p class="px-4 py-1 text-[10px] text-gray-600 uppercase tracking-widest" data-i18n="sidebar.tools">Herramientas</p>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="label-printing">
+        <span class="text-lg" aria-hidden="true">🏷️</span> <span data-i18n="sidebar.labelPrinting">Etiquetas</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="backup-restore">
+        <span class="text-lg" aria-hidden="true">💾</span> <span data-i18n="sidebar.backupRestore">Backup</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="security-hw">
+        <span class="text-lg" aria-hidden="true">🛡️</span> <span data-i18n="sidebar.securityHw">Seguridad HW</span>
       </button>
     </nav>
 
     <div class="border-t border-gray-800 p-3">
       <button id="logout-btn" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-red-400 hover:bg-red-900/10 transition" aria-label="Cerrar sesión">
-        <span aria-hidden="true">🚪</span> Cerrar Sesión
+        <span aria-hidden="true">🚪</span> <span data-i18n="sidebar.logout">Cerrar Sesión</span>
       </button>
     </div>
   </aside>
@@ -186,8 +242,8 @@
       <div class="flex items-center gap-3">
         <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1" onclick="toggleSidebar()" title="Menú" aria-label="Abrir menú de navegación" aria-expanded="false">☰</button>
         <div>
-          <h2 id="view-title" class="text-lg font-bold">Dashboard</h2>
-          <p id="view-subtitle" class="text-xs text-gray-500">Resumen del taller</p>
+          <h2 id="view-title" class="text-lg font-bold" data-i18n="dashboard.title">Dashboard</h2>
+          <p id="view-subtitle" class="text-xs text-gray-500" data-i18n="dashboard.subtitle">Resumen del taller</p>
         </div>
       </div>
       <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
@@ -195,6 +251,10 @@
         <div id="sifen-status" class="hidden md:flex items-center gap-2 text-xs" title="Conexión DNIT SIFEN">
           <span class="ws-dot bg-red-500" id="sifen-dot"></span>
           <span id="sifen-label" class="text-gray-500">SIFEN: —</span>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-xs" title="Conexión WhatsApp">
+          <span class="ws-dot bg-red-500" id="wa-header-dot"></span>
+          <span id="wa-header-label" class="text-gray-500">WA: —</span>
         </div>
         <div class="hidden md:flex items-center gap-2 text-xs">
           <span id="offline-badge" class="hidden bg-yellow-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full" title="Operaciones pendientes sin conexión">0</span>
@@ -213,8 +273,36 @@
   <div id="modal-content" class="modal-content bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"></div>
 </div>
 
+<!-- AI Copilot Sidebar (rendered by ai-copilot.js) -->
+<div id="ai-copilot-mount"></div>
+<script>
+  // Mount the AI Copilot sidebar into the DOM
+  document.addEventListener('DOMContentLoaded', function() {
+    var mount = document.getElementById('ai-copilot-mount');
+    if (mount && typeof renderAiCopilotSidebar === 'function') {
+      mount.innerHTML = renderAiCopilotSidebar();
+    }
+  });
+</script>
+
+<!-- PWA Install Prompt Banner -->
+<div id="pwa-install-banner" class="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-3 flex items-center justify-between z-50 hidden">
+  <div class="flex items-center gap-3">
+    <span class="text-lg">📱</span>
+    <span class="text-sm font-medium">Instalar AutomotiveOS en tu dispositivo</span>
+  </div>
+  <div class="flex gap-2">
+    <button id="pwa-install-btn" class="px-4 py-1.5 bg-white text-blue-600 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">Instalar</button>
+    <button id="pwa-dismiss-btn" class="px-3 py-1.5 text-white/70 hover:text-white text-sm transition">✕</button>
+  </div>
+</div>
+
 <!-- Modules: order-independent (globals resolved at call-time, not load-time) -->
-<script src="js/ux.js"></script>
+  <script src="js/ux.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/offline-db.js"></script>
+  <script src="js/offline-queue.js"></script>
+<script src="js/charts.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/budget.js"></script>
 <script src="js/servicios.js"></script>
@@ -230,6 +318,14 @@
 <script src="js/contabilidad.js"></script>
 <script src="js/tesoreria.js"></script>
 <script src="js/notifications.js"></script>
+<script src="js/whatsapp.js"></script>
+<script src="js/wa-templates.js"></script>
+<script src="js/notification-bell.js"></script>
+<script src="js/analytics-dashboard.js"></script>
+<script src="js/dvi.js"></script>
+<script src="js/calendario.js"></script>
+<script src="js/marketing.js"></script>
+<script src="js/fleet.js"></script>
 <script src="js/payroll.js"></script>
 <script src="js/history.js"></script>
 <script src="js/print.js"></script>
@@ -237,7 +333,19 @@
 <script src="js/pwa.js"></script>
 <script src="js/shortcuts.js"></script>
 <script src="js/theme.js"></script>
-<script src="js/a11y.js"></script>
+  <script src="js/a11y.js"></script>
+  <script src="js/faq-data.js"></script>
+  <script src="js/help-sidebar.js"></script>
+<script src="js/mobile.js"></script>
+<script src="js/sanitize.js"></script>
+<script src="js/client-portal.js"></script>
+<script src="js/inventory-batch.js"></script>
+<script src="js/ai-copilot.js"></script>
+<script src="js/sifen-monitor.js"></script>
+<script src="js/whatsapp-monitor.js"></script>
+<script src="js/label-printing.js"></script>
+<script src="js/backup-restore.js"></script>
+<script src="js/security-hw.js"></script>
 <!-- Core: state, api, auth, routing, event delegation, WS/polling — MUST load AFTER modules -->
 <script src="app.js"></script>
 </body>

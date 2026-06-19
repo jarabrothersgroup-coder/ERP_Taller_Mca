@@ -3,6 +3,7 @@ import { ordenesTrabajo, vehiculos, type EstadoOrden } from "../schema/index.js"
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
 
 // ─── Tenant isolation helper ──────────────────
 
@@ -216,6 +217,16 @@ export async function updateOrdenStatus(
 
   if (!updated) {
     throw new Error(`Error al actualizar orden ${ordenId}`);
+  }
+
+  // ── Auto-consume inventory stock when OT is completed ──
+  if (newStatus === "Listo" && tenantSlug) {
+    consumeStockOnOTClose(ordenId, tenantSlug).catch((err) => {
+      console.warn(
+        `[orden] Error consumiendo stock en OT ${ordenId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    });
   }
 
   broadcastToScreens(updated.id, newStatus).catch(() => {});

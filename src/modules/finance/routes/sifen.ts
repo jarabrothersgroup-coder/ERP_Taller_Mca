@@ -35,9 +35,10 @@ import {
   createSyncLogEntry,
   getSyncLog,
 } from "../services/sifen/sifen-db.service.js";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
+import { sifenSyncLog } from "../schema/fiscal-docs.js";
 import type { EmitirDTERequest, ConsultaDTEQuery, SIFENSoapResponse } from "../types.js";
 
 // ─── Route registration ────────────────────────
@@ -401,14 +402,16 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /finance/sifen/documentos — List fiscal documents ──
-  app.get<{ Querystring: { estado?: string; page?: string; limit?: string } }>(
+  app.get<{ Querystring: { estado?: string; page?: string; limit?: string; sortBy?: string; sortOrder?: string } }>(
     "/finance/sifen/documentos",
     async (request, reply) => {
-      const { estado, page, limit } = request.query;
+      const { estado, page, limit, sortBy, sortOrder } = request.query;
       const result = await listFiscalDocumentos({
         estado,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 20,
+        sortBy,
+        sortOrder: sortOrder as "asc" | "desc" | undefined,
       });
       return reply.send(result);
     },
@@ -424,14 +427,16 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /finance/sifen/sync-log — View SIFEN sync log ──
-  app.get<{ Querystring: { documentoId?: string; page?: string; limit?: string } }>(
+  app.get<{ Querystring: { documentoId?: string; page?: string; limit?: string; sortBy?: string; sortOrder?: string } }>(
     "/finance/sifen/sync-log",
     async (request, reply) => {
-      const { documentoId, page, limit } = request.query;
+      const { documentoId, page, limit, sortBy, sortOrder } = request.query;
       const result = await getSyncLog({
         documentoId,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 50,
+        sortBy,
+        sortOrder: sortOrder as "asc" | "desc" | undefined,
       });
       return reply.send(result);
     },
@@ -445,6 +450,152 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({
         ...result,
         timestamp: new Date().toISOString(),
+      });
+    },
+  );
+
+  // ── POST /finance/sifen/consultar-lote — Batch consultation ──
+  app.post<{ Body: { cdcList: string[] } }>(
+    "/finance/sifen/consultar-lote",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["cdcList"],
+          properties: {
+            cdcList: {
+              type: "array",
+              minItems: 1,
+              maxItems: 50,
+              items: { type: "string", minLength: 44, maxLength: 44 },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { cdcList } = request.body;
+
+      // Validate: max 50 CDCs per batch
+      if (cdcList.length > 50) {
+        return reply.status(400).send({
+          error: "ValidationError",
+          message: "Máximo 50 CDCs por consulta en lote",
+        });
+      }
+
+      // Validate each CDC is exactly 44 characters
+      const invalidCdc = cdcList.find((cdc) => cdc.length !== 44);
+      if (invalidCdc) {
+        return reply.status(400).send({
+          error: "ValidationError",
+          message: `CDC inválido: "${invalidCdc}" — debe tener exactamente 44 caracteres`,
+        });
+      }
+
+      // Query each CDC sequentially to avoid overwhelming DNIT
+      const results: Array<{
+        cdc: string;
+        resultado: SIFENSoapResponse;
+      }> = [];
+
+      for (const cdc of cdcList) {
+        const resultado = await consultarDTE(cdc);
+        results.push({ cdc, resultado });
+      }
+
+      // Create batch sync log entry
+      const successCount = results.filter((r) => !!r.resultado.cdc).length;
+      const errorCount = results.filter((r) => r.resultado.codigoResultado === "ERROR").length;
+
+      // Log batch operation (use first document ID if available, or skip)
+      // Batch consultation doesn't tie to a single document, so we log without documentoId if possible
+      // However, the sync log requires documentoId, so we skip logging for pure batch queries
+      // unless we have a reference document
+
+      return reply.send({
+        totalConsultados: cdcList.length,
+        aprobados: successCount,
+        rechazados: results.filter((r) => r.resultado.codigoResultado === "RECHAZADO").length,
+        errores: errorCount,
+        resultados: results,
+        consultadoEn: new Date().toISOString(),
+      });
+    },
+  );
+
+  // ── GET /finance/sifen/dashboard — Status dashboard ──
+  app.get(
+    "/finance/sifen/dashboard",
+    async (_request, reply) => {
+      // Count documents by status
+      const statusCounts = await db()
+        .select({
+          estado: fiscalDocumentos.estado,
+          total: count(),
+        })
+        .from(fiscalDocumentos)
+        .groupBy(fiscalDocumentos.estado);
+
+      // Build status summary
+      const summary: Record<string, number> = {
+        BORRADOR: 0,
+        FIRMADO: 0,
+        ENVIADO: 0,
+        APROBADO: 0,
+        RECHAZADO: 0,
+        ANULADO: 0,
+      };
+      for (const row of statusCounts) {
+        if (row.estado && row.estado in summary) {
+          summary[row.estado] = Number(row.total);
+        }
+      }
+
+      // Recent activity (last 10 sync log entries)
+      const recentActivity = await db()
+        .select({
+          id: sifenSyncLog.id,
+          documentoId: sifenSyncLog.documentoId,
+          operacion: sifenSyncLog.operacion,
+          codigoResultado: sifenSyncLog.codigoResultado,
+          cdc: sifenSyncLog.cdc,
+          exitoso: sifenSyncLog.exitoso,
+          mensajeError: sifenSyncLog.mensajeError,
+          createdAt: sifenSyncLog.createdAt,
+        })
+        .from(sifenSyncLog)
+        .orderBy(sifenSyncLog.createdAt)
+        .limit(10);
+
+      // Pending documents (ENVIADO status) with age
+      const pendingDocs = await db()
+        .select({
+          id: fiscalDocumentos.id,
+          dteTipo: fiscalDocumentos.dteTipo,
+          serie: fiscalDocumentos.serie,
+          numero: fiscalDocumentos.numero,
+          fechaEnvio: fiscalDocumentos.fechaEnvio,
+        })
+        .from(fiscalDocumentos)
+        .where(eq(fiscalDocumentos.estado, "ENVIADO"))
+        .orderBy(fiscalDocumentos.fechaEnvio)
+        .limit(20);
+
+      // Calculate age for pending docs
+      const pendingWithAge = pendingDocs.map((doc) => ({
+        ...doc,
+        ageHours: doc.fechaEnvio
+          ? Math.round((Date.now() - doc.fechaEnvio.getTime()) / (1000 * 60 * 60))
+          : null,
+      }));
+
+      return reply.send({
+        summary,
+        totalDocumentos: Object.values(summary).reduce((a, b) => a + b, 0),
+        recentActivity,
+        pendingDocuments: pendingWithAge,
+        consultadoEn: new Date().toISOString(),
       });
     },
   );

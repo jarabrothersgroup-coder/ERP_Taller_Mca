@@ -113,7 +113,7 @@ export async function processBuffer(
 
   let linking = null;
   try {
-    linking = await smartLink(saved);
+    linking = await smartLink(saved, parsed);
   } catch (err: any) {
     await markManualReview(saved.id, `Error en vinculación: ${err.message}`);
     linking = {

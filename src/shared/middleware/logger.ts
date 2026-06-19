@@ -9,6 +9,7 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { randomUUID } from "crypto";
+import { maskEmail, maskIp } from "../services/auth-jwt.js";
 
 // ─── Request ID Generation ─────────────────────
 
@@ -46,10 +47,11 @@ export async function requestTimingHook(request: FastifyRequest, reply: FastifyR
       statusCode: reply.statusCode,
       durationMs: parseFloat(durationMs),
       tenantSlug,
-      userEmail,
+      // BAJO-05 FIX: Mask sensitive data in logs
+      userEmail: userEmail !== "—" ? maskEmail(userEmail) : userEmail,
       contentLength,
       userAgent: request.headers["user-agent"]?.slice(0, 80),
-      ip: request.ip,
+      ip: request.ip ? maskIp(request.ip) : undefined,
     };
 
     // Use pino if available, otherwise console

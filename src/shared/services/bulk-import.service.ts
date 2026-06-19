@@ -70,7 +70,7 @@ export interface ImportOptions {
 export function parseAndValidate(
   csvContent: string,
   type: "client" | "vehicle" | "repuesto",
-  options: ImportOptions
+  _options?: ImportOptions
 ): ImportResult {
   const schema =
     type === "client" ? clientImportSchema :
@@ -88,10 +88,11 @@ export function parseAndValidate(
   const errors: ImportResult["errors"] = [];
   const preview: Record<string, any>[] = [];
 
-  records.forEach((record: Record<string, string>, index: number) => {
+  records.forEach((record: unknown, index: number) => {
+    const typedRecord = record as Record<string, string>;
     const rowNumber = index + 2; // +2 for 1-indexed + header row
 
-    const result = schema.safeParse(record);
+    const result = schema.safeParse(typedRecord);
 
     if (result.success) {
       preview.push(result.data);

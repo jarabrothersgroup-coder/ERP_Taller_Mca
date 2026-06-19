@@ -39,6 +39,28 @@ export type { OrdenServicio, NewOrdenServicio } from "./orden-servicios.js";
 export { ordenRepuestos } from "./orden-repuestos.js";
 export type { OrdenRepuesto, NewOrdenRepuesto } from "./orden-repuestos.js";
 
+// ─── Vehicle Reference Tables ──────────────────
+export { vehicleTypes, fuelTypes, mileageIntervals } from "./vehicle-reference.js";
+export type { VehicleType, FuelType, MileageInterval } from "./vehicle-reference.js";
+
+// ─── Vehicle Master Data ───────────────────────
+export { vehiculosMarca, vehiculosModelo } from "./vehiculos-master.js";
+export type { VehiculoMarca, VehiculoModelo } from "./vehiculos-master.js";
+
+// ─── Service Pricing Matrix ────────────────────
+export {
+  serviceCategories,
+  servicePricingRules,
+  serviceBrandMap,
+  rhServiceHours,
+} from "./service-pricing.js";
+export type {
+  ServiceCategory,
+  ServicePricingRule,
+  ServiceBrandMap,
+  RhServiceHour,
+} from "./service-pricing.js";
+
 // ─── Relations ────────────────────────────────
 export {
   vehiculosRelations,

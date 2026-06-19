@@ -42,10 +42,10 @@ function buildCspDirectives(): string {
     // Default — restrict to self
     "default-src 'self'",
 
-    // Scripts — self only (no eval, no inline)
-    // Using 'unsafe-inline' only in dev for Tailwind JIT; production should use nonces
+    // Scripts — self only (no eval, no inline in production)
+    // MED-02 FIX: Remove unsafe-inline from production scripts
     isProd
-      ? "script-src 'self' 'unsafe-inline'"
+      ? "script-src 'self'"
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
 
     // Styles — CDN + inline (Tailwind requires inline)
@@ -55,7 +55,10 @@ function buildCspDirectives(): string {
     "font-src 'self' https://fonts.gstatic.com data:",
 
     // Images — self + data URIs (logos) + blob (camera)
-    "img-src 'self' data: blob: http: https:",
+    // MED-02 FIX: Restrict image sources in production
+    isProd
+      ? "img-src 'self' data: blob:"
+      : "img-src 'self' data: blob: http: https:",
 
     // Connect — WebSocket + API + CDN
     "connect-src 'self' ws: wss: https://cdn.tailwindcss.com",

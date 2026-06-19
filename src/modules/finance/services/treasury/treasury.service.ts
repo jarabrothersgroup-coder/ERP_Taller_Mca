@@ -395,7 +395,7 @@ export async function cerrarConciliacion(
       await tx
         .update(movimientosTes)
         .set({ conciliado: true, fechaConciliacion: new Date() })
-        .where(sql`${movimientosTes.id} = ANY(${sql.raw(`'{${movimientoIds.join(",")}}'`)})`);
+        .where(sql`${movimientosTes.id} = ANY(${movimientoIds}::uuid[])`);
     }
 
     // Cerrar conciliación

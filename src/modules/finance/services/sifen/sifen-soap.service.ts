@@ -33,11 +33,14 @@ const NS_SIFEN_WS = "http://www.dnit.gov.py/sifen/ws/";
 /** HTTP timeout in milliseconds */
 const SOAP_TIMEOUT_MS = 30_000;
 
-/** Maximum retries for transient network errors */
-const MAX_RETRIES = 3;
+/** Maximum retries for transient network errors (configurable via env) */
+const MAX_RETRIES = parseInt(process.env["SIFEN_MAX_RETRIES"] ?? "3", 10);
 
 /** Retry delay base (exponential backoff) in ms */
 const RETRY_DELAY_MS = 1000;
+
+/** Jitter factor: ±20% random variation on retry delay */
+const JITTER_FACTOR = 0.2;
 
 // ─── SOAP Envelope builders ────────────────────
 
@@ -155,7 +158,10 @@ async function sendSoapRequest(
       lastError = err instanceof Error ? err : new Error(String(err));
 
       if (attempt < MAX_RETRIES) {
-        const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        // Exponential backoff with jitter (±20%)
+        const baseDelay = RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        const jitter = baseDelay * JITTER_FACTOR * (Math.random() * 2 - 1);
+        const delay = Math.max(0, baseDelay + jitter);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

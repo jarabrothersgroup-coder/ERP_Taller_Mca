@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoOS ERP — DVI</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .markup-canvas { touch-action: none; }
+    .tool-active { background: #3b82f6; color: white; }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+  <div id="app" class="max-w-4xl mx-auto p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">DVI — Inspección Digital</h1>
+      <button onclick="shareViaWhatsApp()" class="bg-green-600 px-4 py-2 rounded-lg">
+        📤 Enviar por WhatsApp
+      </button>
+    </div>
+
+    <!-- Photo Grid -->
+    <div id="photo-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <!-- Photos will be added here -->
+    </div>
+
+    <!-- Upload Button -->
+    <label class="block w-full border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 mb-6">
+      <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoUpload(event)">
+      <span class="text-slate-400">📸 Tomar foto o seleccionar imagen</span>
+    </label>
+
+    <!-- Markup Tools -->
+    <div id="markup-tools" class="flex gap-2 mb-4">
+      <button onclick="setTool('circle')" class="tool-btn px-3 py-2 bg-slate-700 rounded">⭕ Círculo</button>
+      <button onclick="setTool('arrow')" class="tool-btn px-3 py-2 bg-slate-700 rounded">➡️ Flecha</button>
+      <button onclick="setTool('text')" class="tool-btn px-3 py-2 bg-slate-700 rounded">📝 Texto</button>
+      <button onclick="setTool('freehand')" class="tool-btn px-3 py-2 bg-slate-700 rounded">✏️ Libre</button>
+      <button onclick="clearMarkup()" class="px-3 py-2 bg-red-600 rounded">🗑️ Limpiar</button>
+    </div>
+
+    <!-- Canvas Markup Overlay -->
+    <div id="canvas-container" class="relative mb-6 hidden">
+      <img id="markup-image" class="w-full rounded-lg">
+      <canvas id="markup-canvas" class="markup-canvas absolute top-0 left-0 w-full h-full rounded-lg"></canvas>
+    </div>
+
+    <!-- Checklist -->
+    <div class="bg-slate-800 rounded-lg p-4 mb-6">
+      <h2 class="text-lg font-bold mb-4">Checklist de Inspección</h2>
+      <div id="checklist" class="space-y-2">
+        <!-- Items will be loaded dynamically -->
+      </div>
+    </div>
+
+    <!-- Health Score -->
+    <div id="health-score" class="bg-slate-800 rounded-lg p-4 text-center">
+      <h2 class="text-lg font-bold mb-2">Health Score</h2>
+      <div class="text-5xl font-bold" id="score-value">--</div>
+      <div class="text-slate-400 mt-2" id="score-label">Calculando...</div>
+    </div>
+  </div>
+
+  <script>
+    // ─── State ──────────────────────────────────
+    let currentTool = 'circle';
+    let currentImage = null;
+    let markupData = [];
+    let canvas, ctx;
+
+    // ─── Photo Upload ───────────────────────────
+    function handlePhotoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const url = e.target.result;
+        addPhotoToGrid(url);
+        showMarkupEditor(url);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addPhotoToGrid(url) {
+      const grid = document.getElementById('photo-grid');
+      const div = document.createElement('div');
+      div.className = 'relative group';
+      div.innerHTML = `
+        <img src="${url}" class="w-full h-48 object-cover rounded-lg">
+        <button onclick="this.parentElement.remove()" class="absolute top-2 right-2 bg-red-600 w-6 h-6 rounded-full text-xs hidden group-hover:block">×</button>
+      `;
+      grid.appendChild(div);
+    }
+
+    // ─── Markup Editor ──────────────────────────
+    function showMarkupEditor(url) {
+      const container = document.getElementById('canvas-container');
+      const img = document.getElementById('markup-image');
+      canvas = document.getElementById('markup-canvas');
+      ctx = canvas.getContext('2d');
+
+      img.src = url;
+      currentImage = url;
+      container.classList.remove('hidden');
+
+      img.onload = () => {
+        canvas.width = img.offsetWidth;
+        canvas.height = img.offsetHeight;
+        redrawMarkup();
+      };
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('tool-active'));
+      event.target.classList.add('tool-active');
+    }
+
+    // Canvas drawing
+    let isDrawing = false;
+    let startX, startY;
+
+    document.getElementById('markup-canvas')?.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      startX = e.offsetX;
+      startY = e.offsetY;
+    });
+
+    document.getElementById('markup-canvas')?.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      redrawMarkup();
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 3;
+
+      if (currentTool === 'circle') {
+        const radius = Math.sqrt(Math.pow(e.offsetX - startX, 2) + Math.pow(e.offsetY - startY, 2));
+        ctx.beginPath();
+        ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else if (currentTool === 'arrow') {
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+      } else if (currentTool === 'freehand') {
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+      }
+    });
+
+    document.getElementById('markup-canvas')?.addEventListener('mouseup', (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      markupData.push({
+        tool: currentTool,
+        startX, startY,
+        endX: e.offsetX, endY: e.offsetY,
+      });
+    });
+
+    function redrawMarkup() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const item of markupData) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+
+        if (item.tool === 'circle') {
+          const radius = Math.sqrt(Math.pow(item.endX - item.startX, 2) + Math.pow(item.endY - item.startY, 2));
+          ctx.beginPath();
+          ctx.arc(item.startX, item.startY, radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        } else if (item.tool === 'arrow') {
+          ctx.beginPath();
+          ctx.moveTo(item.startX, item.startY);
+          ctx.lineTo(item.endX, item.endY);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function clearMarkup() {
+      markupData = [];
+      redrawMarkup();
+    }
+
+    // ─── WhatsApp Share ─────────────────────────
+    function shareViaWhatsApp() {
+      const score = document.getElementById('score-value').textContent;
+      const text = `📊 DVI — Inspección de Vehicle\nHealth Score: ${score}/100\n\nAdjunto fotos e inspección detallada.`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
+  </script>
+</body>
+</html>

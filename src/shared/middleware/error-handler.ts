@@ -1,15 +1,16 @@
 /**
  * Global Fastify error handler.
  *
- * Catches all errors, formats them consistently, and prevents
- * leaking stack traces in production.
+ * Catches all errors, formats them consistently, and NEVER leaks
+ * internal details regardless of environment.
+ *
+ * OWASP Top 10 2021 — A05:2021 Security Misconfiguration
  *
  * @module shared/middleware/error-handler
  */
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { AppError } from "../errors/app-error.js";
-import { env } from "../../config/env.js";
 
 interface HandlerError {
   statusCode?: number;
@@ -22,15 +23,15 @@ interface HandlerError {
  * Global Fastify error handler.
  * Must be registered after all routes.
  *
- * Catches known AppError instances, Fastify validation errors,
- * and falls back to a generic 500 in production.
+ * Security: NEVER exposes internal error messages, stack traces,
+ * or implementation details to the client.
  */
 export async function errorHandler(
   error: HandlerError,
   _request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  // Handle known operational errors
+  // Handle known operational errors — safe to show message
   if (error instanceof AppError) {
     reply.status(error.statusCode).send({
       error: error.name,
@@ -42,12 +43,11 @@ export async function errorHandler(
     return;
   }
 
-  // Handle Fastify validation errors
+  // Handle Fastify validation errors — generic message only
   if (error.validation) {
     reply.status(400).send({
       error: "ValidationError",
-      message: "Request validation failed",
-      details: error.validation,
+      message: "Datos de entrada inválidos",
     });
     return;
   }
@@ -56,17 +56,14 @@ export async function errorHandler(
   if (error.statusCode === 429) {
     reply.status(429).send({
       error: "RateLimitError",
-      message: "Too many requests, please try again later",
+      message: "Demasiadas solicitudes. Intente más tarde.",
     });
     return;
   }
 
-  // Generic fallback — never leak internals in production
+  // BAJO-04 FIX: Generic fallback — NEVER leak internals
   reply.status(500).send({
     error: "InternalServerError",
-    message:
-      env.NODE_ENV === "production"
-        ? "An unexpected error occurred"
-        : error.message ?? "Unknown error",
+    message: "Ocurrió un error inesperado",
   });
 }

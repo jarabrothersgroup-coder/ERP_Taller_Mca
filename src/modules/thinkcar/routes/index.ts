@@ -6,8 +6,9 @@ import { processBuffer } from "../services/thinkcar-pipeline.service.js";
 import { ingestFromUsb } from "../services/thinkcar-usb.service.js";
 import { checkEmailNow } from "../services/thinkcar-email.service.js";
 import { scanAndIngest } from "../services/thinkcar-bluetooth.service.js";
-import { smartLink } from "../services/thinkcar-linker.service.js";
+import { smartLink, updateOrdenDtcs, updateVehicleDtcs } from "../services/thinkcar-linker.service.js";
 import { getAllHealth } from "../services/thinkcar-health.service.js";
+import { ordenesTrabajo } from "../../workshop/schema/ordenes-trabajo.js";
 import { BadRequestError, NotFoundError } from "../../../shared/errors/app-error.js";
 
 interface ListQuery {
@@ -169,5 +170,138 @@ export async function thinkcarRoutes(app: FastifyInstance): Promise<void> {
 
     const total = stats.reduce((acc, s) => acc + s.count, 0);
     return reply.send({ total, byStatus: stats });
+  });
+
+  // ── GET /thinkcar/pending — Diagnósticos pendientes de asignar ──
+
+  app.get("/thinkcar/pending", async (request: FastifyRequest, reply: FastifyReply) => {
+    const query = request.query as { limit?: string; offset?: string };
+    const limit = Math.min(parseInt(query.limit ?? "50", 10), 200);
+    const offset = parseInt(query.offset ?? "0", 10);
+
+    const [rows, total] = await Promise.all([
+      db()
+        .select()
+        .from(thinkcarImports)
+        .where(eq(thinkcarImports.status, "manual_review"))
+        .orderBy(desc(thinkcarImports.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db()
+        .select({ count: sql<number>`count(*)` })
+        .from(thinkcarImports)
+        .where(eq(thinkcarImports.status, "manual_review"))
+        .then((r) => Number(r[0]?.count ?? 0)),
+    ]);
+
+    return reply.send({ data: rows, total, limit, offset });
+  });
+
+  // ── POST /thinkcar/pending/:id/assign — Asignación manual a OT ──
+
+  app.post<{ Params: { id: string }; Body: { ordenTrabajoId: string } }>(
+    "/thinkcar/pending/:id/assign",
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { ordenTrabajoId: string } }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const { ordenTrabajoId } = request.body;
+
+      if (!ordenTrabajoId) {
+        throw new BadRequestError("ordenTrabajoId es requerido");
+      }
+
+      const [record] = await db()
+        .select()
+        .from(thinkcarImports)
+        .where(eq(thinkcarImports.id, id))
+        .limit(1);
+      if (!record) throw new NotFoundError(`Importe ${id} no encontrado`);
+
+      const [orden] = await db()
+        .select()
+        .from(ordenesTrabajo)
+        .where(eq(ordenesTrabajo.id, ordenTrabajoId))
+        .limit(1);
+      if (!orden) throw new NotFoundError(`Orden de trabajo ${ordenTrabajoId} no encontrada`);
+
+      await db()
+        .update(thinkcarImports)
+        .set({
+          status: "linked",
+          ordenTrabajoId,
+          vehicleId: orden.vehicleId,
+          clientId: orden.clientId,
+          pendingAssignment: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(thinkcarImports.id, id));
+
+      if (record.dtcCodes && record.dtcCodes.length > 0) {
+        await updateOrdenDtcs(
+          ordenTrabajoId,
+          record.dtcCodes,
+          `Diagnóstico Thinkcar asignado manualmente el ${new Date().toISOString().split("T")[0]}`,
+        );
+        await updateVehicleDtcs(orden.vehicleId, record.dtcCodes);
+      }
+
+      return reply.send({
+        ok: true,
+        importId: id,
+        ordenTrabajoId,
+        status: "linked",
+        message: `Diagnóstico vinculado a la OT #${ordenTrabajoId.slice(0, 8)}`,
+      });
+    },
+  );
+
+  // ── POST /thinkcar/upload — Upload desde navegador (Bluetooth/USB web) ──
+
+  app.post("/thinkcar/upload", async (request: FastifyRequest, reply: FastifyReply) => {
+    const data = await request.file();
+    if (!data) throw new BadRequestError("Archivo requerido (.pdf, .json o .csv)");
+
+    const allowedExts = [".pdf", ".json", ".csv"];
+    const ext = (data.filename ?? "").toLowerCase().slice(-4);
+    if (!allowedExts.some((e) => ext.endsWith(e))) {
+      throw new BadRequestError("Formato no soportado. Use .pdf, .json o .csv");
+    }
+
+    const buffers: Buffer[] = [];
+    const { Writable } = await import("node:stream");
+    const { pipeline } = await import("node:stream/promises");
+    await pipeline(
+      data.file,
+      new Writable({
+        write(chunk: Buffer, _enc, cb) {
+          buffers.push(chunk);
+          cb();
+        },
+      }),
+    );
+
+    const fileBuffer = Buffer.concat(buffers);
+
+    if (fileBuffer.length > 50 * 1024 * 1024) {
+      throw new BadRequestError("Archivo excede el límite de 50 MB");
+    }
+
+    const result = await processBuffer(
+      fileBuffer,
+      data.filename ?? "upload.pdf",
+      "api",
+    );
+
+    return reply.status(result.status === "error" ? 422 : 201).send(result);
+  });
+
+  // ── GET /thinkcar/pending/count — Conteo rápido de pendientes ──
+
+  app.get("/thinkcar/pending/count", async (_request, reply) => {
+    const [result] = await db()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(thinkcarImports)
+      .where(eq(thinkcarImports.status, "manual_review"));
+
+    return reply.send({ count: result?.count ?? 0 });
   });
 }

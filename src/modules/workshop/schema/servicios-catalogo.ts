@@ -41,8 +41,20 @@ export const serviciosCatalogo = pgTable(
     /** Optional description / scope notes */
     descripcion: text("descripcion"),
 
+    /** Extended technical description for service catalog */
+    descripcionTecnica: text("descripcion_tecnica"),
+
     /** Service category: Mecánica, Eléctrica, Carrocería, Diagnóstico, Aire Acondicionado, etc. */
     categoria: text("categoria"),
+
+    /** Normalized category FK → service_categories (nullable, for new multi-dimensional catalog) */
+    categoriaId: uuid("categoria_id"),
+
+    /** Service code (e.g. "MEC-PM-05K", "ELE-DIAG-ADV") */
+    codigo: text("codigo"),
+
+    /** Thinkcar module required for this service (e.g. "ECM_RESET", "ABS_BLEEDING") */
+    thinkcarModulo: text("thinkcar_modulo"),
 
     /** Default/estimated price in Gs. or USD */
     precioEstimado: numeric("precio_estimado", { precision: 10, scale: 2 }),

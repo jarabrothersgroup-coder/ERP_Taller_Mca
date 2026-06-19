@@ -5,6 +5,7 @@ import {
   uuid,
   jsonb,
   integer,
+  boolean,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -44,6 +45,8 @@ export const thinkcarImports = pgTable(
 
     status: text("status").notNull().default("pending"),
     errorMessage: text("error_message"),
+    healthScore: integer("health_score"),
+    pendingAssignment: boolean("pending_assignment").notNull().default(false),
 
     rawText: text("raw_text"),
 

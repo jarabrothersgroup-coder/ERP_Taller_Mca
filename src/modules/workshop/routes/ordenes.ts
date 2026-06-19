@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden } from "../services/orden.service.js";
+import { previewStockConsumption } from "../../inventory/services/ot-stock-consumer.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 
 interface OrdenParams {
@@ -154,6 +155,42 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
       if (!mechanicId) throw new BadRequestError("mechanicId is required");
       const result = await signHvLockout(id, mechanicId, request.tenantSlug);
       return reply.send(result);
+    },
+  );
+
+  // ── GET /workshop/ordenes/:id/stock-preview — Preview stock consumption ──
+  app.get<{ Params: OrdenParams }>(
+    "/workshop/ordenes/:id/stock-preview",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        response: {
+          200: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                repuestoId: { type: "string" },
+                repuestoNombre: { type: "string" },
+                codigo: { type: "string", nullable: true },
+                cantidad: { type: "integer" },
+                stockActual: { type: "integer" },
+                puntoReorden: { type: "integer", nullable: true },
+                stockAfter: { type: "integer" },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: OrdenParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const preview = await previewStockConsumption(id, request.tenantSlug);
+      return reply.send(preview);
     },
   );
 

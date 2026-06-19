@@ -14,6 +14,17 @@ export interface DtcEntry {
   system: string;
 }
 
+export interface HealthSystem {
+  name: string;
+  status: string;
+  score?: number;
+}
+
+export interface HealthReport {
+  overallScore?: number;
+  systems?: HealthSystem[];
+}
+
 export interface ParsedReport {
   brand: string | null;
   model: string | null;
@@ -26,6 +37,7 @@ export interface ParsedReport {
   reportType: string | null;
   scannerBrand: string;
   rawText: string;
+  healthReport?: HealthReport;
 }
 
 export interface LinkingResult {
@@ -34,6 +46,7 @@ export interface LinkingResult {
   ordenTrabajoId: string | null;
   clientId: string | null;
   message: string;
+  mileageAlert?: string | null;
 }
 
 export interface PipelineResult {

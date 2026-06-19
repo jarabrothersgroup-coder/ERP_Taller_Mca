@@ -495,7 +495,7 @@ export async function getToolsDueForCalibration(
       eq(toolInstances.tenantSlug, tenantSlug),
       eq(toolInstances.activa, true),
       sql`${toolInstances.proximaCalibracion} IS NOT NULL`,
-      sql`${toolInstances.proximaCalibracion} <= CURRENT_DATE + INTERVAL '${sql.raw(String(daysAhead))} days'`,
+      sql`${toolInstances.proximaCalibracion} <= CURRENT_DATE + (${daysAhead} || ' days')::interval`,
       inArray(toolInstances.estadoActual, ['DISPONIBLE', 'PRESTADA']),
     ))
     .orderBy(toolInstances.proximaCalibracion);

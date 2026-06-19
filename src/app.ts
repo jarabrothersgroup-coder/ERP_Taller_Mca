@@ -44,9 +44,22 @@ async function buildApp() {
 
   // ─── Request Logging & Tracing ─────────────
   const { requestIdHook, requestTimingHook, metricsHook } = await import("./shared/middleware/logger.js");
+  const { recordResponseTime } = await import("./plugins/monitoring.js");
   app.addHook("onRequest", requestIdHook);
   app.addHook("onRequest", requestTimingHook);
   app.addHook("onResponse", metricsHook);
+  // Performance tracking hook — records per-endpoint response times
+  app.addHook("onResponse", async (request, reply) => {
+    const start = (request as any)._performanceStartTime as number | undefined;
+    if (start) {
+      const durationMs = (Date.now() - start);
+      recordResponseTime(request.url, reply.statusCode, durationMs);
+    }
+  });
+  // Capture start time for performance tracking
+  app.addHook("onRequest", async (request) => {
+    (request as any)._performanceStartTime = Date.now();
+  });
 
   // ─── CORS (Hardened) ─────────────────────────
   // Production: strict origin whitelist + method/header restrictions
@@ -77,10 +90,10 @@ async function buildApp() {
   });
 
   // ─── Security Headers (Helmet + Custom) ──────
+  // BAJO-06 FIX: Re-enable Helmet with selective overrides
   try {
     await app.register((await import("@fastify/helmet")).default, {
       // CSP is handled by our custom security-headers middleware
-      // (more granular control with Tailwind CDN support)
       contentSecurityPolicy: false,
       // HSTS handled by custom middleware (conditional on env)
       hsts: false,
@@ -90,6 +103,12 @@ async function buildApp() {
       crossOriginEmbedderPolicy: false,
       crossOriginOpenerPolicy: false,
       crossOriginResourcePolicy: false,
+      // Enable remaining Helmet protections
+      hidePoweredBy: true,
+      ieNoOpen: true,
+      noSniff: true,
+      xssFilter: true,
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     });
     app.log.info("Helmet security headers registered (baseline)");
   } catch {
@@ -100,6 +119,11 @@ async function buildApp() {
   const { securityHeadersHook } = await import("./shared/middleware/security-headers.js");
   app.addHook("onRequest", securityHeadersHook);
   app.log.info("Custom security headers registered (CSP, HSTS, Permissions-Policy)");
+
+  // ─── CSRF Protection (Double-Submit Cookie) ──
+  // MED-03 FIX: Protect state-changing endpoints against CSRF
+  const { registerCsrfProtection } = await import("./shared/middleware/csrf.js");
+  await registerCsrfProtection(app);
 
   // ─── RLS Tenant Context (PostgreSQL) ─────────
   // Sets app.current_tenant session variable for Row Level Security
@@ -138,7 +162,8 @@ async function buildApp() {
     app.log.warn("Compression not available — responses not compressed");
   }
 
-  // ─── OpenAPI / Swagger ──────────────────────
+  // ─── OpenAPI / Swagger (development only) ─────────
+  if (env.NODE_ENV !== "production") {
   try {
     await app.register((await import("@fastify/swagger")).default, {
       openapi: {
@@ -193,9 +218,16 @@ async function buildApp() {
   } catch {
     app.log.warn("Swagger not available — API docs disabled");
   }
+  } // end NODE_ENV check (Swagger dev-only)
 
   // ─── Plugins ───────────────────────────────
   await app.register(healthCheckPlugin);
+
+  // ─── Monitoring Plugin (Performance + Security Audit) ──
+  // Registers: /health/metrics, /health/performance, /health/security-audit
+  await app.register(
+    (await import("./plugins/monitoring.js")).monitoringPlugin,
+  );
 
   // ─── Visual Orchestration Module ───────────────
   // WebSocket gateway for TV displays (waiting room & mechanic bay).
@@ -279,6 +311,62 @@ async function buildApp() {
     (await import("./modules/finance/plugin.js")).default,
   );
 
+  // ─── WhatsApp Integration Module ──────────────
+  // Evolution API gateway for WhatsApp messaging.
+  // QR pairing, message templates per order state, PDF attachments.
+  // Tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./modules/whatsapp/plugin.js")).default,
+  );
+
+  // ─── Twenty CRM Integration Module ───────────
+  // Reverse sync ERP → Twenty CRM for walk-in clients.
+  // UPSERT contacts when orders reach FINALIZADO_RETIRADO.
+  // Tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./modules/crm/plugin.js")).crmPlugin,
+  );
+
+  // ─── Scheduling & Appointment Module ─────────
+  // Intelligent appointment management: capacity control,
+  // WhatsApp reminders, check-in → OT conversion.
+  // Bridges Twenty CRM (commercial) and ERP (execution).
+  await app.register(
+    (await import("./modules/scheduling/plugin.js")).schedulingPlugin,
+  );
+
+  // ─── Tenant Migration Module ─────────────────
+  // Export/Import of tenant-agnostic config (chart of accounts,
+  // service catalog, pricing) between tenants.
+  await app.register(
+    (await import("./modules/migration/plugin.js")).migrationPlugin,
+  );
+
+  // ─── DVI (Digital Vehicle Inspection) Module ──
+  // Photo capture, markup annotations, health score calculation.
+  // WhatsApp sharing for client transparency.
+  await app.register(
+    (await import("./modules/dvi/plugin.js")).default,
+  );
+
+  // ─── Marketing Module ───────────────────────
+  // Campaign management, Google Reviews, loyalty program.
+  await app.register(
+    (await import("./modules/marketing/plugin.js")).default,
+  );
+
+  // ─── Fleet Module (B2B) ─────────────────────
+  // Corporate fleet management with service contracts.
+  await app.register(
+    (await import("./modules/fleet/plugin.js")).default,
+  );
+
+  // ─── Analytics Module ─────────────────────
+  // KPIs, trends, comparisons, custom reports with CSV export.
+  await app.register(
+    (await import("./modules/analytics/plugin.js")).default,
+  );
+
   // ─── Global Search Module ───────────────────
   // Cross-entity search (vehiculos, clientes, ordenes_trabajo)
   // tenant-isolated via X-Tenant-Slug header.
@@ -286,11 +374,63 @@ async function buildApp() {
     (await import("./shared/plugins/search.js")).default,
   );
 
+  // ─── CSV Import Module ─────────────────────
+  // CSV data import for vehiculos, clientes, repuestos
+  await app.register(
+    (await import("./shared/routes/import.routes.js")).importRoutes,
+  );
+
+  // ─── Filter Presets Module ──────────────────
+  // Advanced multi-field filtering with saved presets
+  await app.register(
+    (await import("./shared/routes/filter-presets.routes.js")).filterPresetRoutes,
+  );
+
+  // ─── Locale (i18n) Routes ──────────────────
+  // Serves ES/GU translation JSON files for the SPA.
+  await app.register(
+    (await import("./intelligence/routes/locale.routes.js")).default,
+  );
+
   // ─── PDF Report Module ──────────────────────
   // Server-side PDF generation for OT + Invoice reports.
   // Requires Chromium (graceful degradation if not available).
   await app.register(
     (await import("./shared/routes/pdf-report.routes.js")).pdfReportRoutes,
+  );
+
+  // ─── Label Printing Module ──────────────────
+  // Industrial thermal/label printer support (ESC/POS, ZPL, TSPL).
+  // Barcode & QR generation for repuestos and herramientas.
+  await app.register(
+    (await import("./modules/label-printing/plugin.js")).default,
+  );
+
+  // ─── Backup & Restore Module ────────────────
+  // Automated pg_dump, compression, AES-256 encryption.
+  // Cron-based scheduling, restore wizard with 2FA.
+  await app.register(
+    (await import("./modules/backup/plugin.js")).default,
+  );
+
+  // ─── Client Portal Module ───────────────────
+  // Public view for client's vehicles, invoices, and work orders.
+  // Auth: magic link + PIN, self-service appointments.
+  await app.register(
+    (await import("./modules/client-portal/plugin.js")).default,
+  );
+
+  // ─── Hardware Security Module (USB Kill Switch) ──
+  // USB dongle validation, hardware fingerprinting, kill switch middleware.
+  // CRITICAL: Must be registered early to protect all routes.
+  await app.register(
+    (await import("./modules/security-hw/plugin.js")).default,
+  );
+
+  // ─── Audit Log Export Module ────────────────
+  // CSV export for audit log entries with date/entity/action filters.
+  await app.register(
+    (await import("./shared/routes/audit-export.routes.js")).auditExportRoutes,
   );
 
   // ─── Startup health check ──────────────────

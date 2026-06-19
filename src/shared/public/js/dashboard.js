@@ -28,6 +28,30 @@ function renderDashboard(container) {
       </div>
     </div>
 
+    <!-- Secondary KPIs row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow">
+        <p class="text-gray-500 text-xs uppercase tracking-wider">Tiempo Promedio Reparación</p>
+        <p id="d-avg-repair" class="text-2xl font-bold mt-1 text-purple-400">—</p>
+        <p class="text-[10px] text-gray-600 mt-1">días por OT completada</p>
+      </div>
+      <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow">
+        <p class="text-gray-500 text-xs uppercase tracking-wider">Tasa de Cobro</p>
+        <p id="d-collection-rate" class="text-2xl font-bold mt-1 text-emerald-400">—</p>
+        <p class="text-[10px] text-gray-600 mt-1">facturas pagadas / emitidas</p>
+      </div>
+      <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow">
+        <p class="text-gray-500 text-xs uppercase tracking-wider">Clientes Activos</p>
+        <p id="d-active-clients" class="text-2xl font-bold mt-1 text-blue-400">—</p>
+        <p class="text-[10px] text-gray-600 mt-1">con OT este mes</p>
+      </div>
+      <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow">
+        <p class="text-gray-500 text-xs uppercase tracking-wider">Margen Bruto</p>
+        <p id="d-gross-margin" class="text-2xl font-bold mt-1 text-pink-400">—</p>
+        <p class="text-[10px] text-gray-600 mt-1">ingresos - costos repuestos</p>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
       <!-- Weekly bar chart -->
       <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow lg:col-span-2">
@@ -53,10 +77,18 @@ function renderDashboard(container) {
     </div>
 
     <!-- Active OTs mini list -->
-    <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Órdenes Activas</h3>
-      <div id="d-ot-list" class="space-y-2">
-        <div class="text-center py-8 text-gray-600 text-sm">Cargando...</div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Órdenes Activas</h3>
+        <div id="d-ot-list" class="space-y-2">
+          <div class="text-center py-8 text-gray-600 text-sm">Cargando...</div>
+        </div>
+      </div>
+      <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Actividad Reciente</h3>
+        <div id="d-activity-feed" class="space-y-2">
+          <div class="text-center py-8 text-gray-600 text-sm">Cargando...</div>
+        </div>
       </div>
     </div>`;
   fetchDashboardData();
@@ -96,6 +128,22 @@ async function fetchDashboardData() {
   $('d-cobros').textContent = '₲ ' + fmt(f.cobrosMes);
   if (wsStatus && wsStatus.connectedScreens !== undefined) {
     $('d-pantallas').textContent = wsStatus.connectedScreens;
+  }
+
+  // ── Secondary KPIs ──
+  // Compute avg repair time, collection rate, active clients, gross margin from available data
+  if (kpis.taller) {
+    $('d-avg-repair').textContent = kpis.taller.promedioDuracionDias ? kpis.taller.promedioDuracionDias.toFixed(1) + ' días' : '—';
+    $('d-gross-margin').textContent = kpis.taller.margenBruto ? '$' + fmt(kpis.taller.margenBruto) : '—';
+  }
+  if (f.facturasEmitidasMes > 0 && f.cobrosMes > 0) {
+    const rate = Math.min(100, Math.round((f.cobrosMes / (f.ingresosMes || 1)) * 100));
+    $('d-collection-rate').textContent = rate + '%';
+  }
+  // Active clients from top clientes or separate query
+  const topClientes = await api('/workshop/analytics/top-clientes?limit=1').catch(() => null);
+  if (topClientes && topClientes.length > 0) {
+    $('d-active-clients').textContent = topClientes[0].totalOTs || '—';
   }
 
   // ── Weekly bar chart (CSS bars) ──
@@ -138,5 +186,35 @@ async function fetchDashboardData() {
   });
   if (!rows) rows = '<div class="text-center py-6 text-gray-600 text-sm">No hay órdenes activas</div>';
   $('d-ot-list').innerHTML = rows;
+
+  // ── Activity Feed ──
+  const auditLog = await api('/finance/contabilidad/audit-log?limit=8').catch(() => null);
+  const feedDiv = $('d-activity-feed');
+  if (feedDiv) {
+    const entries = auditLog?.entries || [];
+    if (!entries.length) {
+      feedDiv.innerHTML = '<div class="text-center py-6 text-gray-600 text-sm">Sin actividad reciente</div>';
+    } else {
+      const actionIcons = { CREAR: '➕', MODIFICAR: '✏️', ANULAR: '🚫', PAGAR: '💰', EMITIR: '📄' };
+      feedDiv.innerHTML = entries.map(e => `
+        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800/50 transition">
+          <span class="text-lg flex-shrink-0">${actionIcons[e.accion] || '📋'}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs text-white truncate">${e.accion} — ${e.entidad}</p>
+            <p class="text-[10px] text-gray-500">${e.detalle ? e.detalle.slice(0, 60) : '—'}</p>
+          </div>
+          <span class="text-[10px] text-gray-600 flex-shrink-0">${e.createdAt ? timeAgo(new Date(e.createdAt)) : ''}</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'ahora';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'min';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86400) + 'd';
 }
 
