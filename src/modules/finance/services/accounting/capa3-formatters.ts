@@ -10,6 +10,42 @@
 
 // ─── Fixed-width TXT ───────────────────────────
 
+// ─── Safe Money Arithmetic (CRITICAL: prevents float rounding errors) ─────
+
+/**
+ * Safe money parser — converts string/number to centavos (BigInt) for exact arithmetic.
+ * Paraguayan Guarani amounts stored as strings must not use parseFloat for sums.
+ *
+ * @param value - String or number representing a monetary amount
+ * @returns Amount in centavos as BigInt (e.g., "150000" → 15000000n)
+ */
+export function parseMoneyToCentavos(value: string | number | null | undefined): bigint {
+  if (value === null || value === undefined || value === "") return 0n;
+  const str = typeof value === "number" ? String(value) : String(value).trim();
+  if (!str || str === "0") return 0n;
+
+  // Handle Paraguayan format: "1.500.000" (dots as thousands) or "1500000"
+  const cleaned = str.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return 0n;
+
+  // Convert to centavos (multiply by 100, round to avoid float issues)
+  return BigInt(Math.round(num * 100));
+}
+
+/**
+ * Converts centavos (BigInt) back to a decimal string for storage.
+ * @param centavos - Amount in centavos
+ * @returns Decimal string (e.g., 15000000n → "150000.00")
+ */
+export function centavosToString(centavos: bigint): string {
+  const sign = centavos < 0n ? "-" : "";
+  const abs = centavos < 0n ? -centavos : centavos;
+  const guaranies = abs / 100n;
+  const cent = abs % 100n;
+  return `${sign}${guaranies.toString()}.${cent.toString().padStart(2, "0")}`;
+}
+
 /** Field definition for fixed-width TXT records */
 export interface TxtField {
   value: string;

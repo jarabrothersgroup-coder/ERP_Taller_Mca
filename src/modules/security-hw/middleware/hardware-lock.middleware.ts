@@ -187,14 +187,34 @@ function activateKillSwitch(reason: string): void {
 
 /**
  * Manually reset the kill switch (after USB is reinserted).
- * In production, this should require admin authentication + 2FA.
+ *
+ * SECURITY: Requires admin authentication via request context.
+ * Must be called through the authenticated route handler, not directly.
+ *
+ * @param requestContext - Must contain authenticated admin user info
+ * @returns true if reset succeeded, false if unauthorized
  */
-export function resetKillSwitch(): void {
+export function resetKillSwitch(requestContext?: {
+  userId?: string;
+  role?: string;
+  ip?: string;
+}): boolean {
+  // Enforce admin-only access
+  if (!requestContext?.userId) {
+    console.warn("[SECURITY] ⚠️  resetKillSwitch called without authentication — DENIED");
+    return false;
+  }
+  if (requestContext.role !== "admin") {
+    console.warn(`[SECURITY] ⚠️  resetKillSwitch called by non-admin user ${requestContext.userId} (role: ${requestContext.role}) — DENIED`);
+    return false;
+  }
+
   killSwitchActivated = false;
   killSwitchActivatedAt = null;
   lastValidationTime = 0;
   lastValidationResult = false;
-  console.log("[SECURITY] Kill switch reset — system re-enabled");
+  console.log(`[SECURITY] Kill switch reset by admin ${requestContext.userId} from IP ${requestContext.ip || "unknown"} — system re-enabled`);
+  return true;
 }
 
 /**

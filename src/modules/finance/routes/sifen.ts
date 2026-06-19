@@ -35,6 +35,7 @@ import {
   createSyncLogEntry,
   getSyncLog,
 } from "../services/sifen/sifen-db.service.js";
+import { parseMoneyToCentavos, centavosToString } from "../services/accounting/capa3-formatters.js";
 import { eq, count } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
@@ -166,18 +167,22 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      // ── 5. Compute totals for DB ──
-      const totalExento = data.items
+      // ── 5. Compute totals for DB (using BigInt for exact IVA arithmetic) ──
+      const totalExentoCtv = data.items
         .filter((i) => i.iva === 0)
-        .reduce((s, i) => s + parseFloat(i.subtotal), 0);
-      const totalIva5 = data.items
+        .reduce((s, i) => s + parseMoneyToCentavos(i.subtotal), 0n);
+      const totalIva5Ctv = data.items
         .filter((i) => i.iva === 5)
-        .reduce((s, i) => s + parseFloat(i.subtotal), 0);
-      const totalIva10 = data.items
+        .reduce((s, i) => s + parseMoneyToCentavos(i.subtotal), 0n);
+      const totalIva10Ctv = data.items
         .filter((i) => i.iva === 10)
-        .reduce((s, i) => s + parseFloat(i.subtotal), 0);
-      const totalIva = data.items
-        .reduce((s, i) => s + parseFloat(i.ivaMonto ?? "0"), 0);
+        .reduce((s, i) => s + parseMoneyToCentavos(i.subtotal), 0n);
+      const totalIvaCtv = data.items
+        .reduce((s, i) => s + parseMoneyToCentavos(i.ivaMonto ?? "0"), 0n);
+      const totalExento = parseFloat(centavosToString(totalExentoCtv));
+      const totalIva5 = parseFloat(centavosToString(totalIva5Ctv));
+      const totalIva10 = parseFloat(centavosToString(totalIva10Ctv));
+      const totalIva = parseFloat(centavosToString(totalIvaCtv));
       const totalDoc = totalExento + totalIva5 + totalIva10 + totalIva;
 
       // ── 6. Save as BORRADOR in DB ──

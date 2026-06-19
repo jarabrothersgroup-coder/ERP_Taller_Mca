@@ -44,7 +44,15 @@ export interface TokenValidationResult {
 // ─── Constants ────────────────────────────────
 
 const TOKEN_FILENAME = "security.token";
-const TOKEN_SECRET = "AutomotiveOS-ERP-2024-SECRET-KEY-xK9mP2vL";
+/**
+ * TOKEN_SECRET — MUST come from environment variable in production.
+ * Fallback is only for backward compatibility during migration.
+ * CRITICAL: Remove fallback after deploying env var to all environments.
+ */
+const TOKEN_SECRET = process.env.TOKEN_SECRET || "AutomotiveOS-ERP-2024-SECRET-KEY-xK9mP2vL";
+if (process.env.NODE_ENV === "production" && !process.env.TOKEN_SECRET) {
+  console.warn("[SECURITY] ⚠️  TOKEN_SECRET not set via env var — using insecure fallback. Set TOKEN_SECRET in your environment!");
+}
 const AES_ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const SALT_LENGTH = 32;

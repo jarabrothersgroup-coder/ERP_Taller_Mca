@@ -624,14 +624,44 @@ window.addEventListener('scroll', () => {
   else { nav.classList.remove('bg-surface-900/95', 'shadow-lg'); nav.classList.add('bg-surface-900/80'); }
 });
 
-// Lead form
-document.getElementById('lead-form')?.addEventListener('submit', function(e) {
+// Lead form — POST to /api/lead
+document.getElementById('lead-form')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   const form = this;
   const success = document.getElementById('lead-success');
-  // In production: POST to /api/lead
-  form.classList.add('hidden');
-  success.classList.remove('hidden');
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  // Disable button during submission
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Enviando...';
+
+  const formData = new FormData(form);
+  const nombre = formData.get('nombre')?.toString().trim() || '';
+  const email = formData.get('email')?.toString().trim() || '';
+
+  try {
+    const res = await fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, source: 'landing' }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      form.classList.add('hidden');
+      success.classList.remove('hidden');
+      if (data.duplicate) {
+        success.innerHTML = '<svg class="w-6 h-6 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>Ya tenemos tu registro. ¡Gracias!';
+      }
+    } else {
+      throw new Error(data.message || 'Error al enviar');
+    }
+  } catch (err) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Quiero mi Guía';
+    alert('Error al enviar. Por favor, intenta de nuevo.');
+  }
 });
 </script>
 <script src="js/i18n.js"></script>

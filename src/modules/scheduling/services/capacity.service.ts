@@ -188,13 +188,15 @@ export async function countOverlappingAppointments(
     conditions.push(neOp(agendamientos.id, excludeId));
   }
 
+  // SELECT FOR UPDATE to prevent TOCTOU race condition on concurrent bookings
   const dayAppointments = await db()
     .select({
       horaTurno: agendamientos.horaTurno,
       duracionHoras: agendamientos.duracionHoras,
     })
     .from(agendamientos)
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .for("update");
 
   // Count overlaps
   let overlapCount = 0;

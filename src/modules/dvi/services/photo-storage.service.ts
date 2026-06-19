@@ -29,6 +29,53 @@ const BUCKET_NAME = "dvi-photos";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
+// ─── Magic Byte Validation ────────────────────
+
+/**
+ * File magic bytes for validating actual file type (prevents MIME spoofing).
+ * CRITICAL SECURITY: Always validate magic bytes, never trust client-provided contentType.
+ */
+const MAGIC_BYTES: Record<string, number[][]> = {
+  "image/jpeg": [[0xff, 0xd8, 0xff]],
+  "image/png":  [[0x89, 0x50, 0x4e, 0x47]],
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF header (bytes 0-3)
+  // HEIC starts with ftyp at offset 4
+};
+
+/**
+ * Validates that file buffer starts with expected magic bytes for the declared MIME type.
+ * Prevents upload of executable files disguised as images.
+ *
+ * @param buffer - File content buffer
+ * @param declaredType - MIME type declared by client
+ * @returns true if magic bytes match declared type
+ */
+function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
+  if (buffer.length < 12) return false; // Need at least 12 bytes for full check
+
+  const magicPatterns = MAGIC_BYTES[declaredType];
+  if (!magicPatterns) return false;
+
+  // Check primary magic bytes
+  const primaryMatch = magicPatterns[0].every((byte, i) => buffer[i] === byte);
+  if (primaryMatch) return true;
+
+  // Special case: HEIC checks ftyp at offset 4
+  if (declaredType === "image/heic") {
+    const ftyp = buffer.slice(4, 8).toString("ascii");
+    return ftyp === "ftyp";
+  }
+
+  // Special case: WEBP checks RIFF at 0 and WEBP at 8
+  if (declaredType === "image/webp") {
+    const riff = buffer.slice(0, 4).toString("ascii");
+    const webp = buffer.slice(8, 12).toString("ascii");
+    return riff === "RIFF" && webp === "WEBP";
+  }
+
+  return false;
+}
+
 // ─── Upload ───────────────────────────────────
 
 /**
@@ -52,12 +99,17 @@ export async function uploadPhoto(params: {
 }): Promise<PhotoUploadResult> {
   const { tenantSlug, inspectionId, photoId, fileBuffer, contentType, filename } = params;
 
-  // Validate
+  // Validate MIME type
   if (!ALLOWED_TYPES.includes(contentType)) {
     throw new Error(`Tipo de archivo no permitido: ${contentType}`);
   }
   if (fileBuffer.length > MAX_FILE_SIZE) {
     throw new Error(`Archivo excede el límite de ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+  }
+
+  // CRITICAL SECURITY: Validate magic bytes (prevents MIME spoofing attacks)
+  if (!validateMagicBytes(fileBuffer, contentType)) {
+    throw new Error(`El archivo no coincide con el tipo declarado (${contentType}). Posible intento de upload malicioso.`);
   }
 
   const supabase = getSupabaseAdmin();

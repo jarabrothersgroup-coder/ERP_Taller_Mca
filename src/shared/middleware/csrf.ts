@@ -29,6 +29,7 @@ const STATEFUL_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const CSRF_EXEMPT_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/lead",
   "/health",
   "/health/live",
   "/health/ready",

@@ -39,8 +39,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 54 IN PROGRESS — Help Sidebar + FAQ + Landing SEO + Docs Update",
-    "next_sprint": "Sprint 55 — Multi-tenant Branch Isolation + Role-Based Dashboard Routing",
+    "current_sprint": "Sprint 55 COMPLETED — Security Audit Fixes + Lead Capture + E2E Tests",
+    "next_sprint": "Sprint 56 — Production Hardening + Monitoring + CI/CD",
     "sprint_32_progress": {
       "architecture": "REGLA DE ORO: Agendamiento vive en CRM (comercial), Ejecución vive ERP (OT). Check-in convierte turno en OT.",
       "state_machine": "5 estados: RESERVADO → CONFIRMADO → PROCESADO_EN_ERP / AUSENTE / CANCELADO. Transiciones validadas.",
