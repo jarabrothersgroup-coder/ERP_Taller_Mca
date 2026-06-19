@@ -40,7 +40,31 @@
   },
   "state": {
     "current_sprint": "Sprint 61 COMPLETED — Chaos Audit + Critical Security Patches",
-    "next_sprint": "Sprint 62 — TODO",
+    "next_sprint": "Sprint 62 — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
+    "conejo_de_indias": {
+      "status": "PLAN COMPLETADO",
+      "document": "docs/Proyecto/08_Plan_Maestro_Conejo_de_Indias.md",
+      "total_sprints": 19,
+      "sprint_range": "62-80",
+      "duration_months": 7,
+      "phases": {
+        "fase1_conejo": { "sprints": "62-68", "duration": "3-4 meses", "goal": "Primer cliente real operando" },
+        "fase2_escalabilidad": { "sprints": "69-74", "duration": "3 meses", "goal": "Multi-tenant SaaS funcional" },
+        "fase3_enterprise": { "sprints": "75-80", "duration": "3-3.5 meses", "goal": "Listo para clientes enterprise" }
+      },
+      "tech_stack": {
+        "frontend": "Next.js 14 + React 18 + Tailwind + shadcn/ui",
+        "mobile": "React Native (Expo)",
+        "backend": "Fastify + TypeScript (existing, refactor)",
+        "database": "Supabase PostgreSQL",
+        "cache": "Upstash Redis (serverless)",
+        "auth": "Clerk",
+        "billing": "Stripe",
+        "storage": "Cloudflare R2",
+        "hosting": "Vercel (frontend) + Railway (backend)"
+      },
+      "budget_total": "$66,000 (desarrollo + infra primer año)"
+    },
     "chaos_audit": {
       "date": "2026-06-19",
       "auditor": "Ingeniero Principal de Caos / Auditor Forense de Código",
