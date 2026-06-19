@@ -20,7 +20,7 @@ const slug = z
 const email = z.string().email("Email inválido").max(255);
 const phone = z.string().max(20).optional();
 const ruc = z.string().max(20).optional();
-const pagination = z.object({
+export const pagination = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });

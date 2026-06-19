@@ -14,7 +14,7 @@ import {
   fiscalDocumentoDetalles,
   sifenSyncLog,
 } from "../../schema/fiscal-docs.js";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, asc, count } from "drizzle-orm";
 import { NotFoundError } from "../../../../shared/errors/app-error.js";
 import type {
   NewFiscalDocumento,
@@ -69,17 +69,19 @@ export async function getFiscalDocumentoById(id: string) {
 }
 
 /**
- * Lists fiscal documents with optional status filter and pagination.
+ * Lists fiscal documents with optional status filter, pagination, and sorting.
  *
- * @param options - Filter and pagination options
- * @returns Paginated document list
+ * @param options - Filter, pagination, and sort options
+ * @returns Paginated document list with metadata
  */
 export async function listFiscalDocumentos(options: {
   estado?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }) {
-  const { estado, page = 1, limit = 20 } = options;
+  const { estado, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
   const offset = (page - 1) * limit;
 
   const conditions: ReturnType<typeof eq>[] = [];
@@ -96,20 +98,28 @@ export async function listFiscalDocumentos(options: {
     .from(fiscalDocumentos)
     .where(whereClause);
 
+  // Map sortBy to actual column
+  const sortColumn = (fiscalDocumentos as any)[sortBy] ?? fiscalDocumentos.createdAt;
+  const orderFn = sortOrder === "asc" ? asc : desc;
+
   const items = await db()
     .select()
     .from(fiscalDocumentos)
     .where(whereClause)
-    .orderBy(desc(fiscalDocumentos.createdAt))
+    .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);
 
+  const total = Number(totalCount?.total ?? 0);
+
   return {
     items,
-    total: Number(totalCount?.total ?? 0),
+    total,
     page,
     limit,
-    totalPages: Math.ceil(Number(totalCount?.total ?? 0) / limit),
+    totalPages: Math.ceil(total / limit),
+    hasNext: page * limit < total,
+    hasPrev: page > 1,
   };
 }
 
@@ -206,17 +216,19 @@ export async function createSyncLogEntry(
 }
 
 /**
- * Retrieves sync log entries with optional filtering.
+ * Retrieves sync log entries with optional filtering, pagination, and sorting.
  *
- * @param options - Filter and pagination options
- * @returns Paginated log entries
+ * @param options - Filter, pagination, and sort options
+ * @returns Paginated log entries with metadata
  */
 export async function getSyncLog(options: {
   documentoId?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }) {
-  const { documentoId, page = 1, limit = 50 } = options;
+  const { documentoId, page = 1, limit = 50, sortBy = "createdAt", sortOrder = "desc" } = options;
   const offset = (page - 1) * limit;
 
   const conditions: ReturnType<typeof eq>[] = [];
@@ -233,18 +245,27 @@ export async function getSyncLog(options: {
     .from(sifenSyncLog)
     .where(whereClause);
 
+  // Map sortBy to actual column
+  const sortColumn = (sifenSyncLog as any)[sortBy] ?? sifenSyncLog.createdAt;
+  const orderFn = sortOrder === "asc" ? asc : desc;
+
   const items = await db()
     .select()
     .from(sifenSyncLog)
     .where(whereClause)
-    .orderBy(desc(sifenSyncLog.createdAt))
+    .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);
 
+  const total = Number(totalCount?.total ?? 0);
+
   return {
     items,
-    total: Number(totalCount?.total ?? 0),
+    total,
     page,
     limit,
+    totalPages: Math.ceil(total / limit),
+    hasNext: page * limit < total,
+    hasPrev: page > 1,
   };
 }

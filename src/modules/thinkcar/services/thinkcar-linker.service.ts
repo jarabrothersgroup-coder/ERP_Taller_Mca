@@ -4,7 +4,7 @@ import { vehiculos } from "../../workshop/schema/vehiculos.js";
 import { ordenesTrabajo } from "../../workshop/schema/ordenes-trabajo.js";
 import { thinkcarImports } from "../schema/index.js";
 import type { ThinkcarImport } from "../schema/index.js";
-import type { LinkingResult } from "../types.js";
+import type { LinkingResult, ParsedReport } from "../types.js";
 
 const ACTIVE_STATUSES = ["Presupuestado", "Aprobado", "En_Proceso"];
 
@@ -156,21 +156,67 @@ export async function markManualReview(
     .set({
       status: "manual_review",
       errorMessage: reason,
+      pendingAssignment: true,
       updatedAt: new Date(),
     })
     .where(eq(thinkcarImports.id, importId));
 }
 
+const MILEAGE_DIFF_THRESHOLD = 500;
+
+export async function compareAndAlertMileage(
+  vehicleId: string,
+  scannedOdometer: number | null,
+): Promise<string | null> {
+  if (!scannedOdometer || scannedOdometer <= 0) return null;
+
+  const [vehicle] = await db()
+    .select({ kilometraje: vehiculos.kilometraje })
+    .from(vehiculos)
+    .where(eq(vehiculos.id, vehicleId))
+    .limit(1);
+
+  if (!vehicle) return null;
+
+  const currentKm = vehicle.kilometraje;
+  if (!currentKm || currentKm <= 0) {
+    await db()
+      .update(vehiculos)
+      .set({ kilometraje: scannedOdometer, updatedAt: new Date() })
+      .where(eq(vehiculos.id, vehicleId));
+    return null;
+  }
+
+  const diff = Math.abs(scannedOdometer - currentKm);
+
+  if (scannedOdometer > currentKm) {
+    await db()
+      .update(vehiculos)
+      .set({ kilometraje: scannedOdometer, updatedAt: new Date() })
+      .where(eq(vehiculos.id, vehicleId));
+  }
+
+  if (diff > MILEAGE_DIFF_THRESHOLD) {
+    return `Alerta: Kilometraje verificado por OBD2 — Diferencia de ${diff.toLocaleString("es-PY")} km entre el registrado (${currentKm.toLocaleString("es-PY")} km) y el escaneado (${scannedOdometer.toLocaleString("es-PY")} km)`;
+  }
+
+  return null;
+}
+
 export async function smartLink(
   importRecord: ThinkcarImport,
+  parsed?: ParsedReport,
 ): Promise<LinkingResult> {
   const { vin, brand, model, dtcCodes } = importRecord;
+  const odometer = parsed?.odometer ?? null;
 
   if (vin && vin.length >= 10) {
     const vehicle = await findVehicleByVin(vin);
     if (vehicle) {
       await linkReportToVehicle(importRecord.id, vehicle.id, vehicle.clientId);
       await updateVehicleDtcs(vehicle.id, dtcCodes ?? []);
+
+      const mileageAlert = await compareAndAlertMileage(vehicle.id, odometer);
 
       const orden = await findActiveWorkOrder(vehicle.id);
       if (orden) {
@@ -190,6 +236,7 @@ export async function smartLink(
           ordenTrabajoId: orden.id,
           clientId: vehicle.clientId,
           message: `Vinculado al vehículo ${vin} y a la OT activa #${orden.id.slice(0, 8)}`,
+          mileageAlert,
         };
       }
 
@@ -199,6 +246,7 @@ export async function smartLink(
         ordenTrabajoId: null,
         clientId: vehicle.clientId,
         message: `Vinculado al vehículo ${vin}. No se encontró OT activa.`,
+        mileageAlert,
       };
     }
   }
@@ -208,12 +256,16 @@ export async function smartLink(
     if (vehicle) {
       await linkReportToVehicle(importRecord.id, vehicle.id, vehicle.clientId);
       await updateVehicleDtcs(vehicle.id, dtcCodes ?? []);
+
+      const mileageAlert = await compareAndAlertMileage(vehicle.id, odometer);
+
       return {
         status: "linked",
         vehicleId: vehicle.id,
         ordenTrabajoId: null,
         clientId: vehicle.clientId,
         message: `Vinculado por marca/modelo ${brand} ${model}. Verificar VIN manualmente.`,
+        mileageAlert,
       };
     }
   }

@@ -38,6 +38,9 @@ interface EnvConfig {
   /** Allowed CORS origin (production) */
   CORS_ORIGIN: string;
 
+  /** JWT signing secret (required in production) */
+  JWT_SECRET: string;
+
   // ─── SIFEN / DNIT Configuration ────────────
   /** Path to SIFEN PKCS#12 (.p12) certificate file */
   SIFEN_CERT_PATH: string;
@@ -53,6 +56,20 @@ interface EnvConfig {
   // ─── RAG / OpenAI ──────────────────────────
   /** OpenAI API key for embedding generation (RAG system) */
   OPENAI_API_KEY: string;
+
+  // ─── WhatsApp / Evolution API ──────────────
+  /** Evolution API base URL (e.g., http://localhost:8080) */
+  WHATSAPP_API_URL: string;
+  /** Evolution API authentication key */
+  WHATSAPP_API_KEY: string;
+
+  // ─── Twenty CRM ───────────────────────────
+  /** Twenty CRM REST API base URL */
+  TWENTY_API_URL: string;
+  /** Twenty CRM API key (Settings → API Keys) */
+  TWENTY_API_KEY: string;
+  /** Twenty CRM GraphQL endpoint */
+  TWENTY_GRAPHQL_URL: string;
 }
 
 /**
@@ -83,6 +100,9 @@ export const env: EnvConfig = {
   LOG_LEVEL: process.env["LOG_LEVEL"] ?? "info",
   CORS_ORIGIN: process.env["CORS_ORIGIN"] ?? "",
 
+  // JWT auth
+  JWT_SECRET: process.env["JWT_SECRET"] ?? "",
+
   // SIFEN defaults (optional, not requireEnv to allow offline dev)
   SIFEN_CERT_PATH: process.env["SIFEN_CERT_PATH"] ?? "",
   SIFEN_CERT_PASS: process.env["SIFEN_CERT_PASS"] ?? "",
@@ -92,4 +112,18 @@ export const env: EnvConfig = {
 
   // RAG defaults (optional — fallback to ILIKE search)
   OPENAI_API_KEY: process.env["OPENAI_API_KEY"] ?? "",
+
+  // ─── WhatsApp / Evolution API ──────────────
+  /** Evolution API base URL (e.g., http://localhost:8080) */
+  WHATSAPP_API_URL: process.env["WHATSAPP_API_URL"] || "http://localhost:8080",
+  /** Evolution API authentication key */
+  WHATSAPP_API_KEY: process.env["WHATSAPP_API_KEY"] ?? "",
+
+  // ─── Twenty CRM ───────────────────────────
+  /** Twenty CRM REST API base URL */
+  TWENTY_API_URL: process.env["TWENTY_API_URL"] || "http://localhost:3001",
+  /** Twenty CRM API key (Settings → API Keys) */
+  TWENTY_API_KEY: process.env["TWENTY_API_KEY"] ?? "",
+  /** Twenty CRM GraphQL endpoint */
+  TWENTY_GRAPHQL_URL: process.env["TWENTY_GRAPHQL_URL"] || "",
 };

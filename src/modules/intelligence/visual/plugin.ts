@@ -11,6 +11,7 @@ const tvHtml = readFileSync(join(__dirname, "tv-template.html"), "utf-8");
 const publicDir = resolve(__dirname, "../../../shared/public");
 const dashboardHtml = readFileSync(join(publicDir, "index.html"), "utf-8");
 const dashboardAppJs = readFileSync(join(publicDir, "app.js"), "utf-8");
+const landingHtml = readFileSync(join(publicDir, "landing.html"), "utf-8");
 
 async function visualPlugin(app: FastifyInstance): Promise<void> {
   await app.register(WebSocket);
@@ -27,6 +28,10 @@ async function visualPlugin(app: FastifyInstance): Promise<void> {
 
   app.get("/app.js", (_req, reply) => {
     reply.type("application/javascript").send(dashboardAppJs);
+  });
+
+  app.get("/landing", (_req, reply) => {
+    reply.type("text/html").send(landingHtml);
   });
 
   app.get("/api/v1/visual/status", async (_req, reply) => {

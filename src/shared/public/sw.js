@@ -1,61 +1,99 @@
 /**
- * Service Worker — AutomotiveOS PWA
+ * Service Worker v2 — AutomotiveOS PWA
  *
- * Cache strategies:
- *   - Static assets (JS/CSS/HTML): Cache-First
- *   - API requests: Network-First with cache fallback
- *   - CDN (Tailwind, Google Fonts): Cache-First with stale-while-revalidate
+ * Enhanced offline-first strategies:
+ *   - Static assets: Cache-First (v2 cache with all new JS modules)
+ *   - API GET: Network-First with IndexedDB fallback
+ *   - API mutations: Queue for background sync
+ *   - CDN: Stale-While-Revalidate
+ *   - Background Sync: flush offline queue on reconnect
+ *   - Version management: auto-cleanup old caches
  *
- * @module sw
+ * @module sw-v2
  */
 
-const CACHE_NAME = 'automotiveos-v1';
-const STATIC_CACHE = 'automotiveos-static-v1';
-const API_CACHE = 'automotiveos-api-v1';
-const CDN_CACHE = 'automotiveos-cdn-v1';
+const CACHE_VERSION = 'v2';
+const STATIC_CACHE = `automotiveos-static-${CACHE_VERSION}`;
+const API_CACHE = `automotiveos-api-${CACHE_VERSION}`;
+const CDN_CACHE = `automotiveos-cdn-${CACHE_VERSION}`;
+const OFFLINE_CACHE = `automotiveos-offline-${CACHE_VERSION}`;
 
-// Assets to pre-cache on install
+// ─── Precache Manifest ─────────────────────────
+
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
+  '/landing.html',
   '/app.js',
+  // Core modules
   '/js/ux.js',
-  '/js/analytics.js',
-  '/js/budget.js',
-  '/js/servicios.js',
+  '/js/i18n.js',
+  '/js/a11y.js',
+  '/js/sanitize.js',
+  '/js/pwa.js',
+  // Feature modules
   '/js/dashboard.js',
+  '/js/ordenes.js',
+  '/js/inventario.js',
+  '/js/facturacion.js',
+  '/js/contabilidad.js',
+  '/js/tesoreria.js',
   '/js/usuarios.js',
   '/js/config.js',
   '/js/taller.js',
   '/js/ingreso.js',
-  '/js/ordenes.js',
-  '/js/facturacion.js',
+  '/js/servicios.js',
   '/js/thinkcar.js',
-  '/js/inventario.js',
-  '/js/contabilidad.js',
-  '/js/tesoreria.js',
-  '/js/notifications.js',
   '/js/payroll.js',
+  '/js/analytics.js',
+  '/js/analytics-dashboard.js',
+  '/js/budget.js',
+  '/js/notifications.js',
+  '/js/notification-bell.js',
+  '/js/whatsapp.js',
+  '/js/wa-templates.js',
+  '/js/dvi.js',
+  '/js/calendario.js',
+  '/js/marketing.js',
+  '/js/fleet.js',
   '/js/history.js',
   '/js/print.js',
   '/js/search.js',
-  '/js/pwa.js',
+  '/js/shortcuts.js',
+  '/js/theme.js',
+  '/js/mobile.js',
+  '/js/charts.js',
+  // Offline modules
+  '/js/offline-db.js',
+  '/js/offline-queue.js',
+  // Sprint 50-52 modules
+  '/js/ai-copilot.js',
+  '/js/sifen-monitor.js',
+  '/js/whatsapp-monitor.js',
+  '/js/label-printing.js',
+  '/js/backup-restore.js',
+  '/js/security-hw.js',
+  '/js/client-portal.js',
+  '/js/inventory-batch.js',
   '/manifest.json',
 ];
 
-// CDN assets to cache
-const CDN_ASSETS = [
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
+// ─── CDN Origins ───────────────────────────────
+
+const CDN_ORIGINS = [
+  'cdn.tailwindcss.com',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com',
 ];
 
 // ─── Install ────────────────────────────────────
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE)
+    caches
+      .open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -63,13 +101,22 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== STATIC_CACHE && key !== API_CACHE && key !== CDN_CACHE)
-          .map((key) => caches.delete(key))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter(
+              (key) =>
+                key !== STATIC_CACHE &&
+                key !== API_CACHE &&
+                key !== CDN_CACHE &&
+                key !== OFFLINE_CACHE,
+            )
+            .map((key) => caches.delete(key)),
+        ),
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -79,23 +126,42 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') return;
+  // Skip non-GET for caching (mutations handled by queue)
+  if (request.method !== 'GET') {
+    // Allow POST to /api/auth/login through (not queue-able)
+    if (
+      request.method === 'POST' &&
+      url.pathname.startsWith('/api/auth/')
+    ) {
+      return; // Let it pass through normally
+    }
+    return;
+  }
 
   // Skip chrome-extension and other non-http
   if (!url.protocol.startsWith('http')) return;
 
-  // API requests → Network-First
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/workshop/') ||
-      url.pathname.startsWith('/finance/') || url.pathname.startsWith('/thinkcar/') ||
-      url.pathname === '/sync') {
+  // Locale API → Cache-First (translations rarely change)
+  if (url.pathname.startsWith('/api/v1/locale')) {
+    event.respondWith(cacheFirst(request, API_CACHE));
+    return;
+  }
+
+  // API requests → Network-First with cache fallback
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/workshop/') ||
+    url.pathname.startsWith('/finance/') ||
+    url.pathname.startsWith('/thinkcar/') ||
+    url.pathname.startsWith('/intelligence/') ||
+    url.pathname === '/sync'
+  ) {
     event.respondWith(networkFirst(request, API_CACHE));
     return;
   }
 
-  // CDN assets → Cache-First with stale-while-revalidate
-  if (url.hostname === 'cdn.tailwindcss.com' || url.hostname === 'fonts.googleapis.com' ||
-      url.hostname === 'fonts.gstatic.com') {
+  // CDN assets → Stale-While-Revalidate
+  if (CDN_ORIGINS.includes(url.hostname)) {
     event.respondWith(staleWhileRevalidate(request, CDN_CACHE));
     return;
   }
@@ -124,7 +190,7 @@ async function cacheFirst(request, cacheName) {
     }
     return response;
   } catch {
-    // Offline and not cached — return offline page for HTML
+    // Offline fallback
     if (request.headers.get('accept')?.includes('text/html')) {
       return caches.match('/index.html');
     }
@@ -149,8 +215,15 @@ async function networkFirst(request, cacheName) {
 
     // Return offline JSON for API calls
     return new Response(
-      JSON.stringify({ error: 'Offline', message: 'Sin conexión a internet' }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: 'Offline',
+        message: 'Sin conexión a internet — datos desde caché',
+        _offline: true,
+      }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      },
     );
   }
 }
@@ -161,18 +234,19 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
 
-  // Fetch in background and update cache
-  const fetchPromise = fetch(request).then((response) => {
-    if (response.ok) {
-      cache.put(request, response.clone());
-    }
-    return response;
-  }).catch(() => cached);
+  const fetchPromise = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => cached);
 
   return cached || fetchPromise;
 }
 
-// ─── Background Sync (when available) ──────────
+// ─── Background Sync ───────────────────────────
 
 self.addEventListener('sync', (event) => {
   if (event.tag === 'flush-offline-queue') {
@@ -181,17 +255,35 @@ self.addEventListener('sync', (event) => {
 });
 
 async function flushOfflineQueue() {
-  // Notify all clients that sync is happening
+  // Notify all clients to flush their queues
   const clients = await self.clients.matchAll();
   clients.forEach((client) => {
     client.postMessage({ type: 'SYNC_STARTED' });
   });
 }
 
+// ─── Message Handler ───────────────────────────
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+
+  if (event.data?.type === 'CACHE_URLS') {
+    const urls = event.data.urls || [];
+    caches.open(STATIC_CACHE).then((cache) => {
+      cache.addAll(urls);
+    });
+  }
+});
+
 // ─── Push Notifications ────────────────────────
 
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || { title: 'AutomotiveOS', body: 'Nueva notificación' };
+  const data = event.data?.json() || {
+    title: 'AutomotiveOS',
+    body: 'Nueva notificación',
+  };
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
@@ -200,21 +292,25 @@ self.addEventListener('push', (event) => {
       badge: '/icon-192.png',
       tag: data.tag || 'automotiveos-notification',
       data: data.url || '/',
-    })
+    }),
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      // Focus existing window or open new
-      for (const client of clients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
+    self.clients
+      .matchAll({ type: 'window' })
+      .then((clients) => {
+        for (const client of clients) {
+          if (
+            client.url.includes(self.location.origin) &&
+            'focus' in client
+          ) {
+            return client.focus();
+          }
         }
-      }
-      return self.clients.openWindow(event.notification.data || '/');
-    })
+        return self.clients.openWindow(event.notification.data || '/');
+      }),
   );
 });

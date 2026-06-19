@@ -60,6 +60,21 @@ export const ordenServicios = pgTable(
     /** Subtotal = cantidad × precio_unitario */
     subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
 
+    /** Estimated duration in minutes (from catalog) */
+    duracionEstimada: integer("duracion_estimada"),
+
+    /** Actual duration in minutes (filled when service is completed) */
+    duracionReal: integer("duracion_real"),
+
+    /** Timestamp when mechanic started working on this service */
+    horaInicioReal: timestamp("hora_inicio_real", { withTimezone: true }),
+
+    /** Timestamp when mechanic finished this service */
+    horaFinReal: timestamp("hora_fin_real", { withTimezone: true }),
+
+    /** Mechanic UUID who performed the service */
+    tecnicoId: uuid("tecnico_id"),
+
     /** Tenant slug for multi-tenant isolation */
     tenantSlug: text("tenant_slug").notNull(),
 

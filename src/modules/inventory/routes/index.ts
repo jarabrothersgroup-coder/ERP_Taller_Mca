@@ -16,6 +16,9 @@ import { toolMaintenanceRoutes } from "./tool-maintenance.js";
 import { toolDepreciationRoutes } from "./tool-depreciation.js";
 import { stockMovementsRoutes } from "./stock-movements.js";
 import { initialLoadRoutes } from "./initial-load.js";
+import { autoPORoutes } from "./auto-po.routes.js";
+import { tecdocRoutes } from "./tecdoc.routes.js";
+import { batchInventoryRoutes } from "./batch-inventory.routes.js";
 
 /**
  * Registers all inventory routes on the given Fastify instance.
@@ -31,4 +34,7 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   await app.register(toolDepreciationRoutes);
   await app.register(stockMovementsRoutes);
   await app.register(initialLoadRoutes);
+  await app.register(autoPORoutes);
+  await app.register(tecdocRoutes);
+  await app.register(batchInventoryRoutes);
 }

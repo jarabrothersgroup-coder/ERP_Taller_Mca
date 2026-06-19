@@ -15,11 +15,14 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import {
   ordenesTrabajo,
   facturas,
+  facturaDetalles,
+  ordenServicios,
+  ordenRepuestos,
   type SifenStatus,
 } from "../../../shared/database/schema/index.js";
 import { signXMLInWorker } from "../services/sifen/sifen-crypto.service.js";
@@ -172,9 +175,81 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
             })
             .returning();
 
-          // ── 6. Fiscal documento_detalles deferred to SIFEN integration phase ──
-          // NOTE: fiscalDocumentos requires SIFEN fields (emisorRuc, receptorRuc, etc.)
-          // For now, the primary CxC tracking uses the `facturas` table.
+          // ── 6. Generate invoice line items from OT services and repuestos ──
+          const [serviciosItems, repuestosItems] = await Promise.all([
+            tx.select().from(ordenServicios).where(eq(ordenServicios.ordenTrabajoId, ordenId)),
+            tx.select().from(ordenRepuestos).where(eq(ordenRepuestos.ordenTrabajoId, ordenId)),
+          ]);
+
+          const lineItems: Array<{
+            facturaId: string;
+            numeroLinea: number;
+            tipoLinea: string;
+            descripcion: string;
+            cantidad: string;
+            precioUnitario: string;
+            iva: number;
+            ivaMonto: string;
+            subtotal: string;
+            ordenServicioId: string | null;
+            ordenRepuestoId: string | null;
+            tenantSlug: string;
+          }> = [];
+
+          let lineaNum = 1;
+
+          // Service line items
+          for (const svc of serviciosItems) {
+            const cant = Number(svc.cantidad ?? 1);
+            const precio = Number(svc.precioUnitario ?? 0);
+            const sub = cant * precio;
+            const ivaRate = ivaExento ? 0 : 10;
+            const ivaAmount = Math.round((sub * ivaRate / 110) * 100) / 100;
+
+            lineItems.push({
+              facturaId: nuevaFactura.id,
+              numeroLinea: lineaNum++,
+              tipoLinea: "SERVICIO",
+              descripcion: svc.servicioNombre,
+              cantidad: String(cant),
+              precioUnitario: String(precio),
+              iva: ivaRate,
+              ivaMonto: String(ivaAmount),
+              subtotal: String(sub),
+              ordenServicioId: svc.id,
+              ordenRepuestoId: null,
+              tenantSlug: tenant,
+            });
+          }
+
+          // Parts line items
+          for (const rep of repuestosItems) {
+            const cant = Number(rep.cantidad ?? 1);
+            const precio = Number(rep.precioUnitario ?? 0);
+            const sub = cant * precio;
+            const ivaRate = ivaExento ? 0 : 10;
+            const ivaAmount = Math.round((sub * ivaRate / 110) * 100) / 100;
+
+            lineItems.push({
+              facturaId: nuevaFactura.id,
+              numeroLinea: lineaNum++,
+              tipoLinea: "REPUESTO",
+              descripcion: rep.repuestoNombre,
+              cantidad: String(cant),
+              precioUnitario: String(precio),
+              iva: ivaRate,
+              ivaMonto: String(ivaAmount),
+              subtotal: String(sub),
+              ordenServicioId: null,
+              ordenRepuestoId: rep.id,
+              tenantSlug: tenant,
+            });
+          }
+
+          // Insert all line items
+          if (lineItems.length > 0) {
+            await tx.insert(facturaDetalles).values(lineItems);
+          }
 
           // ── 7. Update work order timestamp ────
           await tx
@@ -259,6 +334,62 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
           error instanceof Error ? error.message : "Error desconocido";
         return reply.code(400).send({ success: false, error: message });
       }
+    },
+  );
+
+  // ── GET /finance/invoices — List invoices for tenant ──
+  fastify.get(
+    "/finance/invoices",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const tenant = request.tenantSlug;
+
+      const invoices = await db()
+        .select()
+        .from(facturas)
+        .where(eq(facturas.tenantSlug, tenant))
+        .orderBy(desc(facturas.createdAt));
+
+      return reply.send(invoices);
+    },
+  );
+
+  // ── GET /finance/invoices/:id — Get invoice with line items ──
+  fastify.get<{ Params: { id: string } }>(
+    "/finance/invoices/:id",
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const tenant = request.tenantSlug;
+      const { id } = request.params;
+
+      // Fetch invoice
+      const [invoice] = await db()
+        .select()
+        .from(facturas)
+        .where(and(eq(facturas.id, id), eq(facturas.tenantSlug, tenant)))
+        .limit(1);
+
+      if (!invoice) {
+        return reply.code(404).send({ error: "Factura no encontrada" });
+      }
+
+      // Fetch line items
+      const lineItems = await db()
+        .select()
+        .from(facturaDetalles)
+        .where(eq(facturaDetalles.facturaId, id))
+        .orderBy(facturaDetalles.numeroLinea);
+
+      // Fetch work order info
+      const [orden] = await db()
+        .select()
+        .from(ordenesTrabajo)
+        .where(eq(ordenesTrabajo.id, invoice.ordenId))
+        .limit(1);
+
+      return reply.send({
+        ...invoice,
+        lineItems,
+        orden,
+      });
     },
   );
 }

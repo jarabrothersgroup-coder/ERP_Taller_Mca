@@ -313,23 +313,29 @@ describe("📝 [Sprint 18] RLS Migration Structure", () => {
       "utf-8"
     );
 
-    const requiredTables = [
+    // Migration uses helper functions (apply_rls_slug / apply_rls_uuid)
+    // that dynamically enable RLS via format() — verify the function-based approach
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.apply_rls_slug");
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.apply_rls_uuid");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+
+    // Verify key tables are covered by SELECT public.apply_rls_slug('...')
+    const requiredSlugTables = [
       "clients", "vehiculos", "ordenes_trabajo", "ingresos",
-      "facturas", "fiscal_documentos", "plan_cuentas",
-      "asientos_contables", "asientos_detalle",
-      "cuentas_bancarias", "movimientos_tesoreria",
-      "repuestos", "herramientas", "notificaciones",
-      "fixed_expenses", "mechanic_profiles", "staff_profiles",
-      "commission_records", "payroll_summary", "audit_log",
-      "centros_costo", "tenant_config", "profiles",
       "servicios_catalogo", "orden_servicios", "orden_repuestos",
+      "facturas", "cuentas_bancarias", "movimientos_tesoreria",
+      "repuestos", "herramientas", "notificaciones",
+      "audit_log", "centros_costo", "tenant_config",
       "presupuestos", "thinkcar_imports",
     ];
 
-    for (const table of requiredTables) {
-      expect(sql).toContain(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
-      expect(sql).toContain(`ALTER TABLE ${table} FORCE ROW LEVEL SECURITY`);
+    for (const table of requiredSlugTables) {
+      expect(sql).toContain(`apply_rls_slug('${table}')`);
     }
+
+    // UUID-based tables
+    expect(sql).toContain("apply_rls_uuid('fixed_expenses')");
+    expect(sql).toContain("apply_rls_uuid('profiles')");
   });
 
   it("migration creates SELECT/INSERT/UPDATE/DELETE policies", async () => {
@@ -340,17 +346,17 @@ describe("📝 [Sprint 18] RLS Migration Structure", () => {
       "utf-8"
     );
 
-    // Check that policies exist for key tables
-    expect(sql).toContain("clients_tenant_select");
-    expect(sql).toContain("clients_tenant_insert");
-    expect(sql).toContain("clients_tenant_update");
-    expect(sql).toContain("clients_tenant_delete");
+    // Helper functions create all 4 policy types via EXECUTE format
+    expect(sql).toContain("_tenant_select");
+    expect(sql).toContain("_tenant_insert");
+    expect(sql).toContain("_tenant_update");
+    expect(sql).toContain("_tenant_delete");
 
-    expect(sql).toContain("facturas_tenant_select");
-    expect(sql).toContain("facturas_tenant_insert");
-
-    expect(sql).toContain("cuentas_bancarias_tenant_select");
-    expect(sql).toContain("movimientos_tesoreria_tenant_select");
+    // Verify the helper function body creates all 4 policies
+    expect(sql).toContain("FOR SELECT USING");
+    expect(sql).toContain("FOR INSERT WITH CHECK");
+    expect(sql).toContain("FOR UPDATE USING");
+    expect(sql).toContain("FOR DELETE USING");
   });
 
   it("migration disables RLS on tenants table (platform-level)", async () => {

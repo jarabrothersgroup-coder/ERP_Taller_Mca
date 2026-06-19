@@ -37,7 +37,11 @@ interface CatalogQuery {
 interface CatalogBody {
   nombre?: string;
   descripcion?: string;
+  descripcionTecnica?: string;
   categoria?: string;
+  categoriaId?: string;
+  codigo?: string;
+  thinkcarModulo?: string;
   precioEstimado?: number;
   duracionEstimada?: number;
   activo?: boolean;
@@ -49,7 +53,11 @@ const CATALOG_RESPONSE_PROPS = {
   id: { type: "string" },
   nombre: { type: "string" },
   descripcion: { type: "string", nullable: true },
+  descripcionTecnica: { type: "string", nullable: true },
   categoria: { type: "string", nullable: true },
+  categoriaId: { type: "string", nullable: true },
+  codigo: { type: "string", nullable: true },
+  thinkcarModulo: { type: "string", nullable: true },
   precioEstimado: { type: "string", nullable: true },
   duracionEstimada: { type: "integer", nullable: true },
   activo: { type: "boolean" },
@@ -63,7 +71,11 @@ const CATALOG_BODY_SCHEMA = {
   properties: {
     nombre: { type: "string", minLength: 1 },
     descripcion: { type: "string" },
+    descripcionTecnica: { type: "string" },
     categoria: { type: "string" },
+    categoriaId: { type: "string", format: "uuid" },
+    codigo: { type: "string" },
+    thinkcarModulo: { type: "string" },
     precioEstimado: { type: "number", minimum: 0 },
     duracionEstimada: { type: "integer", minimum: 0 },
     activo: { type: "boolean" },

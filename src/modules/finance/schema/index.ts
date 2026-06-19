@@ -105,6 +105,14 @@ export type {
 } from "./facturas.js";
 
 export {
+  facturaDetalles,
+} from "./factura-detalle.js";
+export type {
+  FacturaDetalle,
+  NewFacturaDetalle,
+} from "./factura-detalle.js";
+
+export {
   periodosFiscales,
   liquidacionesIva,
   liquidacionesIre,

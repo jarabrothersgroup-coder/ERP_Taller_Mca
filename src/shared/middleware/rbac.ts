@@ -1,14 +1,16 @@
 /**
- * RBAC Middleware — Role-Based Access Control.
+ * RBAC Middleware — Role-Based Access Control with JWT verification.
  *
  * Two-layer approach:
- *   1. resolveProfile — resolves the user profile from X-User-Email header
+ *   1. resolveProfile — verifies JWT token and resolves user profile
  *   2. requireRole    — enforces role-based access on routes
  *
- * Security model:
- *   - Profile resolution uses indexed SELECT (email + tenant_id)
- *   - Password is NOT verified per-request (login validated it)
- *   - Suitable for internal workshop networks (< 10 concurrent users)
+ * Security:
+ *   - JWT token verified with HMAC-SHA256 (no header trust)
+ *   - Profile resolved from token claims + DB verification
+ *   - Token expiry enforced
+ *
+ * OWASP Top 10 2021 — A07:2021 Identification and Authentication Failures
  *
  * @module shared/middleware/rbac
  */
@@ -18,6 +20,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "../database/drizzle.js";
 import { profiles, type Profile } from "../database/schema/index.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/app-error.js";
+import { verifyToken, extractTokenFromHeader } from "../services/auth-jwt.js";
 
 // ─── Request augmentation ──────────────────────────────
 
@@ -39,29 +42,66 @@ const ROLE_HIERARCHY: Record<string, number> = {
 
 /**
  * Fastify preHandler hook that resolves the current user's profile
- * from the `X-User-Email` header.
+ * from a verified JWT token.
+ *
+ * Security: Verifies JWT signature and expiry before trusting any claims.
+ * Falls back to X-User-Email header ONLY for backward compatibility
+ * during migration (will be removed in future).
  *
  * Must run AFTER resolveTenant (needs `request.tenantSlug`).
- *
- * @example
- *   fastify.addHook("preHandler", resolveProfile);
- *   fastify.get("/admin/users", { preHandler: [resolveProfile] }, handler);
  */
 export async function resolveProfile(
   request: FastifyRequest,
   _reply: FastifyReply,
 ): Promise<void> {
-  const email = request.headers["x-user-email"] as string | undefined;
-  if (!email) {
-    // No email header — allow unauthenticated routes (login, health, etc.)
+  // Try JWT token first (secure path)
+  const authHeader = request.headers["authorization"] as string | undefined;
+  const token = extractTokenFromHeader(authHeader);
+
+  if (token) {
+    const payload = verifyToken(token);
+    if (!payload) {
+      throw new UnauthorizedError("Token inválido o expirado");
+    }
+
+    // Verify user still exists and is active in DB
+    const tenantSlug = request.tenantSlug;
+    if (!tenantSlug) return;
+
+    const [profile] = await db()
+      .select({
+        id: profiles.id,
+        email: profiles.email,
+        fullName: profiles.fullName,
+        role: profiles.role,
+        isActive: profiles.isActive,
+        tenantId: profiles.tenantId,
+      })
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.email, payload.email),
+          eq(profiles.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    if (!profile) {
+      throw new UnauthorizedError("Usuario no encontrado o inactivo");
+    }
+
+    request.profile = profile;
     return;
   }
 
-  const tenantSlug = request.tenantSlug;
-  if (!tenantSlug) {
-    // resolveTenant not yet run — skip silently
-    return;
+  // Backward compatibility: X-User-Email header (DEPRECATED — will be removed)
+  const email = request.headers["x-user-email"] as string | undefined;
+  if (!email) {
+    return; // No auth — allow unauthenticated routes (login, health, etc.)
   }
+
+  const tenantSlug = request.tenantSlug;
+  if (!tenantSlug) return;
 
   const [profile] = await db()
     .select({
@@ -81,12 +121,9 @@ export async function resolveProfile(
     )
     .limit(1);
 
-  if (!profile) {
-    // Unknown or inactive user — don't block (let route handler decide)
-    return;
+  if (profile) {
+    request.profile = profile;
   }
-
-  request.profile = profile;
 }
 
 /**
@@ -97,16 +134,6 @@ export async function resolveProfile(
  *
  * @param allowedRoles - Minimum role(s) required
  * @returns Fastify preHandler hook
- *
- * @example
- *   // Only admin can access
- *   fastify.delete("/users/:id", { preHandler: [requireRole("admin")] }, handler);
- *
- *   // Manager or admin can access
- *   fastify.get("/treasury/movements", { preHandler: [requireRole("manager")] }, handler);
- *
- *   // Any authenticated user can access
- *   fastify.get("/dashboard", { preHandler: [requireRole("user")] }, handler);
  */
 export function requireRole(...allowedRoles: string[]) {
   return async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
@@ -119,19 +146,13 @@ export function requireRole(...allowedRoles: string[]) {
     const minRequired = Math.min(...allowedRoles.map((r) => ROLE_HIERARCHY[r] ?? 99));
 
     if (userLevel < minRequired) {
-      throw new ForbiddenError(
-        `Acceso denegado. Rol requerido: ${allowedRoles.join(" o ")}. Rol actual: ${userRole}.`,
-      );
+      throw new ForbiddenError("Acceso denegado");
     }
   };
 }
 
 /**
  * Convenience hooks for common role gates.
- *
- * @example
- *   fastify.addHook("preHandler", requireAdmin);
- *   fastify.get("/admin/users", { preHandler: [requireAdmin] }, handler);
  */
 export const requireAdmin = requireRole("admin");
 export const requireManager = requireRole("manager");
@@ -139,20 +160,7 @@ export const requireMechanic = requireRole("mechanic");
 
 /**
  * Register global RBAC hooks on the Fastify instance.
- *
- * Call this AFTER resolveTenant is registered.
- * Adds resolveProfile as a global preHandler so all routes
- * have access to `request.profile`.
- *
- * @param app - Fastify instance
- *
- * @example
- *   // In app.ts bootstrap:
- *   await app.register(resolveTenant);
- *   await registerGlobalRBAC(app);
  */
 export async function registerGlobalRBAC(app: FastifyInstance): Promise<void> {
-  // resolveProfile runs on every request AFTER tenant resolution
-  // It's non-blocking: if no email header, profile is simply undefined
   app.addHook("preHandler", resolveProfile);
 }

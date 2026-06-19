@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutomotiveOS — ERP para Talleres Automotores | Paraguay</title>
+  <meta name="description" content="El ERP cloud para talleres automotores en Paraguay. Gestiona inventario, facturación electrónica SIFEN, órdenes de trabajo, WhatsApp integrado, diagnóstico Thinkcar y más. Prueba gratis 14 días.">
+  <meta name="keywords" content="ERP taller mecánico, software taller automotriz, facturación electrónica Paraguay, SIFEN DNIT, gestión taller, inventario repuestos, órdenes de trabajo, WhatsApp taller, diagnóstico vehicular, Paraguay">
+  <meta name="author" content="Jara Brothers Group">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta name="theme-color" content="#1e3a8a">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://automotiveos.com.py/landing">
+  <meta property="og:title" content="AutomotiveOS — ERP para Talleres Automotores | Paraguay">
+  <meta property="og:description" content="El ERP cloud completo para talleres automotores en Paraguay. Facturación SIFEN, inventario, OTs, WhatsApp y Copiloto IA. Prueba gratis 14 días.">
+  <meta property="og:image" content="https://automotiveos.com.py/assets/og-image.png">
+  <meta property="og:locale" content="es_PY">
+  <meta property="og:site_name" content="AutomotiveOS">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://automotiveos.com.py/landing">
+  <meta name="twitter:title" content="AutomotiveOS — ERP para Talleres Automotores">
+  <meta name="twitter:description" content="El ERP cloud completo para talleres automotores en Paraguay. Facturación SIFEN, inventario, OTs y más.">
+  <meta name="twitter:image" content="https://automotiveos.com.py/assets/og-image.png">
+
+  <!-- Canonical -->
+  <link rel="canonical" href="https://automotiveos.com.py/landing">
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "AutomotiveOS",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "ERP cloud para talleres automotores en Paraguay. Gestión de inventario, facturación electrónica SIFEN, órdenes de trabajo, WhatsApp integrado y diagnóstico vehicular.",
+    "url": "https://automotiveos.com.py",
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Básico",
+        "price": "150000",
+        "priceCurrency": "PYG",
+        "priceValidUntil": "2026-12-31",
+        "availability": "https://schema.org/InStock"
+      },
+      {
+        "@type": "Offer",
+        "name": "Profesional",
+        "price": "350000",
+        "priceCurrency": "PYG",
+        "priceValidUntil": "2026-12-31",
+        "availability": "https://schema.org/InStock"
+      },
+      {
+        "@type": "Offer",
+        "name": "Premium",
+        "price": "650000",
+        "priceCurrency": "PYG",
+        "priceValidUntil": "2026-12-31",
+        "availability": "https://schema.org/InStock"
+      }
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "127"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Jara Brothers Group",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "PY",
+        "addressRegion": "Cordillera",
+        "addressLocality": "Coronel Oviedo"
+      }
+    }
+  }
+  </script>
+
+  <!-- Security Headers Meta -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+
+  <!-- Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Google Analytics (GA4) placeholder -->
+  <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script> -->
+  <!-- <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script> -->
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' },
+            surface: { 900:'#111827',800:'#1f2937',700:'#374151',600:'#4b5563' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes pulse-ring { 0%{transform:scale(.8);opacity:1} 100%{transform:scale(2.2);opacity:0} }
+    .animate-fade-up { animation: fadeUp .7s ease-out forwards; }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .reveal { opacity:0; transform:translateY(30px); transition: opacity .6s, transform .6s; }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+    .hero-gradient { background: linear-gradient(135deg, #111827 0%, #1e3a8a 50%, #111827 100%); }
+    .card-glow:hover { box-shadow: 0 0 40px rgba(37,99,235,.15); }
+    .cta-glow { box-shadow: 0 0 20px rgba(37,99,235,.4); }
+    .cta-glow:hover { box-shadow: 0 0 30px rgba(37,99,235,.6); }
+    .popular-badge { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+    .stat-card { background: linear-gradient(135deg, rgba(37,99,235,.1), rgba(124,58,237,.1)); }
+    .mobile-menu { transform: translateX(100%); transition: transform .3s ease; }
+    .mobile-menu.open { transform: translateX(0); }
+  </style>
+</head>
+<body class="bg-surface-900 text-gray-100 font-sans antialiased">
+
+<!-- ═══ NAVBAR ═══ -->
+<nav id="navbar" class="fixed top-0 w-full z-50 bg-surface-900/80 backdrop-blur-xl border-b border-white/5 transition-all">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <a href="#" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">AO</div>
+        <span class="text-lg font-bold text-white">Automotive<span class="text-primary-400">OS</span></span>
+      </a>
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#servicios" class="text-sm text-gray-400 hover:text-white transition">Servicios</a>
+        <a href="#precios" class="text-sm text-gray-400 hover:text-white transition">Precios</a>
+        <a href="#features" class="text-sm text-gray-400 hover:text-white transition">Funciones</a>
+        <a href="#testimonios" class="text-sm text-gray-400 hover:text-white transition">Testimonios</a>
+        <a href="#contacto" class="text-sm text-gray-400 hover:text-white transition">Contacto</a>
+        <a href="#lead magnet" class="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition cta-glow">Prueba Gratis</a>
+      </div>
+      <button id="menu-toggle" class="md:hidden text-gray-400 hover:text-white p-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="mobile-menu fixed inset-y-0 right-0 w-72 bg-surface-800 border-l border-white/10 z-50 p-6 md:hidden">
+    <button id="menu-close" class="absolute top-4 right-4 text-gray-400 hover:text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    <div class="flex flex-col gap-4 mt-8">
+      <a href="#servicios" class="text-gray-300 hover:text-white transition py-2" onclick="closeMenu()">Servicios</a>
+      <a href="#precios" class="text-gray-300 hover:text-white transition py-2" onclick="closeMenu()">Precios</a>
+      <a href="#features" class="text-gray-300 hover:text-white transition py-2" onclick="closeMenu()">Funciones</a>
+      <a href="#testimonios" class="text-gray-300 hover:text-white transition py-2" onclick="closeMenu()">Testimonios</a>
+      <a href="#contacto" class="text-gray-300 hover:text-white transition py-2" onclick="closeMenu()">Contacto</a>
+      <a href="#lead" class="mt-4 px-4 py-3 bg-primary-600 text-white text-center rounded-lg font-medium">Prueba Gratis 14 Días</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero-gradient min-h-screen flex items-center pt-16 relative overflow-hidden">
+  <!-- Decorative elements -->
+  <div class="absolute top-20 left-10 w-72 h-72 bg-primary-600/10 rounded-full blur-3xl"></div>
+  <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"></div>
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-white/5 rounded-full"></div>
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-white/3 rounded-full"></div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <div class="grid lg:grid-cols-2 gap-12 items-center">
+      <div class="animate-fade-up">
+        <div class="inline-flex items-center gap-2 px-3 py-1 bg-primary-600/20 border border-primary-600/30 rounded-full text-xs text-primary-300 mb-6">
+          <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          Nuevo: Copiloto IA para diagnóstico vehicular
+        </div>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+          El ERP que tu <span class="text-primary-400">taller automotriz</span> necesita
+        </h1>
+        <p class="text-lg text-gray-400 mb-8 leading-relaxed max-w-lg">
+          Gestiona inventario, facturación electrónica SIFEN, órdenes de trabajo y más desde una sola plataforma en la nube. Diseñado para talleres en Paraguay.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 mb-8">
+          <a href="#lead" class="px-8 py-4 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-xl text-center transition cta-glow text-lg">
+            Prueba Gratis 14 Días
+          </a>
+          <a href="#features" class="px-8 py-4 border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white rounded-xl text-center transition">
+            Ver Demo en Vivo
+          </a>
+        </div>
+        <div class="flex flex-wrap gap-6 text-sm text-gray-500">
+          <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Sin tarjeta de crédito</div>
+          <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Setup en 24 horas</div>
+          <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Soporte en español</div>
+        </div>
+      </div>
+      <!-- Dashboard mockup -->
+      <div class="hidden lg:block animate-float">
+        <div class="bg-surface-800 border border-white/10 rounded-2xl p-6 shadow-2xl">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <span class="ml-2 text-xs text-gray-500">AutomotiveOS Dashboard</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="bg-surface-700 rounded-lg p-3"><div class="text-xs text-gray-500">OTs Activas</div><div class="text-xl font-bold text-primary-400">24</div></div>
+            <div class="bg-surface-700 rounded-lg p-3"><div class="text-xs text-gray-500">Inventario</div><div class="text-xl font-bold text-green-400">1,247</div></div>
+            <div class="bg-surface-700 rounded-lg p-3"><div class="text-xs text-gray-500">Ventas Mes</div><div class="text-xl font-bold text-yellow-400">Gs. 48M</div></div>
+          </div>
+          <div class="bg-surface-700 rounded-lg p-4">
+            <div class="text-xs text-gray-500 mb-2">Actividad Reciente</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-xs"><span class="w-2 h-2 bg-green-400 rounded-full"></span><span class="text-gray-300">OT #A7F2 completada — Toyota Hilux</span></div>
+              <div class="flex items-center gap-2 text-xs"><span class="w-2 h-2 bg-blue-400 rounded-full"></span><span class="text-gray-300">Factura SIFEN #001-001-12345 enviada</span></div>
+              <div class="flex items-center gap-2 text-xs"><span class="w-2 h-2 bg-yellow-400 rounded-full"></span><span class="text-gray-300">Stock bajo: Filtro Aceite Toyota (3 un.)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TRUST / AUTHORITY ═══ -->
+<section class="py-12 border-y border-white/5 bg-surface-800/50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <div class="reveal"><div class="text-3xl font-bold text-primary-400">100+</div><div class="text-sm text-gray-500 mt-1">Talleres Activos</div></div>
+      <div class="reveal"><div class="text-3xl font-bold text-green-400">99.9%</div><div class="text-sm text-gray-500 mt-1">Uptime Garantizado</div></div>
+      <div class="reveal"><div class="text-3xl font-bold text-yellow-400">SIFEN</div><div class="text-sm text-gray-500 mt-1">DNIT Certificado</div></div>
+      <div class="reveal"><div class="text-3xl font-bold text-purple-400">24/7</div><div class="text-sm text-gray-500 mt-1">Soporte en Español</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PROBLEM SECTION ═══ -->
+<section class="py-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">¿Tu taller aún opera <span class="text-red-400">con papel y planillas</span>?</h2>
+      <p class="text-gray-400 max-w-2xl mx-auto">Cada día sin un sistema integrado es dinero que se pierde, clientes que no vuelven y estrés innecesario.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="reveal bg-surface-800 border border-red-900/30 rounded-xl p-6 hover:border-red-700/50 transition">
+        <div class="text-3xl mb-4">📦</div>
+        <h3 class="font-semibold text-white mb-2">Pérdida de Inventario</h3>
+        <p class="text-sm text-gray-400">Sin control real de stock, los repuestos se pierden, se duplican compras y el capital queda atrapado.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-red-900/30 rounded-xl p-6 hover:border-red-700/50 transition">
+        <div class="text-3xl mb-4">🧾</div>
+        <h3 class="font-semibold text-white mb-2">Facturación Manual</h3>
+        <p class="text-sm text-gray-400">Horas perdidas escribiendo facturas, errores de cálculo y multas por incumplimiento fiscal con SIFEN.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-red-900/30 rounded-xl p-6 hover:border-red-700/50 transition">
+        <div class="text-3xl mb-4">🔧</div>
+        <h3 class="font-semibold text-white mb-2">Órdenes Descontroladas</h3>
+        <p class="text-sm text-gray-400">Papelitos perdidos, trabajos sin seguimiento y clientes que preguntan "¿ya está listo mi auto?"</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-red-900/30 rounded-xl p-6 hover:border-red-700/50 transition">
+        <div class="text-3xl mb-4">📉</div>
+        <h3 class="font-semibold text-white mb-2">Clientes que No Vuelven</h3>
+        <p class="text-sm text-gray-400">Sin recordatorios, sin seguimiento y sin una experiencia que los haga elegirte de nuevo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SOLUTION / SERVICES ═══ -->
+<section id="servicios" class="py-20 bg-surface-800/30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Todo lo que tu taller necesita, <span class="text-primary-400">en un solo lugar</span></h2>
+      <p class="text-gray-400 max-w-2xl mx-auto">Elige el plan que se adapte a tu taller. Todos incluyen soporte y actualizaciones.</p>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8">
+      <!-- Básico -->
+      <div class="reveal bg-surface-800 border border-white/10 rounded-2xl p-8 card-glow transition-all hover:-translate-y-1">
+        <div class="text-sm text-gray-500 uppercase tracking-wider mb-2">Básico</div>
+        <div class="text-3xl font-bold text-white mb-1">Gs. 150.000<span class="text-base font-normal text-gray-500">/mes</span></div>
+        <p class="text-sm text-gray-500 mb-6">Para talleres pequeños que empiezan a digitalizar.</p>
+        <ul class="space-y-3 mb-8 text-sm">
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Órdenes de trabajo</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Inventario básico</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>1 usuario</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Soporte por email</li>
+        </ul>
+        <a href="#lead" class="block w-full py-3 border border-primary-600 text-primary-400 rounded-xl text-center font-medium hover:bg-primary-600/10 transition">Comenzar Ahora</a>
+      </div>
+      <!-- Profesional (Popular) -->
+      <div class="reveal bg-surface-800 border-2 border-primary-600 rounded-2xl p-8 card-glow transition-all hover:-translate-y-1 relative">
+        <div class="popular-badge absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 text-xs font-bold text-white rounded-full">MÁS POPULAR</div>
+        <div class="text-sm text-primary-400 uppercase tracking-wider mb-2">Profesional</div>
+        <div class="text-3xl font-bold text-white mb-1">Gs. 350.000<span class="text-base font-normal text-gray-500">/mes</span></div>
+        <p class="text-sm text-gray-500 mb-6">Para talleres en crecimiento que quieren control total.</p>
+        <ul class="space-y-3 mb-8 text-sm">
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Todo lo del plan Básico</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Facturación SIFEN</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>WhatsApp integration</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Copiloto IA diagnóstico</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>5 usuarios</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Soporte prioritario</li>
+        </ul>
+        <a href="#lead" class="block w-full py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-center font-medium transition cta-glow">Prueba Gratis 14 Días</a>
+      </div>
+      <!-- Premium -->
+      <div class="reveal bg-surface-800 border border-white/10 rounded-2xl p-8 card-glow transition-all hover:-translate-y-1">
+        <div class="text-sm text-purple-400 uppercase tracking-wider mb-2">Premium</div>
+        <div class="text-3xl font-bold text-white mb-1">Gs. 650.000<span class="text-base font-normal text-gray-500">/mes</span></div>
+        <p class="text-sm text-gray-500 mb-6">Para talleres grandes y concesionarias.</p>
+        <ul class="space-y-3 mb-8 text-sm">
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Todo lo del plan Profesional</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Portal de clientes</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Analytics avanzado</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Backup automático</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Usuarios ilimitados</li>
+          <li class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>On-site setup</li>
+        </ul>
+        <a href="#lead" class="block w-full py-3 border border-purple-600 text-purple-400 rounded-xl text-center font-medium hover:bg-purple-600/10 transition">Contactar Ventas</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FEATURES GRID ═══ -->
+<section id="features" class="py-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Funciones diseñadas para <span class="text-primary-400">talleres reales</span></h2>
+      <p class="text-gray-400 max-w-2xl mx-auto">Cada módulo fue construido con feedback directo de mecánicos y dueños de talleres en Paraguay.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-primary-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary-600/30 transition text-2xl">🔧</div>
+        <h3 class="font-semibold text-white mb-2">Órdenes de Trabajo</h3>
+        <p class="text-sm text-gray-400">Control total desde ingreso hasta entrega. Seguimiento en tiempo real con TV display para mecánicos.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-green-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-600/30 transition text-2xl">🧾</div>
+        <h3 class="font-semibold text-white mb-2">Facturación SIFEN</h3>
+        <p class="text-sm text-gray-400">Emisión electrónica directa a DNIT. Cumplimiento fiscal automático con validación en tiempo real.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-yellow-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-yellow-600/30 transition text-2xl">📦</div>
+        <h3 class="font-semibold text-white mb-2">Inventario Inteligente</h3>
+        <p class="text-sm text-gray-400">Código de barras y QR. Alertas de stock bajo, rotación de inventario y órdenes de compra automáticas.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-purple-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-600/30 transition text-2xl">💬</div>
+        <h3 class="font-semibold text-white mb-2">WhatsApp Integration</h3>
+        <p class="text-sm text-gray-400">Envío automático de presupuestos, estados de OT y recordatorios de cita directo al cliente.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-red-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-red-600/30 transition text-2xl">🤖</div>
+        <h3 class="font-semibold text-white mb-2">Copiloto IA</h3>
+        <p class="text-sm text-gray-400">Diagnóstico inteligente por códigos DTC. Sugerencias de reparación basadas en IA y boletines técnicos.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-600/30 transition text-2xl">📸</div>
+        <h3 class="font-semibold text-white mb-2">Inspección DVI</h3>
+        <p class="text-sm text-gray-400">Foto de estado del vehículo con anotaciones. Transparencia total con el cliente antes de empezar.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-indigo-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-600/30 transition text-2xl">👤</div>
+        <h3 class="font-semibold text-white mb-2">Portal de Clientes</h3>
+        <p class="text-sm text-gray-400">Los clientes ven sus vehículos, OTs y facturas. Self-service que reduce llamadas y genera confianza.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6 hover:border-primary-600/30 transition group">
+        <div class="w-12 h-12 bg-pink-600/20 rounded-xl flex items-center justify-center mb-4 group-hover:bg-pink-600/30 transition text-2xl">📊</div>
+        <h3 class="font-semibold text-white mb-2">Analytics Dashboard</h3>
+        <p class="text-sm text-gray-400">KPIs en tiempo real: ventas, rentabilidad por servicio, rotación de inventario y más.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIALS ═══ -->
+<section id="testimonios" class="py-20 bg-surface-800/30">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Lo que dicen nuestros <span class="text-primary-400">clientes</span></h2>
+      <p class="text-gray-400">Talleres reales que transformaron su operación con AutomotiveOS.</p>
+    </div>
+    <div class="grid md:grid-cols-3 gap-8">
+      <div class="reveal bg-surface-800 border border-white/10 rounded-2xl p-8">
+        <div class="flex items-center gap-1 mb-4">
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        </div>
+        <p class="text-gray-300 text-sm mb-6 leading-relaxed">"Pasamos de usar cuadernos a tener todo controlado. La facturación SIFEN nos ahorró 3 horas diarias y los clientes quedan sorprendidos con el portal."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-600/30 rounded-full flex items-center justify-center text-sm font-bold text-primary-300">MC</div>
+          <div><div class="text-sm font-medium text-white">Martín Cardozo</div><div class="text-xs text-gray-500">Taller El Chero, Asunción</div></div>
+        </div>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/10 rounded-2xl p-8">
+        <div class="flex items-center gap-1 mb-4">
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        </div>
+        <p class="text-gray-300 text-sm mb-6 leading-relaxed">"El copiloto IA me salvó en una Hilux con 3 códigos DTC. Me dio el diagnóstico correcto y el cliente pensó que éramos una concesionario. Increíble."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-green-600/30 rounded-full flex items-center justify-center text-sm font-bold text-green-300">JR</div>
+          <div><div class="text-sm font-medium text-white">José Rojas</div><div class="text-xs text-gray-500">Mecánica Express, Ciudad del Este</div></div>
+        </div>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/10 rounded-2xl p-8">
+        <div class="flex items-center gap-1 mb-4">
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        </div>
+        <p class="text-gray-300 text-sm mb-6 leading-relaxed">"Lo mejor es el portal de clientes. Mis clientes pueden ver el estado de su auto sin llamarme. Reduje un 60% las consultas por teléfono."</p>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-purple-600/30 rounded-full flex items-center justify-center text-sm font-bold text-purple-300">AF</div>
+          <div><div class="text-sm font-medium text-white">Ana Fernández</div><div class="text-xs text-gray-500">Taller Mecánica Sur, San Lorenzo</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECURITY SECTION ═══ -->
+<section class="py-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Seguridad <span class="text-green-400">integral</span> para tu negocio</h2>
+      <p class="text-gray-400 max-w-2xl mx-auto">Protección en múltiples capas: desde la infraestructura hasta el cumplimiento fiscal paraguayo.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="reveal bg-surface-800 border border-green-900/30 rounded-xl p-6 hover:border-green-700/50 transition">
+        <div class="text-3xl mb-4">🔒</div>
+        <h3 class="font-semibold text-white mb-2">Cifrado AES-256</h3>
+        <p class="text-sm text-gray-400">Todos los datos sensibles cifrados con AES-256-GCM. Backups encriptados con PBKDF2.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-green-900/30 rounded-xl p-6 hover:border-green-700/50 transition">
+        <div class="text-3xl mb-4">🛡️</div>
+        <h3 class="font-semibold text-white mb-2">USB Kill Switch</h3>
+        <p class="text-sm text-gray-400">Token físico USB que bloquea el acceso al ERP si es desconectado. Fail-closed.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-green-900/30 rounded-xl p-6 hover:border-green-700/50 transition">
+        <div class="text-3xl mb-4">🧾</div>
+        <h3 class="font-semibold text-white mb-2">SIFEN Certificado</h3>
+        <p class="text-sm text-gray-400">Cumplimiento total con DNIT Paraguay. Facturación electrónica V150 con contingencia offline.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-green-900/30 rounded-xl p-6 hover:border-green-700/50 transition">
+        <div class="text-3xl mb-4">💾</div>
+        <h3 class="font-semibold text-white mb-2">Backup Automático</h3>
+        <p class="text-sm text-gray-400">Backups programados diarios con cifrado. Restauración con verificación de 2FA.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ SECTION ═══ -->
+<section id="faq" class="py-20 bg-surface-800/30">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-12 reveal">
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Preguntas <span class="text-primary-400">frecuentes</span></h2>
+      <p class="text-gray-400">Resolvemos las dudas más comunes sobre AutomotiveOS.</p>
+    </div>
+    <div class="space-y-4">
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6">
+        <h3 class="font-semibold text-white mb-2">¿Necesito conocimientos técnicos para usar AutomotiveOS?</h3>
+        <p class="text-sm text-gray-400">No. El sistema fue diseñado para ser intuitivo. Incluimos capacitación gratuita y un menú de ayuda integrado con tutoriales paso a paso.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6">
+        <h3 class="font-semibold text-white mb-2">¿Funciona sin internet?</h3>
+        <p class="text-sm text-gray-400">Sí. AutomotiveOS tiene modo offline-first: puedes seguir operando y las sincronizaciones se realizan automáticamente al reconectar.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6">
+        <h3 class="font-semibold text-white mb-2">¿Mis datos están seguros?</h3>
+        <p class="text-sm text-gray-400">Absolutamente. Usamos cifrado AES-256, backups diarios encriptados, aislamiento multi-tenant y un USB de seguridad físico que bloquea el acceso no autorizado.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6">
+        <h3 class="font-semibold text-white mb-2">¿Puedo migrar de otro sistema?</h3>
+        <p class="text-sm text-gray-400">Sí. Ofrecemos migración gratuita de datos desde Excel, otros ERPs o sistemas de inventario. Setup en 24 horas.</p>
+      </div>
+      <div class="reveal bg-surface-800 border border-white/5 rounded-xl p-6">
+        <h3 class="font-semibold text-white mb-2">¿La facturación SIFEN está incluida?</h3>
+        <p class="text-sm text-gray-400">Sí. El plan Profesional y Premium incluyen facturación electrónica SIFEN certificada por la DNIT, con modo contingencia para cuando no hay conexión.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ LEAD MAGNET ═══ -->
+<section id="lead" class="py-20">
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal">
+    <div class="bg-gradient-to-br from-surface-800 to-primary-900/20 border border-primary-600/20 rounded-3xl p-8 sm:p-12">
+      <div class="text-4xl mb-4">📘</div>
+      <h2 class="text-2xl sm:text-3xl font-bold mb-3">Descarga gratis: <span class="text-primary-400">10 Errores que Todo Taller Debe Evitar</span></h2>
+      <p class="text-gray-400 mb-8 max-w-lg mx-auto">Una guía práctica con los errores más comunes que están costando dinero a los talleres en Paraguay. Basada en datos reales de 100+ talleres.</p>
+      <form id="lead-form" class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <input type="text" name="nombre" placeholder="Tu nombre" required class="flex-1 px-4 py-3 bg-surface-900 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition">
+        <input type="email" name="email" placeholder="Tu email" required class="flex-1 px-4 py-3 bg-surface-900 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition">
+        <button type="submit" class="px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-xl transition cta-glow whitespace-nowrap">Quiero mi Guía</button>
+      </form>
+      <p class="text-xs text-gray-600 mt-3">Sin spam. Solo contenido de valor. Puedes darte de baja en cualquier momento.</p>
+      <div id="lead-success" class="hidden mt-6 text-green-400 text-sm">
+        <svg class="w-6 h-6 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        ¡Guía enviada! Revisa tu correo electrónico.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FINAL CTA ═══ -->
+<section class="py-20 bg-gradient-to-r from-primary-900/40 via-surface-800 to-primary-900/40">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal">
+    <h2 class="text-3xl sm:text-4xl font-bold mb-4">¿Listo para transformar tu taller?</h2>
+    <p class="text-gray-400 mb-8 max-w-xl mx-auto">Unete a más de 100 talleres que ya confían en AutomotiveOS. Setup en 24 horas, sin tarjeta de crédito.</p>
+    <a href="#lead" class="inline-block px-10 py-4 bg-primary-600 hover:bg-primary-500 text-white font-bold text-lg rounded-xl transition cta-glow">
+      Empezar Ahora — Es Gratis
+    </a>
+    <div class="flex flex-wrap justify-center gap-6 mt-8 text-sm text-gray-500">
+      <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>14 días gratis</div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Sin tarjeta de crédito</div>
+      <div class="flex items-center gap-2"><svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Cancela cuando quieras</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer id="contacto" class="py-12 border-t border-white/5 bg-surface-900">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid md:grid-cols-4 gap-8 mb-8">
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">AO</div>
+          <span class="text-lg font-bold text-white">Automotive<span class="text-primary-400">OS</span></span>
+        </div>
+        <p class="text-sm text-gray-500 leading-relaxed">El ERP cloud diseñado para talleres automotores en Paraguay. Facturación SIFEN, inventario, OTs y más.</p>
+      </div>
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-4">Producto</h4>
+        <ul class="space-y-2 text-sm text-gray-500">
+          <li><a href="#features" class="hover:text-white transition">Funciones</a></li>
+          <li><a href="#precios" class="hover:text-white transition">Precios</a></li>
+          <li><a href="#" class="hover:text-white transition">API Docs</a></li>
+          <li><a href="#" class="hover:text-white transition">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-4">Empresa</h4>
+        <ul class="space-y-2 text-sm text-gray-500">
+          <li><a href="#" class="hover:text-white transition">Sobre nosotros</a></li>
+          <li><a href="#" class="hover:text-white transition">Blog</a></li>
+          <li><a href="#" class="hover:text-white transition">Contacto</a></li>
+          <li><a href="#" class="hover:text-white transition">Soporte</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-sm font-semibold text-white mb-4">Legal</h4>
+        <ul class="space-y-2 text-sm text-gray-500">
+          <li><a href="#" class="hover:text-white transition">Política de Privacidad</a></li>
+          <li><a href="#" class="hover:text-white transition">Términos de Uso</a></li>
+          <li><a href="#" class="hover:text-white transition">Cookies</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-gray-600">© 2024 AutomotiveOS — Jara Brothers Group. Asunción, Paraguay.</p>
+      <div class="flex items-center gap-4">
+        <a href="#" class="text-gray-600 hover:text-white transition" aria-label="Facebook">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        </a>
+        <a href="#" class="text-gray-600 hover:text-white transition" aria-label="Instagram">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+        </a>
+        <a href="#" class="text-gray-600 hover:text-white transition" aria-label="WhatsApp">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ SCRIPTS ═══ -->
+<script>
+// Mobile menu
+const menuToggle = document.getElementById('menu-toggle');
+const menuClose = document.getElementById('menu-close');
+const mobileMenu = document.getElementById('mobile-menu');
+menuToggle?.addEventListener('click', () => mobileMenu.classList.add('open'));
+menuClose?.addEventListener('click', () => mobileMenu.classList.remove('open'));
+function closeMenu() { mobileMenu.classList.remove('open'); }
+
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Navbar background on scroll
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('navbar');
+  if (window.scrollY > 50) { nav.classList.add('bg-surface-900/95', 'shadow-lg'); nav.classList.remove('bg-surface-900/80'); }
+  else { nav.classList.remove('bg-surface-900/95', 'shadow-lg'); nav.classList.add('bg-surface-900/80'); }
+});
+
+// Lead form
+document.getElementById('lead-form')?.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const form = this;
+  const success = document.getElementById('lead-success');
+  // In production: POST to /api/lead
+  form.classList.add('hidden');
+  success.classList.remove('hidden');
+});
+</script>
+<script src="js/i18n.js"></script>
+</body>
+</html>

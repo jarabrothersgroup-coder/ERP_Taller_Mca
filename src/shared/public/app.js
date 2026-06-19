@@ -38,14 +38,80 @@ const dom = {
   logoutBtn: $('logout-btn'),
 };
 
+/* ─── Offline-First Cache Layer ──────────────── */
+const cache = {
+  _store: {},
+  _ttl: {},
+  get(key) {
+    const ttl = this._ttl[key];
+    if (ttl && Date.now() > ttl) {
+      delete this._store[key];
+      delete this._ttl[key];
+      return null;
+    }
+    return this._store[key] || null;
+  },
+  set(key, value, ttlMs = 300000) {
+    this._store[key] = value;
+    this._ttl[key] = Date.now() + ttlMs;
+    try { localStorage.setItem(`cache_${key}`, JSON.stringify({ value, expires: this._ttl[key] })); } catch {}
+  },
+  load() {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('cache_')) {
+          const data = JSON.parse(localStorage.getItem(k));
+          if (data && data.expires > Date.now()) {
+            this._store[k.slice(6)] = data.value;
+            this._ttl[k.slice(6)] = data.expires;
+          } else {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+    } catch {}
+  },
+  invalidate(pattern) {
+    const keys = Object.keys(this._store);
+    for (const k of keys) {
+      if (k.includes(pattern)) {
+        delete this._store[k];
+        delete this._ttl[k];
+        try { localStorage.removeItem(`cache_${k}`); } catch {}
+      }
+    }
+  },
+};
+cache.load();
+
 async function api(path, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (state.auth.slug) headers['X-Tenant-Slug'] = state.auth.slug;
-  if (state.auth.profile?.email) headers['X-User-Email'] = state.auth.profile.email;
+  // CRIT-02 FIX: Send JWT token instead of email header
+  if (state.auth.token) {
+    headers['Authorization'] = `Bearer ${state.auth.token}`;
+  } else if (state.auth.profile?.email) {
+    headers['X-User-Email'] = state.auth.profile.email;
+  }
+  // MED-03 FIX: Send CSRF token from cookie on state-changing requests
+  const method = (opts.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrfToken = document.cookie.split('; ').find(c => c.startsWith('_csrf='))?.split('=')[1];
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  }
   if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(opts.body);
   }
+
+  // Offline-first: use cache for GET requests
+  const method = (opts.method || 'GET').toUpperCase();
+  if (method === 'GET' && !opts.noCache) {
+    const cached = cache.get(path);
+    if (cached !== null) return cached;
+  }
+
   const res = await fetch(path, { ...opts, headers });
   if (!res.ok) {
     let msg = `Error ${res.status}`;
@@ -53,7 +119,20 @@ async function api(path, opts = {}) {
     throw new Error(msg);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  const data = text ? JSON.parse(text) : null;
+
+  // Cache GET responses for 5 minutes
+  if (method === 'GET' && data && !opts.noCache) {
+    cache.set(path, data, 300000);
+  }
+
+  // Invalidate related cache on mutations
+  if (method !== 'GET') {
+    const basePath = path.split('?')[0].replace(/\/[^/]+$/, '');
+    cache.invalidate(basePath);
+  }
+
+  return data;
 }
 
 
@@ -67,10 +146,11 @@ async function login() {
   dom.loginError.classList.add('hidden');
   try {
     const result = await api('/api/auth/login', { method: 'POST', body: { tenantSlug: slug, email, password: password || undefined } });
-    state.auth = { slug, profile: result.profile, tenant: result.tenant };
+    state.auth = { slug, profile: result.profile, tenant: result.tenant, token: result.token };
     localStorage.setItem('x-tenant-slug', slug);
     localStorage.setItem('x-tenant-email', email);
-    if (password) localStorage.setItem('x-tenant-password', password);
+    // CRIT-03 FIX: Never store password — use JWT token instead
+    if (result.token) localStorage.setItem('x-auth-token', result.token);
     enterApp();
     if (typeof showToast === 'function') showToast(`Bienvenido, ${result.profile?.fullName || email}`, 'success');
   } catch (e) {
@@ -89,8 +169,8 @@ function showLoginError(msg) {
 function logout() {
   localStorage.removeItem('x-tenant-slug');
   localStorage.removeItem('x-tenant-email');
-  localStorage.removeItem('x-tenant-password');
-  state.auth = { slug: '', profile: null, tenant: null };
+  localStorage.removeItem('x-auth-token');
+  state.auth = { slug: '', profile: null, tenant: null, token: null };
   if (state.ws) { state.ws.close(); state.ws = null; }
   if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
   dom.appLayout.classList.add('hidden');
@@ -105,6 +185,8 @@ function enterApp() {
   dom.appLayout.classList.remove('hidden');
   dom.sidebarCompany.textContent = state.auth.tenant?.name || 'AutomotiveOS';
   dom.sidebarSlug.textContent = state.auth.slug;
+  // Apply RBAC visibility
+  applyRoleVisibility();
   // Render notification bell in header
   const bellContainer = document.getElementById('notif-bell-container');
   if (bellContainer && typeof renderNotifBell === 'function') {
@@ -124,20 +206,23 @@ function enterApp() {
 async function checkAuth() {
   const slug = localStorage.getItem('x-tenant-slug');
   const email = localStorage.getItem('x-tenant-email');
-  const password = localStorage.getItem('x-tenant-password');
-  if (slug && email) {
+  const token = localStorage.getItem('x-auth-token');
+  if (slug && email && token) {
     dom.loginSlug.value = slug;
     dom.loginEmail.value = email;
-    if (password) dom.loginPassword.value = password;
+    // CRIT-03 FIX: Restore token, not password
+    state.auth = { slug, token };
     try {
-      const result = await api('/api/auth/login', { method: 'POST', body: { tenantSlug: slug, email, password } });
-      state.auth = { slug, profile: result.profile, tenant: result.tenant };
+      const result = await api('/api/auth/login', { method: 'POST', body: { tenantSlug: slug, email, password: '__token_relogin__' } });
+      state.auth = { slug, profile: result.profile, tenant: result.tenant, token: result.token || token };
+      localStorage.setItem('x-auth-token', state.auth.token);
       enterApp();
       return true;
     } catch {
       localStorage.removeItem('x-tenant-slug');
       localStorage.removeItem('x-tenant-email');
-      localStorage.removeItem('x-tenant-password');
+      localStorage.removeItem('x-auth-token');
+      state.auth = { slug: '', profile: null, tenant: null, token: null };
       return false;
     }
   }
@@ -167,6 +252,16 @@ function navigate(view) {
     tesoreria: ['Tesorería', 'CxC, CxP, Cuentas y Flujo de Caja'],
     presupuestos: ['Presupuestos', 'Control de gestión: real vs presupuestado'],
     inventario: ['Inventario', 'Gestión de repuestos y herramientas'],
+    whatsapp: ['WhatsApp', 'Conexión y envío de mensajes'],
+    dvi: ['DVI', 'Inspección Digital de Vehículos'],
+    calendario: ['Calendario', 'Turnos y agendamiento'],
+    marketing: ['Marketing', 'Campañas y fidelización'],
+    fleet: ['Flotas', 'Gestión de flotas corporativas'],
+    'sifen-monitor': ['Monitor SIFEN', 'Estado de facturación electrónica DNIT'],
+    'whatsapp-monitor': ['Monitor WhatsApp', 'Colas, entregas y errores de mensajería'],
+    'label-printing': ['Impresión Etiquetas', 'Códigos de barras y QR para inventario'],
+    'backup-restore': ['Backup & Restore', 'Copias de seguridad y restauración'],
+    'security-hw': ['Seguridad Hardware', 'USB Dongle, Kill Switch y Fingerprinting'],
   };
   const [t, st] = titles[view] || ['', ''];
   dom.viewTitle.textContent = t;
@@ -193,6 +288,16 @@ function renderView(view) {
   else if (view === 'servicios') renderServicios(c);
   else if (view === 'inventario') renderInventario(c);
   else if (view === 'nomina') renderPayroll(c);
+  else if (view === 'whatsapp') renderWhatsAppView(c);
+  else if (view === 'dvi') renderDVI(c);
+  else if (view === 'calendario') renderCalendario(c);
+  else if (view === 'marketing') renderMarketing(c);
+  else if (view === 'fleet') renderFleet(c);
+  else if (view === 'sifen-monitor') renderSifenMonitor(c);
+  else if (view === 'whatsapp-monitor') renderWhatsappMonitor(c);
+  else if (view === 'label-printing') { c.innerHTML = '<div id="label-printing-view"></div>'; if (typeof initLabelPrinting === 'function') initLabelPrinting(); }
+  else if (view === 'backup-restore') { c.innerHTML = '<div id="backup-view"></div>'; if (typeof initBackupRestore === 'function') initBackupRestore(); }
+  else if (view === 'security-hw') { c.innerHTML = '<div id="security-hw-view"></div>'; if (typeof initSecurityHw === 'function') initSecurityHw(); }
 }
 
 /* ─── Servicios (Catálogo) ──────────────── */
@@ -201,8 +306,53 @@ function esc(s) { const d = document.createElement('div'); d.textContent = s || 
 function fmt(n) { return (Number(n) || 0).toLocaleString('es-PY', { minimumFractionDigits: 0 }); }
 
 function roleBadge(role) {
-  const m = { admin: 'bg-purple-900/50 text-purple-300', manager: 'bg-blue-900/50 text-blue-300', mechanic: 'bg-yellow-900/50 text-yellow-300', user: 'bg-gray-700 text-gray-300' };
+  const m = { admin: 'bg-purple-900/50 text-purple-400', manager: 'bg-blue-900/50 text-blue-400', mechanic: 'bg-green-900/50 text-green-400', user: 'bg-gray-700 text-gray-300' };
   return m[role] || 'bg-gray-700 text-gray-300';
+}
+
+/* ─── RBAC View Visibility ─────────────────────── */
+const ROLE_HIERARCHY = { user: 0, mechanic: 1, manager: 2, admin: 3 };
+
+const VIEW_ROLES = {
+  dashboard: 'user',
+  analytics: 'manager',
+  users: 'admin',
+  config: 'admin',
+  ordenes: 'mechanic',
+  ingreso: 'mechanic',
+  workshop: 'mechanic',
+  tv: 'user',
+  facturacion: 'manager',
+  thinkcar: 'mechanic',
+  contabilidad: 'manager',
+  servicios: 'manager',
+  tesoreria: 'manager',
+  presupuestos: 'manager',
+  inventario: 'manager',
+  nomina: 'admin',
+  whatsapp: 'manager',
+  dvi: 'mechanic',
+  calendario: 'manager',
+  marketing: 'admin',
+  fleet: 'admin',
+};
+
+function canAccessView(view) {
+  const requiredRole = VIEW_ROLES[view];
+  if (!requiredRole) return true; // Unknown views are accessible
+  const userRole = state.auth.profile?.role || 'user';
+  return (ROLE_HIERARCHY[userRole] ?? 0) >= (ROLE_HIERARCHY[requiredRole] ?? 0);
+}
+
+function applyRoleVisibility() {
+  $$('.sidebar-item[data-view]').forEach(btn => {
+    const view = btn.dataset.view;
+    if (view && !canAccessView(view)) {
+      btn.classList.add('hidden');
+    } else {
+      btn.classList.remove('hidden');
+    }
+  });
 }
 
 function statusBadge(s) {
@@ -375,6 +525,7 @@ const CONTABILIDAD_TABS = {
   resultados: 'Estado Resultados',
   libros: 'Libros Contables',
   impuestos: 'Impuestos',
+  auditoria: 'Auditoría',
 };
 
 /* ─── Init ──────────────────────────────── */
@@ -951,3 +1102,28 @@ function closeSidebarMobile() {
     }
   });
 })();
+
+// ═════════════════════════════════════════════════
+//  GLOBAL ERROR BOUNDARY
+// ═════════════════════════════════════════════════
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  event.preventDefault();
+  showToast('Error inesperado: ' + (event.reason?.message || 'Operación fallida'), 'error');
+});
+
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error:', event.error);
+  showToast('Error del sistema: ' + (event.error?.message || 'Error desconocido'), 'error');
+});
+
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  const colors = type === 'error' ? 'bg-red-900/90 border-red-700 text-red-200' :
+                 type === 'success' ? 'bg-green-900/90 border-green-700 text-green-200' :
+                 'bg-gray-800/90 border-gray-700 text-gray-200';
+  toast.className = `fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg border text-sm max-w-sm shadow-lg ${colors} animate-slide-up`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+}

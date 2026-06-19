@@ -8,19 +8,28 @@
  */
 
 import { db } from "../../shared/database/drizzle.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { vehiculos } from "../../modules/workshop/schema/vehiculos.js";
 import { clients } from "../../shared/database/schema/clients.js";
 import { ordenesTrabajo } from "../../modules/workshop/schema/ordenes-trabajo.js";
+import { facturas } from "../../modules/finance/schema/index.js";
 
 // ─── Types ──────────────────────────────────────
 
-export type ExportableTable = "vehiculos" | "clientes" | "ordenes";
+export type ExportableTable = "vehiculos" | "clientes" | "ordenes" | "facturas";
+
+export interface DateRangeOptions {
+  /** ISO date string (YYYY-MM-DD) — filter by createdAt >= from */
+  from?: string;
+  /** ISO date string (YYYY-MM-DD) — filter by createdAt <= to (end of day) */
+  to?: string;
+}
 
 interface CsvExportConfig {
   table: any;
   columns: Record<string, { header: string; accessor: (row: any) => any }>;
-  query?: (tenantSlug: string) => Promise<any[]>;
+  dateColumn?: any; // Drizzle column for date filtering
+  query?: (tenantSlug: string, dateRange?: DateRangeOptions) => Promise<any[]>;
 }
 
 // ─── CSV Generator ──────────────────────────────
@@ -55,11 +64,28 @@ function toCsv(
   return lines.join("\n");
 }
 
+// ─── Date Range Filter Builder ───────────────────
+
+function buildDateConditions(dateColumn: any, dateRange?: DateRangeOptions): any[] {
+  if (!dateRange) return [];
+  const conditions: any[] = [];
+  if (dateRange.from) {
+    conditions.push(gte(dateColumn, new Date(dateRange.from)));
+  }
+  if (dateRange.to) {
+    const endDate = new Date(dateRange.to);
+    endDate.setHours(23, 59, 59, 999);
+    conditions.push(lte(dateColumn, endDate));
+  }
+  return conditions;
+}
+
 // ─── Export Configurations ──────────────────────
 
 const EXPORT_CONFIGS: Record<string, CsvExportConfig> = {
   vehiculos: {
     table: vehiculos,
+    dateColumn: vehiculos.createdAt,
     columns: {
       id: { header: "ID", accessor: (r) => r.id?.slice(0, 8) },
       plate: { header: "Chapa", accessor: (r) => r.plate },
@@ -71,12 +97,14 @@ const EXPORT_CONFIGS: Record<string, CsvExportConfig> = {
       kilometraje: { header: "Kilometraje", accessor: (r) => r.kilometraje },
       createdAt: { header: "Fecha Registro", accessor: (r) => r.createdAt ? new Date(r.createdAt).toLocaleDateString("es-PY") : "" },
     },
-    query: async (tenantSlug) => {
-      return db().select().from(vehiculos).where(eq(vehiculos.tenantSlug, tenantSlug)).orderBy(desc(vehiculos.createdAt));
+    query: async (tenantSlug, dateRange) => {
+      const conditions = [eq(vehiculos.tenantSlug, tenantSlug), ...buildDateConditions(vehiculos.createdAt, dateRange)];
+      return db().select().from(vehiculos).where(conditions.length > 1 ? and(...conditions) : conditions[0]).orderBy(desc(vehiculos.createdAt));
     },
   },
   clientes: {
     table: clients,
+    dateColumn: clients.createdAt,
     columns: {
       id: { header: "ID", accessor: (r) => r.id?.slice(0, 8) },
       name: { header: "Nombre", accessor: (r) => r.name },
@@ -86,12 +114,14 @@ const EXPORT_CONFIGS: Record<string, CsvExportConfig> = {
       address: { header: "Dirección", accessor: (r) => r.address },
       createdAt: { header: "Fecha Registro", accessor: (r) => r.createdAt ? new Date(r.createdAt).toLocaleDateString("es-PY") : "" },
     },
-    query: async (tenantSlug) => {
-      return db().select().from(clients).where(eq(clients.tenantSlug, tenantSlug)).orderBy(desc(clients.createdAt));
+    query: async (tenantSlug, dateRange) => {
+      const conditions = [eq(clients.tenantSlug, tenantSlug), ...buildDateConditions(clients.createdAt, dateRange)];
+      return db().select().from(clients).where(conditions.length > 1 ? and(...conditions) : conditions[0]).orderBy(desc(clients.createdAt));
     },
   },
   ordenes: {
     table: ordenesTrabajo,
+    dateColumn: ordenesTrabajo.createdAt,
     columns: {
       id: { header: "ID", accessor: (r) => r.id?.slice(0, 8) },
       status: { header: "Estado", accessor: (r) => r.status },
@@ -102,8 +132,27 @@ const EXPORT_CONFIGS: Record<string, CsvExportConfig> = {
       createdAt: { header: "Fecha Apertura", accessor: (r) => r.createdAt ? new Date(r.createdAt).toLocaleDateString("es-PY") : "" },
       updatedAt: { header: "Última Actualización", accessor: (r) => r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("es-PY") : "" },
     },
-    query: async (tenantSlug) => {
-      return db().select().from(ordenesTrabajo).where(eq(ordenesTrabajo.tenantSlug, tenantSlug)).orderBy(desc(ordenesTrabajo.createdAt));
+    query: async (tenantSlug, dateRange) => {
+      const conditions = [eq(ordenesTrabajo.tenantSlug, tenantSlug), ...buildDateConditions(ordenesTrabajo.createdAt, dateRange)];
+      return db().select().from(ordenesTrabajo).where(conditions.length > 1 ? and(...conditions) : conditions[0]).orderBy(desc(ordenesTrabajo.createdAt));
+    },
+  },
+  facturas: {
+    table: facturas,
+    dateColumn: facturas.createdAt,
+    columns: {
+      id: { header: "ID", accessor: (r) => r.id?.slice(0, 8) },
+      tipo: { header: "Tipo", accessor: (r) => r.tipo },
+      numeroFacturaManual: { header: "Nº Factura", accessor: (r) => r.numeroFacturaManual || "" },
+      total: { header: "Total (Gs.)", accessor: (r) => r.total ? Number(r.total).toLocaleString("es-PY") : "" },
+      estadoPago: { header: "Estado Pago", accessor: (r) => r.estadoPago || "" },
+      saldoPendiente: { header: "Saldo Pendiente (Gs.)", accessor: (r) => r.saldoPendiente ? Number(r.saldoPendiente).toLocaleString("es-PY") : "" },
+      sifenStatus: { header: "Estado SIFEN", accessor: (r) => r.sifenStatus || "" },
+      createdAt: { header: "Fecha Emisión", accessor: (r) => r.createdAt ? new Date(r.createdAt).toLocaleDateString("es-PY") : "" },
+    },
+    query: async (tenantSlug, dateRange) => {
+      const conditions = [eq(facturas.tenantSlug, tenantSlug), ...buildDateConditions(facturas.createdAt, dateRange)];
+      return db().select().from(facturas).where(conditions.length > 1 ? and(...conditions) : conditions[0]).orderBy(desc(facturas.createdAt));
     },
   },
 };
@@ -120,29 +169,35 @@ export function getExportableTables(): string[] {
 /**
  * Export a table as CSV.
  *
- * @param table - Table name (vehiculos, clientes, ordenes)
+ * @param table - Table name (vehiculos, clientes, ordenes, facturas)
  * @param tenantSlug - Tenant isolation filter
+ * @param dateRange - Optional date range filter (from/to ISO strings)
  * @returns CSV string with BOM for Excel compatibility
  */
 export async function exportTableCsv(
   table: string,
   tenantSlug: string,
-): Promise<{ csv: string; filename: string; contentType: string }> {
+  dateRange?: DateRangeOptions,
+): Promise<{ csv: string; filename: string; contentType: string; rowCount: number }> {
   const config = EXPORT_CONFIGS[table];
   if (!config) {
     throw new Error(`Tabla no soportada: ${table}. Disponibles: ${getExportableTables().join(", ")}`);
   }
 
-  const rows = await config.query!(tenantSlug);
+  const rows = await config.query!(tenantSlug, dateRange);
   const csv = toCsv(rows, config.columns);
 
   // BOM for Excel UTF-8 compatibility
   const BOM = "\uFEFF";
-  const filename = `${table}_export_${new Date().toISOString().slice(0, 10)}.csv`;
+  const dateSuffix = dateRange?.from || dateRange?.to
+    ? `_${dateRange.from || "start"}_to_${dateRange.to || "end"}`
+    : "";
+  const filename = `${table}${dateSuffix}_export_${new Date().toISOString().slice(0, 10)}.csv`;
 
   return {
     csv: BOM + csv,
     filename,
     contentType: "text/csv; charset=utf-8",
+    rowCount: rows.length,
   };
 }

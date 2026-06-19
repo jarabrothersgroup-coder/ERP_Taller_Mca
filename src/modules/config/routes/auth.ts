@@ -1,8 +1,15 @@
 /**
  * Auth routes — login and session management.
  *
- * POST /api/auth/login  — Authenticate user (with rate limiting)
- * POST /api/auth/logout — Clear server-side session (idempotent)
+ * POST /api/auth/login  — Authenticate user, return JWT token (with rate limiting)
+ * POST /api/auth/logout — Client-side token invalidation (idempotent)
+ *
+ * Security:
+ *   - JWT token signed with HMAC-SHA256 (no password stored client-side)
+ *   - Auto-admin creation REMOVED — accounts must be created via invite or seed
+ *   - Persistent rate limiting (survives restarts)
+ *   - Zod validation on all inputs
+ *   - No internal data leaked in error messages
  *
  * @module config/routes/auth
  */
@@ -11,67 +18,26 @@ import type { FastifyInstance } from "fastify";
 import { eq, and } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, profiles } from "../../../shared/database/schema/index.js";
-import { BadRequestError, UnauthorizedError, RateLimitError } from "../../../shared/errors/app-error.js";
-import { hashPassword, verifyPassword } from "../services/auth-utils.js";
+import { BadRequestError, UnauthorizedError } from "../../../shared/errors/app-error.js";
+import { verifyPassword } from "../services/auth-utils.js";
+import { generateToken } from "../../../shared/services/auth-jwt.js";
+import { checkRateLimit, recordAttempt, resetAttempts } from "../../../shared/services/rate-limiter.js";
+import { validateBody } from "../../../shared/schemas/validation.js";
+import { loginBodySchema } from "../../../shared/schemas/validation.js";
 
-// ─── In-memory rate limiter (no extra deps, < 1KB RAM) ────────────────
-const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = 5;
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(key: string): void {
-  const now = Date.now();
-  const entry = loginAttempts.get(key);
-  if (entry && now < entry.resetAt) {
-    if (entry.count >= MAX_ATTEMPTS) {
-      const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-      throw new RateLimitError(
-        `Demasiados intentos. Intente de nuevo en ${retryAfter} segundos.`,
-      );
-    }
-  } else {
-    loginAttempts.set(key, { count: 0, resetAt: now + LOGIN_WINDOW_MS });
-  }
-}
-
-function recordAttempt(key: string): void {
-  const entry = loginAttempts.get(key);
-  if (entry) {
-    entry.count++;
-  }
-}
-
-function resetAttempts(key: string): void {
-  loginAttempts.delete(key);
-}
-
-// Cleanup stale entries every 60 seconds
-const CLEANUP_INTERVAL = setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of loginAttempts) {
-    if (now >= entry.resetAt) loginAttempts.delete(key);
-  }
-}, 60_000);
-// Allow garbage collection of the timer (not needed after module load, but safe)
-if (CLEANUP_INTERVAL.unref) CLEANUP_INTERVAL.unref();
-// ───────────────────────────────────────────────────────────────────────
+// ─── Rate limit config ─────────────────────────────
+const LOGIN_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // ── POST /api/auth/login ──────────────────────────────────────
   app.post("/api/auth/login", async (request, reply) => {
-    const { tenantSlug, email, password } = request.body as {
-      tenantSlug: string;
-      email: string;
-      password?: string;
-    };
+    // MED-05 FIX: Validate input with Zod schema
+    const { tenantSlug, email, password } = validateBody(request.body, loginBodySchema);
 
-    if (!tenantSlug) throw new BadRequestError("tenantSlug requerido");
-    if (!email) throw new BadRequestError("email requerido");
-
-    // Rate limit by IP + email composite key
+    // MED-04 FIX: Use persistent rate limiter
     const ip = request.ip;
     const rateKey = `login:${ip}:${email}`;
-    checkRateLimit(rateKey);
+    checkRateLimit(rateKey, LOGIN_RATE_LIMIT);
 
     const [tenant] = await db()
       .select({ id: tenants.id, name: tenants.name, slug: tenants.slug, ruc: tenants.ruc })
@@ -80,7 +46,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .limit(1);
     if (!tenant) throw new BadRequestError("Taller no encontrado");
 
-    let [profile] = await db()
+    const [profile] = await db()
       .select({
         id: profiles.id,
         email: profiles.email,
@@ -93,38 +59,36 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .where(and(eq(profiles.tenantId, tenant.id), eq(profiles.email, email)))
       .limit(1);
 
-    if (profile && profile.passwordHash) {
-      if (!password) {
-        recordAttempt(rateKey);
-        throw new BadRequestError("Contraseña requerida");
-      }
-      if (!verifyPassword(password, profile.passwordHash)) {
-        recordAttempt(rateKey);
-        throw new UnauthorizedError("Contraseña incorrecta");
-      }
-    } else if (!profile) {
-      const namePart = email.split("@")[0];
-      const fullName = namePart.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-      const hashed = password ? hashPassword(password) : null;
-      const [newProfile] = await db()
-        .insert(profiles)
-        .values({ tenantId: tenant.id, email, fullName, role: "admin", passwordHash: hashed, isActive: true })
-        .returning({
-          id: profiles.id,
-          email: profiles.email,
-          fullName: profiles.fullName,
-          role: profiles.role,
-          isActive: profiles.isActive,
-          passwordHash: profiles.passwordHash,
-        });
-      profile = newProfile;
+    // CRIT-01 FIX: Never auto-create accounts — reject unknown emails
+    if (!profile || !profile.passwordHash) {
+      recordAttempt(rateKey);
+      throw new UnauthorizedError("Credenciales inválidas");
     }
 
-    // Success — reset rate limit
+    if (!profile.isActive) {
+      recordAttempt(rateKey);
+      throw new UnauthorizedError("Credenciales inválidas");
+    }
+
+    if (!verifyPassword(password, profile.passwordHash)) {
+      recordAttempt(rateKey);
+      throw new UnauthorizedError("Credenciales inválidas");
+    }
+
+    // Success — reset rate limit and generate JWT
     resetAttempts(rateKey);
+
+    const token = generateToken({
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      tenantId: tenant.id,
+      tenantSlug: tenant.slug,
+    });
 
     return reply.send({
       ok: true,
+      token,
       profile: { id: profile.id, email: profile.email, full_name: profile.fullName, role: profile.role, is_active: profile.isActive },
       tenant: { name: tenant.name, slug: tenant.slug, ruc: tenant.ruc },
     });
@@ -132,9 +96,6 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // ── POST /api/auth/logout ─────────────────────────────────────
   app.post("/api/auth/logout", async (_request, reply) => {
-    // Stateless auth (no server-side session to invalidate).
-    // The client is responsible for clearing localStorage.
-    // This endpoint exists for future extensibility (e.g., token blacklist).
-    return reply.send({ ok: true, message: "Sesión cerrada. El cliente debe limpiar su almacenamiento local." });
+    return reply.send({ ok: true });
   });
 }

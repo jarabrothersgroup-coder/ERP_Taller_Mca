@@ -7,6 +7,7 @@ import { Writable } from "node:stream";
 import { BadRequestError } from "../../shared/errors/app-error.js";
 import { profileRoutes } from "./routes/profiles.js";
 import { authRoutes } from "./routes/auth.js";
+import { sucursalesRoutes } from "./routes/sucursales.routes.js";
 
 const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/jpg"]);
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -68,6 +69,7 @@ async function configPlugin(app: FastifyInstance): Promise<void> {
 
   await app.register(profileRoutes);
   await app.register(authRoutes);
+  await app.register(sucursalesRoutes);
 
   app.log.info("Config module registered");
 }

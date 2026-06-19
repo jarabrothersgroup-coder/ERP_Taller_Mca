@@ -55,6 +55,7 @@ async function fetchOrdenes(status = '') {
         <td class="px-4 py-3 text-gray-400 font-mono text-xs">${esc(o.plate || '—')}</td>
         <td class="px-4 py-3 text-gray-500 text-xs">${o.createdAt ? new Date(o.createdAt).toLocaleDateString('es-PY') : '—'}</td>
         <td class="px-4 py-3 text-right">
+          ${typeof getWhatsAppButtonForOrder === 'function' ? getWhatsAppButtonForOrder(o) : ''}
           <button class="view-orden-btn text-blue-400 hover:text-blue-300 text-xs mr-2" data-id="${esc(o.id)}">Ver</button>
           <button class="print-orden-btn text-gray-400 hover:text-white text-xs" data-id="${esc(o.id)}" title="Imprimir OT">🖨️</button>
         </td>
@@ -74,7 +75,11 @@ function renderOrdenModalBody(o) {
         ${state.wsConnected ? '<span class="ws-dot bg-green-500" title="Tiempo real"></span>' : ''}
       </div>
       <div class="flex items-center gap-2">
-        <button class="text-gray-400 hover:text-white text-sm" onclick="printOT('${esc(o.id)}')" title="Imprimir OT">🖨️</button>
+        ${typeof getWhatsAppButtonForOrder === 'function' ? getWhatsAppButtonForOrder(o) : ''}
+        <button onclick="toggleAiCopilot('${esc(o.id)}')" class="px-2 py-1 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 text-xs rounded transition border border-purple-800/30 flex items-center gap-1" title="Abrir Copiloto IA Diagnostica">
+          <span>&#129302;</span> IA
+        </button>
+        <button class="text-gray-400 hover:text-white text-sm" onclick="printOT('${esc(o.id)}')" title="Imprimir OT">&#128424;</button>
         <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
       </div>
     </div>
@@ -105,6 +110,12 @@ function renderOrdenModalBody(o) {
         <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">DTCs</p>
         <div class="flex flex-wrap gap-1">${o.dtcCodes.map((c) => `<span class="px-2 py-0.5 rounded-full bg-red-900/30 text-red-300 text-xs font-mono">${esc(c)}</span>`).join('')}</div>
       </div>` : ''}
+      ${o.diagnosis ? `<div class="bg-purple-900/20 border border-purple-800/30 rounded-lg p-3">
+        <p class="text-gray-500 text-xs uppercase tracking-wider mb-2 flex items-center gap-1">
+          <span>&#129302;</span> Diagnóstico IA
+        </p>
+        <div class="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">${esc(o.diagnosis).replace(/--- Diagnostico IA \(([^)]+)\) ---/g, '<div class="mt-2 pt-2 border-t border-purple-800/30"><span class="text-purple-400 font-bold">📋 Diagnóstico IA ($1)</span></div>')}</div>
+      </div>` : ''}
       <div class="bg-gray-800/50 rounded-lg p-3">
         <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">Total</p>
         <p class="text-xl font-bold text-blue-400">${o.totalCost ? 'Gs. ' + esc(o.totalCost) : '—'}</p>
@@ -128,7 +139,11 @@ function showOrdenModal(ordenId) {
   dom.modalContent.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando detalle...</div>';
   dom.modalOverlay.classList.remove('hidden');
   state.subscribedOrderId = ordenId;
-  api(`/workshop/ordenes/${ordenId}`).then(o => {
+  _refreshOrdenModal(ordenId);
+}
+
+function _refreshOrdenModal(ordenId) {
+  return api(`/workshop/ordenes/${ordenId}`).then(o => {
     dom.modalContent.innerHTML = renderOrdenModalBody(o);
     // Bind service/part loaders
     document.querySelector('.load-servicios-btn')?.addEventListener('click', async () => {
@@ -293,5 +308,11 @@ function showNewOrdenModal() {
       </form>`;
     dom.modalOverlay.classList.remove('hidden');
   });
+}
+
+/* ─── Refresh OT modal (called by AI Copilot after applying diagnosis) ── */
+
+function refreshOrdenModal(ordenId) {
+  return _refreshOrdenModal(ordenId);
 }
 

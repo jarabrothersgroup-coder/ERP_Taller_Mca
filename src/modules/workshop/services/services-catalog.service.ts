@@ -27,7 +27,11 @@ export interface CatalogListOptions {
 export interface CreateCatalogInput {
   nombre: string;
   descripcion?: string;
+  descripcionTecnica?: string;
   categoria?: string;
+  categoriaId?: string;
+  codigo?: string;
+  thinkcarModulo?: string;
   precioEstimado?: number;
   duracionEstimada?: number;
 }
@@ -93,7 +97,11 @@ export async function createServicio(
     .values({
       nombre: data.nombre,
       descripcion: data.descripcion ?? null,
+      descripcionTecnica: data.descripcionTecnica ?? null,
       categoria: data.categoria ?? null,
+      categoriaId: data.categoriaId ?? null,
+      codigo: data.codigo ?? null,
+      thinkcarModulo: data.thinkcarModulo ?? null,
       precioEstimado: data.precioEstimado != null ? String(data.precioEstimado) : null,
       duracionEstimada: data.duracionEstimada ?? null,
       tenantSlug: data.tenantSlug,
@@ -121,7 +129,13 @@ export async function updateServicio(
     .set({
       ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
       ...(data.descripcion !== undefined ? { descripcion: data.descripcion } : {}),
+      ...(data.descripcionTecnica !== undefined
+        ? { descripcionTecnica: data.descripcionTecnica }
+        : {}),
       ...(data.categoria !== undefined ? { categoria: data.categoria } : {}),
+      ...(data.categoriaId !== undefined ? { categoriaId: data.categoriaId } : {}),
+      ...(data.codigo !== undefined ? { codigo: data.codigo } : {}),
+      ...(data.thinkcarModulo !== undefined ? { thinkcarModulo: data.thinkcarModulo } : {}),
       ...(data.precioEstimado !== undefined
         ? { precioEstimado: String(data.precioEstimado) }
         : {}),

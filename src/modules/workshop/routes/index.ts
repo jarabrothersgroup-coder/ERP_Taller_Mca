@@ -17,6 +17,12 @@ import { servicesCatalogRoutes } from "./services-catalog.routes.js";
 import { orderItemsRoutes } from "./order-items.routes.js";
 import { analyticsRoutes } from "./analytics.routes.js";
 import { notificationsRoutes } from "./notifications.routes.js";
+import { servicePricingRoutes } from "./service-pricing.routes.js";
+import { bulkOperationsRoutes } from "./bulk-operations.routes.js";
+import { flatRateRoutes } from "./flat-rate.routes.js";
+import { signatureRoutes } from "./signature.routes.js";
+import { predictiveMaintenanceRoutes } from "./predictive-maintenance.routes.js";
+import { notificationPushRoutes } from "./notification-push.routes.js";
 
 /**
  * Registers all workshop routes on the given Fastify instance.
@@ -34,6 +40,15 @@ import { notificationsRoutes } from "./notifications.routes.js";
  *   - /workshop/ordenes/:id/repuestos/:itemId (PATCH, DELETE)
  *   - /workshop/servicios                     (POST, GET)
  *   - /workshop/servicios/:id                 (GET, PATCH, DELETE)
+ *   - /workshop/service-categories             (POST, GET)
+ *   - /workshop/service-categories/:id         (PATCH, DELETE)
+ *   - /workshop/pricing-rules                  (POST, GET)
+ *   - /workshop/pricing-rules/:id              (PATCH, DELETE)
+ *   - /workshop/pricing-matrix                 (GET)
+ *   - /workshop/service-brand-map/:servicioId  (GET, PUT)
+ *   - /workshop/reference/vehicle-types        (GET)
+ *   - /workshop/reference/fuel-types           (GET)
+ *   - /workshop/reference/mileage-intervals    (GET)
  *   - /workshop/clientes                      (POST, GET)
  *   - /workshop/clientes/:id                  (GET, PATCH, DELETE)
  *   - /workshop/vehiculos                     (POST, GET)
@@ -56,4 +71,10 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(orderItemsRoutes);
   await app.register(analyticsRoutes);
   await app.register(notificationsRoutes);
+  await app.register(servicePricingRoutes);
+  await app.register(bulkOperationsRoutes);
+  await app.register(flatRateRoutes);
+  await app.register(signatureRoutes);
+  await app.register(predictiveMaintenanceRoutes);
+  await app.register(notificationPushRoutes);
 }

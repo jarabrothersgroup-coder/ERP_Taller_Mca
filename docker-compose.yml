@@ -1,0 +1,191 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — Docker Compose (Development)
+# ─────────────────────────────────────────────────────────
+# Levanta el ecosistema completo para desarrollo local:
+#   - ERP (Fastify + TypeScript)
+#   - Twenty CRM (Open Source)
+#   - Evolution API (WhatsApp Gateway)
+#   - PostgreSQL (shared database)
+#
+# Uso:
+#   cp .env.example .env    # Configurar variables
+#   docker compose up -d    # Levantar todo
+#   docker compose logs -f  # Ver logs en tiempo real
+#
+# URLs después de levantar:
+#   ERP:              http://localhost:3000
+#   Twenty CRM:       http://localhost:3001
+#   Evolution API:    http://localhost:8080
+#   PostgreSQL:       localhost:5432
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL (Shared Database) ──────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-automotive_os}
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-automotive_os}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ─── Twenty CRM (Open Source) ─────────────────
+  twenty-crm:
+    image: twentycrm/twenty:latest
+    container_name: erp-twenty-crm
+    restart: unless-stopped
+    ports:
+      - "${TWENTY_PORT:-3001}:3000"
+    environment:
+      # Database
+      PG_DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_dev_password}@postgres:5432/${TWENTY_DB:-twenty_crm}
+      # Security
+      SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3001}
+      ACCESS_TOKEN_SECRET: ${TWENTY_ACCESS_TOKEN_SECRET:-twenty-dev-access-secret-change-me}
+      LOGIN_TOKEN_SECRET: ${TWENTY_LOGIN_TOKEN_SECRET:-twenty-dev-login-secret-change-me}
+      REFRESH_TOKEN_SECRET: ${TWENTY_REFRESH_TOKEN_SECRET:-twenty-dev-refresh-secret-change-me}
+      FILE_TOKEN_SECRET: ${TWENTY_FILE_TOKEN_SECRET:-twenty-dev-file-secret-change-me}
+      # Redis (optional, for Bull queue)
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      # Front
+      FRONT_BASE_URL: ${TWENTY_FRONT_BASE_URL:-http://localhost:3001}
+      # Email (optional, for invite flows)
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-587}
+      EMAIL_SMTP_USER: ${EMAIL_SMTP_USER:-}
+      EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── Redis (Twenty CRM dependency) ────────────
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ─── Evolution API (WhatsApp Gateway) ─────────
+  evolution-api:
+    image: atendai/evolution-api:v2.2.3
+    container_name: erp-evolution-api
+    restart: unless-stopped
+    ports:
+      - "${EVOLUTION_API_PORT:-8080}:8080"
+    environment:
+      # Server
+      SERVER_URL: ${EVOLUTION_API_URL:-http://localhost:8080}
+      AUTHENTICATION_API_KEY: ${WHATSAPP_API_KEY:-evolution-dev-api-key-change-me}
+      # Database (uses same PostgreSQL)
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_dev_password}@postgres:5432/${EVOLUTION_DB:-evolution_api}
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      # Storage
+      S3_ENABLED: "false"
+      # Webhook (optional — ERP can register webhooks)
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      WEBHOOK_GLOBAL_URL: ${EVOLUTION_WEBHOOK_URL:-http://erp:3000/api/v1/whatsapp/webhook}
+      WEBHOOK_GLOBAL_BY_EVENTS: "true"
+      # Auth
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      AUTHENTICATION_WHITE_LIST: "false"
+      AUTHENTICATION_VERIFY_TOKEN: ${EVOLUTION_VERIFY_TOKEN:-}
+      # Instance settings
+      CONFIG_SESSION_PHONE_CLIENT: ERP_Taller
+      CONFIG_SESSION_PHONE_NAME: Chrome
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── ERP Backend (Fastify + TypeScript) ───────
+  erp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erp-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      HOST: "0.0.0.0"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_dev_password}@postgres:5432/${POSTGRES_DB:-automotive_os}?sslmode=disable
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      TENANT_SCHEMA_PREFIX: ${TENANT_SCHEMA_PREFIX:-tenant_}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      # WhatsApp / Evolution API
+      WHATSAPP_API_URL: http://evolution-api:8080
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-evolution-dev-api-key-change-me}
+      # Twenty CRM
+      TWENTY_API_URL: http://twenty-crm:3000
+      TWENTY_API_KEY: ${TWENTY_API_KEY:-}
+      TWENTY_GRAPHQL_URL: ${TWENTY_GRAPHQL_URL:-http://twenty-crm:3000/graphql}
+      # SIFEN (optional)
+      SIFEN_CERT_PATH: ${SIFEN_CERT_PATH:-}
+      SIFEN_CERT_PASS: ${SIFEN_CERT_PASS:-}
+      SIFEN_USE_TEST: ${SIFEN_USE_TEST:-true}
+      # RAG
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./engram.json:/app/engram.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      evolution-api:
+        condition: service_started
+      twenty-crm:
+        condition: service_started
+    networks:
+      - erp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  evolution_instances:
+  evolution_store:
+
+networks:
+  erp-network:
+    driver: bridge

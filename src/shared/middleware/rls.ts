@@ -48,9 +48,9 @@ export async function rlsTenantContext(
     const sql = getDb();
     // SET LOCAL is transaction-scoped — safe for connection pooling
     // The app.current_tenant setting is consumed by RLS policies
-    await sql.unsafe(
-      `SET LOCAL app.current_tenant = ${sql.__dangerous_query_value(tenantSlug)}`,
-    );
+    // ALTO-02 FIX: Use parameterized query instead of sql.unsafe()
+    const safeSlug = tenantSlug.replace(/[^a-zA-Z0-9_-]/g, "");
+    await sql`SELECT set_config('app.current_tenant', ${safeSlug}, true)`;
   } catch (err) {
     // If SET LOCAL fails, log but don't block the request
     // The application-level tenant_slug filtering is still active
