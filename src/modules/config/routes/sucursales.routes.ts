@@ -19,6 +19,8 @@ import {
   updateSucursal,
   deleteSucursal,
 } from "../services/sucursal.service.js";
+import { requireAdmin } from "../../../shared/middleware/rbac.js";
+import { getConsolidatedKPIs, getRoleDashboard } from "../services/multi-branch-dashboard.service.js";
 
 interface CreateBody {
   nombre: string;
@@ -49,6 +51,9 @@ interface IdParams {
 }
 
 export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
+  // ── RBAC: Only admin users can manage branches ──
+  app.addHook("preHandler", requireAdmin);
+
   // ── POST /config/sucursales — Create branch ──
   app.post<{ Body: CreateBody }>(
     "/config/sucursales",
@@ -161,6 +166,60 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
       await deleteSucursal(request.params.id, request.tenantSlug);
       return reply.status(204).send();
+    },
+  );
+
+  // ── GET /config/dashboard/consolidated — Cross-branch KPIs (admin/manager) ──
+  app.get(
+    "/config/dashboard/consolidated",
+    {
+      schema: {
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              totalSucursales: { type: "number" },
+              totalOTActivas: { type: "number" },
+              totalOTCompletadasMes: { type: "number" },
+              totalIngresoMes: { type: "number" },
+              sucursales: { type: "array", items: { type: "object" } },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const result = await getConsolidatedKPIs(request.tenantSlug);
+      return reply.send(result);
+    },
+  );
+
+  // ── GET /config/dashboard/role — Role-based dashboard data ──
+  app.get(
+    "/config/dashboard/role",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            sucursalId: { type: "string", format: "uuid" },
+          },
+        },
+        response: {
+          200: { type: "object" },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Querystring: { sucursalId?: string } }>, reply: FastifyReply) => {
+      const role = request.profile?.role || "user";
+      const email = request.profile?.email;
+      const result = await getRoleDashboard(
+        role,
+        request.tenantSlug,
+        request.query.sucursalId,
+        email,
+      );
+      return reply.send(result);
     },
   );
 }
