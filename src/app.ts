@@ -223,6 +223,11 @@ async function buildApp() {
   // ─── Plugins ───────────────────────────────
   await app.register(healthCheckPlugin);
 
+  // ─── Lead Capture (Public — no auth/tenant required) ──
+  await app.register(
+    (await import("./modules/marketing/routes/lead.routes.js")).leadRoutes,
+  );
+
   // ─── Monitoring Plugin (Performance + Security Audit) ──
   // Registers: /health/metrics, /health/performance, /health/security-audit
   await app.register(

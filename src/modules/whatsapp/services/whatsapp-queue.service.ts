@@ -105,6 +105,9 @@ export async function processPendingMessages(
   let sent = 0;
   let failed = 0;
 
+  // Rate limit: 1.5s delay between messages to prevent Evolution API 429/ban
+  const INTER_MESSAGE_DELAY_MS = 1500;
+
   for (const msg of pendingMessages) {
     try {
       // Attempt to send via Evolution API
@@ -125,6 +128,14 @@ export async function processPendingMessages(
 
       sent++;
     } catch (err) {
+      const isRateLimited = err instanceof Error && err.message.includes("429");
+      const retryAfter = isRateLimited ? 30000 : 0;
+
+      if (isRateLimited) {
+        console.warn(`[WHATSAPP] Rate limited — waiting ${retryAfter}ms before retry`);
+        await new Promise((resolve) => setTimeout(resolve, retryAfter));
+      }
+
       // Update status to FAILED with error message
       await db()
         .update(whatsappMessages)
@@ -135,6 +146,11 @@ export async function processPendingMessages(
         .where(eq(whatsappMessages.id, msg.id));
 
       failed++;
+    }
+
+    // Rate limit: wait between messages
+    if (sent + failed < pendingMessages.length) {
+      await new Promise((resolve) => setTimeout(resolve, INTER_MESSAGE_DELAY_MS));
     }
   }
 

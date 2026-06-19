@@ -24,12 +24,27 @@ export function xmlEscape(text: string): string {
 
 /**
  * Formats a numeric value to 2 decimal places for SIFEN fields.
+ * Uses BigInt internally to avoid floating-point rounding errors on monetary values.
  *
  * @param value - Number or string representation
  * @returns Formatted string with 2 decimal places
  */
 export function fmtNum(value: string | number): string {
-  const n = typeof value === "string" ? parseFloat(value) : value;
-  if (isNaN(n)) return "0.00";
-  return n.toFixed(2);
+  if (value === null || value === undefined || value === "") return "0.00";
+
+  const str = typeof value === "number" ? String(value) : String(value).trim();
+  if (!str || str === "0") return "0.00";
+
+  // Handle Paraguayan format: "1.500.000" (dots as thousands)
+  const cleaned = str.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return "0.00";
+
+  // Convert to centavos for exact arithmetic, then back
+  const centavos = BigInt(Math.round(num * 100));
+  const sign = centavos < 0n ? "-" : "";
+  const abs = centavos < 0n ? -centavos : centavos;
+  const whole = abs / 100n;
+  const frac = abs % 100n;
+  return `${sign}${whole.toString()}.${frac.toString().padStart(2, "0")}`;
 }

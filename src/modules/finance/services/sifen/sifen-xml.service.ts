@@ -16,6 +16,7 @@ import type {
   EmitirDTERequest,
 } from "../../types.js";
 import type { DTETipo } from "../../schema/fiscal-docs.js";
+import { parseMoneyToCentavos, centavosToString } from "../accounting/capa3-formatters.js";
 
 // ─── Constants ─────────────────────────────────
 
@@ -168,22 +169,27 @@ export function buildDTEXml(data: EmitirDTERequest): string {
 
   xml += "    </dDetalle>\n";
 
-  // ── Totales ──
-  const totalExento = items
+  // ── Totales (using BigInt for exact IVA arithmetic) ──
+  const totalExentoCtv = items
     .filter((i) => i.iva === 0)
-    .reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
-  const totalIva5 = items
+    .reduce((sum, i) => sum + parseMoneyToCentavos(i.subtotal), 0n);
+  const totalIva5Ctv = items
     .filter((i) => i.iva === 5)
-    .reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
-  const totalIva10 = items
+    .reduce((sum, i) => sum + parseMoneyToCentavos(i.subtotal), 0n);
+  const totalIva10Ctv = items
     .filter((i) => i.iva === 10)
-    .reduce((sum, i) => sum + parseFloat(i.subtotal), 0);
-  const totalIva5Amount = items
+    .reduce((sum, i) => sum + parseMoneyToCentavos(i.subtotal), 0n);
+  const totalIva5AmountCtv = items
     .filter((i) => i.iva === 5)
-    .reduce((sum, i) => sum + parseFloat(i.ivaMonto ?? "0"), 0);
-  const totalIva10Amount = items
+    .reduce((sum, i) => sum + parseMoneyToCentavos(i.ivaMonto ?? "0"), 0n);
+  const totalIva10AmountCtv = items
     .filter((i) => i.iva === 10)
-    .reduce((sum, i) => sum + parseFloat(i.ivaMonto ?? "0"), 0);
+    .reduce((sum, i) => sum + parseMoneyToCentavos(i.ivaMonto ?? "0"), 0n);
+  const totalExento = parseFloat(centavosToString(totalExentoCtv));
+  const totalIva5 = parseFloat(centavosToString(totalIva5Ctv));
+  const totalIva10 = parseFloat(centavosToString(totalIva10Ctv));
+  const totalIva5Amount = parseFloat(centavosToString(totalIva5AmountCtv));
+  const totalIva10Amount = parseFloat(centavosToString(totalIva10AmountCtv));
   const totalLiquido = totalExento + totalIva5 + totalIva10;
   const totalIva = totalIva5Amount + totalIva10Amount;
   const totalDocumento = totalLiquido + totalIva;

@@ -77,7 +77,11 @@ export async function executeReminderCron(
         ),
       );
 
-    for (const appt of appointmentsToRemind) {
+    // Rate limit: 1.5s delay between WhatsApp messages to prevent API bans
+    const INTER_MESSAGE_DELAY_MS = 1500;
+
+    for (let i = 0; i < appointmentsToRemind.length; i++) {
+      const appt = appointmentsToRemind[i];
       try {
         // Build reminder message
         const message = buildReminderMessage(appt);
@@ -118,6 +122,11 @@ export async function executeReminderCron(
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         result.errors.push(`Error procesando ${appt.clienteNombre}: ${msg}`);
+      }
+
+      // Rate limit: wait between messages (skip after last)
+      if (i < appointmentsToRemind.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, INTER_MESSAGE_DELAY_MS));
       }
     }
 
