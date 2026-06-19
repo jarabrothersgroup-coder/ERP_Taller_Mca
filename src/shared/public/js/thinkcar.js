@@ -299,6 +299,10 @@ function showWizardOptions() {
 
 /* ─── Bluetooth Flow ────────────────────────────────────────────── */
 
+// Sprint 57: Bluetooth reconnect limit to prevent infinite loops
+var BT_MAX_RETRIES = 3;
+var btRetryCount = 0;
+
 function renderBluetoothFlow(panel) {
   panel.innerHTML =
     '<div class="flex items-center gap-2 mb-4">' +
@@ -325,8 +329,19 @@ async function startBluetoothScan() {
   var icon = document.getElementById('bt-icon');
   if (!btn || !status) return;
 
+  // Sprint 57: Enforce Bluetooth reconnect limit
+  if (btRetryCount >= BT_MAX_RETRIES) {
+    icon.className = 'w-20 h-20 mx-auto rounded-full bg-red-900/30 flex items-center justify-center mb-4';
+    icon.innerHTML = '<svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+    status.querySelector('p').textContent = 'Maximo de ' + BT_MAX_RETRIES + ' intentos alcanzado. Reinicia la pagina para reintentar.';
+    btn.disabled = true;
+    btn.textContent = 'Agotado';
+    return;
+  }
+
+  btRetryCount++;
   btn.disabled = true;
-  btn.textContent = 'Escaneando...';
+  btn.textContent = 'Escaneando... (' + btRetryCount + '/' + BT_MAX_RETRIES + ')';
 
   icon.className = 'w-20 h-20 mx-auto rounded-full bg-blue-900/30 flex items-center justify-center mb-4 animate-pulse';
   icon.innerHTML = '<svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>';
@@ -336,6 +351,7 @@ async function startBluetoothScan() {
     var count = result.processed || 0;
 
     if (count > 0) {
+      btRetryCount = 0; // Reset on success
       icon.className = 'w-20 h-20 mx-auto rounded-full bg-green-900/30 flex items-center justify-center mb-4';
       icon.innerHTML = '<svg class="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
       status.querySelector('p').textContent = count + ' reporte(s) importado(s) correctamente via Bluetooth';
@@ -348,14 +364,14 @@ async function startBluetoothScan() {
       icon.innerHTML = '<svg class="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>';
       status.querySelector('p').textContent = 'No se encontraron dispositivos Thinkcar cercanos. Verifica que este encendido y en modo de emparejamiento.';
       btn.disabled = false;
-      btn.textContent = 'Reintentar';
+      btn.textContent = 'Reintentar (' + btRetryCount + '/' + BT_MAX_RETRIES + ')';
     }
   } catch (err) {
     icon.className = 'w-20 h-20 mx-auto rounded-full bg-red-900/30 flex items-center justify-center mb-4';
     icon.innerHTML = '<svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
     status.querySelector('p').textContent = 'Error de conexion: ' + (err.message || 'Intenta nuevamente');
     btn.disabled = false;
-    btn.textContent = 'Reintentar';
+    btn.textContent = 'Reintentar (' + btRetryCount + '/' + BT_MAX_RETRIES + ')';
   }
 }
 

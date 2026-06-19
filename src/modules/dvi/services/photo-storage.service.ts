@@ -112,6 +112,9 @@ export async function uploadPhoto(params: {
     throw new Error(`El archivo no coincide con el tipo declarado (${contentType}). Posible intento de upload malicioso.`);
   }
 
+  // Sprint 57: Strip EXIF metadata to prevent location/timestamp leakage
+  const cleanedBuffer = stripExifMetadata(fileBuffer, contentType);
+
   const supabase = getSupabaseAdmin();
 
   // Build storage path: {tenant}/{inspection}/{photo_id}.{ext}
@@ -120,7 +123,7 @@ export async function uploadPhoto(params: {
 
   const { error } = await supabase.storage
     .from(BUCKET_NAME)
-    .upload(storagePath, fileBuffer, {
+    .upload(storagePath, cleanedBuffer, {
       contentType,
       upsert: false,
     });
@@ -141,9 +144,109 @@ export async function uploadPhoto(params: {
   return {
     url: urlData.signedUrl,
     path: storagePath,
-    size: fileBuffer.length,
+    size: cleanedBuffer.length,
     contentType,
   };
+}
+
+// ─── EXIF Stripping ───────────────────────────
+
+/**
+ * Sprint 57: Strips EXIF metadata from image buffers.
+ * Prevents leakage of GPS coordinates, timestamps, and device info.
+ *
+ * For JPEG: Removes APP1 (EXIF) marker segment.
+ * For PNG: Removes tEXt/iTXt/zTXt chunks containing metadata.
+ * For WEBP/HEIC: Returns buffer as-is (EXIF handled differently).
+ *
+ * @param buffer - Original image buffer
+ * @param contentType - MIME type of the image
+ * @returns Cleaned buffer without EXIF metadata
+ */
+function stripExifMetadata(buffer: Buffer, contentType: string): Buffer {
+  if (contentType === "image/jpeg") {
+    return stripJpegExif(buffer);
+  }
+  if (contentType === "image/png") {
+    return stripPngMetadata(buffer);
+  }
+  // WEBP and HEIC: EXIF stripping requires native libraries (sharp/libheif)
+  // For now, return as-is. TODO: Integrate sharp for production.
+  return buffer;
+}
+
+/**
+ * Strips EXIF data from JPEG buffer by removing APP1 marker segment.
+ *
+ * JPEG structure: FF D8 (SOI) → FF E1 (APP1/EXIF) → ... → FF DA (SOS)
+ * We remove everything between SOI and the first non-APP1 marker.
+ */
+function stripJpegExif(buffer: Buffer): Buffer {
+  // JPEG must start with FF D8
+  if (buffer[0] !== 0xff || buffer[1] !== 0xd8) return buffer;
+
+  let offset = 2; // Skip SOI marker
+
+  // Scan for markers
+  while (offset < buffer.length - 1) {
+    if (buffer[offset] !== 0xff) {
+      offset++;
+      continue;
+    }
+
+    const marker = buffer[offset + 1];
+
+    // APP1 marker (0xE1) = EXIF data — skip it
+    if (marker === 0xe1) {
+      const segmentLength = (buffer[offset + 2] << 8) | buffer[offset + 3];
+      const segmentEnd = offset + 2 + segmentLength;
+      // Remove this segment: keep bytes before offset and after segmentEnd
+      const before = buffer.subarray(0, offset);
+      const after = buffer.subarray(segmentEnd);
+      return Buffer.concat([before, after]);
+    }
+
+    // SOS marker (0xDA) — start of scan, stop looking
+    if (marker === 0xda) break;
+
+    // Other markers — skip them
+    const segmentLength = (buffer[offset + 2] << 8) | buffer[offset + 3];
+    offset += 2 + segmentLength;
+  }
+
+  return buffer;
+}
+
+/**
+ * Strips metadata chunks from PNG buffer.
+ * Removes tEXt, iTXt, zTXt chunks (which contain EXIF, comments, etc.).
+ */
+function stripPngMetadata(buffer: Buffer): Buffer {
+  // PNG must start with 89 50 4E 47 0D 0A 1A 0A
+  if (buffer[0] !== 0x89 || buffer[1] !== 0x50) return buffer;
+
+  // PNG chunks: 4 bytes length + 4 bytes type + data + 4 bytes CRC
+  const METADATA_CHUNKS = ["tEXt", "iTXt", "zTXt", "gAMA", "sRGB", "iCCP"];
+  const result: Buffer[] = [];
+  let offset = 8; // Skip PNG signature
+
+  while (offset < buffer.length - 12) {
+    const chunkLength = (buffer[offset] << 24) | (buffer[offset + 1] << 16) |
+                        (buffer[offset + 2] << 8) | buffer[offset + 3];
+    const chunkType = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+
+    if (METADATA_CHUNKS.includes(chunkType)) {
+      // Skip this metadata chunk (length + type + data + CRC)
+      offset += 12 + chunkLength;
+    } else {
+      // Keep this chunk (IHDR, IDAT, IEND, etc.)
+      const chunkEnd = offset + 12 + chunkLength;
+      result.push(buffer.subarray(offset, chunkEnd));
+      offset = chunkEnd;
+    }
+  }
+
+  return result.length > 0 ? Buffer.concat(result) : buffer;
 }
 
 // ─── Download ─────────────────────────────────
