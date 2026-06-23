@@ -67,6 +67,13 @@ let isProcessing = false;
 /** Cleanup timer handle */
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
+// C-07 FIX: SETNX-style lock map — prevents concurrent processing of the same job type.
+// Keys are job type identifiers (e.g., "ocr", "dtc_parse"), values are lock timestamps.
+const processingLocks = new Map<string, number>();
+
+/** Lock TTL — after this time, the lock is considered stale and can be acquired. */
+const LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 // ─── Public API ──────────────────────────────────
 
 /**
@@ -183,6 +190,10 @@ export function pendingCount(): number {
 /**
  * Processes the next job in the queue (FIFO).
  * Only one job runs at a time to manage RAM.
+ *
+ * C-07 FIX: Uses SETNX-style lock per job type to prevent cache stampede.
+ * If two identical job types are enqueued simultaneously, only one processes
+ * at a time. The lock expires after LOCK_TTL_MS to prevent deadlocks.
  */
 async function processNext(): Promise<void> {
   if (isProcessing) return;
@@ -190,6 +201,16 @@ async function processNext(): Promise<void> {
   // Find the next queued job (oldest first)
   const nextEntry = findNextQueued();
   if (!nextEntry) return;
+
+  // C-07: Acquire SETNX-style lock for this job type
+  const lockKey = nextEntry.job.type;
+  const now = Date.now();
+  const lockTimestamp = processingLocks.get(lockKey);
+  if (lockTimestamp && now - lockTimestamp < LOCK_TTL_MS) {
+    // Lock is held by another processing instance — skip this job
+    return;
+  }
+  processingLocks.set(lockKey, now);
 
   isProcessing = true;
   const { job, input, processor } = nextEntry;
@@ -214,6 +235,8 @@ async function processNext(): Promise<void> {
     job.finishedAt = new Date().toISOString();
     job.updatedAt = job.finishedAt;
   } finally {
+    // C-07: Release lock
+    processingLocks.delete(lockKey);
     isProcessing = false;
 
     // Process next job in queue (if any)

@@ -3,8 +3,8 @@
 **Proyecto:** Ecosistema de Gestión Automotriz — AutomotiveOS Cloud ERP  
 **Organización:** Jara Brothers Group  
 **Norma de referencia:** Guías de Manual de Usuario del MITIC  
-**Versión:** 2.0  
-**Fecha:** 19 de junio de 2026  
+**Versión:** 3.0  
+**Fecha:** 22 de junio de 2026  
 **Clasificación:** Documento Oficial — Directoría General de Gobierno Electrónico (MITIC)
 
 ---
@@ -34,6 +34,24 @@ URL del sistema: http://localhost:3000/dashboard
 **Credenciales por defecto:**
 - **Email:** `jaraju01@gmail.com`
 - **Tenant:** `taller-el-chero`
+
+### 1.3 Atajos de Teclado
+
+| Atajo | Acción |
+|---|---|
+| `Ctrl+K` | Búsqueda global rápida |
+| `Ctrl+Shift+P` | Panel de métricas de rendimiento (modo desarrollo) |
+| `Esc` | Cerrar modal / panel lateral |
+| `?` | Mostrar ayuda de atajos |
+
+### 1.4 Características de Accesibilidad
+
+El sistema cumple con estándares WCAG 2.1 AA:
+
+- **Navegación por teclado:** Todos los elementos interactivos son alcanzables con `Tab` y activables con `Enter`/`Espacio`.
+- **Etiquetas ARIA:** Los botones con solo íconos SVG reciben `aria-label` automático.
+- **Movimiento reducido:** Si tu sistema operativo tiene habilitado "reducir movimiento", las animaciones se desactivan automáticamente.
+- **Contraste:** Todos los textos cumplen ratio mínimo de 4.5:1 sobre fondos oscuros.
 
 ---
 
@@ -576,7 +594,128 @@ Si la conexión se pierde (indicador rojo):
 
 ---
 
-## 10. Aprobación del Documento
+## 10. Módulo de Tesorería
+
+### 10.1 Cuentas Bancarias
+
+1. Ir a **Tesorería → Cuentas Bancarias**
+2. Ver lista de cuentas: código, nombre, tipo, banco, saldo actual
+3. Para crear nueva cuenta: clic en **"+ Nueva Cuenta"**
+4. Completar: código, nombre, tipo (Caja Física, Cta. Cte., Caja Ahorro, Billetera Digital), banco, número de cuenta, moneda, saldo inicial
+5. Click **"Crear Cuenta"**
+
+### 10.2 Movimientos
+
+1. Ir a **Tesorería → Movimientos**
+2. Filtros disponibles: cuenta, tipo (Ingreso/Egreso/Transferencia), rango de fechas
+3. Para registrar movimiento: clic en **"+ Nuevo Movimiento"**
+4. Seleccionar tipo, medio de pago, cuenta, monto, fecha, concepto
+5. Click **"Registrar"**
+
+### 10.3 Conciliación Bancaria
+
+1. Ir a **Tesorería → Conciliación**
+2. Seleccionar cuenta del desplegable
+3. Ver conciliaciones existentes (Período, Saldo Libros, Saldo Banco, Diferencia)
+4. Para nueva conciliación: clic en **"+ Iniciar Conciliación"**
+5. Seleccionar cuenta, período (mes/año), saldo según banco
+6. Click **"Iniciar"**
+
+### 10.4 Cuentas por Cobrar (CxC)
+
+1. Ir a **Tesorería → CxC**
+2. Ver facturas pendientes de cobro con: factura, cliente, total, saldo pendiente, vencimiento, estado
+3. Filas vencidas resaltadas en rojo
+4. Para cobrar: clic en botón verde **"Cobrar"** de la factura
+5. Seleccionar monto, medio de pago, cuenta destino, concepto
+6. Click **"Registrar Cobro"**
+
+### 10.5 Cuentas por Pagar (CxP)
+
+1. Ir a **Tesorería → CxP**
+2. Ver facturas de proveedor con: factura, concepto, total, saldo pendiente, vencimiento, estado
+3. Filtro por estado: Todos, Pendientes, Parciales, Pagadas
+4. Para pagar: clic en botón naranja **"Pagar"** de la factura
+5. Seleccionar monto, medio de pago, cuenta origen, concepto
+6. Click **"Registrar Pago"**
+
+### 10.6 Flujo de Caja
+
+1. Ir a **Tesorería → Flujo de Caja**
+2. Ver proyección a 30 días: Saldo Actual, Ingresos Proyectados, Egresos Proyectados, Flujo Neto, Saldo Proyectado
+3. Si el saldo proyectado es negativo, se muestra alerta de sobregiro en rojo
+4. Ver desglose detallado: Saldo Actual + CxC próximos 30 días − CxP próximos 30 días = Saldo Proyectado
+
+---
+
+## 11. Módulo de Contabilidad
+
+### 11.1 Plan de Cuentas
+
+1. Ir a **Contabilidad → Cuentas**
+2. Ver árbol jerárquico de cuentas: código, nombre, tipo, saldo inicial
+3. Cuentas aceptan movimientos: indicador ✓ verde
+4. Para nueva cuenta: clic en **"+ Nueva Cuenta"**
+5. Completar: código, nombre, tipo (Activo/Pasivo/Patrimonio/Ingreso/Costo/Gasto/Orden), cuenta padre
+6. Click **"Crear Cuenta"**
+
+### 11.2 Asientos Contables
+
+1. Ir a **Contabilidad → Asientos**
+2. Ver lista de asientos: número, fecha, concepto, debe, haber, estado, módulo origen
+3. Filtros: fecha desde/hasta, módulo origen
+4. Para ver detalle: clic en **"Ver"** → modal con líneas del asiento
+5. Para anular: clic en **"Anular"** (irreversible)
+6. Para asiento manual: clic en **"+ Nuevo Asiento"**
+   - Fecha, concepto, documento ref.
+   - Agregar líneas: seleccionar cuenta, monto debe/haber
+   - El sistema valida que Debe = Haber
+   - Click **"Guardar Asiento"**
+
+### 11.3 Balance General
+
+1. Ir a **Contabilidad → Balance**
+2. Seleccionar fecha
+3. Click **"Cargar"**
+4. Ver: Activo, Pasivo, Patrimonio con subcuentas y totales
+5. Indicador: ✓ Balanceado (verde) o ✗ Desbalanceado (rojo)
+
+### 11.4 Estado de Resultados
+
+1. Ir a **Contabilidad → Resultados**
+2. Seleccionar mes y año
+3. Opcional: marcar "Acumulado anual"
+4. Click **"Cargar"**
+5. Ver: Ingresos, Costos, Utilidad Bruta, Gastos, Utilidad Neta
+
+### 11.5 Libros Contables
+
+1. Ir a **Contabilidad → Libros**
+2. Seleccionar: Libro Diario / Libro Mayor / Libro Inventario
+3. Seleccionar mes y año
+4. Click **"Cargar"**
+5. Ver tabla correspondiente con movimientos del período
+
+### 11.6 Impuestos (DNIT)
+
+1. Ir a **Contabilidad → Impuestos**
+2. Seleccionar tipo: IVA (Form 120) / IRE / IDU / ISC / INR
+3. Completar campos según tipo
+4. Click **"Calcular"**
+5. Ver resultado con desglose
+6. Ver historial de liquidaciones previas
+
+### 11.7 Auditoría
+
+1. Ir a **Contabilidad → Auditoría**
+2. Filtros: entidad, acción, fecha desde/hasta
+3. Click **"Cargar"**
+4. Ver registro de acciones: fecha, acción (Crear/Modificar/Anular/Pagar/Emitir), entidad, detalle, módulo
+5. Paginación: 50 registros por página
+
+---
+
+## 12. Aprobación del Documento
 
 | Rol | Nombre | Fecha | Firma |
 |---|---|---|---|

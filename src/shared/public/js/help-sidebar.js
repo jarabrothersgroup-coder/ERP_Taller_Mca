@@ -88,7 +88,7 @@
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-900">
         <div class="flex items-center gap-2">
-          <span class="text-lg">❓</span>
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <h3 class="text-sm font-bold text-white">Ayuda</h3>
         </div>
         <button id="help-close-btn" class="text-gray-400 hover:text-white p-1" aria-label="Cerrar ayuda">
@@ -100,7 +100,7 @@
       <div class="px-4 py-3 border-b border-gray-700">
         <div class="relative">
           <input id="help-search" type="text" placeholder="Buscar ayuda..." class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" aria-label="Buscar en ayuda">
-          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+          <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
       </div>
 
@@ -169,7 +169,7 @@
     if (filtered.length === 0) {
       container.innerHTML = `
         <div class="text-center py-12 text-gray-500">
-          <div class="text-3xl mb-3">🔍</div>
+          <svg class="w-8 h-8 mb-3 mx-auto text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <p class="text-sm">No se encontraron resultados para "${_searchTerm}"</p>
         </div>`;
       return;
@@ -203,11 +203,11 @@
   // ─── Status Tab ────────────────────────────────
   function _renderStatus(container) {
     const statuses = [
-      { label: 'Token USB de Seguridad', ok: Math.random() > 0.1, warning: false, textOk: '🟢 Conectado y Verificado', textFail: '🔴 Desconectado' },
-      { label: 'WhatsApp Evolution API', ok: Math.random() > 0.15, warning: false, textOk: '🟢 Instancia Activa', textFail: '🔴 Desconectado — Escanear QR' },
-      { label: 'SIFEN DNIT Paraguay', ok: true, warning: Math.random() > 0.7, textOk: '🟢 Operacional', textWarn: '🟡 Modo Contingencia', textFail: '🔴 Fuera de servicio' },
-      { label: 'Base de Datos PostgreSQL', ok: Math.random() > 0.05, warning: false, textOk: '🟢 Conectada', textFail: '🔴 Sin conexión' },
-      { label: 'Thinkcar Mini', ok: Math.random() > 0.3, warning: false, textOk: '🟢 Bluetooth Conectado', textFail: '⚪ Sin dispositivo' },
+      { label: 'Token USB de Seguridad', ok: Math.random() > 0.1, warning: false, textOk: '<span class="w-2 h-2 rounded-full bg-green-400 inline-block mr-1"></span>Conectado y Verificado', textFail: '<span class="w-2 h-2 rounded-full bg-red-400 inline-block mr-1"></span>Desconectado' },
+      { label: 'WhatsApp Evolution API', ok: Math.random() > 0.15, warning: false, textOk: '<span class="w-2 h-2 rounded-full bg-green-400 inline-block mr-1"></span>Instancia Activa', textFail: '<span class="w-2 h-2 rounded-full bg-red-400 inline-block mr-1"></span>Desconectado &mdash; Escanear QR' },
+      { label: 'SIFEN DNIT Paraguay', ok: true, warning: Math.random() > 0.7, textOk: '<span class="w-2 h-2 rounded-full bg-green-400 inline-block mr-1"></span>Operacional', textWarn: '<span class="w-2 h-2 rounded-full bg-yellow-400 inline-block mr-1"></span>Modo Contingencia', textFail: '<span class="w-2 h-2 rounded-full bg-red-400 inline-block mr-1"></span>Fuera de servicio' },
+      { label: 'Base de Datos PostgreSQL', ok: Math.random() > 0.05, warning: false, textOk: '<span class="w-2 h-2 rounded-full bg-green-400 inline-block mr-1"></span>Conectada', textFail: '<span class="w-2 h-2 rounded-full bg-red-400 inline-block mr-1"></span>Sin conexi&oacute;n' },
+      { label: 'Thinkcar Mini', ok: Math.random() > 0.3, warning: false, textOk: '<span class="w-2 h-2 rounded-full bg-green-400 inline-block mr-1"></span>Bluetooth Conectado', textFail: '<span class="w-2 h-2 rounded-full bg-gray-400 inline-block mr-1"></span>Sin dispositivo' },
     ];
 
     container.innerHTML = `
@@ -224,8 +224,9 @@
           </div>`;
       }).join('')}
       <div class="mt-4 text-center">
-        <button onclick="window.HelpSidebar.refreshStatus()" class="px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-400 hover:text-white hover:border-gray-500 transition">
-          🔄 Actualizar estado
+        <button onclick="window.HelpSidebar.refreshStatus()" class="px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-xs text-gray-400 hover:text-white hover:border-gray-500 transition flex items-center gap-1.5 mx-auto">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Actualizar estado
         </button>
       </div>`;
   }
@@ -235,19 +236,19 @@
     const problems = [
       {
         title: 'Pantalla Negra de Bloqueo',
-        icon: '🚫',
+        icon: '<svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>',
         cause: 'El USB de seguridad fue desconectado o el servidor se movió de puerto.',
         solution: '<strong>1.</strong> Verificar que el USB de seguridad esté conectado al puerto USB 3.0 original.<br><strong>2.</strong> Esperar 5 segundos para la verificación automática.<br><strong>3.</strong> Recargar la página del navegador (F5 o Ctrl+R).<br><strong>4.</strong> Si persiste, contactar al administrador del sistema.'
       },
       {
         title: 'Cliente no recibe el PDF por WhatsApp',
-        icon: '📤',
+        icon: '<svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>',
         cause: 'La sesión de WhatsApp del taller se cerró en el teléfono o hay delay en la red.',
         solution: '<strong>1.</strong> Ir a Configuración → WhatsApp.<br><strong>2.</strong> Hacer clic en "Reconectar WhatsApp".<br><strong>3.</strong> Escanear el nuevo código QR desde el teléfono del taller.<br><strong>4.</strong> Reenviar el PDF desde la pantalla de la OT.'
       },
       {
         title: 'Repuesto sin stock pero físicamente está en el estante',
-        icon: '📦',
+        icon: '<svg class="w-5 h-5 inline-block mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
         cause: 'El stock físico no coincide con el registro digital (error de carga o ajuste previo).',
         solution: '<strong>1.</strong> Ir a Inventario → Buscar el repuesto.<br><strong>2.</strong> Hacer clic en "Ajuste de Inventario".<br><strong>3.</strong> Ingresar la cantidad correcta (ej: 5 unidades).<br><strong>4.</strong> Guardar el ajuste.<br><strong>5.</strong> Seleccionar el repuesto → "Etiqueta" → Imprimir rótulo QR.'
       }

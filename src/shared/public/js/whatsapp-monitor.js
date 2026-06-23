@@ -258,10 +258,10 @@ async function retryFailedWhatsApp() {
   try {
     var resp = await api('/whatsapp/queue/retry', { method: 'POST' });
     var retried = resp.retried || resp.processed || 0;
-    alert('Reintentados: ' + retried + ' mensajes fallidos');
+    if (typeof showToast === 'function') showToast('Reintentados: ' + retried + ' mensajes fallidos', 'success');
     refreshWhatsAppMonitor();
   } catch (err) {
-    alert('Error: ' + (err.message || 'Error reintentando mensajes'));
+    if (typeof showToast === 'function') showToast('Error: ' + (err.message || 'Error reintentando mensajes'), 'error');
   }
 
   if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Reenviar Fallidos'; }
@@ -276,8 +276,9 @@ async function resendWhatsAppMessage(msgId, phone, preview) {
       body: JSON.stringify({ phone: phone, message: preview + ' (Reenvio)' }),
     });
     refreshWhatsAppMonitor();
+    if (typeof showToast === 'function') showToast('Mensaje reenviado correctamente', 'success');
   } catch (err) {
-    alert('Error reenviando: ' + (err.message || 'Error desconocido'));
+    if (typeof showToast === 'function') showToast('Error reenviando: ' + (err.message || 'Error desconocido'), 'error');
   }
 }
 

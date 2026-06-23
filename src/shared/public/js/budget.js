@@ -4,7 +4,7 @@
  * @module js/budget
  */
 
-/* global API, authHeaders */
+/* global api, esc, authHeaders, showToast */
 
 // ─── State ──────────────────────────────────────
 
@@ -41,7 +41,7 @@ async function renderBudget(container) {
       </div>
       <div class="flex gap-2">
         <button onclick="loadBudgetAlertas()" class="px-3 py-1.5 bg-yellow-600/20 text-yellow-400 rounded text-sm hover:bg-yellow-600/30 flex items-center gap-1">
-          <span>⚠️</span> Alertas
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg> Alertas
         </button>
         <button onclick="showCreateBudgetModal()" class="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
           + Nuevo Presupuesto
@@ -71,7 +71,7 @@ async function loadBudgetList() {
     if (data.length === 0) {
       el.innerHTML = `
         <div class="text-center py-12 text-gray-500">
-          <p class="text-4xl mb-2">📊</p>
+          <p class="text-4xl mb-2"><svg class="w-10 h-10 mx-auto text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></p>
           <p class="text-lg">No hay presupuestos creados</p>
           <p class="text-sm mt-1">Crea uno para empezar el control de gestión</p>
         </div>
@@ -91,7 +91,7 @@ async function loadBudgetList() {
           }">${p.estado}</span>
         </td>
         <td class="px-4 py-3 text-right">
-          <button onclick="event.stopPropagation(); deleteBudgetConfirm('${p.id}', '${p.periodo}')" class="text-red-400 hover:text-red-300 text-sm">🗑️</button>
+          <button onclick="event.stopPropagation(); deleteBudgetConfirm('${p.id}', '${p.periodo}')" class="text-red-400 hover:text-red-300 text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
         </td>
       </tr>
     `).join('');
@@ -157,7 +157,7 @@ async function createBudget() {
   const descripcion = document.getElementById('budget-descripcion')?.value?.trim();
 
   if (!periodo) {
-    alert('El período es obligatorio');
+    if (typeof showToast === 'function') showToast('El período es obligatorio', 'warning');
     return;
   }
 
@@ -169,7 +169,7 @@ async function createBudget() {
     document.getElementById('budget-modal')?.remove();
     await loadBudgetList();
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -184,8 +184,9 @@ async function deleteBudget(id) {
   try {
     await budgetApi(`/presupuestos/${id}`, { method: 'DELETE' });
     await loadBudgetList();
+    if (typeof showToast === 'function') showToast('Presupuesto eliminado', 'success');
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -261,7 +262,7 @@ function renderComparativa(data) {
     `).join('');
     alertsHtml = `
       <div class="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
-        <h4 class="text-sm font-medium text-gray-400 mb-2">⚠️ Alertas de Desvío</h4>
+        <h4 class="text-sm font-medium text-gray-400 mb-2 flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg> Alertas de Desvío</h4>
         <div class="space-y-1">${alertItems}</div>
       </div>
     `;
@@ -315,7 +316,7 @@ function renderComparativa(data) {
         ${presupuesto.estado === 'aprobado' ? `
           <button onclick="closeBudget('${presupuesto.id}')" class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">Cerrar</button>
         ` : ''}
-        <button onclick="refreshBudgetReal('${presupuesto.id}')" class="px-3 py-1 bg-purple-600/20 text-purple-400 rounded text-sm hover:bg-purple-600/30">🔄 Recalcular</button>
+        <button onclick="refreshBudgetReal('${presupuesto.id}')" class="px-3 py-1 bg-purple-600/20 text-purple-400 rounded text-sm hover:bg-purple-600/30 flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Recalcular</button>
       </div>
     </div>
 
@@ -388,12 +389,12 @@ async function addBudgetItem(presupuestoId) {
   const montoPresupuestado = parseFloat(document.getElementById('additem-monto')?.value || '0');
 
   if (!centroCostoId || !categoria) {
-    alert('Selecciona centro de costo y categoría');
+    if (typeof showToast === 'function') showToast('Selecciona centro de costo y categoría', 'warning');
     return;
   }
 
   if (montoPresupuestado <= 0) {
-    alert('El monto debe ser mayor a 0');
+    if (typeof showToast === 'function') showToast('El monto debe ser mayor a 0', 'warning');
     return;
   }
 
@@ -404,7 +405,7 @@ async function addBudgetItem(presupuestoId) {
     });
     await loadBudgetComparativa(presupuestoId);
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -418,7 +419,7 @@ async function approveBudget(id) {
     });
     await loadBudgetComparativa(id);
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -431,7 +432,7 @@ async function closeBudget(id) {
     });
     await loadBudgetComparativa(id);
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 
@@ -440,7 +441,7 @@ async function refreshBudgetReal(id) {
     await budgetApi(`/presupuestos/${id}/refresh`, { method: 'POST' });
     await loadBudgetComparativa(id);
   } catch (err) {
-    alert(`Error: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${err.message}`, 'error');
   }
 }
 

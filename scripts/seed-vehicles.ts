@@ -18,7 +18,7 @@ import {
   mileageIntervals,
   vehiculosMarca,
   vehiculosModelo,
-} from "../src/shared/database/schema/index.js";
+} from "../src/modules/workshop/schema/index.js";
 
 async function main() {
   console.log("🌱 Seeding vehicle master data...\n");

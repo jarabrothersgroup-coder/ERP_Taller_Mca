@@ -19,7 +19,7 @@ function renderFleet(container) {
     <div class="max-w-5xl mx-auto space-y-6">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-bold text-white">🚛 Gestión de Flotas</h3>
+          <h3 class="text-lg font-bold text-white"><svg class="w-5 h-5 inline-block -mt-0.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11h18l-2.25 6.75a2 2 0 01-2 1.25H7.25a2 2 0 01-2-1.25L3 11z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11l1.5-4.5A2 2 0 016.5 5h11a2 2 0 012 1.5L21 11"/></svg>Gestión de Flotas</h3>
           <p class="text-xs text-gray-500">Clientes corporativos con flotas de vehículos</p>
         </div>
         <button onclick="fleetOpenCreateModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nueva Flota</button>
@@ -139,7 +139,7 @@ async function _fleetLoadFleets() {
       return `
         <div class="bg-gray-800/50 rounded-lg p-4 flex items-center justify-between hover:bg-gray-800 transition">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-blue-600/20 flex items-center justify-center text-lg">🚛</div>
+            <div class="w-10 h-10 rounded-lg bg-blue-600/20 flex items-center justify-center"><svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11h18l-2.25 6.75a2 2 0 01-2 1.25H7.25a2 2 0 01-2-1.25L3 11z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11l1.5-4.5A2 2 0 016.5 5h11a2 2 0 012 1.5L21 11"/></svg></div>
             <div>
               <p class="text-sm font-medium text-white">${esc(f.nombre)}</p>
               <p class="text-xs text-gray-500">${esc(f.empresa || 'Sin empresa')} · ${f.vehicleCount || 0} vehículos</p>
@@ -148,7 +148,7 @@ async function _fleetLoadFleets() {
           </div>
           <div class="flex items-center gap-3">
             <span class="status-badge ${f.contratoActivo ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-400'}">${f.contratoActivo ? 'Activo' : 'Inactivo'}</span>
-            <button onclick="fleetEdit('${esc(f.id)}')" class="text-gray-500 hover:text-white transition text-sm">✏️</button>
+            <button onclick="fleetEdit('${esc(f.id)}')" class="text-gray-500 hover:text-white transition text-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
           </div>
         </div>
       `;
@@ -174,7 +174,7 @@ function fleetOpenCreateModal() {
 
 function fleetEdit(id) {
   // TODO: Load fleet data and open edit modal
-  alert(`Editar flota ${id} — Próximamente`);
+  if (typeof showToast === 'function') showToast(`Editar flota ${id} — Próximamente`, 'info');
 }
 
 function fleetCloseModal() {
@@ -204,8 +204,9 @@ async function _fleetSave() {
     }
     fleetCloseModal();
     await _fleetLoadFleets();
+    if (typeof showToast === 'function') showToast('Flota guardada correctamente', 'success');
   } catch (err) {
     console.error('[Fleet] Error saving fleet:', err);
-    alert('Error al guardar la flota');
+    if (typeof showToast === 'function') showToast('Error al guardar la flota', 'error');
   }
 }

@@ -9,13 +9,6 @@
 
 // ─── Twenty CRM API Types ──────────────────────────────
 
-/** Twenty CRM connection status */
-export type TwentyConnectionStatus =
-  | "DISCONNECTED"
-  | "CONNECTING"
-  | "CONNECTED"
-  | "ERROR";
-
 /** Contact (Person) in Twenty CRM */
 export interface TwentyContact {
   id?: string;
@@ -37,15 +30,23 @@ export interface TwentyAutomotiveFields {
   vehicleModel?: string;
   /** Vehicle VIN */
   vehicleVin?: string;
-  /** Current mileage */
+  /** Current mileage (km) */
   currentMileage?: number;
-  /** Last service type */
+  /** Manufacturing year */
+  vehicleYear?: number;
+  /** Engine type: Nafta | Diésel | HEV | BEV */
+  vehicleEngineType?: string;
+  /** DTC codes from latest scan (Thinkcar/Launch) */
+  lastDtcCodes?: string;
+  /** Vehicle health score from Thinkcar (0-100) */
+  vehicleHealthScore?: number;
+  /** Last service type (structured from catalog) */
   lastServiceType?: string;
   /** Last service date */
   lastServiceDate?: string;
-  /** Total visits to workshop */
+  /** Total visits to workshop (accumulated) */
   totalVisits?: number;
-  /** Total spent at workshop */
+  /** Total spent at workshop (accumulated) */
   totalSpent?: number;
   /** Client type */
   clientType?: "WALK_IN" | "REPEAT" | "VIP";
@@ -71,22 +72,6 @@ export interface TwentyUpsertResult {
   timestamp: string;
   /** Duration in milliseconds */
   durationMs: number;
-}
-
-/** CRM sync worker configuration */
-export interface CrmSyncConfig {
-  /** Twenty CRM API base URL */
-  apiUrl: string;
-  /** Twenty CRM API key */
-  apiKey: string;
-  /** GraphQL endpoint (optional, defaults to /graphql) */
-  graphqlUrl?: string;
-  /** Enable/disable sync (feature flag) */
-  enabled: boolean;
-  /** Max retries for failed syncs */
-  maxRetries: number;
-  /** Delay between retries in ms */
-  retryDelayMs: number;
 }
 
 /** CRM sync worker result */

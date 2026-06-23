@@ -19,7 +19,7 @@ function initLabelPrinting() {
 function renderLabelModule() {
   return '<div class="max-w-5xl mx-auto p-6 space-y-6">' +
     '<div class="flex items-center gap-3 mb-6">' +
-      '<span class="text-2xl">🏷️</span>' +
+      '<svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>' +
       '<div>' +
         '<h2 class="text-xl font-bold text-white">Impresión de Etiquetas y Rótulos</h2>' +
         '<p class="text-sm text-gray-400">Generación de códigos de barras y QR para inventario y herramientas</p>' +
@@ -38,7 +38,7 @@ function renderLabelModule() {
 function renderLabelDesigner() {
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
     '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">' +
-      '<span>🎨</span> Diseñador de Etiqueta' +
+      '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Dise&ntilde;ador de Etiqueta' +
     '</h3>' +
     '<div class="space-y-4">' +
       '<div class="grid grid-cols-2 gap-3">' +
@@ -46,8 +46,8 @@ function renderLabelDesigner() {
           '<label class="block text-xs text-gray-500 mb-1">Tipo de Etiqueta</label>' +
           '<select id="label-entity-type" onchange="_labelState.entityType=this.value; clearLabelPreview()"' +
             'class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">' +
-            '<option value="REPUESTO">📦 Repuesto (50×30mm)</option>' +
-            '<option value="HERRAMIENTA">🔧 Herramienta (60×40mm)</option>' +
+            '<option value="REPUESTO">Repuesto (50&times;30mm)</option>' +
+            '<option value="HERRAMIENTA">Herramienta (60&times;40mm)</option>' +
           '</select>' +
         '</div>' +
         '<div>' +
@@ -79,11 +79,11 @@ function renderLabelDesigner() {
         '</div>' +
       '</div>' +
       '<div class="flex gap-2">' +
-        '<button onclick="previewLabel()" class="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition">' +
-          '👁️ Vista Previa' +
+        '<button onclick="previewLabel()" class="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 justify-center">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Vista Previa' +
         '</button>' +
-        '<button onclick="printLabel()" class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition">' +
-          '🖨️ Imprimir' +
+        '<button onclick="printLabel()" class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 justify-center">' +
+          '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg> Imprimir' +
         '</button>' +
       '</div>' +
     '</div>' +
@@ -95,7 +95,7 @@ function renderLabelDesigner() {
 function renderLabelPreview() {
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
     '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">' +
-      '<span>👁️</span> Vista Previa' +
+      '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Vista Previa' +
     '</h3>' +
     '<div id="label-preview-container" class="flex items-center justify-center min-h-[200px] bg-gray-900/50 rounded-lg border border-gray-700/30">' +
       '<p class="text-gray-500 text-sm">Seleccione un artículo y presione "Vista Previa"</p>' +
@@ -122,7 +122,7 @@ function renderPrintHistory() {
 
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
     '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">' +
-      '<span>📋</span> Historial de Impresión' +
+      '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> Historial de Impresi&oacute;n' +
     '</h3>' +
     '<div class="overflow-x-auto">' +
       '<table class="w-full text-xs">' +
@@ -151,7 +151,7 @@ async function loadEntityForLabel() {
   var idInput = document.getElementById('label-entity-id');
   var infoDiv = document.getElementById('label-entity-info');
   var id = idInput ? idInput.value.trim() : '';
-  if (!id) { alert('Ingrese un ID de artículo'); return; }
+  if (!id) { if (typeof showToast === 'function') showToast('Ingrese un ID de art&iacute;culo', 'warning'); return; }
 
   _labelState.entityId = id;
   var tipo = _labelState.entityType;
@@ -183,7 +183,7 @@ async function loadEntityForLabel() {
 
 async function previewLabel() {
   var data = _labelState.entityData;
-  if (!data) { alert('Cargue un artículo primero'); return; }
+  if (!data) { if (typeof showToast === 'function') showToast('Cargue un art&iacute;culo primero', 'warning'); return; }
 
   var container = document.getElementById('label-preview-container');
   var info = document.getElementById('label-preview-info');
@@ -210,7 +210,7 @@ async function previewLabel() {
 
 async function printLabel() {
   var data = _labelState.entityData;
-  if (!data) { alert('Cargue un artículo primero'); return; }
+  if (!data) { if (typeof showToast === 'function') showToast('Cargue un art&iacute;culo primero', 'warning'); return; }
 
   try {
     var endpoint = _labelState.entityType === 'REPUESTO'
@@ -233,7 +233,7 @@ async function printLabel() {
         );
         printWindow.document.close();
       } else {
-        alert('Impresora: Payload generado. Copie el siguiente código:\n\n' + resp.payload.substring(0, 200));
+        if (typeof showToast === 'function') showToast('Payload generado. Copie el c&oacute;digo en la impresora.', 'success');
       }
     }
 
@@ -248,7 +248,7 @@ async function printLabel() {
     localStorage.setItem('labelPrintHistory', JSON.stringify(_labelState.history.slice(-50)));
     initLabelPrinting(); // Refresh
   } catch (err) {
-    alert('Error imprimiendo: ' + err.message);
+    if (typeof showToast === 'function') showToast(err.message, 'error');
   }
 }
 
@@ -263,8 +263,8 @@ function clearLabelPreview() {
 
 function createLabelPrintButton(entityType, entityId, entityNombre) {
   return '<button onclick="quickPrintLabel(\'' + entityType + '\',\'' + esc(entityId) + '\',\'' + esc(entityNombre) + '\')" ' +
-    'class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition" title="Imprimir Etiqueta">' +
-    '🖨️' +
+    'class="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition flex items-center gap-1" title="Imprimir Etiqueta">' +
+    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>' +
   '</button>';
 }
 

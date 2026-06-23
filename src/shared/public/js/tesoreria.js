@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════
-//  TESORERÍA (Sprint 7)
+//  TESORERÍA (Sprint 7 — Refactored)
 // ═════════════════════════════════════════════════
 
 const TESORERIA_TABS = {
@@ -10,6 +10,58 @@ const TESORERIA_TABS = {
   cxp: 'CxP',
   flujo: 'Flujo de Caja',
 };
+
+// ─── Shared utilities ──────────────────────────
+
+const MEDIO_PAGO_OPTIONS = `
+  <option value="EFECTIVO">Efectivo</option>
+  <option value="TRANSFERENCIA">Transferencia</option>
+  <option value="CHEQUE">Cheque</option>
+  <option value="TARJETA_DEBITO">Tarjeta Débito</option>
+  <option value="TARJETA_CREDITO">Tarjeta Crédito</option>`;
+
+function tesModal(title, iconSvg, content) {
+  dom.modalContent.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-lg font-bold flex items-center gap-2">${iconSvg || ''} ${title}</h3>
+      <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
+    </div>
+    ${content}`;
+  dom.modalOverlay.classList.remove('hidden');
+  document.getElementById('modal-close')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
+}
+
+function tesTable(headers, rows) {
+  return `
+    <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+            ${headers.map(h => `<th class="${h.align === 'right' ? 'text-right' : h.align === 'center' ? 'text-center' : 'text-left'} px-4 py-3">${h.label}</th>`).join('')}
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function tesStatCard(label, value, colorClass) {
+  return `
+    <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
+      <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">${label}</p>
+      <p class="text-2xl font-bold ${colorClass}">₲ ${Number(value).toLocaleString('es-PY')}</p>
+    </div>`;
+}
+
+function tesError(container, msg) {
+  container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(msg)}</div>`;
+}
+
+function tesLoading(text) {
+  return `<div class="text-center py-8 text-gray-500">${text || 'Cargando...'}</div>`;
+}
+
+// ─── Tabs ──────────────────────────────────────
 
 function renderTesorería(container) {
   container.innerHTML = `
@@ -24,7 +76,26 @@ function renderTesorería(container) {
       `).join('')}
     </div>
     <div id="tes-content" class="space-y-4"></div>`;
+
+  // Event delegation for sub-tab actions
+  container.addEventListener('click', tesHandleAction);
   showTesTab('cuentas');
+}
+
+function tesHandleAction(e) {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+  const id = target.dataset.id;
+
+  switch (action) {
+    case 'nueva-cuenta': showModalNuevaCuentaBancaria(); break;
+    case 'nuevo-movimiento': showModalNuevoMovimiento(); break;
+    case 'filtrar-movimientos': filtrarMovimientos(); break;
+    case 'iniciar-conciliacion': showModalIniciarConciliacion(); break;
+    case 'cobrar': showCobroModal(id, target.dataset.saldo); break;
+    case 'pagar': showPagoProveedorModal(id, target.dataset.saldo); break;
+  }
 }
 
 function showTesTab(tab) {
@@ -38,7 +109,7 @@ function showTesTab(tab) {
   });
   const content = document.querySelector('#tes-content');
   if (!content) return;
-  content.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  content.innerHTML = tesLoading();
   if (tab === 'cuentas') renderTesCuentas(content);
   else if (tab === 'movimientos') renderTesMovimientos(content);
   else if (tab === 'conciliacion') renderTesConciliacion(content);
@@ -55,50 +126,41 @@ async function renderTesCuentas(container) {
     container.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-400">Cuentas bancarias, cajas y billeteras digitales</p>
-        <button id="btn-nueva-cuenta-bancaria" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nueva Cuenta</button>
+        <button data-action="nueva-cuenta" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nueva Cuenta</button>
       </div>
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">Código</th>
-              <th class="text-left px-4 py-3">Nombre</th>
-              <th class="text-left px-4 py-3">Tipo</th>
-              <th class="text-left px-4 py-3">Banco</th>
-              <th class="text-right px-4 py-3">Saldo Actual</th>
-              <th class="text-center px-4 py-3">Estado</th>
-            </tr></thead>
-            <tbody>${cuentas.map(c => {
-              const tipoBadge = {
-                CAJA_FISICA: 'bg-green-900/50 text-green-300',
-                CTA_CTE: 'bg-blue-900/50 text-blue-300',
-                CAJA_AHORRO: 'bg-purple-900/50 text-purple-300',
-                BILLETERA_DIGITAL: 'bg-cyan-900/50 text-cyan-300',
-              }[c.tipo] || 'bg-gray-700 text-gray-300';
-              return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-                <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(c.codigo)}</td>
-                <td class="px-4 py-2.5 font-medium">${esc(c.nombre)}</td>
-                <td class="px-4 py-2.5"><span class="status-badge ${tipoBadge}">${c.tipo}</span></td>
-                <td class="px-4 py-2.5 text-gray-400">${esc(c.banco || '—')}</td>
-                <td class="px-4 py-2.5 text-right font-mono font-semibold ${Number(c.saldoActual) >= 0 ? 'text-green-400' : 'text-red-400'}">₲ ${Number(c.saldoActual).toLocaleString('es-PY')}</td>
-                <td class="px-4 py-2.5 text-center">${c.activo !== false ? '<span class="text-green-500 text-xs">Activa</span>' : '<span class="text-gray-600 text-xs">Inactiva</span>'}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
-    document.querySelector('#btn-nueva-cuenta-bancaria')?.addEventListener('click', showModalNuevaCuentaBancaria);
+      ${tesTable(
+        [
+          { label: 'Código' },
+          { label: 'Nombre' },
+          { label: 'Tipo' },
+          { label: 'Banco' },
+          { label: 'Saldo Actual', align: 'right' },
+          { label: 'Estado', align: 'center' },
+        ],
+        cuentas.map(c => {
+          const tipoBadge = {
+            CAJA_FISICA: 'bg-green-900/50 text-green-300',
+            CTA_CTE: 'bg-blue-900/50 text-blue-300',
+            CAJA_AHORRO: 'bg-purple-900/50 text-purple-300',
+            BILLETERA_DIGITAL: 'bg-cyan-900/50 text-cyan-300',
+          }[c.tipo] || 'bg-gray-700 text-gray-300';
+          return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+            <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(c.codigo)}</td>
+            <td class="px-4 py-2.5 font-medium">${esc(c.nombre)}</td>
+            <td class="px-4 py-2.5"><span class="status-badge ${tipoBadge}">${c.tipo}</span></td>
+            <td class="px-4 py-2.5 text-gray-400">${esc(c.banco || '—')}</td>
+            <td class="px-4 py-2.5 text-right font-mono font-semibold ${Number(c.saldoActual) >= 0 ? 'text-green-400' : 'text-red-400'}">₲ ${Number(c.saldoActual).toLocaleString('es-PY')}</td>
+            <td class="px-4 py-2.5 text-center">${c.activo !== false ? '<span class="text-green-500 text-xs">Activa</span>' : '<span class="text-gray-600 text-xs">Inactiva</span>'}</td>
+          </tr>`;
+        }).join('')
+      )}`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
 function showModalNuevaCuentaBancaria() {
-  dom.modalContent.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-lg font-bold">Nueva Cuenta Bancaria</h3>
-      <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-    </div>
+  tesModal('Nueva Cuenta Bancaria', '', `
     <form id="cuenta-bancaria-form" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div>
@@ -144,11 +206,10 @@ function showModalNuevaCuentaBancaria() {
       </div>
       <div class="flex gap-3 pt-2">
         <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">Crear Cuenta</button>
-        <button type="button" id="modal-cancel" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+        <button type="button" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition" onclick="closeModal()">Cancelar</button>
       </div>
       <p id="cb-error" class="text-red-400 text-sm text-center hidden"></p>
-    </form>`;
-  dom.modalOverlay.classList.remove('hidden');
+    </form>`);
   document.querySelector('#cuenta-bancaria-form')?.addEventListener('submit', handleNuevaCuentaBancaria);
 }
 
@@ -183,10 +244,19 @@ async function renderTesMovimientos(container) {
       api('/finance/treasury/cuentas?soloActivas=true'),
       api('/finance/treasury/movimientos?limit=100'),
     ]);
+    const movHeaders = [
+      { label: 'Fecha' },
+      { label: 'Tipo' },
+      { label: 'Medio' },
+      { label: 'Concepto' },
+      { label: 'Monto', align: 'right' },
+      { label: 'Cuenta' },
+      { label: 'Conciliado', align: 'center' },
+    ];
     container.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-400">Registro de ingresos, egresos y transferencias</p>
-        <button id="btn-nuevo-movimiento" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nuevo Movimiento</button>
+        <button data-action="nuevo-movimiento" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nuevo Movimiento</button>
       </div>
       <div class="flex flex-wrap gap-3 mb-4">
         <div>
@@ -214,44 +284,29 @@ async function renderTesMovimientos(container) {
           <input id="filter-mov-hasta" type="date" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500">
         </div>
         <div class="flex items-end">
-          <button id="btn-filtrar-mov" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Filtrar</button>
+          <button data-action="filtrar-movimientos" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Filtrar</button>
         </div>
       </div>
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">Fecha</th>
-              <th class="text-left px-4 py-3">Tipo</th>
-              <th class="text-left px-4 py-3">Medio</th>
-              <th class="text-left px-4 py-3">Concepto</th>
-              <th class="text-right px-4 py-3">Monto</th>
-              <th class="text-left px-4 py-3">Cuenta</th>
-              <th class="text-center px-4 py-3">Conciliado</th>
-            </tr></thead>
-            <tbody>${movs.map(m => {
-              const esIngreso = m.tipo === 'INGRESO' || m.tipo === 'TRANSFERENCIA';
-              return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-                <td class="px-4 py-2.5 text-xs text-gray-400">${new Date(m.fecha).toLocaleDateString('es-PY')}</td>
-                <td class="px-4 py-2.5"><span class="status-badge ${esIngreso ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}">${m.tipo}</span></td>
-                <td class="px-4 py-2.5 text-gray-400 text-xs">${m.medioPago}</td>
-                <td class="px-4 py-2.5">${esc(m.concepto)}</td>
-                <td class="px-4 py-2.5 text-right font-mono ${esIngreso ? 'text-green-400' : 'text-red-400'}">${esIngreso ? '+' : '-'}₲ ${Number(m.monto).toLocaleString('es-PY')}</td>
-                <td class="px-4 py-2.5 text-xs text-gray-400">${cuentas.find(c => c.id === m.cuentaId)?.codigo || '—'}</td>
-                <td class="px-4 py-2.5 text-center">${m.conciliado ? '<span class="text-green-500">✓</span>' : '<span class="text-gray-600">✕</span>'}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
-    document.querySelector('#btn-nuevo-movimiento')?.addEventListener('click', () => showModalNuevoMovimiento(cuentas));
-    document.querySelector('#btn-filtrar-mov')?.addEventListener('click', () => filtrarMovimientos(cuentas));
+      ${tesTable(movHeaders, movs.map(m => tesMovRow(m, cuentas)).join(''))}`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
-async function filtrarMovimientos(cuentas) {
+function tesMovRow(m, cuentas) {
+  const esIngreso = m.tipo === 'INGRESO' || m.tipo === 'TRANSFERENCIA';
+  return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+    <td class="px-4 py-2.5 text-xs text-gray-400">${new Date(m.fecha).toLocaleDateString('es-PY')}</td>
+    <td class="px-4 py-2.5"><span class="status-badge ${esIngreso ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}">${m.tipo}</span></td>
+    <td class="px-4 py-2.5 text-gray-400 text-xs">${m.medioPago}</td>
+    <td class="px-4 py-2.5">${esc(m.concepto)}</td>
+    <td class="px-4 py-2.5 text-right font-mono ${esIngreso ? 'text-green-400' : 'text-red-400'}">${esIngreso ? '+' : '-'}₲ ${Number(m.monto).toLocaleString('es-PY')}</td>
+    <td class="px-4 py-2.5 text-xs text-gray-400">${cuentas.find(c => c.id === m.cuentaId)?.codigo || '—'}</td>
+    <td class="px-4 py-2.5 text-center">${m.conciliado ? '<span class="text-green-500">✓</span>' : '<span class="text-gray-600">✕</span>'}</td>
+  </tr>`;
+}
+
+async function filtrarMovimientos() {
   const cuentaId = document.querySelector('#filter-mov-cuenta')?.value;
   const tipo = document.querySelector('#filter-mov-tipo')?.value;
   const desde = document.querySelector('#filter-mov-desde')?.value;
@@ -263,100 +318,82 @@ async function filtrarMovimientos(cuentas) {
   if (hasta) params.set('hasta', hasta);
   const content = document.querySelector('#tes-content');
   if (!content) return;
-  content.innerHTML = '<div class="text-center py-8 text-gray-500">Filtrando...</div>';
+  content.innerHTML = tesLoading('Filtrando...');
   try {
     const movs = await api(`/finance/treasury/movimientos?${params}`);
-    renderTesMovimientosTable(content, movs, cuentas);
+    renderTesMovimientosTable(content, movs);
   } catch (e) {
-    content.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(content, e.message);
   }
 }
 
-function renderTesMovimientosTable(container, movs, cuentas) {
-  container.innerHTML = `
-    <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-            <th class="text-left px-4 py-3">Fecha</th>
-            <th class="text-left px-4 py-3">Tipo</th>
-            <th class="text-left px-4 py-3">Medio</th>
-            <th class="text-left px-4 py-3">Concepto</th>
-            <th class="text-right px-4 py-3">Monto</th>
-            <th class="text-left px-4 py-3">Cuenta</th>
-            <th class="text-center px-4 py-3">Conciliado</th>
-          </tr></thead>
-          <tbody>${movs.length === 0 ? '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay movimientos</td></tr>' : movs.map(m => {
-            const esIngreso = m.tipo === 'INGRESO' || m.tipo === 'TRANSFERENCIA';
-            return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-              <td class="px-4 py-2.5 text-xs text-gray-400">${new Date(m.fecha).toLocaleDateString('es-PY')}</td>
-              <td class="px-4 py-2.5"><span class="status-badge ${esIngreso ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}">${m.tipo}</span></td>
-              <td class="px-4 py-2.5 text-gray-400 text-xs">${m.medioPago}</td>
-              <td class="px-4 py-2.5">${esc(m.concepto)}</td>
-              <td class="px-4 py-2.5 text-right font-mono ${esIngreso ? 'text-green-400' : 'text-red-400'}">${esIngreso ? '+' : '-'}₲ ${Number(m.monto).toLocaleString('es-PY')}</td>
-              <td class="px-4 py-2.5 text-xs text-gray-400">${cuentas.find(c => c.id === m.cuentaId)?.codigo || '—'}</td>
-              <td class="px-4 py-2.5 text-center">${m.conciliado ? '<span class="text-green-500">✓</span>' : '<span class="text-gray-600">✕</span>'}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-    </div>`;
+function renderTesMovimientosTable(container, movs) {
+  const movHeaders = [
+    { label: 'Fecha' },
+    { label: 'Tipo' },
+    { label: 'Medio' },
+    { label: 'Concepto' },
+    { label: 'Monto', align: 'right' },
+    { label: 'Cuenta' },
+    { label: 'Conciliado', align: 'center' },
+  ];
+  container.innerHTML = tesTable(
+    movHeaders,
+    movs.length === 0
+      ? '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay movimientos</td></tr>'
+      : movs.map(m => tesMovRow(m, [])).join('')
+  );
 }
 
-function showModalNuevoMovimiento(cuentas) {
-  dom.modalContent.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-lg font-bold">Nuevo Movimiento</h3>
-      <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-    </div>
-    <form id="movimiento-form" class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
+function showModalNuevoMovimiento() {
+  api('/finance/treasury/cuentas?soloActivas=true').then(cuentas => {
+    tesModal('Nuevo Movimiento', '', `
+      <form id="movimiento-form" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Tipo</label>
+            <select id="mov-tipo" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
+              <option value="INGRESO">Ingreso</option>
+              <option value="EGRESO">Egreso</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Medio de Pago</label>
+            <select id="mov-medio" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
+              ${MEDIO_PAGO_OPTIONS}
+            </select>
+          </div>
+        </div>
         <div>
-          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Tipo</label>
-          <select id="mov-tipo" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
-            <option value="INGRESO">Ingreso</option>
-            <option value="EGRESO">Egreso</option>
+          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cuenta</label>
+          <select id="mov-cuenta" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
+            ${cuentas.map(c => `<option value="${c.id}">${esc(c.codigo)} — ${esc(c.nombre)}</option>`).join('')}
           </select>
         </div>
-        <div>
-          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Medio de Pago</label>
-          <select id="mov-medio" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="CHEQUE">Cheque</option>
-            <option value="TARJETA_DEBITO">Tarjeta Débito</option>
-            <option value="TARJETA_CREDITO">Tarjeta Crédito</option>
-          </select>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cuenta</label>
-        <select id="mov-cuenta" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm">
-          ${cuentas.map(c => `<option value="${c.id}">${esc(c.codigo)} — ${esc(c.nombre)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Monto (₲)</label>
-          <input id="mov-monto" type="number" step="1" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" required>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Monto (₲)</label>
+            <input id="mov-monto" type="number" step="1" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" required>
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Fecha</label>
+            <input id="mov-fecha" type="date" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm" value="${new Date().toISOString().split('T')[0]}">
+          </div>
         </div>
         <div>
-          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Fecha</label>
-          <input id="mov-fecha" type="date" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm" value="${new Date().toISOString().split('T')[0]}">
+          <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Concepto</label>
+          <input id="mov-concepto" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="Descripción del movimiento" required>
         </div>
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Concepto</label>
-        <input id="mov-concepto" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="Descripción del movimiento" required>
-      </div>
-      <div class="flex gap-3 pt-2">
-        <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">Registrar</button>
-        <button type="button" id="modal-cancel" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Cancelar</button>
-      </div>
-      <p id="mov-error" class="text-red-400 text-sm text-center hidden"></p>
-    </form>`;
-  dom.modalOverlay.classList.remove('hidden');
-  document.querySelector('#movimiento-form')?.addEventListener('submit', handleNuevoMovimiento);
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">Registrar</button>
+          <button type="button" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition" onclick="closeModal()">Cancelar</button>
+        </div>
+        <p id="mov-error" class="text-red-400 text-sm text-center hidden"></p>
+      </form>`);
+    document.querySelector('#movimiento-form')?.addEventListener('submit', handleNuevoMovimiento);
+  }).catch(() => {
+    if (typeof showToast === 'function') showToast('Error al cargar cuentas', 'error');
+  });
 }
 
 async function handleNuevoMovimiento(e) {
@@ -389,7 +426,7 @@ async function renderTesConciliacion(container) {
     container.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-400">Conciliación bancaria mensual</p>
-        <button id="btn-iniciar-conciliacion" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Iniciar Conciliación</button>
+        <button data-action="iniciar-conciliacion" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Iniciar Conciliación</button>
       </div>
       <div class="mb-4">
         <label class="text-xs text-gray-500 block mb-1">Seleccionar Cuenta</label>
@@ -401,54 +438,47 @@ async function renderTesConciliacion(container) {
       <div id="conc-listado">
         <div class="text-center py-8 text-gray-600">Seleccioná una cuenta para ver sus conciliaciones</div>
       </div>`;
-    document.querySelector('#btn-iniciar-conciliacion')?.addEventListener('click', showModalIniciarConciliacion);
     document.querySelector('#conc-cuenta-select')?.addEventListener('change', async (ev) => {
       const cuentaId = ev.target.value;
       if (!cuentaId) return;
       const listado = document.querySelector('#conc-listado');
       if (!listado) return;
-      listado.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+      listado.innerHTML = tesLoading();
       try {
         const concs = await api(`/finance/treasury/conciliacion/${cuentaId}`);
-        listado.innerHTML = concs.length === 0
-          ? '<div class="text-center py-8 text-gray-600">No hay conciliaciones para esta cuenta</div>'
-          : `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-                  <th class="text-left px-4 py-3">Período</th>
-                  <th class="text-right px-4 py-3">Saldo Libros</th>
-                  <th class="text-right px-4 py-3">Saldo Banco</th>
-                  <th class="text-right px-4 py-3">Diferencia</th>
-                  <th class="text-center px-4 py-3">Estado</th>
-                </tr></thead>
-                <tbody>${concs.map(c => `
-                  <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-                    <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(c.periodo)}</td>
-                    <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(c.saldoLibros).toLocaleString('es-PY')}</td>
-                    <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(c.saldoBanco).toLocaleString('es-PY')}</td>
-                    <td class="px-4 py-2.5 text-right font-mono ${Number(c.diferencia) === 0 ? 'text-green-400' : 'text-yellow-400'}">₲ ${Number(c.diferencia).toLocaleString('es-PY')}</td>
-                    <td class="px-4 py-2.5 text-center">${c.conciliado ? '<span class="status-badge bg-green-900/50 text-green-300">Conciliado</span>' : '<span class="status-badge bg-yellow-900/50 text-yellow-300">Pendiente</span>'}</td>
-                  </tr>`).join('')}</tbody>
-              </table>
-            </div>
-          </div>`;
+        if (concs.length === 0) {
+          listado.innerHTML = '<div class="text-center py-8 text-gray-600">No hay conciliaciones para esta cuenta</div>';
+          return;
+        }
+        listado.innerHTML = tesTable(
+          [
+            { label: 'Período' },
+            { label: 'Saldo Libros', align: 'right' },
+            { label: 'Saldo Banco', align: 'right' },
+            { label: 'Diferencia', align: 'right' },
+            { label: 'Estado', align: 'center' },
+          ],
+          concs.map(c => `
+            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+              <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(c.periodo)}</td>
+              <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(c.saldoLibros).toLocaleString('es-PY')}</td>
+              <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(c.saldoBanco).toLocaleString('es-PY')}</td>
+              <td class="px-4 py-2.5 text-right font-mono ${Number(c.diferencia) === 0 ? 'text-green-400' : 'text-yellow-400'}">₲ ${Number(c.diferencia).toLocaleString('es-PY')}</td>
+              <td class="px-4 py-2.5 text-center">${c.conciliado ? '<span class="status-badge bg-green-900/50 text-green-300">Conciliado</span>' : '<span class="status-badge bg-yellow-900/50 text-yellow-300">Pendiente</span>'}</td>
+            </tr>`).join('')
+        );
       } catch (e) {
-        listado.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+        tesError(listado, e.message);
       }
     });
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
 async function showModalIniciarConciliacion() {
   const cuentas = await api('/finance/treasury/cuentas?soloActivas=true');
-  dom.modalContent.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-lg font-bold">Iniciar Conciliación</h3>
-      <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-    </div>
+  tesModal('Iniciar Conciliación', '', `
     <form id="conciliacion-form" class="space-y-4">
       <div>
         <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cuenta</label>
@@ -468,11 +498,10 @@ async function showModalIniciarConciliacion() {
       </div>
       <div class="flex gap-3 pt-2">
         <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">Iniciar</button>
-        <button type="button" id="modal-cancel" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Cancelar</button>
+        <button type="button" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition" onclick="closeModal()">Cancelar</button>
       </div>
       <p id="conc-error" class="text-red-400 text-sm text-center hidden"></p>
-    </form>`;
-  dom.modalOverlay.classList.remove('hidden');
+    </form>`);
   document.querySelector('#conciliacion-form')?.addEventListener('submit', handleIniciarConciliacion);
 }
 
@@ -501,55 +530,45 @@ async function handleIniciarConciliacion(e) {
 async function renderTesCxc(container) {
   try {
     const facturas = await api('/finance/treasury/cxc-pendientes?days=30');
+    const cxcHeaders = [
+      { label: 'Factura' },
+      { label: 'Cliente/OT' },
+      { label: 'Total', align: 'right' },
+      { label: 'Saldo Pend.', align: 'right' },
+      { label: 'Vencimiento', align: 'right' },
+      { label: 'Estado', align: 'center' },
+      { label: 'Acción', align: 'right' },
+    ];
     container.innerHTML = `
       <div class="mb-4">
         <p class="text-sm text-gray-400">Facturas de cliente pendientes de cobro</p>
       </div>
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">Factura</th>
-              <th class="text-left px-4 py-3">Cliente/OT</th>
-              <th class="text-right px-4 py-3">Total</th>
-              <th class="text-right px-4 py-3">Saldo Pend.</th>
-              <th class="text-right px-4 py-3">Vencimiento</th>
-              <th class="text-center px-4 py-3">Estado</th>
-              <th class="text-right px-4 py-3">Acción</th>
-            </tr></thead>
-            <tbody>${facturas.length === 0 ? '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay CxC pendientes</td></tr>' : facturas.map(f => {
-              const vencida = new Date(f.fechaVencimiento) < new Date();
-              const puedeCobrar = f.estadoPago !== 'PAGA' && f.estadoPago !== 'ANULADA';
-              return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition ${vencida ? 'bg-red-900/10' : ''}">
-                <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(f.numeroFacturaManual || 'N/A')}</td>
-                <td class="px-4 py-2.5">${esc(f.ordenId || '—')}</td>
-                <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(f.total).toLocaleString('es-PY')}</td>
-                <td class="px-4 py-2.5 text-right font-mono text-yellow-400">₲ ${Number(f.saldoPendiente || f.total).toLocaleString('es-PY')}</td>
-                <td class="px-4 py-2.5 text-right font-mono text-xs ${vencida ? 'text-red-400 font-semibold' : 'text-gray-400'}">${new Date(f.fechaVencimiento).toLocaleDateString('es-PY')}</td>
-                <td class="px-4 py-2.5 text-center"><span class="status-badge ${(f.estadoPago || 'PENDIENTE') === 'PAGA' ? 'bg-green-900/50 text-green-300' : f.estadoPago === 'PARCIAL' ? 'bg-blue-900/50 text-blue-300' : 'bg-yellow-900/50 text-yellow-300'}">${f.estadoPago || 'PENDIENTE'}</span></td>
-                <td class="px-4 py-2.5 text-right">${puedeCobrar ? `<button class="cxc-cobrar-btn px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-xs font-medium transition" data-id="${esc(f.id)}" data-total="${esc(f.total)}" data-saldo="${esc(f.saldoPendiente || f.total)}">💰 Cobrar</button>` : '—'}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>
-      </div>`;
-    // Bind Cobrar buttons
-    document.querySelectorAll('.cxc-cobrar-btn').forEach(b => {
-      b.addEventListener('click', () => showCobroModal(b.dataset.id, b.dataset.saldo));
-    });
+      ${tesTable(cxcHeaders, tesCxcRows(facturas))}`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
+function tesCxcRows(facturas) {
+  if (facturas.length === 0) return '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay CxC pendientes</td></tr>';
+  return facturas.map(f => {
+    const vencida = new Date(f.fechaVencimiento) < new Date();
+    const puedeCobrar = f.estadoPago !== 'PAGA' && f.estadoPago !== 'ANULADA';
+    return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition ${vencida ? 'bg-red-900/10' : ''}">
+      <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(f.numeroFacturaManual || 'N/A')}</td>
+      <td class="px-4 py-2.5">${esc(f.ordenId || '—')}</td>
+      <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(f.total).toLocaleString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-right font-mono text-yellow-400">₲ ${Number(f.saldoPendiente || f.total).toLocaleString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-right font-mono text-xs ${vencida ? 'text-red-400 font-semibold' : 'text-gray-400'}">${new Date(f.fechaVencimiento).toLocaleDateString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-center"><span class="status-badge ${(f.estadoPago || 'PENDIENTE') === 'PAGA' ? 'bg-green-900/50 text-green-300' : f.estadoPago === 'PARCIAL' ? 'bg-blue-900/50 text-blue-300' : 'bg-yellow-900/50 text-yellow-300'}">${f.estadoPago || 'PENDIENTE'}</span></td>
+      <td class="px-4 py-2.5 text-right">${puedeCobrar ? `<button class="px-3 py-1.5 bg-green-700 hover:bg-green-600 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ml-auto" data-action="cobrar" data-id="${esc(f.id)}" data-saldo="${esc(f.saldoPendiente || f.total)}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Cobrar</button>` : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
 function showCobroModal(facturaId, saldo) {
-  // Fetch bank accounts for the select
   api('/finance/treasury/cuentas').then(cuentas => {
-    dom.modalContent.innerHTML = `
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-bold">💰 Registrar Cobro</h3>
-        <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-      </div>
+    tesModal('Registrar Cobro', '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', `
       <form id="cobro-form" class="space-y-4">
         <input type="hidden" id="cobro-factura-id" value="${esc(facturaId)}">
         <p class="text-sm text-gray-400">Saldo pendiente: <strong class="text-yellow-400">₲ ${Number(saldo).toLocaleString('es-PY')}</strong></p>
@@ -560,11 +579,7 @@ function showCobroModal(facturaId, saldo) {
         <div>
           <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Medio de pago</label>
           <select id="cobro-medio" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="CHEQUE">Cheque</option>
-            <option value="TARJETA_DEBITO">Tarjeta Débito</option>
-            <option value="TARJETA_CREDITO">Tarjeta Crédito</option>
+            ${MEDIO_PAGO_OPTIONS}
           </select>
         </div>
         <div>
@@ -580,9 +595,8 @@ function showCobroModal(facturaId, saldo) {
         </div>
         <button type="submit" class="w-full py-2.5 bg-green-700 hover:bg-green-600 rounded-lg text-sm font-semibold transition">Registrar Cobro</button>
         <p id="cobro-msg" class="text-sm text-center hidden"></p>
-      </form>`;
-    dom.modalOverlay.classList.remove('hidden');
-    document.getElementById('cobro-form').addEventListener('submit', async (e) => {
+      </form>`);
+    document.getElementById('cobro-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('cobro-msg');
       msg.classList.remove('hidden');
@@ -608,7 +622,7 @@ function showCobroModal(facturaId, saldo) {
       }
     });
   }).catch(() => {
-    alert('Error al cargar cuentas bancarias');
+    if (typeof showToast === 'function') showToast('Error al cargar cuentas bancarias', 'error');
   });
 }
 
@@ -619,11 +633,20 @@ async function renderTesCxp(container) {
     const facturas = await api('/finance/treasury/facturas-proveedor');
     renderTesCxpTable(container, facturas);
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
 function renderTesCxpTable(container, facturas) {
+  const cxpHeaders = [
+    { label: 'N° Factura' },
+    { label: 'Concepto' },
+    { label: 'Total', align: 'right' },
+    { label: 'Saldo Pend.', align: 'right' },
+    { label: 'Vencimiento', align: 'right' },
+    { label: 'Estado', align: 'center' },
+    { label: 'Acción', align: 'right' },
+  ];
   container.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <p class="text-sm text-gray-400">Facturas de proveedor pendientes de pago</p>
@@ -636,47 +659,33 @@ function renderTesCxpTable(container, facturas) {
         </select>
       </div>
     </div>
-    <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-            <th class="text-left px-4 py-3">N° Factura</th>
-            <th class="text-left px-4 py-3">Concepto</th>
-            <th class="text-right px-4 py-3">Total</th>
-            <th class="text-right px-4 py-3">Saldo Pend.</th>
-            <th class="text-right px-4 py-3">Vencimiento</th>
-            <th class="text-center px-4 py-3">Estado</th>
-            <th class="text-right px-4 py-3">Acción</th>
-          </tr></thead>
-          <tbody>${facturas.length === 0 ? '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay facturas de proveedor</td></tr>' : facturas.map(f => {
-            const vencida = new Date(f.fechaVencimiento) < new Date() && f.estadoPago !== 'PAGA';
-            const puedePagar = f.estadoPago !== 'PAGA' && f.estadoPago !== 'ANULADA';
-            return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition ${vencida ? 'bg-red-900/10' : ''}">
-              <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(f.nroFactura)}</td>
-              <td class="px-4 py-2.5">${esc(f.concepto || '—')}</td>
-              <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(f.total).toLocaleString('es-PY')}</td>
-              <td class="px-4 py-2.5 text-right font-mono ${f.estadoPago !== 'PAGA' ? 'text-yellow-400' : 'text-green-400'}">₲ ${Number(f.saldoPendiente || f.total).toLocaleString('es-PY')}</td>
-              <td class="px-4 py-2.5 text-right font-mono text-xs ${vencida ? 'text-red-400 font-semibold' : 'text-gray-400'}">${new Date(f.fechaVencimiento).toLocaleDateString('es-PY')}</td>
-              <td class="px-4 py-2.5 text-center"><span class="status-badge ${f.estadoPago === 'PAGA' ? 'bg-green-900/50 text-green-300' : f.estadoPago === 'PARCIAL' ? 'bg-blue-900/50 text-blue-300' : 'bg-yellow-900/50 text-yellow-300'}">${f.estadoPago}</span></td>
-              <td class="px-4 py-2.5 text-right">${puedePagar ? `<button class="cxp-pagar-btn px-3 py-1.5 bg-orange-700 hover:bg-orange-600 rounded-lg text-xs font-medium transition" data-id="${esc(f.id)}" data-saldo="${esc(f.saldoPendiente || f.total)}">💳 Pagar</button>` : '—'}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-    </div>`;
-  // Bind Pagar buttons
-  document.querySelectorAll('.cxp-pagar-btn').forEach(b => {
-    b.addEventListener('click', () => showPagoProveedorModal(b.dataset.id, b.dataset.saldo));
-  });
+    ${tesTable(cxpHeaders, tesCxpRows(facturas))}`;
   document.querySelector('#filter-cxp-estado')?.addEventListener('change', async (ev) => {
     const estado = ev.target.value;
     const content = document.querySelector('#tes-content');
     if (!content) return;
     const params = estado ? `?estado=${estado}` : '';
-    content.innerHTML = '<div class="text-center py-8 text-gray-500">Filtrando...</div>';
+    content.innerHTML = tesLoading('Filtrando...');
     const data = await api(`/finance/treasury/facturas-proveedor${params}`);
     renderTesCxpTable(content, data);
   });
+}
+
+function tesCxpRows(facturas) {
+  if (facturas.length === 0) return '<tr><td colspan="7" class="text-center py-8 text-gray-600">No hay facturas de proveedor</td></tr>';
+  return facturas.map(f => {
+    const vencida = new Date(f.fechaVencimiento) < new Date() && f.estadoPago !== 'PAGA';
+    const puedePagar = f.estadoPago !== 'PAGA' && f.estadoPago !== 'ANULADA';
+    return `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition ${vencida ? 'bg-red-900/10' : ''}">
+      <td class="px-4 py-2.5 font-mono text-xs text-gray-400">${esc(f.nroFactura)}</td>
+      <td class="px-4 py-2.5">${esc(f.concepto || '—')}</td>
+      <td class="px-4 py-2.5 text-right font-mono">₲ ${Number(f.total).toLocaleString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-right font-mono ${f.estadoPago !== 'PAGA' ? 'text-yellow-400' : 'text-green-400'}">₲ ${Number(f.saldoPendiente || f.total).toLocaleString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-right font-mono text-xs ${vencida ? 'text-red-400 font-semibold' : 'text-gray-400'}">${new Date(f.fechaVencimiento).toLocaleDateString('es-PY')}</td>
+      <td class="px-4 py-2.5 text-center"><span class="status-badge ${f.estadoPago === 'PAGA' ? 'bg-green-900/50 text-green-300' : f.estadoPago === 'PARCIAL' ? 'bg-blue-900/50 text-blue-300' : 'bg-yellow-900/50 text-yellow-300'}">${f.estadoPago}</span></td>
+      <td class="px-4 py-2.5 text-right">${puedePagar ? `<button class="px-3 py-1.5 bg-orange-700 hover:bg-orange-600 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ml-auto" data-action="pagar" data-id="${esc(f.id)}" data-saldo="${esc(f.saldoPendiente || f.total)}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>Pagar</button>` : '—'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ─── Flujo de Caja ──────────────────────────
@@ -687,43 +696,31 @@ async function renderTesFlujo(container) {
       api('/finance/treasury/cuentas?soloActivas=true'),
       api('/finance/treasury/flujo-caja?dias=30'),
     ]);
+    const alerta = flujo.alertaSobregiro ? `
+      <div class="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-xl flex items-center gap-3">
+        <svg class="w-8 h-8 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+        <div><p class="font-semibold text-red-400">Alerta de Sobregiro</p>
+        <p class="text-sm text-red-300">El saldo proyectado es negativo (₲ ${Number(flujo.saldoProyectado).toLocaleString('es-PY')}). Revisá urgente tus cuentas por cobrar y pagar.</p></div>
+      </div>` : '';
+    const statColor = (v, pos, neg) => Number(v) >= 0 ? pos : neg;
     container.innerHTML = `
       <div class="mb-4">
         <p class="text-sm text-gray-400">Proyección de flujo de caja a 30 días</p>
       </div>
-      ${flujo.alertaSobregiro ? `<div class="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-xl flex items-center gap-3">
-        <span class="text-2xl">⚠️</span>
-        <div><p class="font-semibold text-red-400">Alerta de Sobregiro</p>
-        <p class="text-sm text-red-300">El saldo proyectado es negativo (₲ ${Number(flujo.saldoProyectado).toLocaleString('es-PY')}). Revisá urgente tus cuentas por cobrar y pagar.</p></div>
-      </div>` : ''}
+      ${alerta}
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Saldo Actual</p>
-          <p class="text-2xl font-bold ${Number(flujo.saldoActual) >= 0 ? 'text-blue-400' : 'text-red-400'}">₲ ${Number(flujo.saldoActual).toLocaleString('es-PY')}</p>
-        </div>
-        <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Ingresos Proy.</p>
-          <p class="text-2xl font-bold text-green-400">₲ ${Number(flujo.ingresosProyectados).toLocaleString('es-PY')}</p>
-        </div>
-        <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Egresos Proy.</p>
-          <p class="text-2xl font-bold text-red-400">₲ ${Number(flujo.egresosProyectados).toLocaleString('es-PY')}</p>
-        </div>
-        <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Flujo Neto</p>
-          <p class="text-2xl font-bold ${Number(flujo.flujoNetoProyectado) >= 0 ? 'text-green-400' : 'text-red-400'}">${Number(flujo.flujoNetoProyectado) >= 0 ? '+' : ''}₲ ${Number(flujo.flujoNetoProyectado).toLocaleString('es-PY')}</p>
-        </div>
-        <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
-          <p class="text-gray-500 text-xs uppercase tracking-wider mb-1">Saldo Proyectado</p>
-          <p class="text-2xl font-bold ${Number(flujo.saldoProyectado) >= 0 ? 'text-cyan-400' : 'text-red-400'}">₲ ${Number(flujo.saldoProyectado).toLocaleString('es-PY')}</p>
-        </div>
+        ${tesStatCard('Saldo Actual', flujo.saldoActual, statColor(flujo.saldoActual, 'text-blue-400', 'text-red-400'))}
+        ${tesStatCard('Ingresos Proy.', flujo.ingresosProyectados, 'text-green-400')}
+        ${tesStatCard('Egresos Proy.', flujo.egresosProyectados, 'text-red-400')}
+        ${tesStatCard('Flujo Neto', flujo.flujoNetoProyectado, statColor(flujo.flujoNetoProyectado, 'text-green-400', 'text-red-400'))}
+        ${tesStatCard('Saldo Proyectado', flujo.saldoProyectado, statColor(flujo.saldoProyectado, 'text-cyan-400', 'text-red-400'))}
       </div>
       <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Proyección Detallada</h3>
         <div class="space-y-3 text-sm">
           <div class="flex justify-between items-center py-2 border-b border-gray-800">
             <span class="text-gray-400">Saldo Actual (todas las cuentas)</span>
-            <span class="font-mono font-semibold ${Number(flujo.saldoActual) >= 0 ? 'text-blue-400' : 'text-red-400'}">₲ ${Number(flujo.saldoActual).toLocaleString('es-PY')}</span>
+            <span class="font-mono font-semibold ${statColor(flujo.saldoActual, 'text-blue-400', 'text-red-400')}">₲ ${Number(flujo.saldoActual).toLocaleString('es-PY')}</span>
           </div>
           <div class="flex justify-between items-center py-2 border-b border-gray-800">
             <span class="text-gray-400">+ CxC próximos 30 días</span>
@@ -735,23 +732,20 @@ async function renderTesFlujo(container) {
           </div>
           <div class="flex justify-between items-center py-2">
             <span class="font-semibold text-gray-300">= Saldo Proyectado</span>
-            <span class="font-mono font-bold text-lg ${Number(flujo.saldoProyectado) >= 0 ? 'text-cyan-400' : 'text-red-400'}">₲ ${Number(flujo.saldoProyectado).toLocaleString('es-PY')}</span>
+            <span class="font-mono font-bold text-lg ${statColor(flujo.saldoProyectado, 'text-cyan-400', 'text-red-400')}">₲ ${Number(flujo.saldoProyectado).toLocaleString('es-PY')}</span>
           </div>
         </div>
       </div>`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    tesError(container, e.message);
   }
 }
 
-/* ─── Pago Proveedores ───────────────────── */
+// ─── Pago Proveedores ──────────────────────
+
 function showPagoProveedorModal(facturaProvId, saldo) {
   api('/finance/treasury/cuentas').then(cuentas => {
-    dom.modalContent.innerHTML = `
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-bold">💳 Pagar Factura de Proveedor</h3>
-        <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-      </div>
+    tesModal('Pagar Factura de Proveedor', '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>', `
       <form id="pago-prov-form" class="space-y-4">
         <input type="hidden" id="pago-prov-factura-id" value="${esc(facturaProvId)}">
         <p class="text-sm text-gray-400">Saldo pendiente: <strong class="text-yellow-400">₲ ${Number(saldo).toLocaleString('es-PY')}</strong></p>
@@ -762,11 +756,7 @@ function showPagoProveedorModal(facturaProvId, saldo) {
         <div>
           <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Medio de pago</label>
           <select id="pago-prov-medio" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-            <option value="EFECTIVO">Efectivo</option>
-            <option value="TRANSFERENCIA">Transferencia</option>
-            <option value="CHEQUE">Cheque</option>
-            <option value="TARJETA_DEBITO">Tarjeta Débito</option>
-            <option value="TARJETA_CREDITO">Tarjeta Crédito</option>
+            ${MEDIO_PAGO_OPTIONS}
           </select>
         </div>
         <div>
@@ -782,9 +772,8 @@ function showPagoProveedorModal(facturaProvId, saldo) {
         </div>
         <button type="submit" class="w-full py-2.5 bg-orange-700 hover:bg-orange-600 rounded-lg text-sm font-semibold transition">Registrar Pago</button>
         <p id="pago-prov-msg" class="text-sm text-center hidden"></p>
-      </form>`;
-    dom.modalOverlay.classList.remove('hidden');
-    document.getElementById('pago-prov-form').addEventListener('submit', async (e) => {
+      </form>`);
+    document.getElementById('pago-prov-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const msg = document.getElementById('pago-prov-msg');
       msg.classList.remove('hidden');
@@ -809,10 +798,8 @@ function showPagoProveedorModal(facturaProvId, saldo) {
       }
     });
   }).catch(() => {
-    alert('Error al cargar cuentas bancarias');
+    if (typeof showToast === 'function') showToast('Error al cargar cuentas bancarias', 'error');
   });
 }
 
-
 // init() moved to app.js core — must run after all modules loaded
-

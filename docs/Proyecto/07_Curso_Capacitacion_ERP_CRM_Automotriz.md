@@ -1,8 +1,8 @@
 # 📘 Plan de Estudios Completo — Capacitación ERP/CRM Automotriz Integrado
 # AutomotiveOS Cloud ERP
 
-**Versión:** 1.0.0  
-**Fecha:** 19 de junio de 2026  
+**Versión:** 2.0.0  
+**Fecha:** 22 de junio de 2026  
 **Autor:** Capacitador Tecnológico Senior / Change Management Specialist  
 **Duración estimada del curso:** 40 horas (8 módulos × 5 horas)  
 **Modalidad:** Presencial + Virtual (Híbrida)  
@@ -1108,4 +1108,199 @@ Capacitar a todo el personal del taller automotriz en el uso proficient del sist
 
 ---
 
-**Fin del Plan de Estudios — Capacitación AutomotiveOS Cloud ERP v1.0.0**
+# ═══════════════════════════════════════════════════════════
+#  SECCIÓN 7: TESORERÍA Y FLUJO DE CAJA
+#  Módulo Financiero del ERP
+# ═══════════════════════════════════════════════════════════
+#  Duración: 5 horas
+#  Público: Cajeros, Contadores, Administradores
+#  Pre-requisitos: Secciones 1-4 completadas
+# ═══════════════════════════════════════════════════════════
+
+---
+
+## CASO DE USO 7.1: Gestión de Cuentas Bancarias
+
+### Diapositiva 7.1.1 — Registro de Cuentas del Taller
+
+**Título**: "Organizando el Dinero: Cuentas Bancarias, Cajas y Billeteras Digitales"
+
+**Objetivo Didáctico**: Registrar todas las cuentas financieras del taller en el módulo de Tesorería.
+
+**Guión del Expositor**:
+> "Todo taller tiene múltiples formas de manejar el dinero: una caja física, una cuenta corriente en el Banco Continental, quizás una billetera digital como Tigo Money. El módulo de Tesorería nos permite registrar cada una de estas cuentas con su saldo actual. Así siempre sabemos cuánto dinero tenemos y dónde está."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Módulo Tesorería → Cuentas Bancarias con la lista de cuentas.
+> **Qué mostrar**: Tabla con: CAJA-001 (Caja Física, Saldo: Gs. 2.500.000), BCO-001 (Cta. Cte. Banco Continental, Saldo: Gs. 15.000.000), DIG-001 (Tigo Money, Saldo: Gs. 850.000).
+> **Flecha roja**: Señalar el botón "+ Nueva Cuenta" y el saldo de cada cuenta.
+
+---
+
+## CASO DE USO 7.2: Registro de Movimientos
+
+### Diapositiva 7.2.1 — Ingresos y Egresos
+
+**Título**: "Registrando el Dinero que Entra y Sale"
+
+**Objetivo Didáctico**: Registrar ingresos (cobros) y egresos (pagos) en las cuentas del taller.
+
+**Guión del Expositor**:
+> "Cada vez que cobramos un servicio o pagamos un proveedor, registramos el movimiento aquí. Seleccionamos el tipo (Ingreso o Egreso), el medio de pago (efectivo, transferencia, tarjeta), la cuenta afectada, el monto y un concepto descriptivo. El sistema actualiza el saldo de la cuenta automáticamente."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Modal "Nuevo Movimiento" con datos llenados.
+> **Qué mostrar**: Tipo: Ingreso, Medio: Efectivo, Cuenta: CAJA-001, Monto: Gs. 450.000, Concepto: "Cambio de aceite Hilux - OT #00042".
+> **Flecha roja**: Señalar el campo "Monto" y la cuenta seleccionada.
+
+---
+
+## CASO DE USO 7.3: Flujo de Caja a 30 Días
+
+### Diapositiva 7.3.1 — Proyección Financiera
+
+**Título**: "¿Cuánto Dinero Tendremos el Próximo Mes? La Respuesta en Un Solo Clic"
+
+**Objetivo Didáctico**: Interpretar la proyección de flujo de caja y tomar decisiones financieras informadas.
+
+**Guión del Expositor**:
+> "Este es uno de los reportes más poderosos del sistema. Nos muestra cuánto dinero tenemos hoy, cuánto vamos a cobrar (CxC), cuánto vamos a pagar (CxP), y cuál será nuestro saldo proyectado en 30 días. Si el saldo es negativo, aparece una alerta roja de sobregiro que nos obliga a actuar: cobrar más agresivamente o postergar pagos."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Tesorería → Flujo de Caja con datos visibles.
+> **Qué mostrar**: 5 tarjetas: Saldo Actual (Gs. 18.350.000), Ingresos Proy. (Gs. 12.000.000), Egresos Proy. (Gs. 8.500.000), Flujo Neto (+Gs. 3.500.000), Saldo Proyectado (Gs. 21.850.000).
+> **Flecha roja**: Señalar la tarjeta "Saldo Proyectado" con nota "Este es tu saldo estimado en 30 días".
+
+---
+
+# ═══════════════════════════════════════════════════════════
+#  SECCIÓN 8: CONTABILIDAD AUTOMÁTICA
+#  Motor Contable y Formularios Fiscales
+# ═══════════════════════════════════════════════════════════
+#  Duración: 5 horas
+#  Público: Contadores, Administradores
+#  Pre-requisitos: Secciones 1-4 completadas
+# ═══════════════════════════════════════════════════════════
+
+---
+
+## CASO DE USO 8.1: Plan de Cuentas Jerárquico
+
+### Diapositiva 8.1.1 — Estructura Contable
+
+**Título**: "El Árbol de Cuentas: Organizando las Finanzas del Taller"
+
+**Objetivo Didáctico**: Comprender la estructura jerárquica del Plan de Cuentas paraguayo y crear nuevas cuentas.
+
+**Guión del Expositor**:
+> "El Plan de Cuentas es el esqueleto de toda la contabilidad. Cada cuenta tiene un código (como 1.1.4.01), un nombre, un tipo (Activo, Pasivo, Patrimonio, Ingreso, Costo, Gasto), y puede tener cuentas hijas. Las cuentas que aceptan movimientos tienen un ✓ verde. Las inactivas están marcadas en gris. Para crear una nueva cuenta, hacemos clic en '+ Nueva Cuenta' y completamos los datos."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Contabilidad → Cuentas con el árbol expandido.
+> **Qué mostrar**: Árbol jerárquico con: 1 ACTIVO → 1.1 Activo Corriente → 1.1.4 Caja y Bancos → 1.1.4.01 Caja General.
+> **Flecha roja**: Señalar la jerarquía de niveles y el indicador ✓ de acepta movimientos.
+
+---
+
+## CASO DE USO 8.2: Asientos Contables Automáticos
+
+### Diapositiva 8.2.1 — Motor de Partida Doble
+
+**Título**: "Cómo el Sistema Genera Asientos Solos (Y Cómo Hacerlo Manualmente)"
+
+**Objetivo Didáctico**: Entender que el sistema genera asientos contables automáticamente al facturar, comprar o calcular nómina, y conocer el proceso para crear asientos manuales.
+
+**Guión del Expositor**:
+> "Lo más poderoso de nuestro sistema es que genera asientos contables automáticamente. Cuando facturamos, se crea un asiento: Débito en Caja, Crédito en Ingresos. Cuando compramos repuestos: Débito en Inventario, Crédito en Proveedores. Pero a veces necesitamos hacer ajustes manuales. Para eso está el botón '+ Nuevo Asiento'. Seleccionamos las cuentas, ponemos los montos, y el sistema valida que Debe = Haber antes de guardar."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Lista de asientos contables con estados visibles.
+> **Qué mostrar**: Asientos: #1001 (CONTABILIZADO, SIFEN), #1002 (CONTABILIZADO, INVENTARIO), #1003 (ANULADO).
+> **Flecha roja**: Señalar el estado "CONTABILIZADO" en verde y el módulo origen.
+
+---
+
+## CASO DE USO 8.3: Liquidación de Impuestos (DNIT)
+
+### Diapositiva 8.3.1 — IVA Form 120
+
+**Título**: "Calculando el IVA: Débito Fiscal − Crédito Fiscal = Saldo a Pagar"
+
+**Objetivo Didáctico**: Calcular mensualmente el IVA del taller usando el Formulario 120 de la DNIT.
+
+**Guión del Expositor**:
+> "Cada mes debemos presentar el Formulario 120 ante la DNIT. Seleccionamos el mes y año, hacemos clic en 'Calcular IVA', y el sistema automáticamente suma todo el IVA débito (lo que cobramos a clientes) y todo el IVA crédito (lo que pagamos a proveedores). La diferencia es lo que debemos pagar. Si el resultado es positivo, pagamos. Si es negativo, es saldo a favor."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Contabilidad → Impuestos → IVA (Form 120) con resultado calculado.
+> **Qué mostrar**: IVA Débito Fiscal: Gs. 6.800.000 (rojo), IVA Crédito Fiscal: Gs. 4.200.000 (verde), Saldo a Pagar: Gs. 2.600.000 (rojo).
+> **Flecha roja**: Señalar el "Saldo a Pagar" con nota "Este monto se paga mensualmente a la DNIT".
+
+---
+
+## CASO DE USO 8.4: Balance General y Estado de Resultados
+
+### Diapositiva 8.4.1 — Balance General
+
+**Título**: "El Retrato Financiero del Taller en Un Solo Reporte"
+
+**Objetivo Didáctico**: Generar e interpretar el Balance General del taller.
+
+**Guión del Expositor**:
+> "El Balance General es como una fotografía financiera. Nos muestra todo lo que el taller TIENE (Activo), todo lo que DEBE (Pasivo), y lo que queda para los dueños (Patrimonio). Seleccionamos la fecha, hacemos clic en 'Cargar', y el sistema muestra el desglose completo. Si el balance está cuadrado, aparece un ✓ verde. Si hay diferencia, aparece en rojo."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Contabilidad → Balance con resultado visible.
+> **Qué mostrar**: Balance con: Activo (Gs. 45.000.000), Pasivo (Gs. 12.000.000), Patrimonio (Gs. 33.000.000), Diferencia: Gs. 0, ✓ Balanceado.
+> **Flecha roja**: Señalar el indicador "✓ Balanceado" en verde.
+
+---
+
+# ═══════════════════════════════════════════════════════════
+#  SECCIÓN 9: ACCESIBILIDAD Y RENDIMIENTO
+#  Buenas Prácticas para Usuarios y Administradores
+# ═══════════════════════════════════════════════════════════
+#  Duración: 2 horas
+#  Público: Todo el personal
+#  Pre-requisitos: Ninguno
+# ═══════════════════════════════════════════════════════════
+
+---
+
+## CASO DE USO 9.1: Navegación por Teclado
+
+### Diapositiva 9.1.1 — Atajos de Teclado
+
+**Título**: "Trabaja Más Rápido: Los Atajos de Teclado del ERP"
+
+**Objetivo Didáctico**: Usar atajos de teclado para navegar el sistema más eficientemente.
+
+**Guión del Expositor**:
+> "Para los que usan el sistema todo el día, los atajos de teclado son un ahorro enorme de tiempo. `Ctrl+K` abre la búsqueda global — podés encontrar cualquier cliente, OT o factura en segundos. `Esc` cierra cualquier modal o panel. `?` muestra la lista completa de atajos. Y para los técnicos: `Ctrl+Shift+P` abre el panel de métricas de rendimiento."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Panel de búsqueda global abierto con `Ctrl+K`.
+> **Qué mostrar**: Barra de búsqueda con texto "Toyota Hilux" y resultados: 2 clientes, 3 OTs, 1 factura.
+> **Flecha roja**: Señalar la barra de búsqueda con nota "Ctrl+K — Búsqueda global rápida".
+
+---
+
+## CASO DE USO 9.2: Accesibilidad
+
+### Diapositiva 9.2.1 — El Sistema se Adapta a Ti
+
+**Título**: "El ERP se Adapta: Movimiento Reducido, Contraste Alto, Navegación por Teclado"
+
+**Objetivo Didáctico**: Conocer las características de accesibilidad del sistema.
+
+**Guión del Expositor**:
+> "Nuestro sistema está diseñado para ser usable por todos. Si tenés problemas de visión, el modo de alto contraste asegura que todos los textos se lean bien. Si tenés problemas de movimiento, el sistema detecta automáticamente si tu computadora tiene 'reducir movimiento' activado y desactiva las animaciones. Y todo se puede navegar con el teclado — no necesitás el mouse para nada."
+
+**📸 INSTRUCCIÓN DE CAPTURA DE PANTALLA**:
+> **Pantalla a capturar**: Configuración del sistema operativo con "Reducir movimiento" activado, y el ERP funcionando sin animaciones.
+> **Qué mostrar**: Dos paneles: izquierdo (SO con opción activada), derecho (ERP sin transiciones).
+> **Flecha roja**: Señalar la opción del SO y el resultado en el ERP.
+
+---
+
+**Fin del Plan de Estudios — Capacitación AutomotiveOS Cloud ERP v2.0.0**

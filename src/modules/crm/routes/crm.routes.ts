@@ -1,11 +1,12 @@
 /**
  * CRM Routes — Twenty CRM integration endpoints.
  *
+ * Routes are relative to the /crm prefix (set in plugin.ts).
  * Endpoints:
- *   POST /crm/sync/:ordenId     — Sync finalized order to Twenty CRM
- *   GET  /crm/status            — CRM connection status
- *   GET  /crm/stats             — Sync statistics
- *   POST /crm/retry             — Retry failed syncs
+ *   POST /sync/:ordenId     — Sync finalized order to Twenty CRM
+ *   GET  /status            — CRM connection status
+ *   GET  /stats             — Sync statistics
+ *   POST /retry             — Retry failed syncs
  *
  * All routes require `X-Tenant-Slug` header.
  *
@@ -23,9 +24,10 @@ import { testConnection } from "../services/twenty-crm.service.js";
 // ─── Route registration ────────────────────────────────
 
 export async function crmRoutes(app: FastifyInstance): Promise<void> {
-  // ── POST /crm/sync/:ordenId — Sync order to Twenty CRM ──
+  // ── POST /sync/:ordenId — Sync order to Twenty CRM ──
+  // Note: prefix "/crm" is added by plugin.ts, so paths here are relative
   app.post<{ Params: { ordenId: string } }>(
-    "/crm/sync/:ordenId",
+    "/sync/:ordenId",
     {
       schema: {
         params: {
@@ -75,9 +77,9 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── GET /crm/status — Test CRM connection ──
+  // ── GET /status — Test CRM connection ──
   app.get(
-    "/crm/status",
+    "/status",
     async (_request: FastifyRequest, reply: FastifyReply) => {
       try {
         const status = await testConnection();
@@ -92,9 +94,9 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── GET /crm/stats — Get sync statistics ──
+  // ── GET /stats — Get sync statistics ──
   app.get(
-    "/crm/stats",
+    "/stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const tenantSlug = (request as any).tenantSlug as string;
 
@@ -108,9 +110,9 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /crm/retry — Retry failed syncs ──
+  // ── POST /retry — Retry failed syncs ──
   app.post(
-    "/crm/retry",
+    "/retry",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const tenantSlug = (request as any).tenantSlug as string;
 

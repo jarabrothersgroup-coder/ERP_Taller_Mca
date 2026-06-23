@@ -92,6 +92,12 @@
       "when": 1782115200000,
       "tag": "0012_sprint4",
       "breakpoints": true
+    },
+    {
+      "tag": "0024_check_constraints",
+      "when": 1782045674710,
+      "version": "7",
+      "breakpoints": true
     }
   ]
 }

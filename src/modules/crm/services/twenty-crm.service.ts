@@ -261,6 +261,10 @@ export async function createContact(
               vehicleModel: automotiveFields.vehicleModel,
               vehicleVin: automotiveFields.vehicleVin,
               currentMileage: automotiveFields.currentMileage,
+              vehicleYear: automotiveFields.vehicleYear,
+              vehicleEngineType: automotiveFields.vehicleEngineType,
+              lastDtcCodes: automotiveFields.lastDtcCodes,
+              vehicleHealthScore: automotiveFields.vehicleHealthScore,
               clientType: automotiveFields.clientType || "WALK_IN",
               lastServiceType: automotiveFields.lastServiceType,
               lastServiceDate: automotiveFields.lastServiceDate,
@@ -378,6 +382,10 @@ export async function upsertContact(
     model: string;
     vin?: string;
     mileage?: number;
+    year?: number;
+    engineType?: string;
+    dtcCodes?: string;
+    healthScore?: number;
   },
   ordenId: string,
   serviceSummary: {
@@ -385,6 +393,8 @@ export async function upsertContact(
     totalCost: number;
     invoiceNumber?: string;
     mechanicName?: string;
+    totalVisits?: number;
+    totalSpent?: number;
   },
 ): Promise<TwentyUpsertResult> {
   // Step 1: Search by phone first, then by document
@@ -399,13 +409,19 @@ export async function upsertContact(
     vehicleModel: vehicleData.model,
     vehicleVin: vehicleData.vin,
     currentMileage: vehicleData.mileage,
+    vehicleYear: vehicleData.year,
+    vehicleEngineType: vehicleData.engineType,
+    lastDtcCodes: vehicleData.dtcCodes,
+    vehicleHealthScore: vehicleData.healthScore,
     lastServiceType: serviceSummary.type,
     lastServiceDate: new Date().toISOString().split("T")[0],
+    totalVisits: serviceSummary.totalVisits,
+    totalSpent: serviceSummary.totalSpent,
   };
 
   // Step 2: Create or update
   if (existingContact) {
-    // Update existing contact
+    // Update existing contact — pass accumulated totals
     const upsertResult = await updateContact(existingContact.id!, automotiveFields);
 
     // Add service note
@@ -413,10 +429,14 @@ export async function upsertContact(
       `🔧 **Servicio completado** — Orden #${ordenId.substring(0, 8).toUpperCase()}`,
       `Fecha: ${new Date().toLocaleDateString("es-PY")}`,
       `Tipo: ${serviceSummary.type}`,
-      `Vehículo: ${vehicleData.brand} ${vehicleData.model} (${vehicleData.plate})`,
+      `Vehículo: ${vehicleData.brand} ${vehicleData.model} (${vehicleData.plate})${vehicleData.year ? ` ${vehicleData.year}` : ""}${vehicleData.engineType ? ` [${vehicleData.engineType}]` : ""}`,
+      vehicleData.mileage ? `Kilometraje: ${vehicleData.mileage.toLocaleString("es-PY")} km` : "",
+      vehicleData.dtcCodes ? `DTC: ${vehicleData.dtcCodes}` : "",
+      vehicleData.healthScore != null ? `Health Score: ${vehicleData.healthScore}/100` : "",
       `Mecánico: ${serviceSummary.mechanicName || "N/A"}`,
       `Total: Gs. ${serviceSummary.totalCost.toLocaleString("es-PY")}`,
       serviceSummary.invoiceNumber ? `Factura: ${serviceSummary.invoiceNumber}` : "",
+      serviceSummary.totalVisits ? `Visitas: ${serviceSummary.totalVisits}` : "",
     ].filter(Boolean).join("\n");
 
     await addNoteToContact(existingContact.id!, noteBody);
@@ -434,8 +454,8 @@ export async function upsertContact(
       {
         ...automotiveFields,
         clientType: "WALK_IN",
-        totalVisits: 1,
-        totalSpent: serviceSummary.totalCost,
+        totalVisits: serviceSummary.totalVisits || 1,
+        totalSpent: serviceSummary.totalSpent || serviceSummary.totalCost,
       },
     );
 
@@ -443,10 +463,12 @@ export async function upsertContact(
     const noteBody = [
       `🎉 **Primer registro** — Cliente Walk-in`,
       `Orden: #${ordenId.substring(0, 8).toUpperCase()}`,
-      `Vehículo: ${vehicleData.brand} ${vehicleData.model} (${vehicleData.plate})`,
+      `Vehículo: ${vehicleData.brand} ${vehicleData.model} (${vehicleData.plate})${vehicleData.year ? ` ${vehicleData.year}` : ""}${vehicleData.engineType ? ` [${vehicleData.engineType}]` : ""}`,
+      vehicleData.mileage ? `Kilometraje: ${vehicleData.mileage.toLocaleString("es-PY")} km` : "",
+      vehicleData.dtcCodes ? `DTC: ${vehicleData.dtcCodes}` : "",
       `Servicio: ${serviceSummary.type}`,
       `Total: Gs. ${serviceSummary.totalCost.toLocaleString("es-PY")}`,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
     await addNoteToContact(createResult.contactId, noteBody);
 

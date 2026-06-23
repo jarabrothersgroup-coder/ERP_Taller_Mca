@@ -39,8 +39,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 61 COMPLETED — Chaos Audit + Critical Security Patches",
-    "next_sprint": "Sprint 62 — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
+    "current_sprint": "Sprint 62 IN_PROGRESS — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
+    "next_sprint": "Sprint 63 — Auth + Tenant Management (Clerk)",
     "conejo_de_indias": {
       "status": "PLAN COMPLETADO",
       "document": "docs/Proyecto/08_Plan_Maestro_Conejo_de_Indias.md",

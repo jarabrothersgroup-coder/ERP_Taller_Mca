@@ -58,8 +58,8 @@ export async function csrfSetCookieHook(
   reply: FastifyReply,
 ): Promise<void> {
   // Only set cookie if not already present
-  const existing = _request.cookies[CSRF_COOKIE_NAME];
-  if (!existing) {
+  const existing = _request.cookies?.[CSRF_COOKIE_NAME];
+  if (!existing && typeof reply.cookie === 'function') {
     const token = generateCsrfToken();
     reply.cookie(CSRF_COOKIE_NAME, token, {
       httpOnly: false, // Must be readable by JavaScript
@@ -95,7 +95,7 @@ export async function csrfVerifyHook(
   if (!authHeader && !request.headers["x-user-email"]) return;
 
   // Get token from cookie
-  const cookieToken = request.cookies[CSRF_COOKIE_NAME];
+  const cookieToken = request.cookies?.[CSRF_COOKIE_NAME];
 
   // Get token from header
   const headerToken = request.headers[CSRF_HEADER_NAME] as string | undefined;

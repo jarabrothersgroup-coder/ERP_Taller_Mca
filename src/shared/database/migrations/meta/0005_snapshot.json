@@ -1513,6 +1513,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "tiene_serial_individual": {
+          "name": "tiene_serial_individual",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         }
       },
       "indexes": {

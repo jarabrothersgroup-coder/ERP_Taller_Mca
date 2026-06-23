@@ -16,7 +16,7 @@
 function renderMarketing(container) {
   container.innerHTML = `
     <div class="max-w-5xl mx-auto space-y-6">
-      <h3 class="text-lg font-bold text-white">📢 Marketing & Fidelización</h3>
+      <h3 class="text-lg font-bold text-white"><svg class="w-5 h-5 inline-block -mt-0.5 mr-1.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>Marketing & Fidelización</h3>
 
       <!-- Tabs -->
       <div class="flex gap-2 border-b border-gray-800 pb-2">
@@ -44,22 +44,22 @@ function renderMarketing(container) {
         <!-- Tier Legend -->
         <div class="grid grid-cols-4 gap-3">
           <div class="bg-amber-900/20 border border-amber-800/30 rounded-xl p-3 text-center">
-            <div class="text-lg">🥉</div>
+            <svg class="w-6 h-6 mx-auto text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <div class="text-xs font-medium text-amber-400">BRONCE</div>
             <div class="text-[10px] text-gray-500">0-999 pts</div>
           </div>
           <div class="bg-gray-700/20 border border-gray-600/30 rounded-xl p-3 text-center">
-            <div class="text-lg">🥈</div>
+            <svg class="w-6 h-6 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <div class="text-xs font-medium text-gray-300">PLATA</div>
             <div class="text-[10px] text-gray-500">1,000-4,999 pts</div>
           </div>
           <div class="bg-yellow-900/20 border border-yellow-800/30 rounded-xl p-3 text-center">
-            <div class="text-lg">🥇</div>
+            <svg class="w-6 h-6 mx-auto text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
             <div class="text-xs font-medium text-yellow-400">ORO</div>
             <div class="text-[10px] text-gray-500">5,000-19,999 pts</div>
           </div>
           <div class="bg-purple-900/20 border border-purple-800/30 rounded-xl p-3 text-center">
-            <div class="text-lg">💎</div>
+            <svg class="w-6 h-6 mx-auto text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <div class="text-xs font-medium text-purple-400">PLATINO</div>
             <div class="text-[10px] text-gray-500">20,000+ pts</div>
           </div>
@@ -198,9 +198,10 @@ async function _marketingCreateCampaign() {
     await api('/marketing/campaigns', { method: 'POST', body: data });
     marketingCloseCampaignModal();
     await _marketingLoadCampaigns();
+    if (typeof showToast === 'function') showToast('Campaña creada correctamente', 'success');
   } catch (err) {
     console.error('[Marketing] Error creating campaign:', err);
-    alert('Error al crear la campaña');
+    if (typeof showToast === 'function') showToast('Error al crear la campaña', 'error');
   }
 }
 
@@ -215,7 +216,7 @@ async function _marketingLoadCampaigns() {
       return;
     }
 
-    const tipoIcons = { whatsapp: '💬', email: '📧', sms: '📱' };
+    const tipoIcons = { whatsapp: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>', email: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>', sms: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>' };
     const estadoColors = {
       borrador: 'bg-gray-700 text-gray-300',
       programada: 'bg-yellow-900/50 text-yellow-400',
@@ -227,7 +228,7 @@ async function _marketingLoadCampaigns() {
     list.innerHTML = data.map(c => `
       <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 flex items-center justify-between hover:border-gray-700 transition">
         <div class="flex items-center gap-3">
-          <span class="text-xl">${tipoIcons[c.tipo] || '📢'}</span>
+          <span class="text-xl">${tipoIcons[c.tipo] || '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>'}</span>
           <div>
             <p class="text-sm font-medium text-white">${esc(c.nombre)}</p>
             <p class="text-xs text-gray-500">${esc(c.tipo)} · ${c.totalEnv || 0} enviados</p>

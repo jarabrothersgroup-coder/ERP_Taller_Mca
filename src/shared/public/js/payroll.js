@@ -105,7 +105,7 @@ async function calcularNomina() {
       loadPayrollBreakEven();
     }
   } catch (e) {
-    alert('Error al calcular nómina: ' + e.message);
+    if (typeof showToast === 'function') showToast('Error al calcular nómina: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Calcular Nómina'; }
   }

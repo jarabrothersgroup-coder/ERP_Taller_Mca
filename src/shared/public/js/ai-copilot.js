@@ -80,7 +80,7 @@ function renderAiCopilotSidebar() {
   return '<div id="ai-copilot-sidebar" class="hidden fixed right-0 top-0 h-full w-full sm:w-[420px] bg-gray-900 border-l border-gray-800 shadow-2xl z-40 flex-col overflow-hidden">' +
     '<div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/95 backdrop-blur">' +
       '<div class="flex items-center gap-2">' +
-        '<span class="text-lg">&#129302;</span>' +
+        '<svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>' +
         '<div>' +
           '<h3 class="text-sm font-semibold text-white">Copiloto IA & Consulta Tecnica</h3>' +
           '<p class="text-xs text-gray-500">Diagnostico inteligente por DTC</p>' +
@@ -100,25 +100,25 @@ function renderAiCopilotSidebar() {
 function renderCopilotInput() {
   return '<div class="space-y-3">' +
     '<div>' +
-      '<label class="block text-xs text-gray-500 mb-1">Codigos DTC (separados por coma)</label>' +
+      '<label for="ai-dtc-input" class="block text-xs text-gray-500 mb-1.5 font-medium">Codigos DTC (separados por coma)</label>' +
       '<input id="ai-dtc-input" type="text" placeholder="Ej: P0300, P0171, P0420" ' +
-        'class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono" />' +
+        'class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none font-mono" aria-label="Códigos DTC" />' +
     '</div>' +
     '<div>' +
-      '<label class="block text-xs text-gray-500 mb-1">Descripcion de la falla</label>' +
+      '<label for="ai-desc-input" class="block text-xs text-gray-500 mb-1.5 font-medium">Descripcion de la falla</label>' +
       '<textarea id="ai-desc-input" rows="2" placeholder="Ej: Toyota Hilux 2018 pierde fuerza en subidas, humo negro al acelerar"' +
-        'class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"></textarea>' +
+        'class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none" aria-label="Descripción de la falla"></textarea>' +
     '</div>' +
     '<div class="grid grid-cols-2 gap-2">' +
       '<div>' +
-        '<label class="block text-xs text-gray-500 mb-1">Vehiculo</label>' +
+        '<label for="ai-vehicle-input" class="block text-xs text-gray-500 mb-1.5 font-medium">Vehiculo</label>' +
         '<input id="ai-vehicle-input" type="text" placeholder="Ej: Hilux 2018"' +
-          'class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />' +
+          'class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" aria-label="Vehículo" />' +
       '</div>' +
       '<div>' +
-        '<label class="block text-xs text-gray-500 mb-1">Kilometraje</label>' +
+        '<label for="ai-km-input" class="block text-xs text-gray-500 mb-1.5 font-medium">Kilometraje</label>' +
         '<input id="ai-km-input" type="number" placeholder="Ej: 85000"' +
-          'class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />' +
+          'class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" aria-label="Kilometraje" />' +
       '</div>' +
     '</div>' +
     '<div class="flex gap-2">' +
@@ -159,7 +159,7 @@ async function analyzeWithAi() {
   var kilometraje = kmInput ? parseInt(kmInput.value, 10) : undefined;
 
   if (!codigo && !descripcion) {
-    alert('Ingresa al menos un codigo DTC o una descripcion de la falla');
+    if (typeof showToast === 'function') showToast('Ingresa al menos un codigo DTC o una descripcion de la falla', 'warning');
     return;
   }
 
@@ -225,7 +225,7 @@ async function analyzeWithAi() {
 
 async function applyDiagnosis(btn) {
   if (!_aiCopilotOrderId) {
-    alert('No hay una orden de trabajo abierta. Abre una OT primero.');
+    if (typeof showToast === 'function') showToast('No hay una orden de trabajo abierta. Abre una OT primero.', 'warning');
     return;
   }
 
@@ -276,7 +276,7 @@ async function applyDiagnosis(btn) {
   } catch (err) {
     btn.disabled = false;
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Aplicar a OT';
-    alert('Error aplicando diagnostico: ' + (err.message || 'Error de conexion'));
+    if (typeof showToast === 'function') showToast('Error aplicando diagnostico: ' + (err.message || 'Error de conexion'), 'error');
   }
 }
 
@@ -373,7 +373,7 @@ async function searchTechnicalWeb() {
   var vehiculo = vehicleInput ? vehicleInput.value.trim() : '';
 
   if (!codigo && !vehiculo) {
-    alert('Ingresa al menos un codigo DTC o el vehiculo para buscar');
+    if (typeof showToast === 'function') showToast('Ingresa al menos un codigo DTC o el vehiculo para buscar', 'warning');
     return;
   }
 

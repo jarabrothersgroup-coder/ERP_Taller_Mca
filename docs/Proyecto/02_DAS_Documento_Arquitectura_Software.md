@@ -3,8 +3,8 @@
 **Proyecto:** Ecosistema de Gestión Automotriz — AutomotiveOS Cloud ERP  
 **Organización:** Jara Brothers Group  
 **Norma de referencia:** ISO/IEC 42010:2011 / Guías de Arquitectura del MITIC  
-**Versión:** 2.0  
-**Fecha:** 19 de junio de 2026  
+**Versión:** 3.0  
+**Fecha:** 22 de junio de 2026  
 **Clasificación:** Documento Oficial — Directoría General de Gobierno Electrónico (MITIC)
 
 ---
@@ -55,6 +55,47 @@ El Ecosistema de Gestión Automotriz adopta una arquitectura **Cloud-Tethered** 
 | **Event-driven asíncrono** | Las integraciones con Twenty CRM y WhatsApp operan de forma asíncrona para no bloquear la operación del taller. |
 | **Degradación graceful** | La indisponibilidad de Twenty CRM o Evolution API no afecta la operación core del ERP. |
 | **Contenedización** | Toda la infraestructura se despliega mediante Docker Compose con 5 servicios orquestados. |
+
+---
+
+### 1.3 Optimización de Performance Frontend
+
+| Métrica | Antes (Sprint 60) | Después (Sprint 62) | Mejora |
+|---|---|---|---|
+| **Lighthouse Performance** | 35/100 | ~55/100 | +57% |
+| **Lighthouse Accessibility** | 72/100 | ~83/100 | +15% |
+| **Tailwind CSS** | 380KB (CDN) | 43KB (purged) | -89% |
+| **Scripts render-blocking** | 51 | 0 (todos `defer`) | -100% |
+| **Event listeners** | ~300 individuales | ~50 delegation | -83% |
+| **Design tokens** | 0 | 25+ variables CSS | Nuevo |
+
+#### Optimizaciones Aplicadas
+
+1. **Tailwind CSS purged** — Se eliminó el CDN de Tailwind (380KB) y se reemplazó por un build purgado de 43KB con `npm run build:css`. Solo se incluyen las clases efectivamente usadas.
+
+2. **Scripts `defer`** — Los 51 scripts `<script src>` se marcaron con `defer` para eliminar render-blocking. El orden de ejecución se mantiene.
+
+3. **Code splitting por prioridad** — Módulos separados en core (~90KB, carga inmediata) y lazy (~850KB, carga bajo demanda):
+   - **Core:** ux.js, i18n.js, theme.js, a11y.js, sanitize.js, charts.js, shortcuts.js, mobile.js, pwa.js
+   - **Lazy:** contabilidad, tesoreria, servicios, thinkcar, crm, whatsapp, etc.
+
+4. **Design tokens CSS** — 25+ variables CSS centralizadas en `theme.js` para temas dark/light:
+   - Capas de fondo: `--bg-primary`, `--bg-card`, `--bg-elevated`, `--bg-overlay`
+   - Texto: `--text-primary`, `--text-secondary`, `--text-muted`, `--text-inverse`
+   - Bordes: `--border-subtle`, `--border-strong`
+   - Estados: `--accent`, `--success`, `--warning`, `--error`, `--info`
+   - Métricas: `--stat-value`, `--stat-label`, `--badge-bg`, `--badge-text`
+
+5. **Event delegation** — Patrón `delegate(parent, eventType, selector, handler)` reemplaza addEventListener individuales en módulos pesados (tesorería: 8→1, contabilidad: 15→1).
+
+6. **IntersectionObserver** — Sistema `lazy-animate` con `data-animate` para animar elementos solo cuando entran al viewport. Se re-observa después de `renderView()`.
+
+7. **PerfMonitor** — Instrumentación de runtime con `Ctrl+Shift+P`:
+   - Tiempos de render por vista
+   - Estadísticas de API (llamadas, promedio, errores)
+   - Uso de memoria JS heap
+
+8. **Accesibilidad** — Auto `aria-label` para botones SVG-only, `prefers-reduced-motion` para deshabilitar animaciones.
 
 ---
 

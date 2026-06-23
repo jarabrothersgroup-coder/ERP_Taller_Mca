@@ -69,12 +69,12 @@ function renderThinkcar(container) {
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">Fecha</th>
-              <th class="text-left px-4 py-3">VIN</th>
-              <th class="text-left px-4 py-3">Vehiculo</th>
-              <th class="text-left px-4 py-3">DTCs</th>
-              <th class="text-left px-4 py-3">Estado</th>
-              <th class="text-left px-4 py-3">Origen</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">Fecha</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">VIN</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">Vehiculo</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">DTCs</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">Estado</th>
+              <th scope="col" class="text-left px-4 py-3 font-semibold">Origen</th>
             </tr></thead>
             <tbody id="thinkcar-tbody"><tr><td colspan="6" class="text-center py-8 text-gray-600">Cargando...</td></tr></tbody>
           </table>
@@ -204,7 +204,7 @@ async function loadActiveOtosForSelect(importId) {
 async function assignThinkcarPending(importId) {
   var select = document.getElementById('ot-select-' + importId);
   if (!select || !select.value) {
-    alert('Seleccione una Orden de Trabajo primero');
+    if (typeof showToast === 'function') showToast('Seleccione una Orden de Trabajo primero', 'warning');
     return;
   }
   try {
@@ -216,8 +216,9 @@ async function assignThinkcarPending(importId) {
     loadThinkcarPending();
     fetchThinkcarImports();
     loadThinkcarStats();
+    if (typeof showToast === 'function') showToast('Diagnóstico asignado a la OT', 'success');
   } catch (err) {
-    alert('Error al asignar: ' + (err.message || err));
+    if (typeof showToast === 'function') showToast('Error al asignar: ' + (err.message || err), 'error');
   }
 }
 

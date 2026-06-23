@@ -12,12 +12,33 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <title>AutomotiveOS — ERP Taller</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="css/tailwind.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-  body { background: #030712; }
+  body { background: var(--bg-primary, #030712); }
+
+  /* ─── Design Token Utility Classes ─── */
+  .bg-base { background: var(--bg-primary); }
+  .bg-surface { background: var(--bg-secondary); }
+  .bg-card { background: var(--bg-card); }
+  .bg-elevated { background: var(--bg-input); }
+  .bg-overlay { background: var(--bg-modal); }
+  .text-base { color: var(--text-primary); }
+  .text-secondary { color: var(--text-secondary); }
+  .text-muted { color: var(--text-muted); }
+  .text-accent { color: var(--accent); }
+  .text-success { color: var(--success); }
+  .text-warning { color: var(--warning); }
+  .text-error { color: var(--error); }
+  .border-base { border-color: var(--border); }
+  .border-subtle { border-color: var(--border-subtle); }
+  .border-strong { border-color: var(--border-strong); }
+  .glow { box-shadow: var(--shadow); }
+  .stat-value { color: var(--stat-value); }
+  .stat-label { color: var(--stat-label); }
+
   .card-glow { box-shadow: 0 0 20px rgba(59,130,246,0.05); }
   .hv-pulse { animation: hvPulse 2s infinite; }
   @keyframes hvPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
@@ -28,9 +49,17 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: #111827; }
   ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
-  .sidebar-item { transition: all 0.15s; }
-  .sidebar-item:hover { background: rgba(59,130,246,0.1); }
-  .sidebar-item.active { background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; color: #60a5fa; }
+  .sidebar-item { transition: all 0.15s; position: relative; }
+  .sidebar-item:hover { background: rgba(59,130,246,0.1); color: #d1d5db !important; }
+  .sidebar-item:focus-visible { outline: 2px solid #3b82f6; outline-offset: -2px; border-radius: 8px; }
+  .sidebar-item.active { background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; color: #60a5fa !important; }
+  .sidebar-item.active::before { content: ''; position: absolute; left: -2px; top: 50%; transform: translateY(-50%); width: 3px; height: 60%; background: #3b82f6; border-radius: 0 3px 3px 0; }
+  .sidebar-section-label { font-size: 10px; color: #4b5563; text-transform: uppercase; letter-spacing: 0.1em; padding: 0.75rem 1rem 0.25rem; font-weight: 600; }
+  .sidebar-divider { border-top: 1px solid rgba(75,85,99,0.3); margin: 0.5rem 0.75rem; }
+  .form-group { transition: opacity 0.2s; }
+  .form-group input.error { border-color: #f87171 !important; }
+  .form-group input.error:focus { box-shadow: 0 0 0 2px rgba(248,113,113,0.2) !important; }
+  .form-group input:disabled + label { opacity: 0.5; }
   .modal-overlay { animation: fadeIn 0.15s ease; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -79,7 +108,186 @@
     .grid-cols-3 { grid-template-columns: 1fr !important; }
     .grid-cols-4 { grid-template-columns: 1fr 1fr !important; }
     .hide-on-mobile { display: none !important; }
+    .sidebar-section-label { font-size: 9px !important; padding: 0.5rem 0.75rem 0.25rem !important; }
   }
+
+  /* Login form micro-interactions */
+  .form-group [aria-invalid="true"] { border-color: #f87171 !important; }
+  .form-group [aria-invalid="true"]:focus { box-shadow: 0 0 0 2px rgba(248,113,113,0.2) !important; }
+  .form-group [aria-invalid="false"] { border-color: #34d399; }
+  .login-error-enter { animation: shakeX 0.3s ease; }
+  @keyframes shakeX { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  /* ═══ GLOBAL FORM STYLES (aplica a todos los módulos) ═══ */
+
+  /* Input/Select/Textarea base improvements */
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="tel"], input[type="search"], select, textarea {
+    transition: all 0.15s ease;
+  }
+  input:hover, select:hover, textarea:hover {
+    border-color: #6b7280 !important;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important;
+  }
+  input:disabled, select:disabled, textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(31,41,55,0.5) !important;
+  }
+  ::placeholder { color: #6b7280; opacity: 0.7; }
+
+  /* Checkbox & Radio improvements */
+  input[type="checkbox"], input[type="radio"] {
+    accent-color: #3b82f6;
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    transition: accent-color 0.15s;
+  }
+  input[type="checkbox"]:hover, input[type="radio"]:hover {
+    filter: brightness(1.2);
+  }
+  label:has(input[type="checkbox"]), label:has(input[type="radio"]) {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* ═══ TABLE STYLES ═══ */
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  thead th {
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #9ca3af;
+    border-bottom: 1px solid rgba(75,85,99,0.3);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  tbody tr {
+    transition: background-color 0.12s ease;
+  }
+  tbody tr:hover {
+    background: rgba(59,130,246,0.04) !important;
+  }
+  tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.015);
+  }
+  tbody td {
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid rgba(75,85,99,0.12);
+    font-size: 0.8125rem;
+    vertical-align: middle;
+  }
+  /* Table empty state */
+  .table-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #6b7280;
+    font-size: 0.8125rem;
+  }
+
+  /* ═══ BUTTON HIERARCHY ═══ */
+  .btn-primary, button[id$="-btn"][class*="bg-blue"] {
+    transition: all 0.15s ease;
+    font-weight: 600;
+  }
+  .btn-primary:hover, button[id$="-btn"][class*="bg-blue"]:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.25);
+  }
+  .btn-primary:active, button[id$="-btn"][class*="bg-blue"]:active {
+    filter: brightness(0.95);
+    transform: translateY(0);
+  }
+  .btn-primary:disabled, button[id$="-btn"][class*="bg-blue"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+    box-shadow: none;
+  }
+  .btn-secondary {
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    background: rgba(75,85,99,0.5) !important;
+  }
+
+  /* ═══ CARD IMPROVEMENTS ═══ */
+  .card-hover {
+    transition: all 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    border-color: rgba(59,130,246,0.3) !important;
+  }
+
+  /* ═══ STATUS BADGE IMPROVEMENTS ═══ */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .status-badge::before {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  /* Status colors for ::before dots */
+  .status-badge.bg-gray-700::before { background: #9ca3af; }
+  .status-badge.bg-blue-900\\/50::before { background: #60a5fa; }
+  .status-badge.bg-yellow-900\\/50::before { background: #fbbf24; }
+  .status-badge.bg-purple-900\\/50::before { background: #a78bfa; }
+  .status-badge.bg-green-900\\/50::before { background: #34d399; }
+
+  /* ═══ SKELETON LOADING ═══ */
+  .skeleton-pulse {
+    background: linear-gradient(90deg, rgba(75,85,99,0.2) 25%, rgba(107,114,128,0.2) 50%, rgba(75,85,99,0.2) 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ═══ TOOLTIP CLEANUP ═══ */
+  [title] {
+    position: relative;
+  }
+
+  /* ═══ FOCUS VISIBLE (accesibilidad) ═══ */
+  :focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  button:focus:not(:focus-visible), a:focus:not(:focus-visible), input:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Status badge redesign with icons */
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+  .status-dot.online { background: #34d399; box-shadow: 0 0 4px rgba(52,211,153,0.5); }
+  .status-dot.offline { background: #f87171; }
+  .status-dot.warning { background: #fbbf24; }
+  .status-pill { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+
+  /* Smooth modal transitions */
+  .modal-enter { animation: modalEnter 0.2s ease; }
+  @keyframes modalEnter { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .modal-exit { animation: modalExit 0.15s ease; }
+  @keyframes modalExit { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
   /* Print styles */
   @media print {
     body { background: white !important; color: black !important; }
@@ -97,6 +305,23 @@
     .print-template .status-badge { border: 1px solid #999 !important; }
   }
   .print-only { display: none; }
+
+  /* ─── Reduced Motion: disable all animations for a11y ─── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .hv-pulse { animation: none !important; }
+    .modal-overlay { animation: none !important; opacity: 1 !important; }
+    .modal-content { animation: none !important; transform: none !important; }
+    .animate-slide-up { animation: none !important; }
+    .login-error-enter { animation: none !important; }
+    .progress-bar { transition: none !important; }
+    .tv-card:hover { transform: none !important; }
+  }
 </style>
 </head>
 <body class="text-white min-h-screen" role="application" aria-label="AutomotiveOS Cloud ERP">
@@ -108,26 +333,111 @@
       <h1 class="text-3xl font-extrabold tracking-tight">AutomotiveOS</h1>
       <p class="text-gray-500 text-sm mt-1">Cloud ERP · Taller Mecánico</p>
     </div>
-    <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-4" role="form" aria-label="Formulario de inicio de sesión">
+    <form id="login-form" class="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 space-y-4" novalidate aria-label="Formulario de inicio de sesión">
       <h2 class="text-base font-semibold text-gray-200">Acceder al Sistema</h2>
-      <div>
-        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Slug del Taller</label>
-        <input id="login-slug" type="text" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="ej: taller-el-chero" aria-label="Slug del taller" required>
+
+      <!-- Grupo: Identificación del Taller -->
+      <fieldset class="space-y-3 border-0 p-0 m-0">
+        <legend class="text-[10px] text-gray-600 uppercase tracking-widest mb-2 sr-only">Credenciales del Taller</legend>
+
+        <div class="form-group">
+          <label for="login-slug" class="text-xs text-gray-400 uppercase tracking-wider block mb-1.5 font-medium">Slug del Taller</label>
+          <input id="login-slug" type="text"
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 text-sm transition-all duration-150
+                   hover:border-gray-500
+                   focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none
+                   disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50"
+            placeholder="ej: taller-el-chero"
+            aria-label="Slug del taller"
+            aria-describedby="login-slug-error"
+            autocomplete="off"
+            required>
+          <p id="login-slug-error" class="text-xs mt-1 hidden" role="alert">
+            <span class="inline-flex items-center gap-1 text-red-400">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+              <span id="login-slug-error-text"></span>
+            </span>
+          </p>
+        </div>
+      </fieldset>
+
+      <!-- Grupo: Credenciales de Usuario -->
+      <fieldset class="space-y-3 border-0 p-0 m-0">
+        <legend class="text-[10px] text-gray-600 uppercase tracking-widest mb-2">Acceso de Usuario</legend>
+
+        <div class="form-group">
+          <label for="login-email" class="text-xs text-gray-400 uppercase tracking-wider block mb-1.5 font-medium">Correo Electrónico</label>
+          <input id="login-email" type="email"
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 text-sm transition-all duration-150
+                   hover:border-gray-500
+                   focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none
+                   disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50"
+            placeholder="nombre@taller.com"
+            aria-label="Correo electrónico"
+            aria-describedby="login-email-error"
+            autocomplete="username"
+            required>
+          <p id="login-email-error" class="text-xs mt-1 hidden" role="alert">
+            <span class="inline-flex items-center gap-1 text-red-400">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+              <span id="login-email-error-text"></span>
+            </span>
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="login-password" class="text-xs text-gray-400 uppercase tracking-wider block mb-1.5 font-medium">Contraseña</label>
+          <input id="login-password" type="password"
+            class="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-500 text-sm transition-all duration-150
+                   hover:border-gray-500
+                   focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none
+                   disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800/50"
+            placeholder="••••••••"
+            aria-label="Contraseña"
+            aria-describedby="login-password-error"
+            autocomplete="current-password"
+            required>
+          <p id="login-password-error" class="text-xs mt-1 hidden" role="alert">
+            <span class="inline-flex items-center gap-1 text-red-400">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+              <span id="login-password-error-text"></span>
+            </span>
+          </p>
+        </div>
+      </fieldset>
+
+      <!-- CTA Primario -->
+      <button id="login-btn" type="submit"
+        class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-150 text-sm
+               focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-gray-900
+               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
+        aria-label="Ingresar al sistema">
+        <span class="inline-flex items-center justify-center gap-2">
+          <span id="login-btn-text">Ingresar</span>
+          <span id="login-btn-spinner" class="hidden">
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      <!-- Mensajes de Feedback -->
+      <div id="login-feedback" class="space-y-2" role="status" aria-live="polite">
+        <p id="login-error" class="flex items-center gap-2 text-sm text-red-400 hidden">
+          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+          <span id="login-error-text"></span>
+        </p>
+        <div id="login-loading" class="hidden items-center justify-center gap-2 text-sm text-gray-400">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Conectando...</span>
+        </div>
       </div>
-      <div>
-        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Correo Electrónico</label>
-        <input id="login-email" type="email" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="nombre@taller.com" aria-label="Correo electrónico" required>
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Contraseña</label>
-        <input id="login-password" type="password" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm" placeholder="••••••••" aria-label="Contraseña" required>
-      </div>
-      <button id="login-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition text-sm" aria-label="Ingresar al sistema">Ingresar</button>
-      <p id="login-error" class="text-red-400 text-sm text-center hidden"></p>
-      <div id="login-loading" class="hidden text-center text-sm text-gray-400">
-        <span class="inline-block animate-spin mr-2">⟳</span> Conectando...
-      </div>
-    </div>
+    </form>
   </div>
 </div>
 
@@ -146,87 +456,147 @@
     </div>
 
     <nav class="flex-1 py-3 space-y-0.5 overflow-y-auto px-2" role="navigation" aria-label="Menú principal">
-      <button class="sidebar-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dashboard">
-        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.dashboard">Dashboard</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="users">
-        <span class="text-lg" aria-hidden="true">👥</span> <span data-i18n="sidebar.users">Usuarios</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="config">
-        <span class="text-lg" aria-hidden="true">⚙️</span> <span data-i18n="sidebar.config">Configuración</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ordenes">
-        <span class="text-lg" aria-hidden="true">📋</span> <span data-i18n="sidebar.ordenes">Órdenes</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="analytics">
-        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.analytics">Analytics</span>
+
+      <!-- ═══ Gestión del Taller ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.workshopSection">Gestión del Taller</p>
+
+      <button class="sidebar-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dashboard" aria-current="page">
+        <span class="text-lg" aria-hidden="true">📊</span>
+        <span class="flex items-center justify-between flex-1"><span data-i18n="sidebar.dashboard">Dashboard</span><span class="text-[9px] text-blue-500 font-semibold uppercase tracking-wider">Inicio</span></span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ingreso">
-        <span class="text-lg" aria-hidden="true">🚗</span> <span data-i18n="sidebar.ingreso">Ingreso</span>
+        <span class="text-lg" aria-hidden="true">🚗</span>
+        <span data-i18n="sidebar.ingreso">Ingreso</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="ordenes">
+        <span class="text-lg" aria-hidden="true">📋</span>
+        <span class="flex items-center justify-between flex-1"><span data-i18n="sidebar.ordenes">Órdenes</span><span id="ot-badge" class="hidden text-[10px] bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded-full">0</span></span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="workshop">
-        <span class="text-lg" aria-hidden="true">🔧</span> <span data-i18n="sidebar.workshop">Taller</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tv">
-        <span class="text-lg" aria-hidden="true">📺</span> <span data-i18n="sidebar.tv">Quiosco TV</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="facturacion">
-        <span class="text-lg" aria-hidden="true">💰</span> <span data-i18n="sidebar.facturacion">Facturación</span>
+        <span class="text-lg" aria-hidden="true">🔧</span>
+        <span data-i18n="sidebar.workshop">Taller</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="servicios">
-        <span class="text-lg" aria-hidden="true">🛠️</span> <span data-i18n="sidebar.servicios">Servicios</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="thinkcar">
-        <span class="text-lg" aria-hidden="true">🔬</span> <span data-i18n="sidebar.thinkcar">Thinkcar</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="contabilidad">
-        <span class="text-lg" aria-hidden="true">📒</span> <span data-i18n="sidebar.contabilidad">Contabilidad</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tesoreria">
-        <span class="text-lg" aria-hidden="true">💳</span> <span data-i18n="sidebar.tesoreria">Tesorería</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="presupuestos">
-        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.presupuestos">Presupuestos</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="inventario">
-        <span class="text-lg" aria-hidden="true">📦</span> <span data-i18n="sidebar.inventario">Inventario</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="nomina">
-        <span class="text-lg" aria-hidden="true">👥</span> <span data-i18n="sidebar.nomina">Nómina</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp">
-        <span class="text-lg" aria-hidden="true">💬</span> <span data-i18n="sidebar.whatsapp">WhatsApp</span>
-      </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dvi">
-        <span class="text-lg" aria-hidden="true">📸</span> <span data-i18n="sidebar.dvi">DVI</span>
+        <span class="text-lg" aria-hidden="true">🛠️</span>
+        <span data-i18n="sidebar.servicios">Servicios</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="calendario">
-        <span class="text-lg" aria-hidden="true">📅</span> <span data-i18n="sidebar.calendario">Calendario</span>
+        <span class="text-lg" aria-hidden="true">📅</span>
+        <span data-i18n="sidebar.calendario">Calendario</span>
+      </button>
+
+      <div class="sidebar-divider" role="separator"></div>
+
+      <!-- ═══ Facturación y Finanzas ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.financeSection">Facturación y Finanzas</p>
+
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="facturacion">
+        <span class="text-lg" aria-hidden="true">💰</span>
+        <span data-i18n="sidebar.facturacion">Facturación</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="presupuestos">
+        <span class="text-lg" aria-hidden="true">📊</span>
+        <span data-i18n="sidebar.presupuestos">Presupuestos</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="contabilidad">
+        <span class="text-lg" aria-hidden="true">📒</span>
+        <span data-i18n="sidebar.contabilidad">Contabilidad</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tesoreria">
+        <span class="text-lg" aria-hidden="true">💳</span>
+        <span data-i18n="sidebar.tesoreria">Tesorería</span>
+      </button>
+
+      <div class="sidebar-divider" role="separator"></div>
+
+      <!-- ═══ Inventario y Stock ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.inventorySection">Inventario y Stock</p>
+
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="inventario">
+        <span class="text-lg" aria-hidden="true">📦</span>
+        <span data-i18n="sidebar.inventario">Inventario</span>
+      </button>
+
+      <div class="sidebar-divider" role="separator"></div>
+
+      <!-- ═══ Clientes y CRM ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.clientsSection">Clientes</p>
+
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="crm">
+        <span class="text-lg" aria-hidden="true">🤝</span>
+        <span data-i18n="sidebar.crm">CRM</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp">
+        <span class="text-lg" aria-hidden="true">💬</span>
+        <span data-i18n="sidebar.whatsapp">WhatsApp</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="dvi">
+        <span class="text-lg" aria-hidden="true">📸</span>
+        <span data-i18n="sidebar.dvi">DVI</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="marketing">
-        <span class="text-lg" aria-hidden="true">📢</span> <span data-i18n="sidebar.marketing">Marketing</span>
+        <span class="text-lg" aria-hidden="true">📢</span>
+        <span data-i18n="sidebar.marketing">Marketing</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="fleet">
-        <span class="text-lg" aria-hidden="true">🚛</span> <span data-i18n="sidebar.fleet">Flotas</span>
+        <span class="text-lg" aria-hidden="true">🚛</span>
+        <span data-i18n="sidebar.fleet">Flotas</span>
       </button>
-      <div class="border-t border-gray-800 my-2 mx-3"></div>
-      <p class="px-4 py-1 text-[10px] text-gray-600 uppercase tracking-widest" data-i18n="sidebar.monitors">Monitores</p>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="sifen-monitor">
-        <span class="text-lg" aria-hidden="true">🛑</span> <span data-i18n="sidebar.sifenMonitor">SIFEN Fiscal</span>
+
+      <div class="sidebar-divider" role="separator"></div>
+
+      <!-- ═══ Herramientas ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.tools">Herramientas</p>
+
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="thinkcar">
+        <span class="text-lg" aria-hidden="true">🔬</span>
+        <span data-i18n="sidebar.thinkcar">Thinkcar</span>
       </button>
-      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp-monitor">
-        <span class="text-lg" aria-hidden="true">📊</span> <span data-i18n="sidebar.waColas">WA Colas</span>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="tv">
+        <span class="text-lg" aria-hidden="true">📺</span>
+        <span data-i18n="sidebar.tv">Quiosco TV</span>
       </button>
-      <div class="border-t border-gray-800 my-2 mx-3"></div>
-      <p class="px-4 py-1 text-[10px] text-gray-600 uppercase tracking-widest" data-i18n="sidebar.tools">Herramientas</p>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="users">
+        <span class="text-lg" aria-hidden="true">👥</span>
+        <span data-i18n="sidebar.users">Usuarios</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="nomina">
+        <span class="text-lg" aria-hidden="true">👥</span>
+        <span data-i18n="sidebar.nomina">Nómina</span>
+      </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="label-printing">
-        <span class="text-lg" aria-hidden="true">🏷️</span> <span data-i18n="sidebar.labelPrinting">Etiquetas</span>
+        <span class="text-lg" aria-hidden="true">🏷️</span>
+        <span data-i18n="sidebar.labelPrinting">Etiquetas</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="backup-restore">
-        <span class="text-lg" aria-hidden="true">💾</span> <span data-i18n="sidebar.backupRestore">Backup</span>
+        <span class="text-lg" aria-hidden="true">💾</span>
+        <span data-i18n="sidebar.backupRestore">Backup</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="config">
+        <span class="text-lg" aria-hidden="true">⚙️</span>
+        <span data-i18n="sidebar.config">Configuración</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="analytics">
+        <span class="text-lg" aria-hidden="true">📊</span>
+        <span data-i18n="sidebar.analytics">Analytics</span>
+      </button>
+
+      <div class="sidebar-divider" role="separator"></div>
+
+      <!-- ═══ Monitores y Seguridad ═══ -->
+      <p class="sidebar-section-label" data-i18n="sidebar.monitors">Monitores</p>
+
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="sifen-monitor">
+        <span class="text-lg" aria-hidden="true">🛑</span>
+        <span data-i18n="sidebar.sifenMonitor">SIFEN Fiscal</span>
+      </button>
+      <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="whatsapp-monitor">
+        <span class="text-lg" aria-hidden="true">📊</span>
+        <span data-i18n="sidebar.waColas">WA Colas</span>
       </button>
       <button class="sidebar-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400" data-view="security-hw">
-        <span class="text-lg" aria-hidden="true">🛡️</span> <span data-i18n="sidebar.securityHw">Seguridad HW</span>
+        <span class="text-lg" aria-hidden="true">🛡️</span>
+        <span data-i18n="sidebar.securityHw">Seguridad HW</span>
       </button>
     </nav>
 
@@ -238,30 +608,40 @@
   </aside>
 
   <main class="flex-1 flex flex-col min-w-0" role="main" aria-label="Contenido principal">
-    <header class="flex items-center justify-between px-4 md:px-6 py-3 border-b border-gray-800 bg-gray-900/50">
-      <div class="flex items-center gap-3">
-        <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1" onclick="toggleSidebar()" title="Menú" aria-label="Abrir menú de navegación" aria-expanded="false">☰</button>
-        <div>
-          <h2 id="view-title" class="text-lg font-bold" data-i18n="dashboard.title">Dashboard</h2>
-          <p id="view-subtitle" class="text-xs text-gray-500" data-i18n="dashboard.subtitle">Resumen del taller</p>
+    <!-- ═══ HEADER: Barra superior con navegación y estado ═══ -->
+    <header class="flex items-center justify-between px-4 md:px-6 py-3 border-b border-gray-800 bg-gray-900/50" role="banner">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="hamburger-btn" class="text-gray-400 hover:text-white text-xl p-1 rounded-lg hover:bg-gray-800 transition" onclick="toggleSidebar()" title="Menú" aria-label="Abrir menú de navegación" aria-expanded="false">☰</button>
+        <div class="min-w-0">
+          <h2 id="view-title" class="text-lg font-bold truncate" data-i18n="dashboard.title">Dashboard</h2>
+          <p id="view-subtitle" class="text-xs text-gray-500 truncate" data-i18n="dashboard.subtitle">Resumen del taller</p>
         </div>
       </div>
-      <div class="flex items-center gap-2 md:gap-4 flex-wrap justify-end">
+      <div class="flex items-center gap-2 md:gap-3 flex-wrap justify-end shrink-0">
         <div id="notif-bell-container" role="status" aria-label="Notificaciones"></div>
-        <div id="sifen-status" class="hidden md:flex items-center gap-2 text-xs" title="Conexión DNIT SIFEN">
-          <span class="ws-dot bg-red-500" id="sifen-dot"></span>
-          <span id="sifen-label" class="text-gray-500">SIFEN: —</span>
+
+        <!-- Status indicators: desktop-only, grouped -->
+        <div class="hidden md:flex items-center gap-3 text-xs" role="status" aria-label="Estado de conexiones">
+          <!-- SIFEN -->
+          <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-800/60 rounded-md" title="Conexión DNIT SIFEN">
+            <span class="ws-dot bg-red-500" id="sifen-dot"></span>
+            <span id="sifen-label" class="text-gray-400">SIFEN: —</span>
+          </div>
+          <!-- WhatsApp -->
+          <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-800/60 rounded-md" title="Conexión WhatsApp">
+            <span class="ws-dot bg-red-500" id="wa-header-dot"></span>
+            <span id="wa-header-label" class="text-gray-400">WA: —</span>
+          </div>
+          <!-- WebSocket -->
+          <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-800/60 rounded-md" title="Conexión en tiempo real">
+            <span id="offline-badge" class="hidden bg-yellow-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1" title="Operaciones pendientes sin conexión">0</span>
+            <span class="ws-dot bg-red-500" id="ws-dot"></span>
+            <span id="ws-label" class="text-gray-400">Desconectado</span>
+          </div>
         </div>
-        <div class="hidden md:flex items-center gap-2 text-xs" title="Conexión WhatsApp">
-          <span class="ws-dot bg-red-500" id="wa-header-dot"></span>
-          <span id="wa-header-label" class="text-gray-500">WA: —</span>
-        </div>
-        <div class="hidden md:flex items-center gap-2 text-xs">
-          <span id="offline-badge" class="hidden bg-yellow-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full" title="Operaciones pendientes sin conexión">0</span>
-          <span class="ws-dot bg-red-500" id="ws-dot"></span>
-          <span id="ws-label" class="text-gray-500">Desconectado</span>
-        </div>
-        <span id="clock" class="text-gray-500 text-xs font-mono"></span>
+
+        <!-- Reloj -->
+        <time id="clock" class="text-gray-500 text-xs font-mono hidden sm:block" datetime="" aria-label="Hora actual"></time>
       </div>
     </header>
 
@@ -269,8 +649,13 @@
   </main>
 </div>
 
-<div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-overlay">
-  <div id="modal-content" class="modal-content bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto"></div>
+<div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal-content" class="modal-content bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+    <!-- Close button (injected if needed) -->
+    <button id="modal-close-btn" class="absolute top-3 right-3 text-gray-500 hover:text-white transition p-1 rounded-lg hover:bg-gray-800 hidden" onclick="closeModal()" aria-label="Cerrar">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
 </div>
 
 <!-- AI Copilot Sidebar (rendered by ai-copilot.js) -->
@@ -286,67 +671,70 @@
 </script>
 
 <!-- PWA Install Prompt Banner -->
-<div id="pwa-install-banner" class="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-3 flex items-center justify-between z-50 hidden">
+<div id="pwa-install-banner" class="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-3 flex items-center justify-between z-50 hidden shadow-2xl" role="alert" aria-live="polite">
   <div class="flex items-center gap-3">
-    <span class="text-lg">📱</span>
+    <span class="text-lg flex-shrink-0" aria-hidden="true">📱</span>
     <span class="text-sm font-medium">Instalar AutomotiveOS en tu dispositivo</span>
   </div>
-  <div class="flex gap-2">
-    <button id="pwa-install-btn" class="px-4 py-1.5 bg-white text-blue-600 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">Instalar</button>
-    <button id="pwa-dismiss-btn" class="px-3 py-1.5 text-white/70 hover:text-white text-sm transition">✕</button>
+  <div class="flex gap-2 shrink-0">
+    <button id="pwa-install-btn" class="px-4 py-1.5 bg-white text-blue-600 rounded-lg text-sm font-semibold hover:bg-gray-100 hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-white/50">Instalar</button>
+    <button id="pwa-dismiss-btn" class="px-3 py-1.5 text-white/70 hover:text-white text-sm transition hover:bg-blue-500/30 rounded-lg" aria-label="Descartar">✕</button>
   </div>
 </div>
 
-<!-- Modules: order-independent (globals resolved at call-time, not load-time) -->
-  <script src="js/ux.js"></script>
-  <script src="js/i18n.js"></script>
-  <script src="js/offline-db.js"></script>
-  <script src="js/offline-queue.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/analytics.js"></script>
-<script src="js/budget.js"></script>
-<script src="js/servicios.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/usuarios.js"></script>
-<script src="js/config.js"></script>
-<script src="js/taller.js"></script>
-<script src="js/ingreso.js"></script>
-<script src="js/ordenes.js"></script>
-<script src="js/facturacion.js"></script>
-<script src="js/thinkcar.js"></script>
-<script src="js/inventario.js"></script>
-<script src="js/contabilidad.js"></script>
-<script src="js/tesoreria.js"></script>
-<script src="js/notifications.js"></script>
-<script src="js/whatsapp.js"></script>
-<script src="js/wa-templates.js"></script>
-<script src="js/notification-bell.js"></script>
-<script src="js/analytics-dashboard.js"></script>
-<script src="js/dvi.js"></script>
-<script src="js/calendario.js"></script>
-<script src="js/marketing.js"></script>
-<script src="js/fleet.js"></script>
-<script src="js/payroll.js"></script>
-<script src="js/history.js"></script>
-<script src="js/print.js"></script>
-<script src="js/search.js"></script>
-<script src="js/pwa.js"></script>
-<script src="js/shortcuts.js"></script>
-<script src="js/theme.js"></script>
-  <script src="js/a11y.js"></script>
-  <script src="js/faq-data.js"></script>
-  <script src="js/help-sidebar.js"></script>
-<script src="js/mobile.js"></script>
-<script src="js/sanitize.js"></script>
-<script src="js/client-portal.js"></script>
-<script src="js/inventory-batch.js"></script>
-<script src="js/ai-copilot.js"></script>
-<script src="js/sifen-monitor.js"></script>
-<script src="js/whatsapp-monitor.js"></script>
-<script src="js/label-printing.js"></script>
-<script src="js/backup-restore.js"></script>
-<script src="js/security-hw.js"></script>
+<!-- Core modules: loaded immediately (needed by every view) -->
+<script defer src="js/ux.js"></script>
+<script defer src="js/i18n.js"></script>
+<script defer src="js/theme.js"></script>
+<script defer src="js/a11y.js"></script>
+<script defer src="js/sanitize.js"></script>
+<script defer src="js/charts.js"></script>
+<script defer src="js/shortcuts.js"></script>
+<script defer src="js/mobile.js"></script>
+<script defer src="js/notifications.js"></script>
+<script defer src="js/notification-bell.js"></script>
+<script defer src="js/offline-db.js"></script>
+<script defer src="js/offline-queue.js"></script>
+<script defer src="js/pwa.js"></script>
+<script defer src="js/faq-data.js"></script>
+<!-- Lazy modules: loaded on-demand via lazyLoadModule() in app.js -->
+<script defer src="js/dashboard.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/usuarios.js"></script>
+<script defer src="js/taller.js"></script>
+<script defer src="js/ingreso.js"></script>
+<script defer src="js/ordenes.js"></script>
+<script defer src="js/facturacion.js"></script>
+<script defer src="js/inventario.js"></script>
+<script defer src="js/print.js"></script>
+<script defer src="js/history.js"></script>
+<!-- Heavy modules: lazy-loaded only when view is accessed -->
+<script defer src="js/contabilidad.js"></script>
+<script defer src="js/tesoreria.js"></script>
+<script defer src="js/servicios.js"></script>
+<script defer src="js/thinkcar.js"></script>
+<script defer src="js/crm.js"></script>
+<script defer src="js/whatsapp.js"></script>
+<script defer src="js/wa-templates.js"></script>
+<script defer src="js/dvi.js"></script>
+<script defer src="js/calendario.js"></script>
+<script defer src="js/marketing.js"></script>
+<script defer src="js/fleet.js"></script>
+<script defer src="js/budget.js"></script>
+<script defer src="js/analytics.js"></script>
+<script defer src="js/analytics-dashboard.js"></script>
+<script defer src="js/inventory-batch.js"></script>
+<script defer src="js/client-portal.js"></script>
+<script defer src="js/label-printing.js"></script>
+<script defer src="js/backup-restore.js"></script>
+<script defer src="js/security-hw.js"></script>
+<script defer src="js/ai-copilot.js"></script>
+<script defer src="js/sifen-monitor.js"></script>
+<script defer src="js/whatsapp-monitor.js"></script>
+<script defer src="js/payroll.js"></script>
+<script defer src="js/search.js"></script>
+<script defer src="js/help-sidebar.js"></script>
 <!-- Core: state, api, auth, routing, event delegation, WS/polling — MUST load AFTER modules -->
-<script src="app.js"></script>
+<script defer src="app.js"></script>
 </body>
 </html>

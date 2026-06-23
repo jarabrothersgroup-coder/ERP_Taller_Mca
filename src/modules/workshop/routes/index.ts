@@ -16,7 +16,7 @@ import { vehiculosRoutes } from "./vehiculos.js";
 import { servicesCatalogRoutes } from "./services-catalog.routes.js";
 import { orderItemsRoutes } from "./order-items.routes.js";
 import { analyticsRoutes } from "./analytics.routes.js";
-import { notificationsRoutes } from "./notifications.routes.js";
+// notifications.routes.ts removed — superseded by notification-push.routes.ts (duplicate GET /api/notifications)
 import { servicePricingRoutes } from "./service-pricing.routes.js";
 import { bulkOperationsRoutes } from "./bulk-operations.routes.js";
 import { flatRateRoutes } from "./flat-rate.routes.js";
@@ -70,7 +70,7 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(servicesCatalogRoutes);
   await app.register(orderItemsRoutes);
   await app.register(analyticsRoutes);
-  await app.register(notificationsRoutes);
+  // notificationsRoutes removed — superseded by notificationPushRoutes
   await app.register(servicePricingRoutes);
   await app.register(bulkOperationsRoutes);
   await app.register(flatRateRoutes);

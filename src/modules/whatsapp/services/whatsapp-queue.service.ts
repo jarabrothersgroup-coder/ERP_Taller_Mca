@@ -48,6 +48,20 @@ export interface QueueStats {
 
 // ─── Enqueue ───────────────────────────────────
 
+// C-11 FIX: Queue-level timeout guard — prevents indefinite stall if sendTextMessage hangs.
+const QUEUE_SEND_TIMEOUT_MS = 30_000; // 30 seconds per message attempt
+
+/** Wraps a promise with a timeout — rejects if it takes too long. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 /**
  * Enqueues a message for sending (stores in DB with PENDING status).
  *
@@ -111,10 +125,15 @@ export async function processPendingMessages(
   for (const msg of pendingMessages) {
     try {
       // Attempt to send via Evolution API
-      await sendTextMessage(
-        msg.tenantSlug,
-        msg.phoneNumber,
-        msg.messageText,
+      // C-11 FIX: Wrap in withTimeout to prevent indefinite stall
+      await withTimeout(
+        sendTextMessage(
+          msg.tenantSlug,
+          msg.phoneNumber,
+          msg.messageText,
+        ),
+        QUEUE_SEND_TIMEOUT_MS,
+        "WhatsApp sendTextMessage (processPending)",
       );
 
       // Update status to SENT
@@ -199,10 +218,15 @@ export async function retryFailedMessages(
 
   for (const msg of failedMessages) {
     try {
-      await sendTextMessage(
-        msg.tenantSlug,
-        msg.phoneNumber,
-        msg.messageText,
+      // C-11 FIX: Wrap in withTimeout to prevent indefinite stall
+      await withTimeout(
+        sendTextMessage(
+          msg.tenantSlug,
+          msg.phoneNumber,
+          msg.messageText,
+        ),
+        QUEUE_SEND_TIMEOUT_MS,
+        "WhatsApp sendTextMessage (retryFailed)",
       );
 
       await db()
