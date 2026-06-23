@@ -52,10 +52,15 @@ vi.mock("../src/shared/database/drizzle.js", () => ({
 }));
 
 vi.mock("../src/shared/database/connection.js", () => ({
-  getDb: vi.fn(() => ({
-    unsafe: vi.fn().mockResolvedValue([]),
-    __dangerous_query_value: vi.fn((v: string) => `'${v}'`),
-  })),
+  getDb: vi.fn(() => {
+    // Mock as a tagged template literal function (postgres.js style)
+    function sqlFn(strings: TemplateStringsArray, ...values: unknown[]) {
+      return Promise.resolve([]);
+    }
+    sqlFn.unsafe = vi.fn().mockResolvedValue([]);
+    sqlFn.__dangerous_query_value = vi.fn((v: string) => `'${v}'`);
+    return sqlFn;
+  }),
   validateConnection: vi.fn().mockResolvedValue(true),
 }));
 

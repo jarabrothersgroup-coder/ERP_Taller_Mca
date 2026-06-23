@@ -18,7 +18,7 @@ import {
   servicePricingRules,
   rhServiceHours,
   vehicleTypes,
-} from "../src/shared/database/schema/index.js";
+} from "../src/modules/workshop/schema/index.js";
 
 const TENANT_SLUG = process.argv[2];
 if (!TENANT_SLUG) {

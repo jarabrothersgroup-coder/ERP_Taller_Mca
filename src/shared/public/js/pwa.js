@@ -46,7 +46,7 @@ function _showUpdateBanner() {
       "fixed top-0 left-0 right-0 bg-blue-600 text-white p-3 flex items-center justify-between z-50";
     banner.innerHTML = `
       <div class="flex items-center gap-3">
-        <span class="text-lg">🔄</span>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         <span class="text-sm font-medium">Nueva versión disponible</span>
       </div>
       <button id="pwa-update-btn" class="px-4 py-1.5 bg-white text-blue-600 rounded-lg text-sm font-semibold hover:bg-gray-100 transition">
@@ -143,7 +143,7 @@ function _showOfflineBanner() {
   _offlineBanner.className =
     "fixed bottom-16 left-4 right-4 md:left-auto md:right-4 md:max-w-sm bg-yellow-900/95 border border-yellow-700 text-yellow-200 px-4 py-3 rounded-xl shadow-2xl backdrop-blur-sm z-40 flex items-center gap-3 transition-all duration-300";
   _offlineBanner.innerHTML = `
-    <span class="text-xl flex-shrink-0">📡</span>
+    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>
     <div class="flex-1">
       <p class="text-sm font-semibold">Modo Offline</p>
       <p class="text-xs text-yellow-400" id="offline-queue-msg">Las operaciones se sincronizarán al reconectar</p>

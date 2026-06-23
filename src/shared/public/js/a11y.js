@@ -214,14 +214,45 @@
       }
     });
 
-    // Buttons without text
+    // Buttons without text — auto-label from title, onclick, or SVG context
     document.querySelectorAll('button:not([aria-label])').forEach((btn) => {
       const text = btn.textContent?.trim();
       if (!text || text.length < 2) {
-        // Button has no meaningful text — add aria-label from title or nearby text
+        // 1. Try title attribute
         const title = btn.getAttribute('title');
         if (title) {
           btn.setAttribute('aria-label', title);
+          return;
+        }
+        // 2. Try to infer from onclick handler name (e.g., "crmCloseDetail" → "Cerrar detalle")
+        const onclick = btn.getAttribute('onclick') || '';
+        const fnMatch = onclick.match(/(\w+)\(/);
+        if (fnMatch) {
+          const fn = fnMatch[1];
+          const labels = {
+            close: 'Cerrar', dismiss: 'Descartar', cancel: 'Cancelar',
+            delete: 'Eliminar', remove: 'Eliminar', edit: 'Editar',
+            save: 'Guardar', submit: 'Enviar', refresh: 'Actualizar',
+            search: 'Buscar', filter: 'Filtrar', sort: 'Ordenar',
+            prev: 'Anterior', next: 'Siguiente', back: 'Volver',
+            toggle: 'Alternar', expand: 'Expandir', collapse: 'Colapsar',
+            share: 'Compartir', export: 'Exportar', import: 'Importar',
+            print: 'Imprimir', download: 'Descargar', upload: 'Subir',
+            copy: 'Copiar', paste: 'Pegar', undo: 'Deshacer',
+            redo: 'Rehacer', play: 'Reproducir', pause: 'Pausar',
+            stop: 'Detener', start: 'Iniciar', connect: 'Conectar',
+            disconnect: 'Desconectar', sync: 'Sincronizar', retry: 'Reintentar',
+          };
+          const fnLower = fn.toLowerCase();
+          for (const [key, label] of Object.entries(labels)) {
+            if (fnLower.includes(key)) {
+              btn.setAttribute('aria-label', label);
+              return;
+            }
+          }
+          // Generic fallback: use function name
+          const readable = fn.replace(/([A-Z])/g, ' $1').trim();
+          btn.setAttribute('aria-label', readable);
         }
       }
     });

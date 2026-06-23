@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import WebSocket from "@fastify/websocket";
+import fastifyStatic from "@fastify/static";
 import { VisualStreamGateway } from "./VisualStreamGateway.js";
 import { readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -14,6 +15,13 @@ const dashboardAppJs = readFileSync(join(publicDir, "app.js"), "utf-8");
 const landingHtml = readFileSync(join(publicDir, "landing.html"), "utf-8");
 
 async function visualPlugin(app: FastifyInstance): Promise<void> {
+  // Serve static files from public dir (JS modules, CSS, icons, locales, etc.)
+  await app.register(fastifyStatic, {
+    root: publicDir,
+    prefix: "/",
+    decorateReply: false, // Another plugin may have already decorated
+  });
+
   await app.register(WebSocket);
 
   VisualStreamGateway.registerGateway(app);

@@ -20,7 +20,6 @@ import {
   createDvi,
   getDviById,
   listDviByOrden,
-  addPhoto,
   updatePhotoMarkup,
   addItem,
   updateItemStatus,
@@ -40,15 +39,6 @@ interface CreateBody {
   ordenTrabajoId: string;
   observaciones?: string;
   inspector?: string;
-}
-
-interface AddPhotoBody {
-  categoria: string;
-  url: string;
-  nombreArchivo?: string;
-  markup?: unknown;
-  caption?: string;
-  orden?: number;
 }
 
 interface UpdateMarkupBody {
@@ -134,38 +124,7 @@ export async function dviRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /dvi/:id/photos — Add photo ──
-  app.post<{ Params: DviParams; Body: AddPhotoBody }>(
-    "/dvi/:id/photos",
-    {
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: { id: { type: "string", format: "uuid" } },
-        },
-        body: {
-          type: "object",
-          required: ["categoria", "url"],
-          properties: {
-            categoria: { type: "string", enum: ["EXTERIOR", "INTERIOR", "MOTOR", "CHASIS", "DOCUMENTACION", "OTRO"] },
-            url: { type: "string" },
-            nombreArchivo: { type: "string" },
-            markup: { type: "object" },
-            caption: { type: "string" },
-            orden: { type: "integer" },
-          },
-        },
-      },
-    },
-    async (
-      request: FastifyRequest<{ Params: DviParams; Body: AddPhotoBody }>,
-      reply: FastifyReply,
-    ) => {
-      const result = await addPhoto(request.params.id, request.body, request.tenantSlug);
-      return reply.status(201).send(result);
-    },
-  );
+  // ── POST /dvi/:id/photos — handled by photo.routes.ts (Supabase Storage) ──
 
   // ── PATCH /dvi/photos/:photoId/markup — Update markup ──
   app.patch<{ Params: PhotoParams; Body: UpdateMarkupBody }>(

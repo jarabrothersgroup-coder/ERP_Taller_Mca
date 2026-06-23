@@ -15,12 +15,17 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 const dom = {
   loginScreen: $('login-screen'),
+  loginForm: $('login-form'),
   loginSlug: $('login-slug'),
   loginEmail: $('login-email'),
   loginPassword: $('login-password'),
   loginBtn: $('login-btn'),
+  loginBtnText: $('login-btn-text'),
+  loginBtnSpinner: $('login-btn-spinner'),
   loginError: $('login-error'),
+  loginErrorText: $('login-error-text'),
   loginLoading: $('login-loading'),
+  loginFeedback: $('login-feedback'),
   appLayout: $('app-layout'),
   sidebarLogo: $('sidebar-logo'),
   sidebarCompany: $('sidebar-company'),
@@ -106,7 +111,6 @@ async function api(path, opts = {}) {
   }
 
   // Offline-first: use cache for GET requests
-  const method = (opts.method || 'GET').toUpperCase();
   if (method === 'GET' && !opts.noCache) {
     const cached = cache.get(path);
     if (cached !== null) return cached;
@@ -135,15 +139,45 @@ async function api(path, opts = {}) {
   return data;
 }
 
+/**
+ * Returns common auth headers for raw fetch() calls.
+ * Modules that bypass the global api() helper (e.g. budget.js) should
+ * spread this into their fetch headers: { ...authHeaders() }.
+ */
+function authHeaders() {
+  const h = {};
+  if (state.auth.slug) h['X-Tenant-Slug'] = state.auth.slug;
+  if (state.auth.token) {
+    h['Authorization'] = `Bearer ${state.auth.token}`;
+  } else if (state.auth.profile?.email) {
+    h['X-User-Email'] = state.auth.profile.email;
+  }
+  const csrfToken = document.cookie.split('; ').find(c => c.startsWith('_csrf='))?.split('=')[1];
+  if (csrfToken) h['X-CSRF-Token'] = csrfToken;
+  return h;
+}
+
 
 async function login() {
   const slug = dom.loginSlug.value.trim();
   const email = dom.loginEmail.value.trim();
   const password = dom.loginPassword.value.trim();
-  if (!slug || !email) { showLoginError('Completa todos los campos (slug, email, contraseña)'); return; }
-  dom.loginBtn.classList.add('hidden');
-  dom.loginLoading.classList.remove('hidden');
+
+  // Client-side validation
+  if (!slug || !email) {
+    showLoginError('Completa todos los campos (slug, email, contraseña)');
+    if (!slug) dom.loginSlug.focus();
+    else dom.loginEmail.focus();
+    return;
+  }
+
+  // UI loading state
+  dom.loginBtn.disabled = true;
+  dom.loginBtnText.textContent = 'Ingresando...';
+  dom.loginBtnSpinner.classList.remove('hidden');
   dom.loginError.classList.add('hidden');
+  dom.loginBtn.classList.remove('ring-2', 'ring-blue-500/40');
+
   try {
     const result = await api('/api/auth/login', { method: 'POST', body: { tenantSlug: slug, email, password: password || undefined } });
     state.auth = { slug, profile: result.profile, tenant: result.tenant, token: result.token };
@@ -155,15 +189,26 @@ async function login() {
     if (typeof showToast === 'function') showToast(`Bienvenido, ${result.profile?.fullName || email}`, 'success');
   } catch (e) {
     showLoginError(e.message);
+    dom.loginSlug.focus();
   } finally {
-    dom.loginBtn.classList.remove('hidden');
-    dom.loginLoading.classList.add('hidden');
+    dom.loginBtn.disabled = false;
+    dom.loginBtnText.textContent = 'Ingresar';
+    dom.loginBtnSpinner.classList.add('hidden');
   }
 }
 
 function showLoginError(msg) {
-  dom.loginError.textContent = msg;
+  dom.loginErrorText.textContent = msg;
   dom.loginError.classList.remove('hidden');
+  // Trigger shake animation
+  dom.loginError.classList.remove('login-error-enter');
+  void dom.loginError.offsetWidth; // Force reflow
+  dom.loginError.classList.add('login-error-enter');
+}
+
+function hideLoginError() {
+  dom.loginError.classList.add('hidden');
+  dom.loginError.classList.remove('login-error-enter');
 }
 
 function logout() {
@@ -177,7 +222,11 @@ function logout() {
   dom.loginScreen.classList.remove('hidden');
   dom.loginSlug.value = '';
   dom.loginEmail.value = '';
-  dom.loginError.classList.add('hidden');
+  dom.loginPassword.value = '';
+  hideLoginError();
+  dom.loginBtn.disabled = false;
+  dom.loginBtnText.textContent = 'Ingresar';
+  dom.loginBtnSpinner.classList.add('hidden');
 }
 
 function enterApp() {
@@ -262,6 +311,7 @@ function navigate(view) {
     'label-printing': ['Impresión Etiquetas', 'Códigos de barras y QR para inventario'],
     'backup-restore': ['Backup & Restore', 'Copias de seguridad y restauración'],
     'security-hw': ['Seguridad Hardware', 'USB Dongle, Kill Switch y Fingerprinting'],
+    'crm': ['CRM', 'Client Relationship Management'],
   };
   const [t, st] = titles[view] || ['', ''];
   dom.viewTitle.textContent = t;
@@ -272,32 +322,39 @@ function navigate(view) {
 function renderView(view) {
   const c = dom.viewContent;
   c.innerHTML = '';
-  if (view === 'dashboard') renderDashboard(c);
-  else if (view === 'analytics') renderAnalytics(c);
-  else if (view === 'users') renderUsers(c);
-  else if (view === 'config') renderConfig(c);
-  else if (view === 'ordenes') renderOrdenes(c);
-  else if (view === 'ingreso') renderIngreso(c);
-  else if (view === 'workshop') renderWorkshop(c);
-  else if (view === 'tv') renderTv(c);
-  else if (view === 'facturacion') renderFacturacion(c);
-  else if (view === 'thinkcar') renderThinkcar(c);
-  else if (view === 'contabilidad') renderContabilidad(c);
-  else if (view === 'tesoreria') renderTesorería(c);
-  else if (view === 'presupuestos') renderBudget(c);
-  else if (view === 'servicios') renderServicios(c);
-  else if (view === 'inventario') renderInventario(c);
-  else if (view === 'nomina') renderPayroll(c);
-  else if (view === 'whatsapp') renderWhatsAppView(c);
-  else if (view === 'dvi') renderDVI(c);
-  else if (view === 'calendario') renderCalendario(c);
-  else if (view === 'marketing') renderMarketing(c);
-  else if (view === 'fleet') renderFleet(c);
-  else if (view === 'sifen-monitor') renderSifenMonitor(c);
-  else if (view === 'whatsapp-monitor') renderWhatsappMonitor(c);
-  else if (view === 'label-printing') { c.innerHTML = '<div id="label-printing-view"></div>'; if (typeof initLabelPrinting === 'function') initLabelPrinting(); }
-  else if (view === 'backup-restore') { c.innerHTML = '<div id="backup-view"></div>'; if (typeof initBackupRestore === 'function') initBackupRestore(); }
-  else if (view === 'security-hw') { c.innerHTML = '<div id="security-hw-view"></div>'; if (typeof initSecurityHw === 'function') initSecurityHw(); }
+  // Performance instrumentation
+  const render = () => {
+    if (view === 'dashboard') renderDashboard(c);
+    else if (view === 'analytics') renderAnalytics(c);
+    else if (view === 'users') renderUsers(c);
+    else if (view === 'config') renderConfig(c);
+    else if (view === 'ordenes') renderOrdenes(c);
+    else if (view === 'ingreso') renderIngreso(c);
+    else if (view === 'workshop') renderWorkshop(c);
+    else if (view === 'tv') renderTv(c);
+    else if (view === 'facturacion') renderFacturacion(c);
+    else if (view === 'thinkcar') renderThinkcar(c);
+    else if (view === 'contabilidad') renderContabilidad(c);
+    else if (view === 'tesoreria') renderTesorería(c);
+    else if (view === 'presupuestos') renderBudget(c);
+    else if (view === 'servicios') renderServicios(c);
+    else if (view === 'inventario') renderInventario(c);
+    else if (view === 'nomina') renderPayroll(c);
+    else if (view === 'whatsapp') renderWhatsAppView(c);
+    else if (view === 'dvi') renderDVI(c);
+    else if (view === 'calendario') renderCalendario(c);
+    else if (view === 'marketing') renderMarketing(c);
+    else if (view === 'fleet') renderFleet(c);
+    else if (view === 'sifen-monitor') renderSifenMonitor(c);
+    else if (view === 'whatsapp-monitor') renderWhatsappMonitor(c);
+    else if (view === 'label-printing') { c.innerHTML = '<div id="label-printing-view"></div>'; if (typeof initLabelPrinting === 'function') initLabelPrinting(); }
+    else if (view === 'backup-restore') { c.innerHTML = '<div id="backup-view"></div>'; if (typeof initBackupRestore === 'function') initBackupRestore(); }
+    else if (view === 'security-hw') { c.innerHTML = '<div id="security-hw-view"></div>'; if (typeof initSecurityHw === 'function') initSecurityHw(); }
+    else if (view === 'crm') renderCRM(c);
+  };
+  window.PerfMonitor?.timeView(view, render);
+  // Re-observe lazy-animate elements after view render
+  window.observeLazyElements?.();
 }
 
 /* ─── Servicios (Catálogo) ──────────────── */
@@ -335,6 +392,7 @@ const VIEW_ROLES = {
   calendario: 'manager',
   marketing: 'admin',
   fleet: 'admin',
+  crm: 'manager',
 };
 
 function canAccessView(view) {
@@ -536,7 +594,6 @@ document.addEventListener('click', (e) => {
   if (sidebarBtn) navigate(sidebarBtn.dataset.view);
 
   if (e.target.closest('#logout-btn')) logout();
-  if (e.target.closest('#login-btn')) login();
   if (e.target.closest('#modal-close') || e.target.closest('#modal-cancel') || e.target === dom.modalOverlay) closeModal();
   if (e.target.closest('#payroll-calc-btn')) calcularNomina();
   if (e.target.closest('#add-user-btn')) showUserModal(null);
@@ -674,6 +731,7 @@ document.addEventListener('click', (e) => {
   }
 
   // ── Contabilidad ──
+  const btn = e.target;
   if (btn.classList.contains('contab-tab')) {
     showContabTab(btn.dataset.contabTab);
   }
@@ -1095,12 +1153,22 @@ function closeSidebarMobile() {
   if (!ok) {
     dom.loginScreen.classList.remove('hidden');
   }
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && dom.loginScreen && !dom.loginScreen.classList.contains('hidden')) {
-      const active = document.activeElement;
-      if (active === dom.loginSlug || active === dom.loginEmail || active === dom.loginPassword) login();
-    }
-  });
+
+  // Attach login form validation (if ux.js is loaded)
+  if (typeof attachValidation === 'function' && dom.loginForm) {
+    attachValidation('login-form', {
+      'login-slug': Validators.required('El slug del taller es obligatorio'),
+      'login-email': Validators.required('El correo electrónico es obligatorio'),
+    }, { showToast: false, validateOnInput: false });
+  }
+
+  // Form submit handler (HTML5 form, works with Enter in any field)
+  if (dom.loginForm) {
+    dom.loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      login();
+    });
+  }
 })();
 
 // ═════════════════════════════════════════════════

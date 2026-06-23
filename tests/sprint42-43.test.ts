@@ -384,7 +384,7 @@ describe("Sprint 43 — Frontend Analytics Dashboard", () => {
     const content = fs.readFileSync(fePath, "utf-8");
 
     expect(content).toContain("@module js/analytics-dashboard");
-    expect(content).toContain("/* global api, esc, Chart");
+    expect(content).toContain("/* global api, esc, authHeaders, Chart");
   });
 
   it("exports renderAnalyticsView function", async () => {

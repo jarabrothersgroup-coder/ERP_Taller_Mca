@@ -49,13 +49,13 @@ function renderMechanicDashboard(container) {
 
     <!-- Quick Actions -->
     <div class="grid grid-cols-2 gap-4">
-      <button onclick="navigate('workshop')" class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow hover:border-blue-500/50 transition text-left">
-        <span class="text-2xl">🔧</span>
+      <button onclick="navigate('workshop')" class="group bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow hover:border-blue-500/50 hover:bg-gray-800/50 transition-all duration-150 text-left focus:outline-none focus:ring-2 focus:ring-blue-500/30" aria-label="Ir al Taller">
+        <svg class="w-7 h-7 text-gray-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         <p class="text-sm font-medium text-white mt-2">Ir al Taller</p>
         <p class="text-xs text-gray-500">Vista de bahía</p>
       </button>
-      <button onclick="navigate('thinkcar')" class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow hover:border-blue-500/50 transition text-left">
-        <span class="text-2xl">🚗</span>
+      <button onclick="navigate('thinkcar')" class="group bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow hover:border-blue-500/50 hover:bg-gray-800/50 transition-all duration-150 text-left focus:outline-none focus:ring-2 focus:ring-blue-500/30" aria-label="Diagnóstico Thinkcar">
+        <svg class="w-7 h-7 text-gray-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
         <p class="text-sm font-medium text-white mt-2">Diagnóstico</p>
         <p class="text-xs text-gray-500">Thinkcar OBD2</p>
       </button>
@@ -487,10 +487,16 @@ async function fetchActivityFeed() {
       return;
     }
 
-    const actionIcons = { CREAR: '➕', MODIFICAR: '✏️', ANULAR: '🚫', PAGAR: '💰', EMITIR: '📄' };
+    const actionIcons = {
+      CREAR: '<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>',
+      MODIFICAR: '<svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>',
+      ANULAR: '<svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+      PAGAR: '<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+      EMITIR: '<svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+    };
     feedDiv.innerHTML = entries.map(e => `
       <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800/50 transition">
-        <span class="text-lg flex-shrink-0">${actionIcons[e.accion] || '📋'}</span>
+        <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center">${actionIcons[e.accion] || '<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>'}</span>
         <div class="min-w-0 flex-1">
           <p class="text-xs text-white truncate">${e.accion} — ${e.entidad}</p>
           <p class="text-[10px] text-gray-500">${e.detalle ? e.detalle.slice(0, 60) : '—'}</p>

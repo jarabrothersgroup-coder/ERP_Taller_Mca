@@ -392,6 +392,10 @@ const entityHandlers: Record<string, EntityHandler> = {
  * Conflicts and errors are captured per-operation so a single failure
  * does not block the entire batch.
  *
+ * C-06 FIX: Circuit-breaker — if 3+ consecutive DB/handler errors occur,
+ * stop processing the batch to avoid split-brain writes on a degraded DB.
+ * Remaining operations are marked "failed" with a circuit-open message.
+ *
  * @param operations - Array of queued sync operations
  * @returns Array of sync results (one per operation, in the same order)
  */
@@ -399,6 +403,10 @@ export async function processSyncQueue(
   operations: SyncOperation[],
 ): Promise<SyncResult[]> {
   const results: SyncResult[] = [];
+  // C-06: Circuit-breaker — stops batch after CONSECUTIVE_ERROR_THRESHOLD consecutive errors
+  const CONSECUTIVE_ERROR_THRESHOLD = 3;
+  let consecutiveErrors = 0;
+  let circuitOpen = false;
 
   for (const op of operations) {
     // ── Retry guard ──
@@ -407,6 +415,16 @@ export async function processSyncQueue(
         operationId: op.id,
         status: "failed",
         error: "Max retries exceeded",
+      });
+      continue;
+    }
+
+    // C-06: Circuit-breaker guard — if DB is degraded, fail fast for remaining ops
+    if (circuitOpen) {
+      results.push({
+        operationId: op.id,
+        status: "failed",
+        error: "Circuit breaker open — batch halted due to consecutive errors. Remaining ops queued for next sync cycle.",
       });
       continue;
     }
@@ -430,6 +448,8 @@ export async function processSyncQueue(
         ...result,
         operationId: op.id,
       });
+      // Reset circuit-breaker on success
+      consecutiveErrors = 0;
     } catch (err: unknown) {
       const message =
         err instanceof AppError
@@ -443,6 +463,15 @@ export async function processSyncQueue(
         status: "failed",
         error: message,
       });
+
+      // C-06: Track consecutive errors for circuit-breaker
+      consecutiveErrors++;
+      if (consecutiveErrors >= CONSECUTIVE_ERROR_THRESHOLD) {
+        circuitOpen = true;
+        console.error(
+          `[SYNC] C-06 Circuit breaker OPEN — ${consecutiveErrors} consecutive errors. Halting batch.`,
+        );
+      }
     }
   }
 

@@ -86,6 +86,14 @@ else
     npm run db:migrate 2>&1 || true
 fi
 
+# ── Seed demo data (optional) ────────────────────────────────────────────────
+if [[ "${SEED_DEMO:-}" == "true" ]]; then
+    info "Ejecutando seed de datos de demostración..."
+    TENANT_SLUG="${TENANT_SLUG:-taller-el-chero}"
+    bash scripts/seed-demo-all.sh "$TENANT_SLUG" 2>&1 || warn "Seed tuvo problemas (continuando...)"
+    ok "Datos de demo cargados"
+fi
+
 # ── Crear tablas financieras si no existen ────────────────────────────────────
 info "Verificando tablas financieras..."
 DB_URL="$(grep -oP '^DATABASE_URL="\K[^"]+' .env 2>/dev/null || true)"

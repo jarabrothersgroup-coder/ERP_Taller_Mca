@@ -12,7 +12,7 @@
  * @module js/analytics-dashboard
  */
 
-/* global api, esc, Chart */
+/* global api, esc, authHeaders, Chart */
 
 // ─── State ──────────────────────────────────
 let _analyticsState = {
@@ -41,7 +41,7 @@ function renderAnalyticsView(container) {
       <!-- Header -->
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 class="text-lg font-bold text-white">📊 Analytics</h3>
+          <h3 class="text-lg font-bold text-white"><svg class="w-5 h-5 inline-block -mt-0.5 mr-1.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</h3>
           <p class="text-xs text-gray-500">KPIs, tendencias y reportes del taller</p>
         </div>
         <div class="flex items-center gap-3">
@@ -50,8 +50,8 @@ function renderAnalyticsView(container) {
             <span class="text-gray-600">—</span>
             <input id="analytics-to" type="date" value="${_analyticsState.range.to}" class="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
           </div>
-          <button onclick="analyticsRefresh()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">🔄 Actualizar</button>
-          <button onclick="analyticsExportCSV()" class="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition">📥 CSV</button>
+          <button onclick="analyticsRefresh()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Actualizar</button>
+          <button onclick="analyticsExportCSV()" class="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> CSV</button>
         </div>
       </div>
 
@@ -62,13 +62,13 @@ function renderAnalyticsView(container) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Revenue Trend -->
         <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800">
-          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">💰 Ingresos Diarios</h4>
+          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Ingresos Diarios</h4>
           <div class="h-48"><canvas id="analytics-revenue-chart"></canvas></div>
         </div>
 
         <!-- OT Trend -->
         <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800">
-          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">📋 OTs por Día</h4>
+          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>OTs por Día</h4>
           <div class="h-48"><canvas id="analytics-ot-chart"></canvas></div>
         </div>
       </div>
@@ -76,20 +76,20 @@ function renderAnalyticsView(container) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Status Distribution -->
         <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800">
-          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">📊 Distribución de Estados</h4>
+          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Distribución de Estados</h4>
           <div class="h-48"><canvas id="analytics-status-chart"></canvas></div>
         </div>
 
         <!-- Top Mechanics -->
         <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800">
-          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">🔧 Top Mecánicos</h4>
+          <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"/></svg>Top Mecánicos</h4>
           <div id="analytics-mechanics-list" class="space-y-2"></div>
         </div>
       </div>
 
       <!-- Report Builder -->
       <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800">
-        <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3">📝 Generador de Reportes</h4>
+        <h4 class="text-xs text-gray-500 uppercase tracking-wider mb-3"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Generador de Reportes</h4>
         <div class="flex items-center gap-3 flex-wrap">
           <select id="analytics-report-type" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
             <option value="summary">Resumen General</option>
@@ -98,8 +98,8 @@ function renderAnalyticsView(container) {
             <option value="mechanics">Mecánicos</option>
             <option value="status">Distribución Estados</option>
           </select>
-          <button onclick="analyticsGenerateReport()" class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition">📄 Generar</button>
-          <button onclick="analyticsExportReportCSV()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition">📥 Exportar CSV</button>
+          <button onclick="analyticsGenerateReport()" class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Generar</button>
+          <button onclick="analyticsExportReportCSV()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition flex items-center gap-1.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Exportar CSV</button>
         </div>
         <div id="analytics-report-result" class="mt-3 hidden"></div>
       </div>
@@ -163,14 +163,14 @@ function renderKPIs() {
   if (!container) return;
 
   const kpis = _analyticsState.kpis;
-  const icons = ["💰", "📋", "🎫", "✅"];
+  const icons = ['<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>', '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>', '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'];
   const colors = ["text-green-400", "text-blue-400", "text-yellow-400", "text-purple-400"];
 
   container.innerHTML = kpis.map((kpi, i) => `
     <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-800 card-glow">
       <div class="flex items-center justify-between mb-2">
         <span class="text-xs text-gray-500 uppercase tracking-wider">${kpi.label}</span>
-        <span class="text-lg">${icons[i] || "📊"}</span>
+        <span class="text-lg">${icons[i] || '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>'}</span>
       </div>
       <div class="text-2xl font-bold ${colors[i] || "text-white"}">
         ${kpi.unit === "Gs." ? "Gs. " : ""}${typeof kpi.value === "number" ? kpi.value.toLocaleString("es-PY") : kpi.value}${kpi.unit === "%" ? "%" : ""}
@@ -372,7 +372,7 @@ async function analyticsExportReportCSV() {
   try {
     const response = await fetch(`/analytics/report/csv`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ type, from, to }),
     });
 
@@ -384,7 +384,7 @@ async function analyticsExportReportCSV() {
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
-    alert(`Error exportando: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error exportando: ${err.message}`, 'error');
   }
 }
 
@@ -394,7 +394,7 @@ async function analyticsExportCSV() {
   try {
     const response = await fetch(`/analytics/report/csv`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ type: "revenue", from, to }),
     });
 
@@ -406,7 +406,7 @@ async function analyticsExportCSV() {
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
-    alert(`Error exportando: ${err.message}`);
+    if (typeof showToast === 'function') showToast(`Error exportando: ${err.message}`, 'error');
   }
 }
 

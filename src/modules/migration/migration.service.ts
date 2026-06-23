@@ -15,14 +15,14 @@
  */
 
 import { db, sql } from "../../shared/database/drizzle.js";
+import { planCuentas } from "../../shared/database/schema/index.js";
 import {
-  planCuentas,
   serviciosCatalogo,
   serviceCategories,
   servicePricingRules,
   serviceBrandMap,
   rhServiceHours,
-} from "../../shared/database/schema/index.js";
+} from "../workshop/schema/index.js";
 import { eq } from "drizzle-orm";
 import type {
   ExportableTable,

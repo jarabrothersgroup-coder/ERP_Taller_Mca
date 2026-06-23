@@ -239,3 +239,12 @@ export function stopBluetoothListener(): void {
   }
   _consecutiveBtFailures = 0;
 }
+
+// C-09 FIX: Register shutdown hooks to prevent zombie Bluetooth listeners.
+// These ensure the poll timer and child processes are cleaned up on server exit.
+if (typeof process !== "undefined" && process.on) {
+  const _shutdown = (): void => stopBluetoothListener();
+  process.on("SIGTERM", _shutdown);
+  process.on("SIGINT", _shutdown);
+  process.on("exit", _shutdown);
+}

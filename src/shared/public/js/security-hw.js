@@ -21,7 +21,7 @@ function initSecurityHw() {
 function renderSecurityModule() {
   return '<div class="max-w-5xl mx-auto p-6 space-y-6">' +
     '<div class="flex items-center gap-3 mb-6">' +
-      '<span class="text-2xl">🛡️</span>' +
+      '<svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
       '<div>' +
         '<h2 class="text-xl font-bold text-white">Blindaje de Seguridad por Hardware</h2>' +
         '<p class="text-sm text-gray-400">Vínculo USB, Kill Switch y Fingerprinting del servidor</p>' +
@@ -45,19 +45,21 @@ function renderSecurityStatus() {
   var statusColor = isProtected ? 'border-green-600 bg-green-900/20' : 'border-red-600 bg-red-900/20';
   var statusText = isProtected ? 'PROTEGIDO' : 'VULNERABLE';
   var statusTextColor = isProtected ? 'text-green-400' : 'text-red-400';
-  var statusIcon = isProtected ? '🔒' : '🔓';
+  var statusIcon = isProtected
+    ? '<svg class="w-8 h-8 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>'
+    : '<svg class="w-8 h-8 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>';
 
   return '<div class="' + statusColor + ' border rounded-xl p-6 text-center">' +
     '<div class="text-5xl mb-3">' + statusIcon + '</div>' +
     '<h3 class="text-2xl font-bold ' + statusTextColor + '">' + statusText + '</h3>' +
     '<p class="text-sm text-gray-400 mt-2">' + esc(s?.security?.message || 'Verificando estado de seguridad...') + '</p>' +
     '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">' +
-      statusInfoCard('🖥️', 'Hostname', s?.system?.hostname || '—') +
-      statusInfoCard('🔧', 'Placa Madre', truncateUuid(s?.hardware?.motherboardUuid)) +
-      statusInfoCard('💾', 'Disco', truncateUuid(s?.hardware?.diskSerial)) +
-      statusInfoCard('🔌', 'USB Serial', s?.usb?.usbSerial || 'No detectado') +
+      statusInfoCard('<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>', 'Hostname', s?.system?.hostname || '—') +
+      statusInfoCard('<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/></svg>', 'Placa Madre', truncateUuid(s?.hardware?.motherboardUuid)) +
+      statusInfoCard('<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>', 'Disco', truncateUuid(s?.hardware?.diskSerial)) +
+      statusInfoCard('<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>', 'USB Serial', s?.usb?.usbSerial || 'No detectado') +
     '</div>' +
-    '<button onclick="refreshSecurityStatus()" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition">🔄 Verificar Ahora</button>' +
+    '<button onclick="refreshSecurityStatus()" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition flex items-center gap-2 mx-auto"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Verificar Ahora</button>' +
   '</div>';
 }
 
@@ -89,11 +91,11 @@ function renderUsbManagement() {
       }).join('');
 
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
-    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><span>🔌</span> Gestión USB Dongle</h3>' +
+    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg> Gesti&oacute;n USB Dongle</h3>' +
     '<div class="space-y-3">' +
       '<div class="max-h-32 overflow-y-auto space-y-2">' + deviceList + '</div>' +
-      '<button onclick="showSetupWizard()" class="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition">🔑 Configurar Dongle</button>' +
-      '<button onclick="generateToken()" class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition">📋 Generar Token</button>' +
+      '<button onclick="showSetupWizard()" class="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4v-4l5.743-5.743A6 6 0 1121 9z"/></svg> Configurar Dongle</button>' +
+      '<button onclick="generateToken()" class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition flex items-center gap-2 justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> Generar Token</button>' +
       '<div id="token-display" class="hidden bg-gray-900/50 rounded-lg p-3 border border-gray-700/30">' +
         '<label class="text-xs text-gray-500">Token generado:</label>' +
         '<pre id="token-value" class="text-xs text-green-300 font-mono mt-1 break-all select-all max-h-20 overflow-y-auto"></pre>' +
@@ -111,7 +113,7 @@ async function generateToken() {
     if (display) display.classList.remove('hidden');
     if (value) value.textContent = resp.token;
   } catch (err) {
-    alert('Error generando token: ' + err.message);
+    if (typeof showToast === 'function') showToast('Error generando token: ' + err.message, 'error');
   }
 }
 
@@ -140,7 +142,7 @@ function showSetupWizard() {
 async function executeSetup() {
   var name = document.getElementById('dongle-name')?.value.trim();
   var mount = document.getElementById('dongle-mount')?.value;
-  if (!name) { alert('Ingrese un nombre para el dongle'); return; }
+  if (!name) { if (typeof showToast === 'function') showToast('Ingrese un nombre para el dongle', 'warning'); return; }
 
   try {
     var resp = await api('/security/hw/setup', {
@@ -149,13 +151,13 @@ async function executeSetup() {
       body: JSON.stringify({ usbMountPoint: mount, nombre: name }),
     });
     if (resp.success) {
-      alert('✅ Dongle configurado correctamente.\n\n' + (resp.instructions || []).join('\n'));
+      if (typeof showToast === 'function') showToast('Dongle configurado correctamente', 'success');
       refreshSecurityStatus();
     } else {
-      alert('Error: ' + (resp.error || 'No se pudo configurar'));
+      if (typeof showToast === 'function') showToast(resp.error || 'No se pudo configurar', 'error');
     }
   } catch (err) {
-    alert('Error: ' + err.message);
+    if (typeof showToast === 'function') showToast(err.message, 'error');
   }
 }
 
@@ -164,15 +166,15 @@ async function executeSetup() {
 function renderHardwareFingerprint() {
   var hw = _secState.status?.hardware || {};
   var rows = [
-    { label: 'Placa Madre UUID', value: hw.motherboardUuid, icon: '🔧' },
-    { label: 'CPU Serial', value: hw.cpuSerial, icon: '⚙️' },
-    { label: 'Disco Serial', value: hw.diskSerial, icon: '💾' },
-    { label: 'Hostname', value: _secState.status?.system?.hostname, icon: '🖥️' },
-    { label: 'Plataforma', value: _secState.status?.system?.platform, icon: '💻' },
+    { label: 'Placa Madre UUID', value: hw.motherboardUuid, icon: '<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/></svg>' },
+    { label: 'CPU Serial', value: hw.cpuSerial, icon: '<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/></svg>' },
+    { label: 'Disco Serial', value: hw.diskSerial, icon: '<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>' },
+    { label: 'Hostname', value: _secState.status?.system?.hostname, icon: '<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' },
+    { label: 'Plataforma', value: _secState.status?.system?.platform, icon: '<svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>' },
   ];
 
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
-    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><span>🔍</span> Fingerprint del Hardware</h3>' +
+    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg> Fingerprint del Hardware</h3>' +
     '<div class="space-y-2">' +
       rows.map(function(r) {
         return '<div class="flex items-center justify-between p-2 bg-gray-900/50 rounded-lg">' +
@@ -181,7 +183,7 @@ function renderHardwareFingerprint() {
         '</div>';
       }).join('') +
     '</div>' +
-    '<button onclick="copyFingerprint()" class="w-full mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs transition">📋 Copiar Fingerprint</button>' +
+    '<button onclick="copyFingerprint()" class="w-full mt-3 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs transition flex items-center gap-2 justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> Copiar Fingerprint</button>' +
   '</div>';
 }
 
@@ -206,7 +208,7 @@ function renderKillSwitchControl() {
   var statusLabel = active ? 'ACTIVO — Sistema bloqueado' : 'Inactivo — Sistema operativo';
 
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
-    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><span>🚨</span> Kill Switch</h3>' +
+    '<h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2"><svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Kill Switch</h3>' +
     '<div class="flex items-center justify-between mb-3">' +
       '<div class="flex items-center gap-2">' +
         '<div class="w-3 h-3 rounded-full ' + dotColor + '"></div>' +
@@ -214,7 +216,7 @@ function renderKillSwitchControl() {
       '</div>' +
     '</div>' +
     '<p class="text-xs text-gray-500 mb-3">Si el USB del taller es retirado físicamente, el sistema entrará en <strong class="text-red-400">Aislamiento Defensivo Definitivo</strong>: todas las sesiones serán destruidas y las conexiones bloqueadas.</p>' +
-    '<button onclick="emergencyReset()" class="w-full px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-800/30 rounded-lg text-xs font-medium transition">🔓 Reset de Emergencia (requiere confirmación)</button>' +
+    '<button onclick="emergencyReset()" class="w-full px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-800/30 rounded-lg text-xs font-medium transition flex items-center gap-2 justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg> Reset de Emergencia (requiere confirmaci&oacute;n)</button>' +
   '</div>';
 }
 
@@ -251,8 +253,8 @@ function renderAuditLog() {
 
   return '<div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">' +
     '<div class="flex items-center justify-between mb-4">' +
-      '<h3 class="text-sm font-semibold text-white flex items-center gap-2"><span>📋</span> Auditoría de Seguridad</h3>' +
-      '<button onclick="refreshAuditLog()" class="text-xs text-gray-400 hover:text-white">🔄 Actualizar</button>' +
+      '<h3 class="text-sm font-semibold text-white flex items-center gap-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg> Auditor&iacute;a de Seguridad</h3>' +
+      '<button onclick="refreshAuditLog()" class="text-xs text-gray-400 hover:text-white flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Actualizar</button>' +
     '</div>' +
     '<div class="max-h-60 overflow-y-auto">' + rows + '</div>' +
   '</div>';

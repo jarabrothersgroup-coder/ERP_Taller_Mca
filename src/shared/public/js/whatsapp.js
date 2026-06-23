@@ -24,31 +24,31 @@ const whatsappState = {
 const WA_TEMPLATES = {
   RECEPCIONADO: {
     label: 'Recepción',
-    icon: '🚗',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11h18l-2.25 6.75a2 2 0 01-2 1.25H7.25a2 2 0 01-2-1.25L3 11z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11l1.5-4.5A2 2 0 016.5 5h11a2 2 0 012 1.5L21 11"/></svg>',
     color: 'blue',
     estado: 'RECEPCIONADO',
   },
   PRESUPUESTADO: {
     label: 'Presupuesto',
-    icon: '📋',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>',
     color: 'yellow',
     estado: 'PRESUPUESTADO',
   },
   EN_REPARACION: {
     label: 'Taller',
-    icon: '🔧',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"/></svg>',
     color: 'orange',
     estado: 'EN_REPARACION',
   },
   LISTO_ENTREGA: {
     label: 'Control Calidad',
-    icon: '✅',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
     color: 'purple',
     estado: 'LISTO_ENTREGA',
   },
   FINALIZADO_RETIRADO: {
     label: 'Caja/Salida',
-    icon: '💳',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>',
     color: 'green',
     estado: 'FINALIZADO_RETIRADO',
   },
@@ -66,7 +66,7 @@ function renderWhatsAppConfig(container) {
   section.innerHTML = `
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-3">
-        <span class="text-2xl">💬</span>
+        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         <div>
           <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">WhatsApp Business</h3>
           <p class="text-xs text-gray-600">Conecta el teléfono del taller para enviar notificaciones</p>
@@ -92,7 +92,7 @@ function renderWhatsAppConfig(container) {
     </div>
     <div id="wa-connected-area" class="hidden">
       <div class="text-center py-4">
-        <div class="text-4xl mb-2">✅</div>
+        <svg class="w-10 h-10 mx-auto mb-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <p class="text-sm text-green-400 font-medium">WhatsApp Conectado</p>
         <p class="text-xs text-gray-500 mt-1" id="wa-phone-display"></p>
       </div>
@@ -101,7 +101,7 @@ function renderWhatsAppConfig(container) {
       <div class="text-center py-4">
         <p class="text-sm text-gray-500 mb-4">No hay dispositivo conectado</p>
         <button id="wa-connect-btn" class="px-6 py-2.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition flex items-center gap-2 mx-auto">
-          <span>📱</span> Conectar Dispositivo
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> Conectar Dispositivo
         </button>
       </div>
     </div>
@@ -267,7 +267,7 @@ function createWhatsAppButton(ordenId, currentStatus, orderData = {}) {
       data-order='${JSON.stringify(orderData).replace(/'/g, "&#39;")}'
       title="Enviar mensaje por WhatsApp"
     >
-      <span>💬</span> WhatsApp
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> WhatsApp
     </button>
   `;
 }
@@ -328,14 +328,14 @@ function openWhatsAppPreview(ordenId, templateKey, orderData = {}) {
 
       ${templateKey === 'PRESUPUESTADO' ? `
       <div class="bg-yellow-900/20 border border-yellow-800/30 rounded-lg p-3">
-        <p class="text-xs text-yellow-400">📄 Se adjuntará el PDF del presupuesto automáticamente</p>
+        <p class="text-xs text-yellow-400"><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Se adjuntará el PDF del presupuesto automáticamente</p>
       </div>
       ` : ''}
 
       <div class="flex gap-3">
         <button id="wa-modal-cancel" class="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition">Cancelar</button>
         <button id="wa-modal-send" class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2">
-          <span>💬</span> Enviar Ahora
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg> Enviar Ahora
         </button>
       </div>
 
@@ -479,7 +479,7 @@ function renderWhatsAppView(container) {
       <div class="bg-gray-900/60 rounded-xl p-5 border border-gray-800 card-glow">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <span class="text-2xl">💬</span>
+        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
             <div>
               <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Estado de Conexión</h3>
               <p class="text-xs text-gray-600">WhatsApp Business via Evolution API</p>
@@ -505,7 +505,7 @@ function renderWhatsAppView(container) {
 
         <!-- Connected Area -->
         <div id="wa-view-connected" class="hidden text-center py-4">
-          <div class="text-4xl mb-2">✅</div>
+        <svg class="w-10 h-10 mx-auto mb-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <p class="text-sm text-green-400 font-medium">WhatsApp Conectado</p>
           <p class="text-xs text-gray-500 mt-1" id="wa-view-phone"></p>
         </div>
@@ -514,7 +514,7 @@ function renderWhatsAppView(container) {
         <div id="wa-view-disconnected" class="text-center py-4">
           <p class="text-sm text-gray-500 mb-4">Conecta el teléfono del taller para enviar notificaciones a clientes</p>
           <button id="wa-view-connect-btn" class="px-6 py-2.5 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition flex items-center gap-2 mx-auto">
-            <span>📱</span> Conectar Dispositivo
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> Conectar Dispositivo
           </button>
         </div>
 

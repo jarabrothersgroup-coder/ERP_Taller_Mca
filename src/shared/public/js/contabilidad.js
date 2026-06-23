@@ -1,3 +1,120 @@
+// ═════════════════════════════════════════════════
+//  CONTABILIDAD (Refactored)
+// ═════════════════════════════════════════════════
+
+// ─── Shared utilities ──────────────────────────
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const ANHOS = [2024, 2025, 2026, 2027];
+
+function contMonthSelect(id, selected) {
+  const now = selected || new Date().getMonth() + 1;
+  return `<select id="${id}" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+    ${MESES.map((m, i) => `<option value="${i + 1}" ${i + 1 === now ? 'selected' : ''}>${m}</option>`).join('')}
+  </select>`;
+}
+
+function contYearSelect(id, selected) {
+  const now = selected || new Date().getFullYear();
+  return `<select id="${id}" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+    ${ANHOS.map(a => `<option value="${a}" ${a === now ? 'selected' : ''}>${a}</option>`).join('')}
+  </select>`;
+}
+
+function contModal(title, content) {
+  dom.modalContent.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-lg font-bold">${title}</h3>
+      <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
+    </div>
+    ${content}`;
+  dom.modalOverlay.classList.remove('hidden');
+  document.getElementById('modal-close')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
+}
+
+function contTable(headers, rows) {
+  return `
+    <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+            ${headers.map(h => `<th class="${h.align === 'right' ? 'text-right' : h.align === 'center' ? 'text-center' : 'text-left'} px-3 py-2">${h.label}</th>`).join('')}
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function contError(container, msg) {
+  container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(msg)}</div>`;
+}
+
+function contLoading(text) {
+  return `<div class="text-center py-8 text-gray-500">${text || 'Cargando...'}</div>`;
+}
+
+function contImpResult(result, title, fields) {
+  if (!result) return '<div class="text-center py-8 text-gray-500">Haz clic en "Calcular"</div>';
+  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
+    <h4 class="font-bold text-sm mb-3">${esc(title)}</h4>
+    <div class="grid grid-cols-2 gap-2 text-sm">${fields.map(f => `
+      <div class="bg-gray-800/50 rounded-lg p-2">
+        <p class="text-xs text-gray-500 uppercase tracking-wider">${esc(f.label)}</p>
+        <p class="font-bold text-${f.color || 'white'}-400 mt-1">${f.prefix || '₲ '}${f.value.toLocaleString?.('es-PY') ?? f.value}</p>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function contHistorial(items, columns) {
+  if (!items || !items.length) return '<div class="text-center py-6 text-gray-500 text-sm">Sin liquidaciones previas</div>';
+  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden mt-3">
+    <p class="text-xs text-gray-500 uppercase tracking-wider px-3 pt-3 pb-1">Historial</p>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
+        ${columns.map(c => `<th class="text-${c.align || 'left'} px-3 py-2">${c.label}</th>`).join('')}
+      </tr></thead>
+      <tbody>${items.map(r => `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+        ${columns.map(c => `<td class="px-3 py-2 text-${c.align || 'left'} font-${c.font || 'normal'} text-xs">${c.render ? c.render(r) : r[c.field]}</td>`).join('')}
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function contPagination(totalPages, currentPage, prefix) {
+  if (!totalPages || totalPages <= 1) return '';
+  let pages = '';
+  for (let i = 1; i <= totalPages; i++) {
+    pages += `<button class="page-btn px-3 py-1 rounded text-xs font-medium transition ${
+      i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+    }" data-page="${i}" data-prefix="${prefix}">${i}</button>`;
+  }
+  return `<div class="flex items-center justify-center gap-2 mt-4">${pages}</div>`;
+}
+
+// ─── Fiscal form pattern ──────────────────────
+
+function contFiscalForm(config) {
+  const { id, monthSelect, selects, buttonLabel, btnId, resultId, histId } = config;
+  const selectHtml = selects.map(s => {
+    if (s.type === 'month') return contMonthSelect(s.id, s.selected);
+    if (s.type === 'year') return contYearSelect(s.id, s.selected);
+    if (s.type === 'custom') return s.html;
+    return '';
+  }).join('');
+  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      ${selectHtml}
+      <button id="${btnId}" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">${buttonLabel}</button>
+    </div>
+    <div id="${resultId}"></div>
+    <div id="${histId}"></div>
+  </div>`;
+}
+
+// ─── Tabs ──────────────────────────────────────
+
 function renderContabilidad(container) {
   container.innerHTML = `
     <div class="flex items-center justify-between mb-4">
@@ -11,7 +128,39 @@ function renderContabilidad(container) {
       `).join('')}
     </div>
     <div id="contab-content" class="space-y-4"></div>`;
+
+  // Event delegation for sub-tab actions
+  container.addEventListener('click', contabHandleAction);
   showContabTab('cuentas');
+}
+
+function contabHandleAction(e) {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+  const id = target.dataset.id;
+
+  switch (action) {
+    case 'nueva-cuenta': mostrarModalNuevaCuenta(); break;
+    case 'nuevo-asiento': mostrarModalNuevoAsiento(); break;
+    case 'desactivar-cuenta': desactivarCuenta(id); break;
+    case 'ver-asiento': showAsientoModal(id); break;
+    case 'anular-asiento': anularAsiento(id); break;
+    case 'agregar-linea': agregarLineaAsiento(); break;
+    case 'cargar-balance': cargarBalance(); break;
+    case 'cargar-pnl': cargarPnL(); break;
+    case 'cargar-libro': cargarLibro(); break;
+    case 'calcular-form120': calcularForm120(); break;
+    case 'calcular-ire': calcularIre(); break;
+    case 'calcular-idu': calcularIdu(); break;
+    case 'calcular-isc': calcularIsc(); break;
+    case 'calcular-inr': calcularInr(); break;
+    case 'filtrar-asientos': contabFiltrarAsientos(); break;
+    case 'limpiar-filtros': contabLimpiarFiltros(); break;
+    case 'cargar-audit': auditPage = 0; cargarAuditoria(); break;
+    case 'audit-prev': if (auditPage > 0) { auditPage--; cargarAuditoria(); } break;
+    case 'audit-next': auditPage++; cargarAuditoria(); break;
+  }
 }
 
 function showContabTab(tab) {
@@ -25,7 +174,7 @@ function showContabTab(tab) {
   });
   const content = document.querySelector('#contab-content');
   if (!content) return;
-  content.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  content.innerHTML = contLoading();
   if (tab === 'cuentas') renderContabCuentas(content);
   else if (tab === 'asientos') renderContabAsientos(content);
   else if (tab === 'balance') renderContabBalance(content);
@@ -43,24 +192,20 @@ async function renderContabCuentas(container) {
     container.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-400">Plan de Cuentas — Árbol Jerárquico</p>
-        <button id="btn-nueva-cuenta" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nueva Cuenta</button>
+        <button data-action="nueva-cuenta" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nueva Cuenta</button>
       </div>
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">Código</th>
-              <th class="text-left px-4 py-3">Nombre</th>
-              <th class="text-left px-4 py-3">Tipo</th>
-              <th class="text-right px-4 py-3">Saldo Inicial</th>
-              <th class="text-right px-4 py-3">Acción</th>
-            </tr></thead>
-            <tbody>${renderArbolRows(arbol)}</tbody>
-          </table>
-        </div>
-      </div>`;
+      ${contTable(
+        [
+          { label: 'Código' },
+          { label: 'Nombre' },
+          { label: 'Tipo' },
+          { label: 'Saldo Inicial', align: 'right' },
+          { label: 'Acción', align: 'right' },
+        ],
+        renderArbolRows(arbol)
+      )}`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(container, e.message);
   }
 }
 
@@ -81,7 +226,7 @@ function renderArbolRows(cuentas, depth = 0) {
     const movIndicator = c.aceptaMovimientos ? '<span class="text-green-500 text-xs ml-1" title="Acepta movimientos">✓</span>' : '';
     const childrenHtml = c.children ? renderArbolRows(c.children, depth + 1) : '';
     const accionBtn = c.activo !== false && c.aceptaMovimientos
-      ? `<button class="btn-desactivar-cuenta text-red-500 hover:text-red-400 text-xs" data-cuenta-id="${c.id}" title="Desactivar cuenta">✕</button>`
+      ? `<button class="text-red-500 hover:text-red-400 text-xs" data-action="desactivar-cuenta" data-id="${c.id}" title="Desactivar cuenta">✕</button>`
       : c.activo === false ? '<span class="text-gray-600 text-xs">Inactiva</span>' : '';
     return `
       <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
@@ -107,7 +252,7 @@ async function renderContabAsientos(container) {
     container.innerHTML = `
       <div class="flex items-center justify-between mb-4">
         <p class="text-sm text-gray-400">${total || 0} asiento(s) encontrado(s)</p>
-        <button id="btn-nuevo-asiento" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nuevo Asiento</button>
+        <button data-action="nuevo-asiento" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">+ Nuevo Asiento</button>
       </div>
       <div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4 mb-4">
         <div class="flex flex-wrap items-center gap-3">
@@ -121,30 +266,26 @@ async function renderContabAsientos(container) {
             <option value="CONTABILIDAD">Contabilidad</option>
             <option value="SISTEMA">Sistema</option>
           </select>
-          <button id="btn-filtrar-asientos" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Filtrar</button>
-          <button id="btn-limpiar-filtros" class="px-3 py-2 text-gray-500 hover:text-gray-300 text-sm transition">Limpiar</button>
+          <button data-action="filtrar-asientos" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Filtrar</button>
+          <button data-action="limpiar-filtros" class="px-3 py-2 text-gray-500 hover:text-gray-300 text-sm transition">Limpiar</button>
         </div>
       </div>
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-              <th class="text-left px-4 py-3">#</th>
-              <th class="text-left px-4 py-3">Fecha</th>
-              <th class="text-left px-4 py-3">Concepto</th>
-              <th class="text-right px-4 py-3">Debe</th>
-              <th class="text-right px-4 py-3">Haber</th>
-              <th class="text-left px-4 py-3">Estado</th>
-              <th class="text-left px-4 py-3">Módulo</th>
-              <th class="text-right px-4 py-3">Acción</th>
-            </tr></thead>
-            <tbody>${renderAsientosRows(data)}</tbody>
-          </table>
-        </div>
-      </div>
-      ${renderPagination(totalPages, asientosPage, 'asientos')}`;
+      ${contTable(
+        [
+          { label: '#' },
+          { label: 'Fecha' },
+          { label: 'Concepto' },
+          { label: 'Debe', align: 'right' },
+          { label: 'Haber', align: 'right' },
+          { label: 'Estado' },
+          { label: 'Módulo' },
+          { label: 'Acción', align: 'right' },
+        ],
+        renderAsientosRows(data)
+      )}
+      ${contPagination(totalPages, asientosPage, 'asientos')}`;
   } catch (e) {
-    container.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(container, e.message);
   }
 }
 
@@ -163,26 +304,31 @@ function renderAsientosRows(data) {
       <td class="px-4 py-3"><span class="text-xs font-medium ${estadoColor}">${a.estado}</span></td>
       <td class="px-4 py-3 text-xs text-gray-400">${a.moduloOrigen || '—'}</td>
       <td class="px-4 py-3 text-right">
-        <button class="view-asiento-btn text-blue-400 hover:text-blue-300 text-xs" data-id="${a.id}">Ver</button>
-        ${a.estado !== 'ANULADO' ? `<button class="anular-asiento-btn text-red-400 hover:text-red-300 text-xs ml-2" data-id="${a.id}">Anular</button>` : ''}
+        <button class="text-blue-400 hover:text-blue-300 text-xs" data-action="ver-asiento" data-id="${a.id}">Ver</button>
+        ${a.estado !== 'ANULADO' ? `<button class="text-red-400 hover:text-red-300 text-xs ml-2" data-action="anular-asiento" data-id="${a.id}">Anular</button>` : ''}
       </td>
     </tr>`;
   }).join('');
 }
 
-function renderPagination(totalPages, currentPage, prefix) {
-  if (!totalPages || totalPages <= 1) return '';
-  let pages = '';
-  for (let i = 1; i <= totalPages; i++) {
-    pages += `<button class="page-btn px-3 py-1 rounded text-xs font-medium transition ${
-      i === currentPage ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-    }" data-page="${i}" data-prefix="${prefix}">${i}</button>`;
-  }
-  return `<div class="flex items-center justify-center gap-2 mt-4">${pages}</div>`;
+function contabFiltrarAsientos() {
+  asientosFilter = {
+    desde: document.querySelector('#filtro-asientos-desde')?.value || '',
+    hasta: document.querySelector('#filtro-asientos-hasta')?.value || '',
+    modulo: document.querySelector('#filtro-asientos-modulo')?.value || '',
+  };
+  asientosPage = 1;
+  showContabTab('asientos');
+}
+
+function contabLimpiarFiltros() {
+  asientosFilter = {};
+  asientosPage = 1;
+  showContabTab('asientos');
 }
 
 async function showAsientoModal(asientoId) {
-  dom.modalContent.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando detalle...</div>';
+  dom.modalContent.innerHTML = contLoading('Cargando detalle...');
   dom.modalOverlay.classList.remove('hidden');
   try {
     const asiento = await api(`/finance/contabilidad/asientos/${asientoId}`);
@@ -241,8 +387,21 @@ async function showAsientoModal(asientoId) {
         </div>
         <button id="modal-close-bottom" class="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm mt-2 transition">Cerrar</button>
       </div>`;
+    document.getElementById('modal-close')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
+    document.getElementById('modal-close-bottom')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
   } catch (e) {
     dom.modalContent.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+async function anularAsiento(asientoId) {
+  if (!confirm('¿Anular este asiento contable? Esta acción es irreversible.')) return;
+  try {
+    await api(`/finance/contabilidad/asientos/${asientoId}/anular`, { method: 'POST' });
+    showContabTab('asientos');
+    if (typeof showToast === 'function') showToast('Asiento anulado', 'success');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(`Error: ${e.message}`, 'error');
   }
 }
 
@@ -254,15 +413,16 @@ async function renderContabBalance(container) {
     <div class="flex items-center gap-3 mb-4">
       <p class="text-sm text-gray-400">Balance General al:</p>
       <input id="balance-fecha" type="date" value="${today}" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-      <button id="btn-cargar-balance" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
+      <button data-action="cargar-balance" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
     </div>
     <div id="balance-result" class="text-center py-8 text-gray-500">Selecciona una fecha y haz clic en "Cargar"</div>`;
 }
 
-async function cargarBalance(fecha) {
+async function cargarBalance() {
+  const fecha = document.querySelector('#balance-fecha')?.value;
   const resultDiv = document.querySelector('#balance-result');
-  if (!resultDiv) return;
-  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  if (!resultDiv || !fecha) return;
+  resultDiv.innerHTML = contLoading();
   try {
     const b = await api(`/finance/contabilidad/balance-general/${fecha}`);
     const fmt = (n) => '₲ ' + (n || 0).toLocaleString('es-PY', { minimumFractionDigits: 0 });
@@ -317,7 +477,7 @@ async function cargarBalance(fecha) {
         </div>
       </div>`;
   } catch (e) {
-    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(resultDiv, e.message);
   }
 }
 
@@ -325,31 +485,26 @@ async function cargarBalance(fecha) {
 
 async function renderContabResultados(container) {
   const now = new Date();
-  const anho = now.getFullYear();
-  const mes = now.getMonth() + 1;
   container.innerHTML = `
     <div class="flex items-center gap-3 mb-4 flex-wrap">
       <p class="text-sm text-gray-400">Período:</p>
-      <select id="pnl-mes" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) =>
-          `<option value="${i + 1}" ${i + 1 === mes ? 'selected' : ''}>${m}</option>`
-        ).join('')}
-      </select>
-      <select id="pnl-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024, 2025, 2026, 2027].map(a => `<option value="${a}" ${a === anho ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
+      ${contMonthSelect('pnl-mes')}
+      ${contYearSelect('pnl-anho')}
       <label class="flex items-center gap-2 text-sm text-gray-400">
         <input type="checkbox" id="pnl-acumulado" class="accent-blue-500"> Acumulado anual
       </label>
-      <button id="btn-cargar-pnl" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
+      <button data-action="cargar-pnl" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
     </div>
     <div id="pnl-result" class="text-center py-8 text-gray-500">Selecciona un período y haz clic en "Cargar"</div>`;
 }
 
-async function cargarPnL(anho, mes, acumulado) {
+async function cargarPnL() {
+  const anho = parseInt(document.querySelector('#pnl-anho')?.value, 10);
+  const mes = parseInt(document.querySelector('#pnl-mes')?.value, 10);
+  const acumulado = document.querySelector('#pnl-acumulado')?.checked;
   const resultDiv = document.querySelector('#pnl-result');
-  if (!resultDiv) return;
-  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  if (!resultDiv || !anho || !mes) return;
+  resultDiv.innerHTML = contLoading();
   try {
     const p = await api(`/finance/contabilidad/estado-resultados/${anho}/${mes}${acumulado ? '?acumulado=true' : ''}`);
     const fmt = (n) => '₲ ' + (n || 0).toLocaleString('es-PY', { minimumFractionDigits: 0 });
@@ -385,7 +540,7 @@ async function cargarPnL(anho, mes, acumulado) {
         </div>
       </div>`;
   } catch (e) {
-    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(resultDiv, e.message);
   }
 }
 
@@ -406,26 +561,23 @@ async function renderContabLibros(container) {
       `).join('')}
     </div>
     <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="libros-mes" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) =>
-          `<option value="${i + 1}" ${i + 1 === librosMes ? 'selected' : ''}>${m}</option>`
-        ).join('')}
-      </select>
-      <select id="libros-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024, 2025, 2026, 2027].map(a => `<option value="${a}" ${a === librosAnho ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
+      ${contMonthSelect('libros-mes', librosMes)}
+      ${contYearSelect('libros-anho', librosAnho)}
       <select id="libros-cuenta" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white hidden" aria-label="Filtrar por cuenta">
         <option value="">Todas las cuentas</option>
       </select>
-      <button id="btn-cargar-libro" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
+      <button data-action="cargar-libro" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
     </div>
     <div id="libros-result" class="text-center py-8 text-gray-500">Selecciona período y haz clic en "Cargar"</div>`;
 }
 
-async function cargarLibro(anho, mes, cuentaCodigo) {
+async function cargarLibro() {
+  const anho = parseInt(document.querySelector('#libros-anho')?.value, 10);
+  const mes = parseInt(document.querySelector('#libros-mes')?.value, 10);
+  const cuentaCodigo = document.querySelector('#libros-cuenta')?.value;
   const resultDiv = document.querySelector('#libros-result');
-  if (!resultDiv) return;
-  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  if (!resultDiv || !anho || !mes) return;
+  resultDiv.innerHTML = contLoading();
   try {
     if (librosTabActivo === 'diario') {
       const data = await api(`/finance/contabilidad/libro-diario/${anho}/${mes}?formato=JSON`);
@@ -439,100 +591,86 @@ async function cargarLibro(anho, mes, cuentaCodigo) {
       resultDiv.innerHTML = renderLibroInventario(data);
     }
   } catch (e) {
-    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(resultDiv, e.message);
   }
 }
 
 function renderLibroDiario(data) {
   const asientos = data?.data || data?.asientos || data || [];
   if (!Array.isArray(asientos) || !asientos.length) return '<div class="text-center py-8 text-gray-500">No hay asientos en este período</div>';
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-          <th class="text-left px-3 py-2">Fecha</th>
-          <th class="text-left px-3 py-2">#</th>
-          <th class="text-left px-3 py-2">Concepto</th>
-          <th class="text-left px-3 py-2">Cuenta</th>
-          <th class="text-right px-3 py-2">Debe</th>
-          <th class="text-right px-3 py-2">Haber</th>
-        </tr></thead>
-        <tbody>${asientos.flatMap(a => {
-          const lineas = a.lineas || a.detalles || [];
-          if (!lineas.length) return `<tr class="border-b border-gray-800/50">
-            <td class="px-3 py-2 text-xs">${new Date(a.fecha).toLocaleDateString('es-PY')}</td>
-            <td class="px-3 py-2 font-mono text-xs text-gray-400">${a.numero}</td>
-            <td class="px-3 py-2 text-xs" colspan="4">${esc(a.concepto)}</td>
-          </tr>`;
-          return lineas.map((l, i) => `<tr class="border-b border-gray-800/50">
-            ${i === 0 ? `<td class="px-3 py-2 text-xs" rowspan="${lineas.length}">${new Date(a.fecha).toLocaleDateString('es-PY')}</td>
-            <td class="px-3 py-2 font-mono text-xs text-gray-400" rowspan="${lineas.length}">${a.numero}</td>
-            <td class="px-3 py-2 text-xs" rowspan="${lineas.length}">${esc(a.concepto)}</td>` : ''}
-            <td class="px-3 py-2 text-xs"><span class="font-mono text-gray-500">${esc(l.cuentaCodigo || '')}</span> ${esc(l.cuentaNombre || '')}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs text-green-400">${l.debe ? '₲ ' + Number(l.debe).toLocaleString('es-PY') : ''}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs text-red-400">${l.haber ? '₲ ' + Number(l.haber).toLocaleString('es-PY') : ''}</td>
-          </tr>`);
-        }).join('')}</tbody>
-      </table>
-    </div>
-  </div>`;
+  return contTable(
+    [
+      { label: 'Fecha' },
+      { label: '#' },
+      { label: 'Concepto' },
+      { label: 'Cuenta' },
+      { label: 'Debe', align: 'right' },
+      { label: 'Haber', align: 'right' },
+    ],
+    asientos.flatMap(a => {
+      const lineas = a.lineas || a.detalles || [];
+      if (!lineas.length) return `<tr class="border-b border-gray-800/50">
+        <td class="px-3 py-2 text-xs">${new Date(a.fecha).toLocaleDateString('es-PY')}</td>
+        <td class="px-3 py-2 font-mono text-xs text-gray-400">${a.numero}</td>
+        <td class="px-3 py-2 text-xs" colspan="4">${esc(a.concepto)}</td>
+      </tr>`;
+      return lineas.map((l, i) => `<tr class="border-b border-gray-800/50">
+        ${i === 0 ? `<td class="px-3 py-2 text-xs" rowspan="${lineas.length}">${new Date(a.fecha).toLocaleDateString('es-PY')}</td>
+        <td class="px-3 py-2 font-mono text-xs text-gray-400" rowspan="${lineas.length}">${a.numero}</td>
+        <td class="px-3 py-2 text-xs" rowspan="${lineas.length}">${esc(a.concepto)}</td>` : ''}
+        <td class="px-3 py-2 text-xs"><span class="font-mono text-gray-500">${esc(l.cuentaCodigo || '')}</span> ${esc(l.cuentaNombre || '')}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs text-green-400">${l.debe ? '₲ ' + Number(l.debe).toLocaleString('es-PY') : ''}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs text-red-400">${l.haber ? '₲ ' + Number(l.haber).toLocaleString('es-PY') : ''}</td>
+      </tr>`);
+    }).join('')
+  );
 }
 
 function renderLibroMayor(data) {
   const cuentas = data?.data || data?.cuentas || data || [];
   if (!Array.isArray(cuentas) || !cuentas.length) return '<div class="text-center py-8 text-gray-500">No hay movimientos en este período</div>';
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-          <th class="text-left px-3 py-2">Cuenta</th>
-          <th class="text-right px-3 py-2">Saldo Inicial</th>
-          <th class="text-right px-3 py-2">Debe</th>
-          <th class="text-right px-3 py-2">Haber</th>
-          <th class="text-right px-3 py-2">Saldo Final</th>
-        </tr></thead>
-        <tbody>${cuentas.map(c => `
-          <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
-            <td class="px-3 py-2"><span class="font-mono text-xs text-gray-500">${esc(c.codigo || c.cuentaCodigo || '')}</span> ${esc(c.nombre || c.cuentaNombre || '')}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs">${c.saldoInicial ? '₲ ' + Number(c.saldoInicial).toLocaleString('es-PY') : '—'}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs text-green-400">${c.totalDebe || c.debe ? '₲ ' + Number(c.totalDebe || c.debe || 0).toLocaleString('es-PY') : '—'}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs text-red-400">${c.totalHaber || c.haber ? '₲ ' + Number(c.totalHaber || c.haber || 0).toLocaleString('es-PY') : '—'}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs font-bold">₲ ${Number(c.saldoFinal || c.saldo || 0).toLocaleString('es-PY')}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>`;
+  return contTable(
+    [
+      { label: 'Cuenta' },
+      { label: 'Saldo Inicial', align: 'right' },
+      { label: 'Debe', align: 'right' },
+      { label: 'Haber', align: 'right' },
+      { label: 'Saldo Final', align: 'right' },
+    ],
+    cuentas.map(c => `
+      <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+        <td class="px-3 py-2"><span class="font-mono text-xs text-gray-500">${esc(c.codigo || c.cuentaCodigo || '')}</span> ${esc(c.nombre || c.cuentaNombre || '')}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs">${c.saldoInicial ? '₲ ' + Number(c.saldoInicial).toLocaleString('es-PY') : '—'}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs text-green-400">${c.totalDebe || c.debe ? '₲ ' + Number(c.totalDebe || c.debe || 0).toLocaleString('es-PY') : '—'}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs text-red-400">${c.totalHaber || c.haber ? '₲ ' + Number(c.totalHaber || c.haber || 0).toLocaleString('es-PY') : '—'}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs font-bold">₲ ${Number(c.saldoFinal || c.saldo || 0).toLocaleString('es-PY')}</td>
+      </tr>`).join('')
+  );
 }
 
 function renderLibroInventario(data) {
   const items = data?.data || data?.items || data || [];
   if (!Array.isArray(items) || !items.length) return '<div class="text-center py-8 text-gray-500">No hay datos en este período</div>';
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-          <th class="text-left px-3 py-2">Código</th>
-          <th class="text-left px-3 py-2">Producto</th>
-          <th class="text-right px-3 py-2">Stock</th>
-          <th class="text-right px-3 py-2">Costo Unit.</th>
-          <th class="text-right px-3 py-2">Valor Total</th>
-        </tr></thead>
-        <tbody>${items.map(i => `
-          <tr class="border-b border-gray-800/50">
-            <td class="px-3 py-2 font-mono text-xs text-gray-400">${esc(i.codigo || i.sku || '')}</td>
-            <td class="px-3 py-2">${esc(i.nombre || i.producto || i.name || '')}</td>
-            <td class="px-3 py-2 text-right">${i.stockActual || i.stock || i.cantidad || 0}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs">${i.costoUnitario || i.costo || i.unitPrice ? '₲ ' + Number(i.costoUnitario || i.costo || i.unitPrice || 0).toLocaleString('es-PY') : '—'}</td>
-            <td class="px-3 py-2 text-right font-mono text-xs font-bold">${i.valorTotal || i.total ? '₲ ' + Number(i.valorTotal || i.total || 0).toLocaleString('es-PY') : '—'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>`;
+  return contTable(
+    [
+      { label: 'Código' },
+      { label: 'Producto' },
+      { label: 'Stock', align: 'right' },
+      { label: 'Costo Unit.', align: 'right' },
+      { label: 'Valor Total', align: 'right' },
+    ],
+    items.map(i => `
+      <tr class="border-b border-gray-800/50">
+        <td class="px-3 py-2 font-mono text-xs text-gray-400">${esc(i.codigo || i.sku || '')}</td>
+        <td class="px-3 py-2">${esc(i.nombre || i.producto || i.name || '')}</td>
+        <td class="px-3 py-2 text-right">${i.stockActual || i.stock || i.cantidad || 0}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs">${i.costoUnitario || i.costo || i.unitPrice ? '₲ ' + Number(i.costoUnitario || i.costo || i.unitPrice || 0).toLocaleString('es-PY') : '—'}</td>
+        <td class="px-3 py-2 text-right font-mono text-xs font-bold">${i.valorTotal || i.total ? '₱ ' + Number(i.valorTotal || i.total || 0).toLocaleString('es-PY') : '—'}</td>
+      </tr>`).join('')
+  );
 }
 
-/* ─── Impuestos (5.7) ─────────────────────── */
+// ─── Impuestos (5.7) ───────────────────────
 
 const IMPUESTOS_TABS = { form120: 'IVA (Form 120)', ire: 'IRE', idu: 'IDU', isc: 'ISC', inr: 'INR' };
 let impTabActivo = 'form120';
@@ -549,9 +687,7 @@ async function renderContabImpuestos(container) {
           data-imp-tab="${k}">${v}</button>
       `).join('')}
     </div>
-    <div id="impuestos-content" class="space-y-4">
-      ${impTabActivo === 'form120' ? renderImpForm120() : ''}
-    </div>`;
+    <div id="impuestos-content" class="space-y-4"></div>`;
   loadImpTab(impTabActivo);
 }
 
@@ -563,60 +699,32 @@ function loadImpTab(tab) {
   else if (tab === 'inr') cargarInr();
 }
 
-function renderImpFormResult(result, title, fields) {
-  if (!result) return '<div class="text-center py-8 text-gray-500">Haz clic en "Calcular"</div>';
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <h4 class="font-bold text-sm mb-3">${esc(title)}</h4>
-    <div class="grid grid-cols-2 gap-2 text-sm">${fields.map(f => `
-      <div class="bg-gray-800/50 rounded-lg p-2">
-        <p class="text-xs text-gray-500 uppercase tracking-wider">${esc(f.label)}</p>
-        <p class="font-bold text-${f.color || 'white'}-400 mt-1">${f.prefix || '₲ '}${f.value.toLocaleString?.('es-PY') ?? f.value}</p>
-      </div>`).join('')}
-    </div>
-  </div>`;
-}
-
-function renderHistorial(items, columns) {
-  if (!items || !items.length) return '<div class="text-center py-6 text-gray-500 text-sm">Sin liquidaciones previas</div>';
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden mt-3">
-    <p class="text-xs text-gray-500 uppercase tracking-wider px-3 pt-3 pb-1">Historial</p>
-    <div class="overflow-x-auto"><table class="w-full text-sm">
-      <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-        ${columns.map(c => `<th class="text-${c.align || 'left'} px-3 py-2">${c.label}</th>`).join('')}
-      </tr></thead>
-      <tbody>${items.map(r => `<tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
-        ${columns.map(c => `<td class="px-3 py-2 text-${c.align || 'left'} font-${c.font || 'normal'} text-xs">${c.render ? c.render(r) : r[c.field]}</td>`).join('')}
-      </tr>`).join('')}</tbody>
-    </table></div>
-  </div>`;
-}
+// ─── IVA Form 120 ────────────────────────
 
 function renderImpForm120() {
-  const now = new Date();
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="imp-iva-mes" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) =>
-          `<option value="${i+1}" ${i+1 === now.getMonth()+1 ? 'selected' : ''}>${m}</option>`).join('')}
-      </select>
-      <select id="imp-iva-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024,2025,2026,2027].map(a => `<option value="${a}" ${a === now.getFullYear() ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
-      <button id="btn-calcular-form120" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Calcular IVA</button>
-    </div>
-    <div id="imp-iva-result"></div>
-    <div id="imp-iva-historial"></div>
-  </div>`;
+  return contFiscalForm({
+    id: 'form120',
+    selects: [
+      { type: 'month', id: 'imp-iva-mes' },
+      { type: 'year', id: 'imp-iva-anho' },
+    ],
+    buttonLabel: 'Calcular IVA',
+    btnId: 'btn-calcular-form120',
+    resultId: 'imp-iva-result',
+    histId: 'imp-iva-historial',
+  });
 }
 
 async function cargarForm120() {
+  const container = document.querySelector('#impuestos-content');
+  if (!container) return;
+  container.innerHTML = renderImpForm120();
   const resultDiv = document.querySelector('#imp-iva-result');
-  const histDiv = document.querySelector('#imp-iva-historial');
-  if (!resultDiv) return;
-  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Selecciona período y haz clic en "Calcular IVA"</div>';
+  if (resultDiv) resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Selecciona período y haz clic en "Calcular IVA"</div>';
   try {
     const historial = await api('/finance/fiscal/form120');
-    if (histDiv) histDiv.innerHTML = renderHistorial(
+    const histDiv = document.querySelector('#imp-iva-historial');
+    if (histDiv) histDiv.innerHTML = contHistorial(
       Array.isArray(historial) ? historial : historial?.data || [],
       [
         { label: 'Período', field: 'periodo', render: r => `${r.mes || ''}/${r.anho || ''}` },
@@ -640,35 +748,36 @@ async function calcularForm120() {
     const ivaDebito = Number(data?.ivaDebito || data?.debitoFiscal || 0);
     const ivaCredito = Number(data?.ivaCredito || data?.creditoFiscal || 0);
     const saldo = Number(data?.saldoPagar || data?.resultado || 0);
-    resultDiv.innerHTML = renderImpFormResult(data, `IVA Form 120 — ${mes}/${anho}`, [
+    resultDiv.innerHTML = contImpFormResult(data, `IVA Form 120 — ${mes}/${anho}`, [
       { label: 'IVA Débito Fiscal', value: ivaDebito, color: 'red' },
       { label: 'IVA Crédito Fiscal', value: ivaCredito, color: 'green' },
       { label: 'Saldo a Pagar', value: saldo, color: saldo > 0 ? 'red' : 'green' },
     ]) + (data?.asientoId ? `<p class="text-xs text-green-400 mt-2">Asiento #${data.asientoNumero || ''} generado automáticamente</p>` : '');
-    // Refresh historial
     cargarForm120();
   } catch (e) {
     resultDiv.innerHTML = `<div class="text-center py-6 text-red-400">Error: ${esc(e.message)}</div>`;
   }
 }
 
+// ─── IRE ──────────────────────────────────
+
 function renderIreForm() {
-  const now = new Date();
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="imp-ire-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024,2025,2026,2027].map(a => `<option value="${a}" ${a === now.getFullYear() ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
-      <select id="imp-ire-formulario" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        <option value="FORM_500_IRE">IRE General (Form 500)</option>
-        <option value="FORM_501_IRE_SIMPLE">IRE Simple (Form 501)</option>
-        <option value="FORM_502_IRE_RESIMPLE">IRE Resimple (Form 502)</option>
-      </select>
-      <button id="btn-calcular-ire" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Calcular IRE</button>
-    </div>
-    <div id="imp-ire-result"></div>
-    <div id="imp-ire-historial"></div>
-  </div>`;
+  return contFiscalForm({
+    id: 'ire',
+    selects: [
+      { type: 'year', id: 'imp-ire-anho' },
+      { type: 'custom', html: `
+        <select id="imp-ire-formulario" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+          <option value="FORM_500_IRE">IRE General (Form 500)</option>
+          <option value="FORM_501_IRE_SIMPLE">IRE Simple (Form 501)</option>
+          <option value="FORM_502_IRE_RESIMPLE">IRE Resimple (Form 502)</option>
+        </select>` },
+    ],
+    buttonLabel: 'Calcular IRE',
+    btnId: 'btn-calcular-ire',
+    resultId: 'imp-ire-result',
+    histId: 'imp-ire-historial',
+  });
 }
 
 async function cargarIre() {
@@ -678,7 +787,7 @@ async function cargarIre() {
   try {
     const historial = await api('/finance/fiscal/ire');
     const histDiv = document.querySelector('#imp-ire-historial');
-    if (histDiv) histDiv.innerHTML = renderHistorial(
+    if (histDiv) histDiv.innerHTML = contHistorial(
       Array.isArray(historial) ? historial : historial?.data || [],
       [
         { label: 'Ejercicio', field: 'anho', render: r => r.periodoFiscalId?.slice(0, 4) || r.anho || '' },
@@ -698,36 +807,39 @@ async function calcularIre() {
   resultDiv.innerHTML = '<div class="text-center py-6 text-gray-500">Calculando...</div>';
   try {
     const data = await api('/finance/fiscal/ire/calcular', { method: 'POST', body: { anho, formulario } });
-    resultDiv.innerHTML = renderImpFormResult(data, `IRE ${formulario.replace(/_/g, ' ')} — ${anho}`, [
+    resultDiv.innerHTML = contImpFormResult(data, `IRE ${formulario.replace(/_/g, ' ')} — ${anho}`, [
       { label: 'Ingresos Brutos', value: Number(data?.ingresosBrutos || 0), color: 'green' },
       { label: 'Renta Neta', value: Number(data?.rentaNeta || 0) },
       { label: 'Impuesto IRE', value: Number(data?.impuestoIre || 0), color: 'red' },
       { label: 'Saldo a Pagar', value: Number(data?.saldoPagar || 0), color: data?.saldoPagar > 0 ? 'red' : 'green' },
     ]) + (data?.asientoId ? `<p class="text-xs text-green-400 mt-2">Asiento contable generado</p>` : '');
-    cargarIre(); // refresh historial
+    cargarIre();
   } catch (e) {
     resultDiv.innerHTML = `<div class="text-center py-6 text-red-400">Error: ${esc(e.message)}</div>`;
   }
 }
 
+// ─── IDU ──────────────────────────────────
+
 function renderIduForm() {
-  const now = new Date();
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="imp-idu-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024,2025,2026,2027].map(a => `<option value="${a}" ${a === now.getFullYear() ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
-      <select id="imp-idu-beneficiario" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        <option value="RESIDENTE">Residente (8%)</option>
-        <option value="NO_RESIDENTE">No Residente (15%)</option>
-      </select>
-      <input id="imp-idu-porcentaje" type="number" min="0.01" max="1" step="0.01" value="1"
-        class="w-20 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" title="% Utilidades distribuidas">
-      <button id="btn-calcular-idu" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Calcular IDU</button>
-    </div>
-    <div id="imp-idu-result"></div>
-    <div id="imp-idu-historial"></div>
-  </div>`;
+  return contFiscalForm({
+    id: 'idu',
+    selects: [
+      { type: 'year', id: 'imp-idu-anho' },
+      { type: 'custom', html: `
+        <select id="imp-idu-beneficiario" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+          <option value="RESIDENTE">Residente (8%)</option>
+          <option value="NO_RESIDENTE">No Residente (15%)</option>
+        </select>` },
+      { type: 'custom', html: `
+        <input id="imp-idu-porcentaje" type="number" min="0.01" max="1" step="0.01" value="1"
+          class="w-20 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" title="% Utilidades distribuidas">` },
+    ],
+    buttonLabel: 'Calcular IDU',
+    btnId: 'btn-calcular-idu',
+    resultId: 'imp-idu-result',
+    histId: 'imp-idu-historial',
+  });
 }
 
 async function cargarIdu() {
@@ -737,7 +849,7 @@ async function cargarIdu() {
   try {
     const historial = await api('/finance/fiscal/idu');
     const histDiv = document.querySelector('#imp-idu-historial');
-    if (histDiv) histDiv.innerHTML = renderHistorial(
+    if (histDiv) histDiv.innerHTML = contHistorial(
       Array.isArray(historial) ? historial : historial?.data || [],
       [
         { label: 'Ejercicio', render: r => r.anho || r.createdAt?.slice(0, 4) || '' },
@@ -757,7 +869,7 @@ async function calcularIdu() {
   resultDiv.innerHTML = '<div class="text-center py-6 text-gray-500">Calculando...</div>';
   try {
     const data = await api('/finance/fiscal/idu/calcular', { method: 'POST', body: { anho, tipoBeneficiario, porcentajeDistribuido } });
-    resultDiv.innerHTML = renderImpFormResult(data, `IDU — ${anho}`, [
+    resultDiv.innerHTML = contImpFormResult(data, `IDU — ${anho}`, [
       { label: 'Utilidad Distribuible', value: Number(data?.utilidadDistribuible || data?.rentaNeta || 0) },
       { label: 'Tasa', value: (tipoBeneficiario === 'NO_RESIDENTE' ? '15%' : '8%'), color: 'blue', prefix: '' },
       { label: 'Impuesto IDU', value: Number(data?.impuestoIdu || 0), color: 'red' },
@@ -769,33 +881,34 @@ async function calcularIdu() {
   }
 }
 
+// ─── ISC ──────────────────────────────────
+
 function renderIscForm() {
-  const now = new Date();
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="imp-isc-mes" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) =>
-          `<option value="${i+1}" ${i+1 === now.getMonth()+1 ? 'selected' : ''}>${m}</option>`).join('')}
-      </select>
-      <select id="imp-isc-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024,2025,2026,2027].map(a => `<option value="${a}" ${a === now.getFullYear() ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
-      <select id="imp-isc-rubro" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        <option value="COMBUSTIBLE">Combustible</option>
-        <option value="TABACO">Tabaco</option>
-        <option value="BEBIDAS_ALCOHOLICAS">Bebidas Alcohólicas</option>
-        <option value="BIENES_SUNTUARIOS">Bienes Suntuarios</option>
-        <option value="OTROS">Otros</option>
-      </select>
-      <input id="imp-isc-base" type="number" min="0" step="1000" placeholder="Base Imponible"
-        class="w-28 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-      <input id="imp-isc-tasa" type="number" min="0" max="1" step="0.01" placeholder="Tasa (ej: 0.10)"
-        class="w-24 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-      <button id="btn-calcular-isc" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Calcular ISC</button>
-    </div>
-    <div id="imp-isc-result"></div>
-    <div id="imp-isc-historial"></div>
-  </div>`;
+  return contFiscalForm({
+    id: 'isc',
+    selects: [
+      { type: 'month', id: 'imp-isc-mes' },
+      { type: 'year', id: 'imp-isc-anho' },
+      { type: 'custom', html: `
+        <select id="imp-isc-rubro" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+          <option value="COMBUSTIBLE">Combustible</option>
+          <option value="TABACO">Tabaco</option>
+          <option value="BEBIDAS_ALCOHOLICAS">Bebidas Alcohólicas</option>
+          <option value="BIENES_SUNTUARIOS">Bienes Suntuarios</option>
+          <option value="OTROS">Otros</option>
+        </select>` },
+      { type: 'custom', html: `
+        <input id="imp-isc-base" type="number" min="0" step="1000" placeholder="Base Imponible"
+          class="w-28 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">` },
+      { type: 'custom', html: `
+        <input id="imp-isc-tasa" type="number" min="0" max="1" step="0.01" placeholder="Tasa (ej: 0.10)"
+          class="w-24 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">` },
+    ],
+    buttonLabel: 'Calcular ISC',
+    btnId: 'btn-calcular-isc',
+    resultId: 'imp-isc-result',
+    histId: 'imp-isc-historial',
+  });
 }
 
 async function cargarIsc() {
@@ -805,7 +918,7 @@ async function cargarIsc() {
   try {
     const historial = await api('/finance/fiscal/isc');
     const histDiv = document.querySelector('#imp-isc-historial');
-    if (histDiv) histDiv.innerHTML = renderHistorial(
+    if (histDiv) histDiv.innerHTML = contHistorial(
       Array.isArray(historial) ? historial : historial?.data || [],
       [
         { label: 'Período', render: r => `${r.mes || ''}/${r.anho || ''}` },
@@ -831,7 +944,7 @@ async function calcularIsc() {
   resultDiv.innerHTML = '<div class="text-center py-6 text-gray-500">Calculando...</div>';
   try {
     const data = await api('/finance/fiscal/isc/calcular', { method: 'POST', body: { anho, mes, rubro, baseImponible, tasa } });
-    resultDiv.innerHTML = renderImpFormResult(data, `ISC ${rubro.replace(/_/g, ' ')} — ${mes}/${anho}`, [
+    resultDiv.innerHTML = contImpFormResult(data, `ISC ${rubro.replace(/_/g, ' ')} — ${mes}/${anho}`, [
       { label: 'Base Imponible', value: baseImponible },
       { label: 'Tasa', value: `${(tasa * 100).toFixed(0)}%`, prefix: '', color: 'blue' },
       { label: 'Impuesto ISC', value: Number(data?.impuestoIsc || 0), color: 'red' },
@@ -842,33 +955,34 @@ async function calcularIsc() {
   }
 }
 
+// ─── INR ──────────────────────────────────
+
 function renderInrForm() {
-  const now = new Date();
-  return `<div class="bg-gray-900/60 rounded-xl border border-gray-800 p-4">
-    <div class="flex flex-wrap items-center gap-3 mb-4">
-      <select id="imp-inr-mes" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((m, i) =>
-          `<option value="${i+1}" ${i+1 === now.getMonth()+1 ? 'selected' : ''}>${m}</option>`).join('')}
-      </select>
-      <select id="imp-inr-anho" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        ${[2024,2025,2026,2027].map(a => `<option value="${a}" ${a === now.getFullYear() ? 'selected' : ''}>${a}</option>`).join('')}
-      </select>
-      <select id="imp-inr-tipo" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-        <option value="SERVICIOS_TECNICOS">Servicios Técnicos</option>
-        <option value="REGALIAS">Regalías</option>
-        <option value="INTERESES">Intereses</option>
-        <option value="DIVIDENDOS">Dividendos</option>
-        <option value="OTROS">Otros</option>
-      </select>
-      <input id="imp-inr-monto" type="number" min="0" step="100000" placeholder="Monto Bruto"
-        class="w-28 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-      <input id="imp-inr-tasa" type="number" min="0" max="1" step="0.01" placeholder="Tasa (ej: 0.15)"
-        class="w-24 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
-      <button id="btn-calcular-inr" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Calcular INR</button>
-    </div>
-    <div id="imp-inr-result"></div>
-    <div id="imp-inr-historial"></div>
-  </div>`;
+  return contFiscalForm({
+    id: 'inr',
+    selects: [
+      { type: 'month', id: 'imp-inr-mes' },
+      { type: 'year', id: 'imp-inr-anho' },
+      { type: 'custom', html: `
+        <select id="imp-inr-tipo" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+          <option value="SERVICIOS_TECNICOS">Servicios Técnicos</option>
+          <option value="REGALIAS">Regalías</option>
+          <option value="INTERESES">Intereses</option>
+          <option value="DIVIDENDOS">Dividendos</option>
+          <option value="OTROS">Otros</option>
+        </select>` },
+      { type: 'custom', html: `
+        <input id="imp-inr-monto" type="number" min="0" step="100000" placeholder="Monto Bruto"
+          class="w-28 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">` },
+      { type: 'custom', html: `
+        <input id="imp-inr-tasa" type="number" min="0" max="1" step="0.01" placeholder="Tasa (ej: 0.15)"
+          class="w-24 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">` },
+    ],
+    buttonLabel: 'Calcular INR',
+    btnId: 'btn-calcular-inr',
+    resultId: 'imp-inr-result',
+    histId: 'imp-inr-historial',
+  });
 }
 
 async function cargarInr() {
@@ -878,7 +992,7 @@ async function cargarInr() {
   try {
     const historial = await api('/finance/fiscal/inr');
     const histDiv = document.querySelector('#imp-inr-historial');
-    if (histDiv) histDiv.innerHTML = renderHistorial(
+    if (histDiv) histDiv.innerHTML = contHistorial(
       Array.isArray(historial) ? historial : historial?.data || [],
       [
         { label: 'Período', render: r => `${r.mes || ''}/${r.anho || ''}` },
@@ -904,7 +1018,7 @@ async function calcularInr() {
   resultDiv.innerHTML = '<div class="text-center py-6 text-gray-500">Calculando...</div>';
   try {
     const data = await api('/finance/fiscal/inr/calcular', { method: 'POST', body: { anho, mes, tipoRenta, montoBruto, tasaRetencion, beneficiarioNombre: 'No especificado', beneficiarioPais: 'PY' } });
-    resultDiv.innerHTML = renderImpFormResult(data, `INR ${tipoRenta.replace(/_/g, ' ')} — ${mes}/${anho}`, [
+    resultDiv.innerHTML = contImpFormResult(data, `INR ${tipoRenta.replace(/_/g, ' ')} — ${mes}/${anho}`, [
       { label: 'Monto Bruto', value: montoBruto, color: 'green' },
       { label: 'Tasa Retención', value: `${(tasaRetencion * 100).toFixed(0)}%`, prefix: '', color: 'blue' },
       { label: 'Retención INR', value: Number(data?.impuestoInr || data?.retencion || 0), color: 'red' },
@@ -914,14 +1028,14 @@ async function calcularInr() {
     resultDiv.innerHTML = `<div class="text-center py-6 text-red-400">Error: ${esc(e.message)}</div>`;
   }
 }
-/* ─── CRUD Cuentas Contables ────────────── */
+
+// ─── CRUD Cuentas Contables ──────────────
 
 let cuentaParentOptions = [];
 
 async function mostrarModalNuevaCuenta() {
   try {
     const cuentas = await api('/finance/contabilidad/cuentas/arbol');
-    // Build flat options for parent select
     function flatten(rows, depth = 0) {
       let opts = [];
       for (const r of rows) {
@@ -934,11 +1048,7 @@ async function mostrarModalNuevaCuenta() {
     const parentOpts = cuentaParentOptions.map(p =>
       `<option value="${p.id}">${'·'.repeat(p.depth)} ${p.codigo} — ${esc(p.nombre)}</option>`
     ).join('');
-    dom.modalContent.innerHTML = `
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-lg font-bold">Nueva Cuenta Contable</h3>
-        <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-      </div>
+    contModal('Nueva Cuenta Contable', `
       <div class="space-y-4">
         <div>
           <label class="block text-xs text-gray-500 uppercase tracking-wider mb-1">Código</label>
@@ -978,8 +1088,9 @@ async function mostrarModalNuevaCuenta() {
           <button id="btn-guardar-cuenta" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">Crear Cuenta</button>
           <button id="modal-close-bottom" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Cancelar</button>
         </div>
-      </div>`;
-    dom.modalOverlay.classList.remove('hidden');
+      </div>`);
+    document.getElementById('btn-guardar-cuenta')?.addEventListener('click', guardarNuevaCuenta);
+    document.getElementById('modal-close-bottom')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
   } catch (e) {
     dom.modalContent.innerHTML = `<div class="text-center py-8 text-red-400">Error al cargar cuentas: ${esc(e.message)}</div>`;
     dom.modalOverlay.classList.remove('hidden');
@@ -1020,19 +1131,19 @@ async function desactivarCuenta(cuentaId) {
       body: { activo: false },
     });
     showContabTab('cuentas');
+    if (typeof showToast === 'function') showToast('Cuenta desactivada correctamente', 'success');
   } catch (e) {
-    alert(`Error: ${e.message}`);
+    if (typeof showToast === 'function') showToast(`Error: ${e.message}`, 'error');
   }
 }
 
-/* ─── Asiento Manual ────────────────────── */
+// ─── Asiento Manual ──────────────────────
 
 let asientoLineasCount = 0;
 
 async function mostrarModalNuevoAsiento() {
   asientoLineasCount = 0;
   try {
-    // Fetch cuentas for the line selector
     const cuentasList = await api('/finance/contabilidad/cuentas?activo=true');
     const cuentasOpts = Array.isArray(cuentasList)
       ? cuentasList.filter(c => c.aceptaMovimientos !== false).map(c =>
@@ -1040,11 +1151,7 @@ async function mostrarModalNuevoAsiento() {
         ).join('')
       : '<option value="">Sin cuentas disponibles</option>';
 
-    dom.modalContent.innerHTML = `
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-bold">Nuevo Asiento Manual</h3>
-        <button id="modal-close" class="text-gray-500 hover:text-white text-xl">&times;</button>
-      </div>
+    contModal('Nuevo Asiento Manual', `
       <p class="text-xs text-yellow-400 mb-4 bg-yellow-900/20 p-2 rounded-lg">
         ⚠️ Solo para casos excepcionales. Los asientos se generan automáticamente al facturar, comprar, calcular nómina, etc.
       </p>
@@ -1066,7 +1173,7 @@ async function mostrarModalNuevoAsiento() {
         <div>
           <div class="flex items-center justify-between mb-2">
             <label class="text-xs text-gray-500 uppercase tracking-wider">Líneas del Asiento</label>
-            <button id="btn-agregar-linea-asiento" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition">+ Agregar Línea</button>
+            <button data-action="agregar-linea" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition">+ Agregar Línea</button>
           </div>
           <div id="lineas-asiento-container" class="space-y-2">
             <p class="text-xs text-gray-500 text-center py-4">Haz clic en "Agregar Línea" para añadir cuentas</p>
@@ -1087,8 +1194,9 @@ async function mostrarModalNuevoAsiento() {
           <button id="btn-guardar-asiento" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition ${cuentasOpts ? '' : 'opacity-50 cursor-not-allowed'}" ${cuentasOpts ? '' : 'disabled'}>Guardar Asiento</button>
           <button id="modal-close-bottom" class="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Cancelar</button>
         </div>
-      </div>`;
-    dom.modalOverlay.classList.remove('hidden');
+      </div>`);
+    document.getElementById('btn-guardar-asiento')?.addEventListener('click', guardarNuevoAsiento);
+    document.getElementById('modal-close-bottom')?.addEventListener('click', () => dom.modalOverlay.classList.add('hidden'));
   } catch (e) {
     dom.modalContent.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
     dom.modalOverlay.classList.remove('hidden');
@@ -1100,7 +1208,6 @@ function agregarLineaAsiento() {
   const idx = asientoLineasCount;
   const container = document.querySelector('#lineas-asiento-container');
   if (!container) return;
-  // Remove the empty placeholder if it exists
   const placeholder = container.querySelector('p');
   if (placeholder && container.children.length === 1) container.innerHTML = '';
 
@@ -1117,7 +1224,6 @@ function agregarLineaAsiento() {
   `;
   container.appendChild(row);
 
-  // Populate the select from the API
   api('/finance/contabilidad/cuentas?activo=true').then(cuentas => {
     const select = row.querySelector('.linea-cuenta');
     if (Array.isArray(cuentas)) {
@@ -1130,7 +1236,6 @@ function agregarLineaAsiento() {
     }
   }).catch(() => {});
 
-  // Add live balance recalculation
   const debeInput = row.querySelector('.linea-debe');
   const haberInput = row.querySelector('.linea-haber');
   [debeInput, haberInput].forEach(inp => {
@@ -1141,13 +1246,11 @@ function agregarLineaAsiento() {
     });
   });
 
-  // Remove button handler
   row.querySelector('.linea-remove').addEventListener('click', () => {
     row.remove();
     recalcularTotalesAsiento();
   });
 
-  // Focus the select
   row.querySelector('.linea-cuenta')?.focus();
   recalcularTotalesAsiento();
 }
@@ -1245,25 +1348,21 @@ async function renderContabAuditoria(container) {
       </select>
       <input id="audit-desde" type="date" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Fecha desde">
       <input id="audit-hasta" type="date" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Fecha hasta">
-      <button id="btn-cargar-audit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
+      <button data-action="cargar-audit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">Cargar</button>
     </div>
     <div id="audit-result" class="text-center py-8 text-gray-500">Selecciona filtros y haz clic en "Cargar"</div>
     <div id="audit-pagination" class="flex justify-center gap-2 mt-4 hidden">
-      <button id="audit-prev" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">← Anterior</button>
+      <button data-action="audit-prev" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">← Anterior</button>
       <span id="audit-page-info" class="px-3 py-1.5 text-sm text-gray-400"></span>
-      <button id="audit-next" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">Siguiente →</button>
+      <button data-action="audit-next" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-sm transition">Siguiente →</button>
     </div>`;
-
-  document.getElementById('btn-cargar-audit')?.addEventListener('click', () => { auditPage = 0; cargarAuditoria(); });
-  document.getElementById('audit-prev')?.addEventListener('click', () => { if (auditPage > 0) { auditPage--; cargarAuditoria(); } });
-  document.getElementById('audit-next')?.addEventListener('click', () => { auditPage++; cargarAuditoria(); });
 }
 
 async function cargarAuditoria() {
   const resultDiv = document.getElementById('audit-result');
   const pagDiv = document.getElementById('audit-pagination');
   if (!resultDiv) return;
-  resultDiv.innerHTML = '<div class="text-center py-8 text-gray-500">Cargando...</div>';
+  resultDiv.innerHTML = contLoading();
 
   const entidad = document.getElementById('audit-entidad')?.value || '';
   const accion = document.getElementById('audit-accion')?.value || '';
@@ -1294,28 +1393,23 @@ async function cargarAuditoria() {
       return `<span class="px-2 py-0.5 rounded text-xs ${colors[a] || 'bg-gray-700 text-gray-300'}">${a}</span>`;
     };
 
-    resultDiv.innerHTML = `
-      <div class="bg-gray-900/60 rounded-xl border border-gray-800 overflow-hidden">
-        <table class="w-full text-sm">
-          <thead><tr class="border-b border-gray-800 text-gray-500 text-xs uppercase tracking-wider">
-            <th class="text-left px-4 py-3">Fecha</th>
-            <th class="text-left px-4 py-3">Acción</th>
-            <th class="text-left px-4 py-3">Entidad</th>
-            <th class="text-left px-4 py-3">Detalle</th>
-            <th class="text-left px-4 py-3">Módulo</th>
-          </tr></thead>
-          <tbody>
-            ${entries.map(e => `
-              <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-                <td class="px-4 py-3 text-xs text-gray-400">${e.createdAt ? new Date(e.createdAt).toLocaleString('es-PY') : '—'}</td>
-                <td class="px-4 py-3">${accionBadge(e.accion)}</td>
-                <td class="px-4 py-3 text-xs font-mono">${e.entidad} <span class="text-gray-600">(${e.entidadId?.slice(0, 8) || '—'})</span></td>
-                <td class="px-4 py-3 text-xs text-gray-300 max-w-xs truncate">${esc(e.detalle || '—')}</td>
-                <td class="px-4 py-3 text-xs text-gray-500">${e.moduloOrigen || '—'}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
+    resultDiv.innerHTML = contTable(
+      [
+        { label: 'Fecha' },
+        { label: 'Acción' },
+        { label: 'Entidad' },
+        { label: 'Detalle' },
+        { label: 'Módulo' },
+      ],
+      entries.map(e => `
+        <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+          <td class="px-4 py-3 text-xs text-gray-400">${e.createdAt ? new Date(e.createdAt).toLocaleString('es-PY') : '—'}</td>
+          <td class="px-4 py-3">${accionBadge(e.accion)}</td>
+          <td class="px-4 py-3 text-xs font-mono">${e.entidad} <span class="text-gray-600">(${e.entidadId?.slice(0, 8) || '—'})</span></td>
+          <td class="px-4 py-3 text-xs text-gray-300 max-w-xs truncate">${esc(e.detalle || '—')}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${e.moduloOrigen || '—'}</td>
+        </tr>`).join('')
+    );
 
     if (pagDiv) {
       const totalPages = Math.ceil(total / auditPageSize);
@@ -1329,7 +1423,7 @@ async function cargarAuditoria() {
       }
     }
   } catch (e) {
-    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error: ${esc(e.message)}</div>`;
+    contError(resultDiv, e.message);
     if (pagDiv) pagDiv.classList.add('hidden');
   }
 }

@@ -44,7 +44,10 @@ function renderCalendario(container) {
       <!-- Header -->
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-lg font-bold text-white">📅 Calendario de Turnos</h3>
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Calendario de Turnos
+          </h3>
           <p class="text-xs text-gray-500" id="cal-week-label">Semana actual</p>
         </div>
         <div class="flex gap-2">
@@ -56,7 +59,7 @@ function renderCalendario(container) {
 
       <!-- Stats Bar -->
       <div class="flex gap-4 text-xs text-gray-500">
-        <span>📋 <span id="cal-total">0</span> turnos</span>
+        <span><svg class="w-3.5 h-3.5 inline-block -mt-0.5 mr-0.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg> <span id="cal-total">0</span> turnos</span>
         <span>✅ <span id="cal-confirmed">0</span> confirmados</span>
         <span>⏳ <span id="cal-pending">0</span> pendientes</span>
       </div>
@@ -88,50 +91,53 @@ function renderCalendario(container) {
           <input type="hidden" id="cal-modal-date">
           <input type="hidden" id="cal-modal-edit-id">
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Cliente *</label>
-            <input type="text" id="cal-modal-client" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" required>
+            <label for="cal-modal-client" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Cliente *</label>
+            <input type="text" id="cal-modal-client" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" required aria-label="Nombre del cliente">
           </div>
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Teléfono *</label>
-            <input type="tel" id="cal-modal-phone" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" required>
+            <label for="cal-modal-phone" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Teléfono *</label>
+            <input type="tel" id="cal-modal-phone" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" required aria-label="Teléfono del cliente">
           </div>
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Vehículo (Chapa) *</label>
-            <input type="text" id="cal-modal-vehicle" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" required>
+            <label for="cal-modal-vehicle" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Vehículo (Chapa) *</label>
+            <input type="text" id="cal-modal-vehicle" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" required aria-label="Chapa del vehículo">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Marca</label>
-              <input type="text" id="cal-modal-brand" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Toyota">
+              <label for="cal-modal-brand" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Marca</label>
+              <input type="text" id="cal-modal-brand" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" placeholder="Toyota" aria-label="Marca del vehículo">
             </div>
             <div>
-              <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Modelo</label>
-              <input type="text" id="cal-modal-model" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Corolla">
+              <label for="cal-modal-model" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Modelo</label>
+              <input type="text" id="cal-modal-model" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" placeholder="Corolla" aria-label="Modelo del vehículo">
             </div>
           </div>
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Servicio *</label>
-            <select id="cal-modal-service" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+            <label for="cal-modal-service" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Servicio *</label>
+            <select id="cal-modal-service" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" aria-label="Tipo de servicio">
               <option value="RAPIDO">Rápido (1h)</option>
               <option value="PESADO">Pesado (4h)</option>
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Hora *</label>
-            <select id="cal-modal-time" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500">
+            <label for="cal-modal-time" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Hora *</label>
+            <select id="cal-modal-time" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" aria-label="Horario del turno">
               ${_calTimeSlots().map(t => `<option value="${t}">${t}</option>`).join('')}
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Notas</label>
-            <textarea id="cal-modal-notes" rows="2" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Diagnóstico previo, observaciones..."></textarea>
+            <label for="cal-modal-notes" class="text-xs text-gray-500 uppercase tracking-wider block mb-1.5 font-medium">Notas</label>
+            <textarea id="cal-modal-notes" rows="2" class="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 transition-all duration-150 hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none resize-none" placeholder="Diagnóstico previo, observaciones..." aria-label="Notas adicionales"></textarea>
           </div>
-          <div id="cal-availability-msg" class="hidden text-xs rounded-lg p-2"></div>
+          <div id="cal-availability-msg" class="hidden text-xs rounded-lg p-2" role="alert"></div>
           <div class="flex gap-3 pt-2">
-            <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition" id="cal-submit-btn">Guardar</button>
-            <button type="button" onclick="calCloseModal()" class="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition">Cancelar</button>
+            <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2" id="cal-submit-btn">
+              <span class="hidden" id="cal-submit-spinner"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+              <span id="cal-submit-text">Guardar</span>
+            </button>
+            <button type="button" onclick="calCloseModal()" class="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition" aria-label="Cancelar y cerrar">Cancelar</button>
           </div>
-          <button type="button" id="cal-cancel-btn" onclick="calCancelAppointment()" class="hidden w-full py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/40 transition">Cancelar Turno</button>
+          <button type="button" id="cal-cancel-btn" onclick="calCancelAppointment()" class="hidden w-full py-2 bg-red-600/20 text-red-400 rounded-lg text-sm hover:bg-red-600/40 transition" aria-label="Cancelar este turno">Cancelar Turno</button>
         </form>
       </div>
     </div>
@@ -349,6 +355,13 @@ async function _calSaveAppointment() {
     notas: document.getElementById('cal-modal-notes')?.value,
   };
 
+  const btn = document.getElementById('cal-submit-btn');
+  const spinner = document.getElementById('cal-submit-spinner');
+  const btnText = document.getElementById('cal-submit-text');
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.classList.remove('hidden');
+  if (btnText) btnText.textContent = 'Guardando...';
+
   try {
     if (editId) {
       // Update existing
@@ -366,9 +379,14 @@ async function _calSaveAppointment() {
 
     calCloseModal();
     await _calLoadAppointments();
+    if (typeof showToast === 'function') showToast('Turno guardado correctamente', 'success');
   } catch (err) {
     console.error('[Calendario] Error saving appointment:', err);
-    alert('Error al guardar el turno. Intente nuevamente.');
+    if (typeof showToast === 'function') showToast('Error al guardar el turno. Intente nuevamente.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
+    if (btnText) btnText.textContent = 'Guardar';
   }
 }
 
@@ -385,8 +403,10 @@ async function calCancelAppointment() {
     });
     calCloseModal();
     await _calLoadAppointments();
+    if (typeof showToast === 'function') showToast('Turno cancelado correctamente', 'success');
   } catch (err) {
     console.error('[Calendario] Error canceling appointment:', err);
+    if (typeof showToast === 'function') showToast('Error al cancelar el turno', 'error');
   }
 }
 

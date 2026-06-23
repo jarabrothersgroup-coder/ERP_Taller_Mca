@@ -205,10 +205,10 @@ async function forceSifenTransmission() {
       }
     }
 
-    alert('Transmision completada: ' + sent + ' enviados, ' + errors + ' errores');
+    if (typeof showToast === 'function') showToast('Transmision completada: ' + sent + ' enviados, ' + errors + ' errores', 'success');
     loadSifenDashboard();
   } catch (err) {
-    alert('Error: ' + (err.message || 'Error desconocido'));
+    if (typeof showToast === 'function') showToast('Error: ' + (err.message || 'Error desconocido'), 'error');
   }
 
   if (btn) { btn.disabled = false; btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg> Forzar Transmision'; }
@@ -222,7 +222,8 @@ async function forceSendDoc(docId) {
       body: JSON.stringify({ documentoId: docId }),
     });
     loadSifenDashboard();
+    if (typeof showToast === 'function') showToast('Documento enviado correctamente', 'success');
   } catch (err) {
-    alert('Error enviando documento: ' + (err.message || 'Error desconocido'));
+    if (typeof showToast === 'function') showToast('Error enviando documento: ' + (err.message || 'Error desconocido'), 'error');
   }
 }

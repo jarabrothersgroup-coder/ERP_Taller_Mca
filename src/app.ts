@@ -399,7 +399,7 @@ async function buildApp() {
   // ─── Locale (i18n) Routes ──────────────────
   // Serves ES/GU translation JSON files for the SPA.
   await app.register(
-    (await import("./intelligence/routes/locale.routes.js")).default,
+    (await import("./modules/intelligence/routes/locale.routes.js")).default,
   );
 
   // ─── PDF Report Module ──────────────────────

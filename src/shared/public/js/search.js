@@ -7,7 +7,7 @@
  * @module js/search
  */
 
-/* global state, api, esc, navigate */
+/* global state, api, esc, navigate, authHeaders */
 
 // ─── State ──────────────────────────────────────
 
@@ -29,14 +29,14 @@ function initSearchBar() {
   container.className = 'relative';
   container.innerHTML = `
     <button id="search-trigger" class="flex items-center gap-2 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-400 hover:border-blue-500 hover:text-white transition cursor-pointer" title="Buscar (Ctrl+K)">
-      <span>🔍</span>
+      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
       <span class="hidden md:inline">Buscar</span>
       <kbd class="hidden md:inline text-[10px] text-gray-500 border border-gray-600 rounded px-1 py-0.5 font-mono">Ctrl+K</kbd>
     </button>
     <div id="search-dropdown" class="hidden absolute right-0 top-full mt-2 w-[420px] bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
       <div class="p-3 border-b border-gray-800">
         <div class="relative">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input id="search-input" type="text" placeholder="Buscar vehículos, clientes, órdenes..." class="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" autocomplete="off" />
         </div>
       </div>
@@ -48,14 +48,14 @@ function initSearchBar() {
     <!-- Export dropdown -->
     <div id="export-container" class="relative">
       <button id="export-trigger" class="flex items-center gap-1 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-400 hover:border-green-500 hover:text-green-400 transition cursor-pointer" title="Exportar CSV">
-        <span>📥</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         <span class="hidden md:inline">Exportar</span>
       </button>
       <div id="export-dropdown" class="hidden absolute right-0 top-full mt-2 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
         <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-800">Exportar CSV</div>
-        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="vehiculos">🚗 Vehículos</button>
-        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="clientes">👤 Clientes</button>
-        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="ordenes">📋 Órdenes de Trabajo</button>
+        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="vehiculos"><svg class="w-4 h-4 inline-block -mt-0.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m-4 4h.01M20 10v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4m16 0l-3-5h-2l-3 5m8 0H4m0 0l-3-5h2l3 5"/></svg> Veh&iacute;culos</button>
+        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="clientes"><svg class="w-4 h-4 inline-block -mt-0.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg> Clientes</button>
+        <button class="export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition" data-table="ordenes"><svg class="w-4 h-4 inline-block -mt-0.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg> &Oacute;rdenes de Trabajo</button>
       </div>
     </div>
   `;
@@ -216,7 +216,11 @@ function renderSearchResults(results) {
     return;
   }
 
-  const typeIcons = { vehiculo: '🚗', cliente: '👤', orden: '📋' };
+  const typeIcons = {
+    vehiculo: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h-2m-4 4h.01M20 10v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4m16 0l-3-5h-2l-3 5m8 0H4m0 0l-3-5h2l3 5"/></svg>',
+    cliente: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>',
+    orden: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>',
+  };
   const typeLabels = { vehiculo: 'Vehículo', cliente: 'Cliente', orden: 'OT' };
 
   let html = '';
@@ -225,20 +229,20 @@ function renderSearchResults(results) {
   for (const r of results) {
     // Group header
     if (r.type !== lastType) {
-      html += `<div class="px-3 py-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">${typeIcons[r.type] || '📄'} ${typeLabels[r.type] || r.type}</div>`;
+      html += `<div class="px-3 py-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider"><span class="inline-block align-middle mr-1">${typeIcons[r.type] || '<svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'}</span> ${typeLabels[r.type] || r.type}</div>`;
       lastType = r.type;
     }
 
     html += `
       <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition group" data-type="${esc(r.type)}" data-id="${esc(r.id)}">
         <button class="search-result-item flex-1 flex items-center gap-3 text-left min-w-0" data-route="${esc(r.route)}" data-type="${esc(r.type)}" data-id="${esc(r.id)}">
-          <span class="text-lg flex-shrink-0">${typeIcons[r.type] || '📄'}</span>
+          <span class="flex-shrink-0">${typeIcons[r.type] || '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'}</span>
           <div class="min-w-0 flex-1">
             <p class="text-sm text-white truncate">${esc(r.title)}</p>
             <p class="text-xs text-gray-500 truncate">${esc(r.subtitle)}</p>
           </div>
         </button>
-        ${(r.type === 'vehiculo' || r.type === 'cliente') ? `<button class="history-btn text-gray-600 hover:text-blue-400 text-xs opacity-0 group-hover:opacity-100 transition flex-shrink-0 px-2" data-type="${esc(r.type)}" data-id="${esc(r.id)}" title="Ver historial">📋</button>` : ''}
+        ${(r.type === 'vehiculo' || r.type === 'cliente') ? `<button class="history-btn text-gray-600 hover:text-blue-400 text-xs opacity-0 group-hover:opacity-100 transition flex-shrink-0 px-2" data-type="${esc(r.type)}" data-id="${esc(r.id)}" title="Ver historial"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></button>` : ''}
       </div>
     `;
   }
@@ -275,7 +279,7 @@ function renderSearchResults(results) {
 
 function renderEmptyState(msg) {
   return `<div class="flex flex-col items-center justify-center py-8 text-gray-500 text-sm">
-    <span class="text-2xl mb-2">🔍</span>
+    <svg class="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
     <span>${msg}</span>
   </div>`;
 }
@@ -291,8 +295,7 @@ function downloadCsvExport(table) {
   // Add headers via fetch to include auth headers
   fetch(a.href, {
     headers: {
-      'X-Tenant-Slug': state?.auth?.slug || '',
-      'X-User-Email': state?.auth?.profile?.email || '',
+      ...authHeaders(),
     },
   }).then(res => {
     if (!res.ok) throw new Error('Error al exportar');

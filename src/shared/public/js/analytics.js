@@ -196,10 +196,10 @@ async function loadTabScorecard(container) {
       ${sub ? `<p class="text-xs text-gray-500 mt-1">${sub}</p>` : ''}
     </div>`;
 
-  const section = (title, icon, cards) => `
+  const section = (title, iconSvg, cards) => `
     <div class="mb-6">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-        <span class="text-lg">${icon}</span> ${title}
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">${iconSvg}</svg> ${title}
       </h3>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${cards}</div>
     </div>`;
@@ -210,25 +210,25 @@ async function loadTabScorecard(container) {
   const a = data.aprendizaje;
 
   container.innerHTML = `
-    ${section('Financiera', '💰', [
+    ${section('Financiera', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>', [
       scoreCard('Ingresos del Mes', `₲ ${fmt(f.ingresosMes)}`, '', 'text-green-400'),
       scoreCard('Costos del Mes', `₲ ${fmt(f.costosMes)}`, '', 'text-red-400'),
       scoreCard('Margen Bruto', `${f.margenBruto}%`, f.margenBruto >= 30 ? 'Objetivo: ≥30%' : 'Por debajo del objetivo', f.margenBruto >= 30 ? 'text-emerald-400' : 'text-yellow-400'),
       scoreCard('Pendiente Cobro', `₲ ${fmt(f.pendienteCobro)}`, '', 'text-orange-400'),
     ])}
-    ${section('Clientes', '👥', [
+    ${section('Clientes', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>', [
       scoreCard('Total Clientes', c.totalClientes, '', 'text-blue-400'),
       scoreCard('Visitas del Mes', c.clientesMes, '', 'text-cyan-400'),
       scoreCard('Retención', `${c.retencionVisita}%`, 'Repiten en 90 días', c.retencionVisita >= 40 ? 'text-emerald-400' : 'text-yellow-400'),
       scoreCard('Ticket Promedio', `₲ ${fmt(c.ticketPromedio)}`, '', 'text-purple-400'),
     ])}
-    ${section('Procesos Internos', '⚙️', [
+    ${section('Procesos Internos', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"/>', [
       scoreCard('OTs Completadas', p.otsCompletadas, 'Este mes', 'text-blue-400'),
       scoreCard('Tasa Finalización', `${p.tasaFinalizacion}%`, 'Completadas / Creadas', p.tasaFinalizacion >= 80 ? 'text-emerald-400' : 'text-yellow-400'),
       scoreCard('Servicios Catálogo', p.serviciosCatalogo, 'Utilizados este mes', 'text-cyan-400'),
       scoreCard('Tiempo Promedio', `${p.tiempoPromedioDias || '—'}`, 'Días', 'text-gray-400'),
     ])}
-    ${section('Aprendizaje y Crecimiento', '📈', [
+    ${section('Aprendizaje y Crecimiento', '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>', [
       scoreCard('Eficiencia Mecánicos', `${a.eficienciaMecanicos}%`, 'Margen bruto', 'text-emerald-400'),
       scoreCard('Diversidad Servicios', a.diversidadServicios, 'Categorías distintas', 'text-cyan-400'),
       scoreCard('Productividad', `${a.productividadPromedio}`, 'OTs / mecánico', 'text-blue-400'),

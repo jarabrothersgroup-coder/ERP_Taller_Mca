@@ -108,6 +108,8 @@ export function generateRlsPolicySql(
   return `
 -- RLS policy for ${tableName}
 -- Enforces tenant isolation at database level
+-- C-12 FIX: Removed IS NULL escape hatch that allowed LEFT JOIN bypass.
+-- Public routes work via = '' (current_setting returns '' when unset).
 
 -- Enable RLS
 ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
@@ -118,23 +120,23 @@ ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY;
 -- SELECT policy — only allow rows matching current tenant
 CREATE POLICY "${tableName}_tenant_isolation_select" ON ${tableName}
   FOR SELECT
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() IS NULL OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
 
 -- INSERT policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_insert" ON ${tableName}
   FOR INSERT
-  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() IS NULL OR public.current_tenant() = '');
+  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
 
 -- UPDATE policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_update" ON ${tableName}
   FOR UPDATE
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() IS NULL OR public.current_tenant() = '')
-  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() IS NULL OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '')
+  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
 
 -- DELETE policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
   FOR DELETE
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() IS NULL OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
 `;
 }
 
@@ -151,6 +153,7 @@ export function generateRlsPolicyUuidSql(
 ): string {
   return `
 -- RLS policy for ${tableName} (UUID tenant column)
+-- C-12 FIX: Removed IS NULL escape hatch that allowed LEFT JOIN bypass.
 ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY;
 
@@ -158,7 +161,6 @@ CREATE POLICY "${tableName}_tenant_isolation_select" ON ${tableName}
   FOR SELECT
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() IS NULL
     OR public.current_tenant() = ''
   );
 
@@ -166,7 +168,6 @@ CREATE POLICY "${tableName}_tenant_isolation_insert" ON ${tableName}
   FOR INSERT
   WITH CHECK (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() IS NULL
     OR public.current_tenant() = ''
   );
 
@@ -174,12 +175,10 @@ CREATE POLICY "${tableName}_tenant_isolation_update" ON ${tableName}
   FOR UPDATE
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() IS NULL
     OR public.current_tenant() = ''
   )
   WITH CHECK (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() IS NULL
     OR public.current_tenant() = ''
   );
 
@@ -187,7 +186,6 @@ CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
   FOR DELETE
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() IS NULL
     OR public.current_tenant() = ''
   );
 `;

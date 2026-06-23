@@ -87,9 +87,9 @@ DO $$ BEGIN
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
--- CRM sync logs
+-- CRM sync logs (table is singular: crm_sync_log)
 DO $$ BEGIN
-  PERFORM public.apply_rls_slug('crm_sync_logs');
+  PERFORM public.apply_rls_slug('crm_sync_log');
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
