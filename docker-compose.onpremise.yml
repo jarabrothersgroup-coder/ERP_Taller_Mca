@@ -1,0 +1,190 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — Docker Compose (On-Premise)
+# ─────────────────────────────────────────────────────────
+# Arquitectura 100% local para servidor on-premise:
+#   - ERP (Fastify + TypeScript)
+#   - PostgreSQL 16 (base de datos local)
+#   - Redis (cache)
+#   - Storage local (fotos DVI, archivos)
+#
+# Hardware mínimo: 1GB RAM, 2 CPU cores, 10GB HDD
+# Consumo estimado: ~280MB RAM total
+#
+# Uso:
+#   cp .env.example .env    # Configurar variables
+#   docker compose -f docker-compose.onpremise.yml up -d
+#   docker compose -f docker-compose.onpremise.yml logs -f
+#
+# URLs después de levantar:
+#   ERP:              http://localhost:3000
+#   PostgreSQL:       localhost:5432
+#   Redis:            localhost:6379
+#   Storage:          /data/erp-storage/
+# ─────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL 16 (Local Database) ───────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-automotive_os}
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_local_password}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-automotive_os}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ─── Redis 7 (Cache) ─────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-erp_redis_password}
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-erp_redis_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ─── ERP Backend (Fastify + TypeScript) ───────
+  erp:
+    image: automotiveos/erp-backend:latest
+    container_name: erp-backend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: "0.0.0.0"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_local_password}@postgres:5432/${POSTGRES_DB:-automotive_os}?sslmode=disable
+      STORAGE_PATH: /data/erp-storage
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      TENANT_SCHEMA_PREFIX: ${TENANT_SCHEMA_PREFIX:-tenant_}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      # WhatsApp / Evolution API (optional)
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://evolution-api:8080}
+      WHATSAPP_API_KEY: ${WHATSAPP_API_KEY:-}
+      # Twenty CRM (optional)
+      TWENTY_API_URL: ${TWENTY_API_URL:-http://twenty-crm:3000}
+      TWENTY_API_KEY: ${TWENTY_API_KEY:-}
+      TWENTY_GRAPHQL_URL: ${TWENTY_GRAPHQL_URL:-http://twenty-crm:3000/graphql}
+      # SIFEN
+      SIFEN_CERT_PATH: ${SIFEN_CERT_PATH:-}
+      SIFEN_CERT_PASS: ${SIFEN_CERT_PASS:-}
+      SIFEN_USE_TEST: ${SIFEN_USE_TEST:-true}
+      # RAG
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - erp_storage:/data/erp-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── Evolution API (WhatsApp — Opcional) ─────
+  # Descomentar si necesitas WhatsApp integration
+  # evolution-api:
+  #   image: atendai/evolution-api:v2.2.3
+  #   container_name: erp-evolution-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${EVOLUTION_API_PORT:-8080}:8080"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 256M
+  #         cpus: "0.5"
+  #   environment:
+  #     SERVER_URL: ${EVOLUTION_API_URL:-http://localhost:8080}
+  #     AUTHENTICATION_API_KEY: ${WHATSAPP_API_KEY:-}
+  #     DATABASE_PROVIDER: postgresql
+  #     DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_local_password}@postgres:5432/${EVOLUTION_DB:-evolution_api}?sslmode=disable
+  #     S3_ENABLED: "false"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - erp-network
+
+  # ─── Twenty CRM (Opcional) ───────────────────
+  # Descomentar si necesitas CRM
+  # twenty-crm:
+  #   image: twentycrm/twenty:latest
+  #   container_name: erp-twenty-crm
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${TWENTY_PORT:-3001}:3000"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 256M
+  #         cpus: "0.5"
+  #   environment:
+  #     PG_DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_local_password}@postgres:5432/${TWENTY_DB:-twenty_crm}?sslmode=disable
+  #     SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3001}
+  #     ACCESS_TOKEN_SECRET: ${TWENTY_ACCESS_TOKEN_SECRET:-}
+  #     LOGIN_TOKEN_SECRET: ${TWENTY_LOGIN_TOKEN_SECRET:-}
+  #     REFRESH_TOKEN_SECRET: ${TWENTY_REFRESH_TOKEN_SECRET:-}
+  #     FILE_TOKEN_SECRET: ${TWENTY_FILE_TOKEN_SECRET:-}
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - erp-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  erp_storage:
+
+networks:
+  erp-network:
+    driver: bridge

@@ -175,7 +175,7 @@ export async function healthCheckPlugin(app: FastifyInstance): Promise<void> {
     const deepStart = Date.now();
 
     // Parallel pings to all external services
-    const [db, redis, supabase, evolutionApi, twentyCrm] = await Promise.all([
+    const [db, redis, evolutionApi, twentyCrm] = await Promise.all([
       // DB — reuse existing validator
       (async (): Promise<DeepServiceCheck> => {
         const s = Date.now();
@@ -186,15 +186,13 @@ export async function healthCheckPlugin(app: FastifyInstance): Promise<void> {
       pingService("redis", "http://localhost:6379", 2000).catch(() => ({
         name: "redis", status: "skip" as const, latencyMs: 0, message: "Not configured",
       })),
-      // Supabase — ping the project API
-      pingService("supabase", `${process.env.SUPABASE_URL || "https://placeholder.supabase.co"}/rest/v1/`, 5000),
       // Evolution API — ping health endpoint
       pingService("evolution-api", `${process.env.EVOLUTION_API_URL || "http://localhost:8080"}/health`, 3000),
       // Twenty CRM — ping health endpoint
       pingService("twenty-crm", `${process.env.TWENTY_CRM_URL || "http://localhost:3000"}/health`, 3000),
     ]);
 
-    const services = [db, redis, supabase, evolutionApi, twentyCrm];
+    const services = [db, redis, evolutionApi, twentyCrm];
     const errors = services.filter((s) => s.status === "error").length;
     const degraded = services.filter((s) => s.status === "degraded").length;
     const totalLatencyMs = Date.now() - deepStart;

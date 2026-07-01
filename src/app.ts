@@ -255,8 +255,8 @@ async function buildApp() {
     (await import("./modules/config/plugin.js")).default,
   );
 
-  // Supabase auth / storage / realtime (lazy init)
-  await app.register((await import("./plugins/supabase.js")).default);
+  // Local filesystem storage (replaces Supabase Storage)
+  await app.register((await import("./plugins/storage.js")).storagePlugin);
 
   // Offline-first sync endpoints (tenant-scoped)
   await app.register(syncPlugin);

@@ -1,13 +1,21 @@
 /**
- * DVI Photo Storage Service — Upload/download via Supabase Storage.
+ * DVI Photo Storage Service — Upload/download via local filesystem.
  *
- * Handles photo upload to Supabase Storage with tenant isolation.
+ * Handles photo upload with tenant isolation.
  * Path structure: {tenant_slug}/{inspection_id}/{photo_id}.{ext}
+ *
+ * Replaces Supabase Storage with local filesystem storage.
  *
  * @module dvi/services/photo-storage.service
  */
 
-import { getSupabaseAdmin } from "../../../shared/database/supabase.js";
+import {
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  listFiles,
+  getFileUrl,
+} from "../../../shared/storage/local-storage.js";
 import ExifTransformer from "exif-be-gone";
 import { Readable } from "node:stream";
 
@@ -81,7 +89,7 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
 // ─── Upload ───────────────────────────────────
 
 /**
- * Uploads a DVI photo to Supabase Storage.
+ * Uploads a DVI photo to local filesystem storage.
  *
  * @param params.tenantSlug - Tenant identifier (used as folder prefix)
  * @param params.inspectionId - DVI inspection ID
@@ -89,7 +97,7 @@ function validateMagicBytes(buffer: Buffer, declaredType: string): boolean {
  * @param params.fileBuffer - File content as Buffer
  * @param params.contentType - MIME type of the file
  * @param params.filename - Original filename
- * @returns Upload result with public URL
+ * @returns Upload result with URL
  */
 export async function uploadPhoto(params: {
   tenantSlug: string;
@@ -117,34 +125,19 @@ export async function uploadPhoto(params: {
   // Sprint 57: Strip EXIF metadata to prevent location/timestamp leakage
   const cleanedBuffer = await stripExifMetadata(fileBuffer, contentType);
 
-  const supabase = getSupabaseAdmin();
-
   // Build storage path: {tenant}/{inspection}/{photo_id}.{ext}
   const ext = filename.split(".").pop() || "jpg";
   const storagePath = `${tenantSlug}/${inspectionId}/${photoId}.${ext}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(storagePath, cleanedBuffer, {
-      contentType,
-      upsert: false,
-    });
-
-  if (error) {
-    throw new Error(`Error subiendo foto: ${error.message}`);
-  }
-
-  // Get signed URL (expires in 1 hour)
-  const { data: urlData, error: urlError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .createSignedUrl(storagePath, 3600);
-
-  if (urlError) {
-    throw new Error(`Error generando URL: ${urlError.message}`);
-  }
+  await uploadFile({
+    bucket: BUCKET_NAME,
+    path: storagePath,
+    data: cleanedBuffer,
+    contentType,
+  });
 
   return {
-    url: urlData.signedUrl,
+    url: getFileUrl(BUCKET_NAME, storagePath),
     path: storagePath,
     size: cleanedBuffer.length,
     contentType,
@@ -162,8 +155,6 @@ export async function uploadPhoto(params: {
  *   - PNG: Removes tEXt, iTXt, zTXt, eXIf, dSIG chunks
  *   - WEBP: Removes EXIF and XMP RIFF chunks
  *   - HEIC/HEIF: Zeroes EXIF and XMP item data within ISOBMFF container
- *
- * Sprint 58+: Replaced manual byte-parsing with exif-be-gone for HEIC support.
  *
  * @param buffer - Original image buffer
  * @param contentType - MIME type of the image
@@ -217,7 +208,7 @@ function stripExifWithLibrary(buffer: Buffer): Promise<Buffer> {
 // ─── Download ─────────────────────────────────
 
 /**
- * Downloads a DVI photo from Supabase Storage.
+ * Downloads a DVI photo from local filesystem storage.
  *
  * @param path - Storage path of the photo
  * @returns File buffer and metadata
@@ -227,43 +218,19 @@ export async function downloadPhoto(path: string): Promise<{
   contentType: string;
   size: number;
 }> {
-  const supabase = getSupabaseAdmin();
-
-  const { data, error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .download(path);
-
-  if (error) {
-    throw new Error(`Error descargando foto: ${error.message}`);
-  }
-
-  const arrayBuffer = await data.arrayBuffer();
-  return {
-    buffer: Buffer.from(arrayBuffer),
-    contentType: data.type || "image/jpeg",
-    size: arrayBuffer.byteLength,
-  };
+  return downloadFile(BUCKET_NAME, path);
 }
 
 // ─── Delete ───────────────────────────────────
 
 /**
- * Deletes a DVI photo from Supabase Storage.
+ * Deletes a DVI photo from local filesystem storage.
  *
  * @param path - Storage path of the photo
  * @returns Deletion result
  */
 export async function deletePhoto(path: string): Promise<PhotoDeleteResult> {
-  const supabase = getSupabaseAdmin();
-
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .remove([path]);
-
-  if (error) {
-    throw new Error(`Error eliminando foto: ${error.message}`);
-  }
-
+  await deleteFile(BUCKET_NAME, path);
   return { deleted: true, path };
 }
 
@@ -280,43 +247,29 @@ export async function listPhotos(
   tenantSlug: string,
   inspectionId: string,
 ): Promise<Array<{ name: string; path: string; size: number; createdAt: string }>> {
-  const supabase = getSupabaseAdmin();
   const prefix = `${tenantSlug}/${inspectionId}`;
+  const files = await listFiles(BUCKET_NAME, prefix);
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .list(prefix);
-
-  if (error) {
-    throw new Error(`Error listando fotos: ${error.message}`);
-  }
-
-  return (data || []).map(file => ({
+  return files.map(file => ({
     name: file.name,
-    path: `${prefix}/${file.name}`,
-    size: file.metadata?.size || 0,
-    createdAt: file.created_at || "",
+    path: file.path,
+    size: file.size,
+    createdAt: "",
   }));
 }
 
 // ─── Signed URL ───────────────────────────────
 
 /**
- * Gets a signed URL for viewing a photo (expires in 1 hour).
+ * Gets a URL for viewing a photo.
+ * For local storage, returns the relative path served by the storage plugin.
  *
  * @param path - Storage path
- * @returns Signed URL
+ * @returns URL string
  */
-export async function getSignedUrl(path: string): Promise<string> {
-  const supabase = getSupabaseAdmin();
-
-  const { data, error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .createSignedUrl(path, 3600);
-
-  if (error) {
-    throw new Error(`Error generando URL firmada: ${error.message}`);
-  }
-
-  return data.signedUrl;
+export function getPhotoSignedUrl(path: string): string {
+  return getFileUrl(BUCKET_NAME, path);
 }
+
+// Alias for backward compatibility with tests
+export const getSignedUrl = getPhotoSignedUrl;

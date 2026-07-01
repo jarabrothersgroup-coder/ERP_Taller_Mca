@@ -15,14 +15,8 @@ if (process.env["NODE_ENV"] !== "production") {
 }
 
 interface EnvConfig {
-  /** Remote PostgreSQL connection string (Neon/Supabase) */
+  /** PostgreSQL connection string (local or remote) */
   DATABASE_URL: string;
-  /** Supabase project URL */
-  SUPABASE_URL: string;
-  /** Supabase anon/publishable key */
-  SUPABASE_PUBLISHABLE_KEY: string;
-  /** Supabase service_role key (admin, server-side only) */
-  SUPABASE_SERVICE_ROLE_KEY: string;
   /** HTTP server port */
   PORT: number;
   /** HTTP server host */
@@ -40,6 +34,9 @@ interface EnvConfig {
 
   /** JWT signing secret (required in production) */
   JWT_SECRET: string;
+
+  /** Local filesystem storage path for uploads (DVI photos, etc.) */
+  STORAGE_PATH: string;
 
   // ─── SIFEN / DNIT Configuration ────────────
   /** Path to SIFEN PKCS#12 (.p12) certificate file */
@@ -89,9 +86,6 @@ function requireEnv(key: string): string {
  */
 export const env: EnvConfig = {
   DATABASE_URL: requireEnv("DATABASE_URL"),
-  SUPABASE_URL: requireEnv("SUPABASE_URL"),
-  SUPABASE_PUBLISHABLE_KEY: requireEnv("SUPABASE_PUBLISHABLE_KEY"),
-  SUPABASE_SERVICE_ROLE_KEY: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   PORT: parseInt(process.env["PORT"] ?? "3000", 10),
   HOST: process.env["HOST"] ?? "0.0.0.0",
   NODE_ENV: (process.env["NODE_ENV"] as EnvConfig["NODE_ENV"]) ?? "development",
@@ -102,6 +96,9 @@ export const env: EnvConfig = {
 
   // JWT auth
   JWT_SECRET: process.env["JWT_SECRET"] ?? "",
+
+  // Local storage
+  STORAGE_PATH: process.env["STORAGE_PATH"] || "/data/erp-storage",
 
   // SIFEN defaults (optional, not requireEnv to allow offline dev)
   SIFEN_CERT_PATH: process.env["SIFEN_CERT_PATH"] ?? "",
@@ -114,16 +111,11 @@ export const env: EnvConfig = {
   OPENAI_API_KEY: process.env["OPENAI_API_KEY"] ?? "",
 
   // ─── WhatsApp / Evolution API ──────────────
-  /** Evolution API base URL (e.g., http://localhost:8080) */
   WHATSAPP_API_URL: process.env["WHATSAPP_API_URL"] || "http://localhost:8080",
-  /** Evolution API authentication key */
   WHATSAPP_API_KEY: process.env["WHATSAPP_API_KEY"] ?? "",
 
   // ─── Twenty CRM ───────────────────────────
-  /** Twenty CRM REST API base URL */
   TWENTY_API_URL: process.env["TWENTY_API_URL"] || "http://localhost:3001",
-  /** Twenty CRM API key (Settings → API Keys) */
   TWENTY_API_KEY: process.env["TWENTY_API_KEY"] ?? "",
-  /** Twenty CRM GraphQL endpoint */
   TWENTY_GRAPHQL_URL: process.env["TWENTY_GRAPHQL_URL"] || "",
 };
