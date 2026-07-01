@@ -67,7 +67,6 @@ describe("Sprint 60 — Production Hardening", () => {
     const serviceNames = body.services.map((s: any) => s.name);
     expect(serviceNames).toContain("database");
     expect(serviceNames).toContain("redis");
-    expect(serviceNames).toContain("supabase");
   });
 
   // ── /metrics (Prometheus) ─────────────────────────

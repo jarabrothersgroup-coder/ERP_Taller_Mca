@@ -1,5 +1,5 @@
 /**
- * Sprint 36 Tests — Supabase Storage + Offline Sync + Migration Runner.
+ * Sprint 36 Tests — Local Storage + Offline Sync + Migration Runner.
  *
  * Tests for:
  *   - Photo Storage Service (upload/download/delete/list)
@@ -37,31 +37,14 @@ vi.mock("../../src/shared/database/drizzle.js", () => ({
   db: mockDb,
 }));
 
-// Mock Supabase client
-const mockSupabase = {
-  storage: {
-    listBuckets: vi.fn().mockResolvedValue({ data: [], error: null }),
-    createBucket: vi.fn().mockResolvedValue({ error: null }),
-    upload: vi.fn().mockResolvedValue({ error: null }),
-    download: vi.fn().mockResolvedValue({
-      data: {
-        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(100)),
-        type: "image/jpeg",
-      },
-      error: null,
-    }),
-    remove: vi.fn().mockResolvedValue({ error: null }),
-    list: vi.fn().mockResolvedValue({ data: [], error: null }),
-    createSignedUrl: vi.fn().mockResolvedValue({
-      data: { signedUrl: "https://storage.example.com/signed-url" },
-      error: null,
-    }),
-  },
-};
-
-vi.mock("../../src/shared/database/supabase.js", () => ({
-  getSupabaseAdmin: () => mockSupabase,
-  getSupabaseAnon: () => mockSupabase,
+// Mock local storage module
+vi.mock("../../src/shared/storage/local-storage.js", () => ({
+  uploadFile: vi.fn().mockResolvedValue({ path: "test/test.jpg", size: 100, contentType: "image/jpeg" }),
+  downloadFile: vi.fn().mockResolvedValue({ buffer: Buffer.from("test"), contentType: "image/jpeg", size: 4 }),
+  deleteFile: vi.fn().mockResolvedValue(undefined),
+  listFiles: vi.fn().mockResolvedValue([]),
+  getFileUrl: vi.fn().mockReturnValue("/storage/dvi-photos/test/test.jpg"),
+  fileExists: vi.fn().mockResolvedValue(true),
 }));
 
 // ─── Photo Storage Service ────────────────────
@@ -188,21 +171,6 @@ describe("Sprint 36 — Migration Runner", () => {
       "../../src/shared/database/run-migrations.js"
     );
     expect(typeof mod.runMigrations).toBe("function");
-  });
-});
-
-// ─── Storage Setup Script ─────────────────────
-
-describe("Sprint 36 — Storage Setup Script", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("exports setupStorage function", async () => {
-    const mod = await import(
-      "../../src/shared/database/setup-storage.js"
-    );
-    expect(typeof mod.setupStorage).toBe("function");
   });
 });
 
