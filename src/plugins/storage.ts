@@ -4,7 +4,7 @@
  * Registers a Fastify route that serves files stored in the
  * on-premise storage directory. Replaces Supabase Storage URLs.
  *
- * Route: GET /storage/:bucket/*path
+ * Route: GET /storage/:bucket/*
  *
  * Security:
  *   - Path traversal prevention (resolved paths must stay within STORAGE_ROOT)
@@ -42,19 +42,13 @@ function detectContentType(filename: string): string {
  */
 export async function storagePlugin(app: FastifyInstance): Promise<void> {
   app.get<{
-    Params: { bucket: string; path: string };
-  }>("/storage/:bucket/*path", async (request: FastifyRequest, reply: FastifyReply) => {
+    Params: { bucket: string; "*": string };
+  }>("/storage/:bucket/*", async (request: FastifyRequest, reply: FastifyReply) => {
     const { bucket } = request.params as { bucket: string };
 
-    // Fastify wildcard param is an array of path segments
-    const pathSegments = (request.params as { path: string }).path;
-    // The wildcard captures everything after /storage/:bucket/
-    // We need to reconstruct from the raw URL
-    const urlPath = request.url.split("?")[0]; // Remove query string
-    const storagePrefix = `/storage/${bucket}/`;
-    const relativePath = urlPath.startsWith(storagePrefix)
-      ? urlPath.slice(storagePrefix.length)
-      : pathSegments;
+    // Fastify 5 wildcard param is a string (everything after /storage/:bucket/)
+    const wildcardPath = (request.params as { "*": string })["*"];
+    const relativePath = wildcardPath;
 
     const fullPath = join(STORAGE_ROOT, bucket, relativePath);
 
