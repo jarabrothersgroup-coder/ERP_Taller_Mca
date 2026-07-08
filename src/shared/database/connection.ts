@@ -25,9 +25,11 @@ export function getDb(): postgres.Sql {
       idle_timeout: 30,            // Close idle connections after 30s
       connect_timeout: 10,         // Fail fast if DB is unreachable
       prepare: false,              // Disable prepared statements (serverless friendly)
-      ssl: process.env.NODE_ENV === "production"
-        ? { rejectUnauthorized: true }
-        : { rejectUnauthorized: false }, // Dev: allow self-signed certs
+      ssl: env.DATABASE_URL.includes("sslmode=disable")
+        ? false
+        : process.env.NODE_ENV === "production"
+          ? { rejectUnauthorized: true }
+          : { rejectUnauthorized: false },
     });
   }
   return sql;
