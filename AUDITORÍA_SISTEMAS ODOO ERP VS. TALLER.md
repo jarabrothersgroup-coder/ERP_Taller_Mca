@@ -120,4 +120,4 @@ Dado que estás construyendo un sistema de taller enfocado en el **Plan de Mante
 
 ¿Qué familia funcional de esta lista considerás que es la más crítica para la gestión operativa inmediata de tu taller en Asunción?
 
-Elaborar una lista de todas las innovaciones que hemos trabajado en todos los promts que utilizamos y comparar con lo que hay en el mercado
+Elabo	rar una lista de todas las innovaciones que hemos trabajado en todos los promts que utilizamos y comparar con lo que hay en el mercado
