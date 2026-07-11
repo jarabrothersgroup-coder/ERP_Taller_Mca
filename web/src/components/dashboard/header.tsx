@@ -2,10 +2,39 @@
 
 import * as React from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, Bell, LogOut, User, ChevronDown } from "lucide-react";
+import { Menu, Bell, LogOut, User, ChevronDown, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useTheme } from "@/components/providers/theme-provider";
+
+/* ── Theme Toggle Button ────────────────────── */
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme, mounted } = useTheme();
+
+  if (!mounted) {
+    return <div className="h-9 w-9" />; // Placeholder to prevent layout shift
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggleTheme}
+      className="text-muted-foreground hover:text-foreground transition-colors"
+      aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+    >
+      {theme === "dark" ? (
+        <Sun className="h-4 w-4" />
+      ) : (
+        <Moon className="h-4 w-4" />
+      )}
+    </Button>
+  );
+}
+
+/* ── Header ──────────────────────────────────── */
 
 export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const { data: session } = useSession();
@@ -43,8 +72,11 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
       </div>
 
-      {/* Right: Notifications + User + Logout */}
+      {/* Right: Theme Toggle + Notifications + User + Logout */}
       <div className="flex items-center gap-2">
+        {/* Theme Toggle */}
+        <ThemeToggleButton />
+
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
