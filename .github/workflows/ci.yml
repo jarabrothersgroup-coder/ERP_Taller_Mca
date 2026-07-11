@@ -16,7 +16,7 @@ env:
   NODE_VERSION: "22"
 
 jobs:
-  # ─── Job 1: Audit, type-check & test ──────────────────
+  # ─── Job 1: Audit, type-check & test (backend) ───────
   audit-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -48,8 +48,46 @@ jobs:
       - name: Verificar compilación (tsc → dist/)
         run: npm run build
 
-  # ─── Job 2: Build Docker image (main only) ────────────
+  # ─── Job 2: Build Next.js frontend ───────────────────
+  build-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar dependencias del frontend
+        run: npm ci
+
+      - name: Verificar tipado TypeScript
+        run: npx tsc --noEmit
+
+      - name: Compilar frontend (Next.js build)
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Guardar build como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: web/.next/
+          retention-days: 7
+
+  # ─── Job 3: Build Docker image (main only) ────────────
   build-container:
+    needs: [audit-and-test, build-frontend]
     needs: audit-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
