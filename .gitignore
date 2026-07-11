@@ -5,6 +5,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# ─── Next.js ─────────────────────────────────
+web/.next/
+web/out/
+
 # ─── Environment ──────────────────────────────
 .env
 .env.local

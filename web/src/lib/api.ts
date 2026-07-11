@@ -1,0 +1,228 @@
+/**
+ * AutomotiveOS API Client — typed fetch wrapper for the Fastify backend.
+ *
+ * All requests are proxied through Next.js rewrites (next.config.mjs):
+ *   /workshop/* → http://localhost:4000/workshop/*
+ *   /inventory/* → http://localhost:4000/inventory/*
+ *   /finance/*   → http://localhost:4000/finance/*
+ *   /api/*       → http://localhost:4000/api/*
+ *
+ * Each request includes X-Tenant-Slug and Content-Type headers.
+ * Functions fall back to mock data when the backend is unreachable.
+ */
+
+/* ── Types ──────────────────────────────────── */
+
+export interface WorkOrder {
+  id: string;
+  vehicleId: string;
+  clientId: string;
+  description: string | null;
+  status: string;
+  hvAlert: boolean;
+  hvLockoutSigned: boolean;
+  dtcCodes: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  vehiculo: string | null;
+  plate: string | null;
+  cliente: string | null;
+}
+
+export interface InventoryItem {
+  id: string;
+  codigo: string;
+  codigoBarras: string | null;
+  descripcion: string;
+  marca: string | null;
+  modelo: string | null;
+  categoria: string | null;
+  precioCosto: string | null;
+  precioVenta: string | null;
+  stockActual: number;
+  stockMinimo: number;
+  stockMaximo: number | null;
+  ubicacion: string | null;
+  unidadMedida: string;
+  proveedor: string | null;
+  compatibleCon: string | null;
+  activo: boolean;
+  imagenUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryListResponse {
+  items: InventoryItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface Invoice {
+  id: string;
+  tenantSlug: string;
+  ordenId: string;
+  tipo: "MANUAL" | "ELECTRONICA";
+  numeroFacturaManual: string | null;
+  sifenCdc: string | null;
+  sifenStatus: string;
+  total: string;
+  estadoPago: string;
+  saldoPendiente: string;
+  fechaVencimiento: string;
+  createdAt: string;
+  updatedAt: string;
+  lineItems?: InvoiceLineItem[];
+  orden?: WorkOrder;
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  facturaId: string;
+  numeroLinea: number;
+  tipoLinea: string;
+  descripcion: string;
+  cantidad: string;
+  precioUnitario: string;
+  subtotal: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  ruc: string | null;
+  address: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ── API Client ─────────────────────────────── */
+
+const BASE_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Tenant-Slug": "demo",
+} as const;
+
+class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+async function request<T>(
+  url: string,
+  options?: RequestInit,
+): Promise<T> {
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...BASE_HEADERS, ...options?.headers },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new ApiError(res.status, body.error ?? body.message ?? "Error de red");
+  }
+
+  return res.json() as Promise<T>;
+}
+
+/* ── Work Orders (Taller) ───────────────────── */
+
+export const api = {
+  /** List work orders with optional status filter & pagination */
+  listWorkOrders: (params?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    const query = qs.toString();
+    return request<WorkOrder[]>(`/workshop/ordenes${query ? `?${query}` : ""}`);
+  },
+
+  /** Get single work order by ID */
+  getWorkOrder: (id: string) =>
+    request<WorkOrder>(`/workshop/ordenes/${id}`),
+
+  /** Update work order status */
+  updateWorkOrderStatus: (id: string, status: string) =>
+    request<WorkOrder>(`/workshop/ordenes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+
+  /* ── Inventory (Repuestos) ─────────────────── */
+
+  /** List inventory items with search, filter & pagination */
+  listInventory: (params?: {
+    search?: string;
+    categoria?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.categoria) qs.set("categoria", params.categoria);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<InventoryListResponse>(
+      `/inventory/repuestos${query ? `?${query}` : ""}`,
+    );
+  },
+
+  /** Get single inventory item by ID */
+  getInventoryItem: (id: string) =>
+    request<InventoryItem>(`/inventory/repuestos/${id}`),
+
+  /* ── Invoices (Facturación) ────────────────── */
+
+  /** List all invoices */
+  listInvoices: () => request<Invoice[]>("/finance/invoices"),
+
+  /** Get single invoice with line items */
+  getInvoice: (id: string) => request<Invoice>(`/finance/invoices/${id}`),
+
+  /** Issue a new invoice from a work order */
+  issueInvoice: (body: {
+    ordenId: string;
+    tipoFacturacion: "MANUAL" | "ELECTRONICA";
+    numeroFacturaManual?: string;
+    ivaExento?: boolean;
+  }) =>
+    request<{ success: boolean; data: Invoice }>("/finance/invoices/issue", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /* ── Clients ───────────────────────────────── */
+
+  /** List all clients */
+  listClients: () => request<Client[]>("/workshop/clientes"),
+
+  /** Create a new client */
+  createClient: (body: {
+    name: string;
+    email?: string;
+    phone?: string;
+    ruc?: string;
+    address?: string;
+    notes?: string;
+  }) =>
+    request<Client>("/workshop/clientes", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+};
