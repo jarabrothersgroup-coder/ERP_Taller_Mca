@@ -645,6 +645,161 @@ export async function fetchConfigSettings(
   return data;
 }
 
+/* ── WhatsApp Messages Mapper ───────────────── */
+
+export interface UIMappedWhatsAppMessage {
+  id: string;
+  clienteName: string;
+  phoneNumber: string;
+  template: string;
+  messageText: string;
+  status: "SENT" | "FAILED" | "PENDING";
+  sentAt: string;
+  hasAttachment: boolean;
+  errorMessage?: string | null;
+}
+
+function mapWhatsAppMessageFromApi(api: Record<string, unknown>): UIMappedWhatsAppMessage {
+  return {
+    id: api.id as string,
+    clienteName: (api.clienteName as string) || "",
+    phoneNumber: (api.phoneNumber as string) || "",
+    template: (api.template as string) || "CUSTOM",
+    messageText: (api.messageText as string) || "",
+    status: (api.status as UIMappedWhatsAppMessage["status"]) || "PENDING",
+    sentAt: (api.sentAt as string)
+      ? new Date(api.sentAt as string).toLocaleDateString("es-PY")
+      : "—",
+    hasAttachment: (api.hasAttachment as boolean) ?? false,
+    errorMessage: api.errorMessage as string | null,
+  };
+}
+
+/**
+ * Fetches WhatsApp message logs from the API with fallback to mock data.
+ */
+export async function fetchWhatsAppMessages(
+  getMockMessages: () => UIMappedWhatsAppMessage[],
+  tenantSlug?: string,
+): Promise<UIMappedWhatsAppMessage[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/whatsapp/log", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? json;
+      return items.map(mapWhatsAppMessageFromApi);
+    },
+    getMockMessages,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for WhatsApp messages");
+  return data;
+}
+
+/* ── Fleet Mapper ──────────────────────────── */
+
+export interface UIMappedFleet {
+  id: string;
+  nombre: string;
+  empresa: string;
+  contacto: string;
+  telefono: string;
+  email: string | null;
+  ruc: string;
+  contratoTipo: string;
+  descuentoPorcentaje: number;
+  createdAt: string;
+}
+
+function mapFleetFromApi(api: Record<string, unknown>): UIMappedFleet {
+  return {
+    id: api.id as string,
+    nombre: (api.nombre as string) || "",
+    empresa: (api.empresa as string) || "",
+    contacto: (api.contacto as string) || "",
+    telefono: (api.telefono as string) || "",
+    email: (api.email as string) ?? null,
+    ruc: (api.ruc as string) || "",
+    contratoTipo: (api.contratoTipo as string) || "MENSUAL",
+    descuentoPorcentaje: Number(api.descuentoPorcentaje ?? 0),
+    createdAt: new Date((api.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/**
+ * Fetches fleets from the API with fallback to mock data.
+ */
+export async function fetchFleets(
+  getMockFleets: () => UIMappedFleet[],
+  tenantSlug?: string,
+): Promise<UIMappedFleet[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/fleet", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapFleetFromApi);
+    },
+    getMockFleets,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for fleets");
+  return data;
+}
+
+/* ── Audit Log Mapper ──────────────────────── */
+
+export interface UIMappedAuditEntry {
+  id: string;
+  usuario: string;
+  accion: string;
+  entidad: string;
+  entidadId: string;
+  descripcion: string;
+  valorAnterior?: string | null;
+  valorNuevo?: string | null;
+  createdAt: string;
+}
+
+function mapAuditFromApi(api: Record<string, unknown>): UIMappedAuditEntry {
+  return {
+    id: api.id as string,
+    usuario: (api.usuario as string) || (api.userEmail as string) || (api.createdBy as string) || "",
+    accion: (api.accion as string) || (api.action as string) || "",
+    entidad: (api.entidad as string) || (api.entity as string) || (api.entityType as string) || "",
+    entidadId: (api.entidadId as string) || (api.entityId as string) || "",
+    descripcion: (api.descripcion as string) || (api.description as string) || "",
+    valorAnterior: (api.valorAnterior as string) ?? (api.oldValue as string) ?? null,
+    valorNuevo: (api.valorNuevo as string) ?? (api.newValue as string) ?? null,
+    createdAt: new Date((api.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/**
+ * Fetches audit log entries from the API with fallback to mock data.
+ */
+export async function fetchAuditLog(
+  getMockEntries: () => UIMappedAuditEntry[],
+  tenantSlug?: string,
+): Promise<UIMappedAuditEntry[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/audit/log", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapAuditFromApi);
+    },
+    getMockEntries,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for audit log");
+  return data;
+}
+
 /* ── Public API ─────────────────────────────── */
 
 /**

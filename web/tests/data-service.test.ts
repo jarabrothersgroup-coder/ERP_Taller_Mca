@@ -244,4 +244,215 @@ describe("Mappers", () => {
       expect(result[0].saldoInicial).toBe("15000000");
     });
   });
+
+  describe("mapBankAccountFromApi", () => {
+    it("maps backend bank account to UI shape", async () => {
+      mockFetch([{
+        id: "cta-1",
+        codigo: "1.1.01.001",
+        nombre: "Caja Chica",
+        tipo: "CAJA",
+        moneda: "PYG",
+        saldoInicial: "2000000",
+        saldoActual: "1850000",
+        activo: true,
+      }]);
+
+      const { fetchBankAccounts } = await import("@/lib/data-service");
+      const result = await fetchBankAccounts(() => []);
+
+      expect(result[0].nombre).toBe("Caja Chica");
+      expect(result[0].tipo).toBe("CAJA");
+      expect(result[0].saldoActual).toBe(1850000);
+      expect(result[0].moneda).toBe("PYG");
+    });
+  });
+
+  describe("mapMovementFromApi", () => {
+    it("maps backend treasury movement to UI shape", async () => {
+      mockFetch([{
+        id: "mov-1",
+        tipo: "INGRESO",
+        medioPago: "EFECTIVO",
+        cuentaNombre: "Caja Chica",
+        monto: "450000",
+        concepto: "Cobro factura",
+        fecha: new Date().toISOString(),
+        conciliado: true,
+      }]);
+
+      const { fetchMovements } = await import("@/lib/data-service");
+      const result = await fetchMovements(() => []);
+
+      expect(result[0].tipo).toBe("INGRESO");
+      expect(result[0].monto).toBe(450000);
+      expect(result[0].conciliado).toBe(true);
+      expect(result[0].medioPago).toBe("EFECTIVO");
+    });
+  });
+
+  describe("mapAnalyticsFromApi", () => {
+    it("maps backend analytics data to UI shape", async () => {
+      mockFetch({
+        totalIngresos: "28650000",
+        totalOrdenes: 42,
+        ordenesCompletadas: 28,
+        productividad: 76,
+        clientesAtendidos: 24,
+        margenBruto: 58.3,
+        ticketPromedio: "682143",
+      });
+
+      const { fetchAnalyticsDashboard } = await import("@/lib/data-service");
+      const result = await fetchAnalyticsDashboard(() => ({
+        totalIngresos: 0, totalOrdenes: 0, ordenesCompletadas: 0,
+        productividad: 0, clientesAtendidos: 0, margenBruto: 0,
+        ticketPromedio: 0, mesActual: "",
+      }));
+
+      expect(result.totalIngresos).toBe(28650000);
+      expect(result.productividad).toBe(76);
+      expect(result.margenBruto).toBe(58.3);
+    });
+  });
+
+  describe("mapUserFromApi", () => {
+    it("maps backend user profile to UI shape", async () => {
+      mockFetch([{
+        id: "usr-1",
+        name: "Juan Ángel Jara",
+        email: "jaraju01@gmail.com",
+        role: "admin",
+        activo: true,
+        createdAt: new Date().toISOString(),
+      }]);
+
+      const { fetchUsers } = await import("@/lib/data-service");
+      const result = await fetchUsers(() => []);
+
+      expect(result[0].name).toBe("Juan Ángel Jara");
+      expect(result[0].email).toBe("jaraju01@gmail.com");
+      expect(result[0].role).toBe("admin");
+      expect(result[0].activo).toBe(true);
+    });
+  });
+
+  describe("mapAppointmentFromApi", () => {
+    it("maps backend appointment to UI shape", async () => {
+      mockFetch([{
+        id: "appt-1",
+        clienteNombre: "María González",
+        clientePhone: "+595981234567",
+        clienteEmail: "maria@gmail.com",
+        vehiculoChapa: "ABC 123",
+        vehiculoMarca: "Toyota",
+        vehiculoModelo: "Corolla",
+        fechaTurno: "2026-07-15",
+        horaTurno: "09:30",
+        tipoServicio: "RAPIDO",
+        estado: "CONFIRMADO",
+        createdAt: new Date().toISOString(),
+      }]);
+
+      const { fetchAppointments } = await import("@/lib/data-service");
+      const result = await fetchAppointments(() => []);
+
+      expect(result[0].clienteNombre).toBe("María González");
+      expect(result[0].vehiculoChapa).toBe("ABC 123");
+      expect(result[0].tipoServicio).toBe("RAPIDO");
+      expect(result[0].estado).toBe("CONFIRMADO");
+    });
+  });
+
+  describe("mapConfigFromApi", () => {
+    it("maps backend config settings to UI shape", async () => {
+      mockFetch({
+        companyName: "Taller El Chero",
+        companyRuc: "80012345-6",
+        companyAddress: "Av. Mariscal López 1234",
+        companyPhone: "+595981234567",
+        companyEmail: "info@taller.com",
+      });
+
+      const { fetchConfigSettings } = await import("@/lib/data-service");
+      const result = await fetchConfigSettings(() => ({
+        companyName: "", companyRuc: "", companyAddress: "",
+        companyPhone: "", companyEmail: "", fiscalRegimen: "",
+        timbrado: "", facturaInicio: "",
+      }));
+
+      expect(result.companyName).toBe("Taller El Chero");
+      expect(result.companyRuc).toBe("80012345-6");
+      expect(result.companyPhone).toBe("+595981234567");
+    });
+  });
+
+  describe("mapWhatsAppMessageFromApi", () => {
+    it("maps backend WhatsApp message to UI shape", async () => {
+      mockFetch({ items: [{
+        id: "msg-1",
+        clienteName: "Juan Pérez",
+        phoneNumber: "+595981234567",
+        template: "RECEPCIONADO",
+        messageText: "Su vehículo fue recibido",
+        status: "SENT",
+        sentAt: new Date().toISOString(),
+        hasAttachment: false,
+      }]});
+
+      const { fetchWhatsAppMessages } = await import("@/lib/data-service");
+      const result = await fetchWhatsAppMessages(() => []);
+
+      expect(result[0].clienteName).toBe("Juan Pérez");
+      expect(result[0].template).toBe("RECEPCIONADO");
+      expect(result[0].status).toBe("SENT");
+    });
+  });
+
+  describe("mapFleetFromApi", () => {
+    it("maps backend fleet record to UI shape", async () => {
+      mockFetch([{
+        id: "fl-1",
+        nombre: "Transporte Norte",
+        empresa: "Transportes del Norte S.A.",
+        contacto: "Carlos Ruiz",
+        telefono: "+595981111222",
+        email: "carlos@transportesnorte.com",
+        ruc: "80012345-7",
+        contratoTipo: "MENSUAL",
+        descuentoPorcentaje: 15,
+        createdAt: new Date().toISOString(),
+      }]);
+
+      const { fetchFleets } = await import("@/lib/data-service");
+      const result = await fetchFleets(() => []);
+
+      expect(result[0].nombre).toBe("Transporte Norte");
+      expect(result[0].empresa).toBe("Transportes del Norte S.A.");
+      expect(result[0].contratoTipo).toBe("MENSUAL");
+      expect(result[0].descuentoPorcentaje).toBe(15);
+    });
+  });
+
+  describe("mapAuditFromApi", () => {
+    it("maps backend audit log entry to UI shape", async () => {
+      mockFetch([{
+        id: "aud-1",
+        usuario: "admin@taller.com",
+        accion: "CREAR",
+        entidad: "OT",
+        entidadId: "ot-123",
+        descripcion: "Creación de orden de trabajo",
+        createdAt: new Date().toISOString(),
+      }]);
+
+      const { fetchAuditLog } = await import("@/lib/data-service");
+      const result = await fetchAuditLog(() => []);
+
+      expect(result[0].usuario).toBe("admin@taller.com");
+      expect(result[0].accion).toBe("CREAR");
+      expect(result[0].entidad).toBe("OT");
+      expect(result[0].descripcion).toBe("Creación de orden de trabajo");
+    });
+  });
 });
