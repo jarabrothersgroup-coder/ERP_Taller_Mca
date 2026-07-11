@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/components/providers/theme-provider";
+import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 
 /* ── Theme Toggle Button ────────────────────── */
 
@@ -76,6 +77,9 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex items-center gap-2">
         {/* Theme Toggle */}
         <ThemeToggleButton />
+
+        {/* Locale Switcher */}
+        <LocaleSwitcher />
 
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
