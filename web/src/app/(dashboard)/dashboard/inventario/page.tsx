@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import * as React from "react";
 import {
   Plus,
@@ -14,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { fetchInventoryItems, type UIMappedInventoryItem } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
+
+type InventoryStatus = "ok" | "low" | "critical";
 
 interface InventoryItem {
   id: string;
@@ -27,7 +28,7 @@ interface InventoryItem {
   minStock: number;
   price: number;
   location: string;
-  status: "ok" | "low" | "critical";
+  status: InventoryStatus;
 }
 
 /* ── Mock Data ──────────────────────────────── */
@@ -43,50 +44,52 @@ const categories = [
   "Neumáticos",
 ];
 
-const mockInventory: InventoryItem[] = Array.from({ length: 48 }, (_, i) => {
-  const stockLevels = [
-    { stock: 15, min: 5 },
-    { stock: 3, min: 10 },
-    { stock: 1, min: 5 },
-    { stock: 8, min: 8 },
-    { stock: 25, min: 10 },
-    { stock: 0, min: 3 },
-    { stock: 45, min: 15 },
-    { stock: 6, min: 5 },
-  ];
-  const level = stockLevels[i % stockLevels.length];
-  const status: InventoryItem["status"] =
-    level.stock === 0 ? "critical" : level.stock <= level.min ? "low" : "ok";
-  const cat = categories[i % categories.length];
+function getMockInventory(): InventoryItem[] {
+  return Array.from({ length: 48 }, (_, i) => {
+    const stockLevels = [
+      { stock: 15, min: 5 },
+      { stock: 3, min: 10 },
+      { stock: 1, min: 5 },
+      { stock: 8, min: 8 },
+      { stock: 25, min: 10 },
+      { stock: 0, min: 3 },
+      { stock: 45, min: 15 },
+      { stock: 6, min: 5 },
+    ];
+    const level = stockLevels[i % stockLevels.length];
+    const status: InventoryItem["status"] =
+      level.stock === 0 ? "critical" : level.stock <= level.min ? "low" : "ok";
+    const cat = categories[i % categories.length];
 
-  return {
-    id: `INV-${String(i + 1).padStart(4, "0")}`,
-    code: `PZ-${String(100 + i).padStart(4, "0")}`,
-    name: [
-      "Pastillas de Freno Delanteras",
-      "Filtro de Aceite",
-      "Amortiguador Trasero",
-      "Bujía Iridium",
-      "Correa de Distribución",
-      "Batería 12V 60Ah",
-      "Aceite Motor 5W30 4L",
-      "Disco de Freno Trasero",
-      "Sensor de Oxígeno",
-      "Filtro de Aire",
-      "Bomba de Agua",
-      "Termostato",
-    ][i % 12],
-    category: cat,
-    brand: ["Bosch", "NGK", "SKF", "Valeo", "Mann", "ACDelco"][i % 6],
-    stock: level.stock,
-    minStock: level.min,
-    price: [85000, 45000, 320000, 120000, 250000, 550000, 135000, 180000, 210000, 95000, 380000, 65000][
-      i % 12
-    ],
-    location: `A${Math.floor(i / 12) + 1}-${String((i % 12) + 1).padStart(2, "0")}`,
-    status,
-  };
-});
+    return {
+      id: `INV-${String(i + 1).padStart(4, "0")}`,
+      code: `PZ-${String(100 + i).padStart(4, "0")}`,
+      name: [
+        "Pastillas de Freno Delanteras",
+        "Filtro de Aceite",
+        "Amortiguador Trasero",
+        "Bujía Iridium",
+        "Correa de Distribución",
+        "Batería 12V 60Ah",
+        "Aceite Motor 5W30 4L",
+        "Disco de Freno Trasero",
+        "Sensor de Oxígeno",
+        "Filtro de Aire",
+        "Bomba de Agua",
+        "Termostato",
+      ][i % 12],
+      category: cat,
+      brand: ["Bosch", "NGK", "SKF", "Valeo", "Mann", "ACDelco"][i % 6],
+      stock: level.stock,
+      minStock: level.min,
+      price: [85000, 45000, 320000, 120000, 250000, 550000, 135000, 180000, 210000, 95000, 380000, 65000][
+        i % 12
+      ],
+      location: `A${Math.floor(i / 12) + 1}-${String((i % 12) + 1).padStart(2, "0")}`,
+      status,
+    };
+  });
+}
 
 const statusColors: Record<InventoryItem["status"], "success" | "warning" | "destructive"> = {
   ok: "success",
@@ -261,15 +264,24 @@ export default function InventoryPage() {
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("");
 
-  // Simulate loading
+  // Fetch from API with mock fallback
   React.useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    fetchInventoryItems(getMockInventory).then((data) => {
+      if (!cancelled) {
+        setAllItems(data);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
+
+  // State for all items (from API or mock)
+  const [allItems, setAllItems] = React.useState<InventoryItem[]>([]);
 
   // Filter data
   const filtered = React.useMemo(() => {
-    let result = mockInventory;
+    let result = allItems;
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -283,7 +295,7 @@ export default function InventoryPage() {
       result = result.filter((item) => item.category === categoryFilter);
     }
     return result;
-  }, [search, categoryFilter]);
+  }, [allItems, search, categoryFilter]);
 
   const criticalItems = filtered.filter((i) => i.status === "critical");
 

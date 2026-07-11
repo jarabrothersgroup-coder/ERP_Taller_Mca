@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import * as React from "react";
 import {
   Plus,
@@ -11,7 +9,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Download,
-  Search,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { fetchInvoices, type UIMappedInvoice } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -40,7 +38,7 @@ interface InvoiceRecord {
   sifenStatus: string;
 }
 
-/* ── Mock Data ──────────────────────────────── */
+/* ── Mock Data Factory ──────────────────────── */
 
 const clients = [
   "María González", "Pedro López", "Juan Pérez", "Lucía Fernández",
@@ -48,34 +46,36 @@ const clients = [
   "Sofía Medina", "Diego Acosta",
 ];
 
-const mockInvoices: InvoiceRecord[] = Array.from({ length: 32 }, (_, i) => {
-  const statuses: InvoiceStatus[] = [
-    "PENDIENTE", "PAGADA", "VENCIDA", "APROBADO_DNIT",
-    "MANUAL_CONVERT_QUEUE", "PENDIENTE", "PAGADA", "ANULADA",
-  ];
-  const types: InvoiceType[] = ["ELECTRONICA", "MANUAL", "ELECTRONICA", "ELECTRONICA"];
-  const daysAgo = Math.floor(Math.random() * 90);
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  const dueDate = new Date(date);
-  dueDate.setDate(dueDate.getDate() + 30);
+function getMockInvoices(): InvoiceRecord[] {
+  return Array.from({ length: 32 }, (_, i) => {
+    const statuses: InvoiceStatus[] = [
+      "PENDIENTE", "PAGADA", "VENCIDA", "APROBADO_DNIT",
+      "MANUAL_CONVERT_QUEUE", "PENDIENTE", "PAGADA", "ANULADA",
+    ];
+    const types: InvoiceType[] = ["ELECTRONICA", "MANUAL", "ELECTRONICA", "ELECTRONICA"];
+    const daysAgo = Math.floor(Math.random() * 90);
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const dueDate = new Date(date);
+    dueDate.setDate(dueDate.getDate() + 30);
 
-  const totalAmount = [450000, 850000, 1250000, 320000, 2100000, 560000, 980000, 1750000][i % 8];
+    const totalAmount = [450000, 850000, 1250000, 320000, 2100000, 560000, 980000, 1750000][i % 8];
 
-  return {
-    id: `FAC-${String(100 + i).padStart(4, "0")}`,
-    numero: `001-001-${String(1000000 + i).slice(0, 7)}`,
-    cliente: clients[i % clients.length],
-    ordenId: `OT-${String(100 + i).padStart(3, "0")}`,
-    tipo: types[i % types.length],
-    total: totalAmount,
-    estado: statuses[i % statuses.length],
-    estadoPago: statuses[i % statuses.length] === "PAGADA" ? "PAGADA" : "PENDIENTE",
-    fechaEmision: date.toLocaleDateString("es-PY"),
-    fechaVencimiento: dueDate.toLocaleDateString("es-PY"),
-    sifenStatus: statuses[i % statuses.length],
-  };
-});
+    return {
+      id: `FAC-${String(100 + i).padStart(4, "0")}`,
+      numero: `001-001-${String(1000000 + i).slice(0, 7)}`,
+      cliente: clients[i % clients.length],
+      ordenId: `OT-${String(100 + i).padStart(3, "0")}`,
+      tipo: types[i % types.length],
+      total: totalAmount,
+      estado: statuses[i % statuses.length],
+      estadoPago: statuses[i % statuses.length] === "PAGADA" ? "PAGADA" : "PENDIENTE",
+      fechaEmision: date.toLocaleDateString("es-PY"),
+      fechaVencimiento: dueDate.toLocaleDateString("es-PY"),
+      sifenStatus: statuses[i % statuses.length],
+    };
+  });
+}
 
 /* ── Status Config ──────────────────────────── */
 
@@ -111,7 +111,6 @@ function InvoiceStats({ invoices }: { invoices: InvoiceRecord[] }) {
     .reduce((sum, i) => sum + i.total, 0);
   const vencidas = invoices.filter((i) => i.estado === "VENCIDA").length;
   const emitidasEsteMes = invoices.filter((i) => {
-    // Simplified: count invoices with recent dates
     const today = new Date();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const invDate = new Date(i.fechaEmision.split("/").reverse().join("-"));
@@ -267,13 +266,16 @@ export default function InvoicePage() {
   const [search, setSearch] = React.useState("");
   const [typeFilter, setTypeFilter] = React.useState<string>("");
 
-  // Simulate loading
+  // Fetch from API with mock fallback
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setInvoices(mockInvoices);
-      setLoading(false);
-    }, 900);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    fetchInvoices(getMockInvoices as unknown as () => UIMappedInvoice[]).then((data) => {
+      if (!cancelled) {
+        setInvoices(data as unknown as InvoiceRecord[]);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Filter data
