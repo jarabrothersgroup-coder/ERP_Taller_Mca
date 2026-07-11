@@ -208,7 +208,124 @@ function mapInvoiceFromApi(apiInvoice: Record<string, unknown>): UIMappedInvoice
   };
 }
 
+/* ── Client Mapper ─────────────────────────── */
+
+export interface UIMappedClient {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  ruc: string | null;
+  address: string | null;
+  createdAt: string;
+}
+
+/**
+ * Maps a backend client (from GET /workshop/clientes) to the UI shape.
+ */
+function mapClientFromApi(apiClient: Record<string, unknown>): UIMappedClient {
+  return {
+    id: apiClient.id as string,
+    name: apiClient.name as string,
+    email: (apiClient.email as string) ?? null,
+    phone: (apiClient.phone as string) ?? null,
+    ruc: (apiClient.ruc as string) ?? null,
+    address: (apiClient.address as string) ?? null,
+    createdAt: new Date((apiClient.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/* ── Vehicle Mapper ─────────────────────────── */
+
+export interface UIMappedVehicle {
+  id: string;
+  plate: string | null;
+  vin: string | null;
+  brand: string;
+  model: string;
+  year: number | null;
+  engineType: string;
+  kilometraje: number | null;
+  clientId: string;
+  createdAt: string;
+}
+
+/**
+ * Maps a backend vehicle (from GET /workshop/vehiculos) to the UI shape.
+ */
+function mapVehicleFromApi(apiVehicle: Record<string, unknown>): UIMappedVehicle {
+  return {
+    id: apiVehicle.id as string,
+    plate: (apiVehicle.plate as string) ?? null,
+    vin: (apiVehicle.vin as string) ?? null,
+    brand: apiVehicle.brand as string,
+    model: apiVehicle.model as string,
+    year: (apiVehicle.year as number) ?? null,
+    engineType: (apiVehicle.engineType as string) ?? "Nafta",
+    kilometraje: (apiVehicle.kilometraje as number) ?? null,
+    clientId: apiVehicle.clientId as string,
+    createdAt: new Date((apiVehicle.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/**
+ * Fetches vehicles from the API with fallback to mock data.
+ *
+ * @param getMockVehicles - Factory function returning mock UIMappedVehicle[]
+ * @param tenantSlug - Optional tenant slug
+ */
+export async function fetchVehicles(
+  getMockVehicles: () => UIMappedVehicle[],
+  tenantSlug?: string,
+): Promise<UIMappedVehicle[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/workshop/vehiculos", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapVehicleFromApi);
+    },
+    getMockVehicles,
+  );
+
+  if (source === "api") {
+    console.log("[data-service] Using live API data for vehicles");
+  }
+  return data;
+}
+
 /* ── Public API ─────────────────────────────── */
+
+/**
+ * Fetches clients from the API with fallback to mock data.
+ *
+ * @param getMockClients - Factory function returning mock UIMappedClient[]
+ * @param tenantSlug - Optional tenant slug (defaults to session or "demo")
+ * @returns Mapped clients ready for the UI
+ */
+export async function fetchClients(
+  getMockClients: () => UIMappedClient[],
+  tenantSlug?: string,
+): Promise<UIMappedClient[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/workshop/clientes", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapClientFromApi);
+    },
+    getMockClients,
+  );
+
+  if (source === "api") {
+    console.log("[data-service] Using live API data for clients");
+  }
+  return data;
+}
 
 /**
  * Fetches work orders from the API with fallback to mock data.
