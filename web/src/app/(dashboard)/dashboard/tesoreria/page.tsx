@@ -1,5 +1,3 @@
-"use client";
-
 import { DollarSign, Construction } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

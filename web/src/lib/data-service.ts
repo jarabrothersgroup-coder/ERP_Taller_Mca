@@ -235,6 +235,59 @@ function mapClientFromApi(apiClient: Record<string, unknown>): UIMappedClient {
   };
 }
 
+/* ── Accounting Account Mapper ───────────────── */
+
+export interface UIMappedAccount {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  nivel: number;
+  aceptaMovimientos: boolean;
+  activo: boolean;
+  saldoInicial: string;
+  moneda: string;
+}
+
+/**
+ * Maps a backend accounting account to the UI shape.
+ */
+function mapAccountFromApi(apiAccount: Record<string, unknown>): UIMappedAccount {
+  return {
+    id: apiAccount.id as string,
+    codigo: apiAccount.codigo as string,
+    nombre: apiAccount.nombre as string,
+    tipo: apiAccount.tipo as string,
+    nivel: (apiAccount.nivel as number) ?? 1,
+    aceptaMovimientos: (apiAccount.aceptaMovimientos as boolean) ?? true,
+    activo: (apiAccount.activo as boolean) ?? true,
+    saldoInicial: (apiAccount.saldoInicial as string) ?? "0",
+    moneda: (apiAccount.moneda as string) ?? "PYG",
+  };
+}
+
+/**
+ * Fetches accounting accounts from the API with fallback to mock data.
+ */
+export async function fetchAccounts(
+  getMockAccounts: () => UIMappedAccount[],
+  tenantSlug?: string,
+): Promise<UIMappedAccount[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/finance/contabilidad/cuentas", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapAccountFromApi);
+    },
+    getMockAccounts,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for accounts");
+  return data;
+}
+
 /* ── Vehicle Mapper ─────────────────────────── */
 
 export interface UIMappedVehicle {
