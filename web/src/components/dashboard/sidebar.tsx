@@ -16,6 +16,7 @@ import {
   Shield,
   Truck,
   Users,
+  User,
   ChevronLeft,
   ChevronRight,
   Car,
@@ -37,6 +38,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
       { label: "Taller", href: "/dashboard/taller", icon: Wrench },
+      { label: "Clientes", href: "/dashboard/clientes", icon: Users },
       { label: "Inventario", href: "/dashboard/inventario", icon: Package },
     ],
   },
@@ -64,6 +66,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Seguridad", href: "/dashboard/seguridad", icon: Shield },
       { label: "Flotas", href: "/dashboard/flotas", icon: Truck },
       { label: "Configuración", href: "/dashboard/config", icon: Settings },
+    ],
+  },
+  {
+    title: "Cuenta",
+    items: [
+      { label: "Mi Perfil", href: "/dashboard/perfil", icon: User },
     ],
   },
 ];
@@ -108,21 +116,33 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
               {section.items.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  (item.href !== "/dashboard" && pathname.startsWith(item.href + "/")) ||
+                  (pathname === item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150",
                       isActive
                         ? "bg-sidebar-accent text-orange-400"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                       collapsed && "justify-center px-2"
                     )}
                     title={collapsed ? item.label : undefined}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" />
+                    {/* Active indicator bar */}
+                    {isActive && !collapsed && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-orange-500" />
+                    )}
+                    {isActive && collapsed && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-orange-500" />
+                    )}
+
+                    <item.icon className={cn(
+                      "h-4 w-4 shrink-0 transition-transform duration-150",
+                      isActive && "scale-110"
+                    )} />
                     {!collapsed && (
                       <>
                         <span className="flex-1">{item.label}</span>
@@ -132,6 +152,16 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                           </span>
                         )}
                       </>
+                    )}{/* Collapsed tooltip */}
+                    {collapsed && (
+                      <div className="absolute left-full ml-2 hidden group-hover:flex items-center px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-xs font-medium shadow-md border z-50 whitespace-nowrap">
+                        {item.label}
+                        {item.badge && (
+                          <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </Link>
                 );

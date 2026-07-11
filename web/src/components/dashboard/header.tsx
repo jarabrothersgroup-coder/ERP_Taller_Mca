@@ -1,13 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { Menu, Bell, Search, ChevronDown, Building2, LogOut } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Menu, Bell, LogOut, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
-  const [tenant] = React.useState("Taller El Chero");
+  const { data: session } = useSession();
+  const user = session?.user;
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "??";
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
@@ -18,27 +28,23 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
           size="icon"
           className="lg:hidden"
           onClick={onMenuClick}
+          aria-label="Abrir menú"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
         <Separator orientation="vertical" className="h-6 lg:hidden" />
 
-        {/* Tenant Switcher */}
-        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 hover:bg-accent cursor-pointer transition-colors">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium hidden sm:inline">{tenant}</span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        {/* Tenant badge */}
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5">
+          <span className="text-sm font-medium hidden sm:inline capitalize">
+            {user?.tenantSlug || "demo"}
+          </span>
         </div>
       </div>
 
-      {/* Right: Search + Notifications + User */}
+      {/* Right: Notifications + User + Logout */}
       <div className="flex items-center gap-2">
-        {/* Search */}
-        <Button variant="ghost" size="icon" className="hidden md:flex">
-          <Search className="h-4 w-4" />
-        </Button>
-
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />
@@ -52,16 +58,29 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
         <Separator orientation="vertical" className="h-6" />
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer transition-colors">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-            JJ
+        {/* User Avatar + Name */}
+        <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer transition-colors group relative">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-primary-foreground text-xs font-bold shadow-sm">
+            {initials}
           </div>
           <div className="hidden sm:flex flex-col">
-            <span className="text-xs font-medium">Juan Jara</span>
-            <span className="text-[10px] text-muted-foreground">Admin</span>
+            <span className="text-xs font-medium">{user?.name || "Usuario"}</span>
+            <span className="text-[10px] text-muted-foreground capitalize">
+              {user?.role || "user"}
+            </span>
           </div>
         </div>
+
+        {/* Logout */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => signOut({ callbackUrl: "/sign-in" })}
+          className="text-muted-foreground hover:text-destructive transition-colors"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );

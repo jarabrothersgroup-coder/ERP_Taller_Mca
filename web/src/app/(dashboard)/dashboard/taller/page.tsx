@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import * as React from "react";
 import {
   Plus,
@@ -35,6 +33,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { fetchWorkOrders, type UIMappedWorkOrder } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -105,6 +104,10 @@ const mockOrders: WorkOrder[] = Array.from({ length: 35 }, (_, i) => {
     notes: i % 4 === 0 ? "Cliente solicita presupuesto antes de autorizar" : undefined,
   };
 });
+
+function getMockOrders(): UIMappedWorkOrder[] {
+  return mockOrders as unknown as UIMappedWorkOrder[];
+}
 
 /* ── Stats Cards ────────────────────────────── */
 
@@ -420,17 +423,20 @@ const columns: Column<WorkOrder>[] = [
 
 export default function WorkshopPage() {
   const [loading, setLoading] = React.useState(true);
-  const [orders, setOrders] = React.useState<WorkOrder[]>([]);
+  const [orders, setOrders] = React.useState<UIMappedWorkOrder[]>([]);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("");
 
-  // Simulate loading
+  // Fetch from API with mock fallback
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setOrders(mockOrders);
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    fetchWorkOrders(getMockOrders).then((data) => {
+      if (!cancelled) {
+        setOrders(data);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Filter data
@@ -453,7 +459,7 @@ export default function WorkshopPage() {
   }, [orders, search, statusFilter]);
 
   // Handle new order created
-  const handleOrderCreated = (order: WorkOrder) => {
+  const handleOrderCreated = (order: UIMappedWorkOrder) => {
     setOrders((prev) => [order, ...prev]);
   };
 
@@ -478,7 +484,7 @@ export default function WorkshopPage() {
       </div>
 
       {/* ── Stats ──────────────────────────── */}
-      {!loading && <WorkshopStats orders={filtered} />}
+      {!loading && <WorkshopStats orders={filtered as unknown as WorkOrder[]} />}
 
       {/* ── Status filter tabs ──────────────── */}
       {!loading && (
@@ -512,7 +518,7 @@ export default function WorkshopPage() {
       {/* ── Data Table ───────────────────────── */}
       <DataTable<WorkOrder>
         columns={columns}
-        data={filtered}
+        data={filtered as unknown as WorkOrder[]}
         rowKey="id"
         loading={loading}
         emptyMessage={
