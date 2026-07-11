@@ -34,7 +34,10 @@
     "web:dev": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
     "web:start": "cd web && npm run start",
-    "web:typecheck": "cd web && npm run typecheck"
+    "web:typecheck": "cd web && npm run typecheck",
+    "dev": "echo '🚀 Iniciando backend + frontend...' && (npm run dev &) && (sleep 2 && cd web && npm run dev)",
+    "dev:backend": "npm run dev",
+    "dev:frontend": "cd web && npm run dev"
   },
   "keywords": [
     "erp",

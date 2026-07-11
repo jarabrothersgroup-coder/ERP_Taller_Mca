@@ -116,8 +116,7 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
               {section.items.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href + "/")) ||
-                  (pathname === item.href);
+                  (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
                 return (
                   <Link
                     key={item.href}
@@ -132,17 +131,15 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                     title={collapsed ? item.label : undefined}
                   >
                     {/* Active indicator bar */}
-                    {isActive && !collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-orange-500" />
-                    )}
-                    {isActive && collapsed && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-orange-500" />
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-orange-500" aria-hidden="true" />
                     )}
 
                     <item.icon className={cn(
                       "h-4 w-4 shrink-0 transition-transform duration-150",
                       isActive && "scale-110"
                     )} />
+
                     {!collapsed && (
                       <>
                         <span className="flex-1">{item.label}</span>
@@ -152,9 +149,14 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                           </span>
                         )}
                       </>
-                    )}{/* Collapsed tooltip */}
+                    )}
+
+                    {/* Collapsed tooltip */}
                     {collapsed && (
-                      <div className="absolute left-full ml-2 hidden group-hover:flex items-center px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-xs font-medium shadow-md border z-50 whitespace-nowrap">
+                      <div
+                        className="absolute left-full ml-2 hidden group-hover:flex items-center px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-xs font-medium shadow-md border z-50 whitespace-nowrap"
+                        role="tooltip"
+                      >
                         {item.label}
                         {item.badge && (
                           <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">

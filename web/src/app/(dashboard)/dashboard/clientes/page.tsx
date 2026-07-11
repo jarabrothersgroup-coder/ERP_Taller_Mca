@@ -4,12 +4,8 @@ import * as React from "react";
 import {
   Plus,
   Users,
-  Phone,
   Mail,
-  MapPin,
-  FileText,
   Download,
-  Search,
   UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,11 +14,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { cn } from "@/lib/utils";
+import { fetchClients, type UIMappedClient } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -46,7 +41,7 @@ const cities = [
   "Coronel Oviedo", "Ciudad del Este", "Encarnación", "Hernandarias", "Villarrica",
 ];
 
-function generateMockClients(): ClientRecord[] {
+function getMockClients(): ClientRecord[] {
   const firstNames = [
     "Juan Carlos", "María Fernanda", "Roberto", "Ana Lucía", "Pedro Enrique",
     "Lucía Valentina", "Fernando Daniel", "Carolina Belén", "Miguel Ángel",
@@ -83,8 +78,6 @@ function generateMockClients(): ClientRecord[] {
     };
   });
 }
-
-const mockClients = generateMockClients();
 
 /* ── Stats Cards ────────────────────────────── */
 
@@ -238,13 +231,16 @@ export default function ClientsPage() {
   const [clients, setClients] = React.useState<ClientRecord[]>([]);
   const [search, setSearch] = React.useState("");
 
-  // Simulate loading with mock data
+  // Fetch from API with mock fallback
   React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setClients(mockClients);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    fetchClients(getMockClients as unknown as () => UIMappedClient[]).then((data) => {
+      if (!cancelled) {
+        setClients(data as unknown as ClientRecord[]);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Filter data
