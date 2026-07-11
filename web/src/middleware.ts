@@ -1,13 +1,29 @@
 /**
- * Middleware — protects dashboard routes using NextAuth
+ * Middleware — composed i18n + Auth protection
  *
- * - Allows public access to /sign-in, /api/auth/*, _next/static, etc.
- * - Redirects unauthenticated users to /sign-in
+ * 1. next-intl middleware reads the NEXT_LOCALE cookie (set client-side by LocaleSwitcher)
+ *    to negotiate the locale. localePrefix: 'never' means URLs stay clean (no /es/ prefix).
+ * 2. NextAuth middleware protects dashboard routes, redirects unauthenticated to /sign-in.
  */
+import createIntlMiddleware from "next-intl/middleware";
+import { NextRequest } from "next/server";
 import { auth } from "@/auth";
 
-export default auth((req) => {
+const locales = ["es", "gu", "en"] as const;
+const defaultLocale = "es";
+
+const intlMiddleware = createIntlMiddleware({
+  locales: locales as unknown as string[],
+  defaultLocale,
+  localeDetection: true,
+  localePrefix: "never",
+});
+
+export default auth(async (req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
+
+  // Run next-intl middleware first to negotiate locale from cookie/header
+  const intlResponse = intlMiddleware(req);
 
   // Allow public routes
   if (
@@ -16,7 +32,7 @@ export default auth((req) => {
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico"
   ) {
-    return;
+    return intlResponse;
   }
 
   // Protect dashboard and all other routes
@@ -25,6 +41,8 @@ export default auth((req) => {
     signInUrl.searchParams.set("callbackUrl", pathname);
     return Response.redirect(signInUrl);
   }
+
+  return intlResponse;
 });
 
 export const config = {
