@@ -349,6 +349,196 @@ export async function fetchVehicles(
   return data;
 }
 
+/* ── Treasury: Bank Account Mapper ──────────── */
+
+export interface UIMappedBankAccount {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  moneda: string;
+  saldoInicial: number;
+  saldoActual: number;
+  activo: boolean;
+  createdAt?: string;
+}
+
+function mapBankAccountFromApi(api: Record<string, unknown>): UIMappedBankAccount {
+  return {
+    id: api.id as string,
+    codigo: (api.codigo as string) || "",
+    nombre: api.nombre as string,
+    tipo: (api.tipo as string) || "CORRIENTE",
+    moneda: (api.moneda as string) || "PYG",
+    saldoInicial: Number(api.saldoInicial ?? 0),
+    saldoActual: Number(api.saldoActual ?? 0),
+    activo: (api.activo as boolean) ?? true,
+    createdAt: api.createdAt as string | undefined,
+  };
+}
+
+/**
+ * Fetches bank accounts from the API with fallback to mock data.
+ */
+export async function fetchBankAccounts(
+  getMockAccounts: () => UIMappedBankAccount[],
+  tenantSlug?: string,
+): Promise<UIMappedBankAccount[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/finance/treasury/cuentas", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapBankAccountFromApi);
+    },
+    getMockAccounts,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for bank accounts");
+  return data;
+}
+
+/* ── Treasury: Movement Mapper ─────────────── */
+
+export interface UIMappedMovement {
+  id: string;
+  tipo: "INGRESO" | "EGRESO" | "TRANSFERENCIA";
+  medioPago: string;
+  cuentaNombre: string;
+  monto: number;
+  concepto: string;
+  fecha: string;
+  conciliado: boolean;
+}
+
+function mapMovementFromApi(api: Record<string, unknown>): UIMappedMovement {
+  return {
+    id: api.id as string,
+    tipo: (api.tipo as UIMappedMovement["tipo"]) || "INGRESO",
+    medioPago: (api.medioPago as string) || "EFECTIVO",
+    cuentaNombre: (api.cuentaNombre as string) || "",
+    monto: Number(api.monto ?? 0),
+    concepto: (api.concepto as string) || "",
+    fecha: new Date((api.fecha as string) || Date.now()).toLocaleDateString("es-PY"),
+    conciliado: (api.conciliado as boolean) ?? false,
+  };
+}
+
+/**
+ * Fetches treasury movements from the API with fallback to mock data.
+ */
+export async function fetchMovements(
+  getMockMovements: () => UIMappedMovement[],
+  tenantSlug?: string,
+): Promise<UIMappedMovement[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/finance/treasury/movimientos", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapMovementFromApi);
+    },
+    getMockMovements,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for movements");
+  return data;
+}
+
+/* ── Analytics Dashboard Mapper ─────────────── */
+
+export interface UIMappedAnalyticsData {
+  totalIngresos: number;
+  totalOrdenes: number;
+  ordenesCompletadas: number;
+  productividad: number;
+  clientesAtendidos: number;
+  margenBruto: number;
+  ticketPromedio: number;
+  mesActual: string;
+}
+
+function mapAnalyticsFromApi(api: Record<string, unknown>): UIMappedAnalyticsData {
+  return {
+    totalIngresos: Number(api.totalIngresos ?? 0),
+    totalOrdenes: Number(api.totalOrdenes ?? 0),
+    ordenesCompletadas: Number(api.ordenesCompletadas ?? 0),
+    productividad: Number(api.productividad ?? 0),
+    clientesAtendidos: Number(api.clientesAtendidos ?? 0),
+    margenBruto: Number(api.margenBruto ?? 0),
+    ticketPromedio: Number(api.ticketPromedio ?? 0),
+    mesActual: (api.mesActual as string) || new Date().toLocaleDateString("es-PY", { month: "long", year: "numeric" }),
+  };
+}
+
+/**
+ * Fetches analytics dashboard data from the API with fallback to mock data.
+ */
+export async function fetchAnalyticsDashboard(
+  getMockData: () => UIMappedAnalyticsData,
+  tenantSlug?: string,
+): Promise<UIMappedAnalyticsData> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/workshop/analytics/dashboard", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown> = await res.json();
+      return mapAnalyticsFromApi(json);
+    },
+    getMockData,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for analytics");
+  return data;
+}
+
+/* ── Users (Profiles) Mapper ───────────────── */
+
+export interface UIMappedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "manager" | "mechanic" | "user";
+  activo: boolean;
+  createdAt: string;
+}
+
+function mapUserFromApi(api: Record<string, unknown>): UIMappedUser {
+  return {
+    id: api.id as string,
+    name: (api.name as string) || (api.nombre as string) || "",
+    email: (api.email as string) || "",
+    role: (api.role as UIMappedUser["role"]) || (api.rol as UIMappedUser["role"]) || "user",
+    activo: (api.activo as boolean) ?? (api.active as boolean) ?? true,
+    createdAt: new Date((api.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/**
+ * Fetches users/profiles from the API with fallback to mock data.
+ */
+export async function fetchUsers(
+  getMockUsers: () => UIMappedUser[],
+  tenantSlug?: string,
+): Promise<UIMappedUser[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/api/profiles", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapUserFromApi);
+    },
+    getMockUsers,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for users");
+  return data;
+}
+
 /* ── Public API ─────────────────────────────── */
 
 /**
