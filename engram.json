@@ -39,7 +39,7 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 62 IN_PROGRESS — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
+    "current_sprint": "Sprint 62 COMPLETED — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
     "next_sprint": "Sprint 63 — Auth + Tenant Management (Clerk)",
     "conejo_de_indias": {
       "status": "PLAN COMPLETADO",
@@ -2034,6 +2034,70 @@
         "docs/Proyecto/02_DAS — Kill-Switch middleware + IMAP worker architecture added",
         "docs/Proyecto/04_Manual — 4 Paraguay use cases (Asesor, Mecánico, Cajero, Administrador)"
       ]
+    },
+    "sprint_62_progress": {
+      "status": "COMPLETED",
+      "name": "Sprint 62 — Conejo de Indias: Design System + Dashboard Layout (React/Next.js)",
+      "date_completed": "2026-07-10",
+      "description": "Initialized Next.js 14 App Router frontend with shadcn/ui design system, automotive-themed dashboard layout, sidebar navigation, and header with tenant switcher.",
+      "frontend_stack": {
+        "framework": "Next.js 14.2.35 (App Router)",
+        "ui_library": "shadcn/ui (manual integration)",
+        "styling": "Tailwind CSS 3.4 + tailwindcss-animate",
+        "icons": "Lucide React",
+        "components": "Radix UI primitives (Dialog, DropdownMenu, Label, ScrollArea, Separator, Slot, Tooltip)",
+        "language": "TypeScript 5.8 (strict mode, 0 errors)"
+      },
+      "structure": {
+        "root": "web/ (isolated from backend)",
+        "app_router": "web/src/app/",
+        "components": "web/src/components/{ui,dashboard}/",
+        "lib": "web/src/lib/utils.ts (cn helper)",
+        "styles": "web/src/app/globals.css (CSS variables, dark mode, automotive accent)"
+      },
+      "pages_created": [
+        "web/src/app/layout.tsx — Root layout with Inter font, metadata, html/body",
+        "web/src/app/page.tsx — Root redirect to /dashboard",
+        "web/src/app/(dashboard)/layout.tsx — Dashboard shell with sidebar + header",
+        "web/src/app/(dashboard)/dashboard/page.tsx — Dashboard with 4 KPI cards, recent orders, alerts"
+      ],
+      "components_created": [
+        "web/src/components/ui/button.tsx — shadcn Button (6 variants, 4 sizes)",
+        "web/src/components/ui/card.tsx — shadcn Card (Header, Title, Description, Content, Footer)",
+        "web/src/components/ui/badge.tsx — shadcn Badge (6 variants including success/warning)",
+        "web/src/components/ui/separator.tsx — shadcn Separator (horizontal/vertical)",
+        "web/src/components/dashboard/shell.tsx — Client dashboard shell (sidebar state, mobile drawer)",
+        "web/src/components/dashboard/sidebar.tsx — Multi-section sidebar (5 sections, 13 nav items, collapse toggle)",
+        "web/src/components/dashboard/header.tsx — Top navbar (tenant switcher, notifications, user avatar)"
+      ],
+      "config_files": [
+        "web/package.json — Next.js 14 + React 18 + shadcn/ui deps",
+        "web/tsconfig.json — Bundler mode, @/* path alias, strict",
+        "web/next.config.mjs — API proxy to :4000, Supabase image domains",
+        "web/tailwind.config.js — shadcn/ui theme (CSS variables, sidebar colors, animations)",
+        "web/postcss.config.js — Tailwind + Autoprefixer",
+        "web/next-env.d.ts — Next.js type references"
+      ],
+      "build_results": {
+        "tsc_errors": 0,
+        "next_build": "success",
+        "routes": ["/", "/_not-found", "/dashboard"],
+        "first_load_js": "87.4 kB shared, 142 B per page"
+      },
+      "legacy_backup": "legacy-vanilla-frontend/ — Complete copy of 49 vanilla JS modules preserved for reference",
+      "root_package_scripts_added": [
+        "web:dev — cd web && npm run dev",
+        "web:build — cd web && npm run build",
+        "web:start — cd web && npm run start",
+        "web:typecheck — cd web && npm run typecheck"
+      ],
+      "color_palette": {
+        "primary": "Blue (221.2 83.2% 53.3%)",
+        "accent": "Orange (automotive accent)",
+        "sidebar": "Dark slate (222.2 84% 4.9%)",
+        "dark_mode": "CSS variables with .dark class support"
+      },
+      "next_sprint": "Sprint 63 — Auth + Tenant Management (Clerk)"
     }
 }
 }

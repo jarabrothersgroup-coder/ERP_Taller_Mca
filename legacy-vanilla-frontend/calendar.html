@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoOS ERP — Calendario</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .calendar-day { min-height: 120px; }
+    .appointment { cursor: grab; }
+    .appointment:active { cursor: grabbing; }
+    .drop-target { background: rgba(59, 130, 246, 0.1); }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+  <div id="app" class="max-w-7xl mx-auto p-4">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">📅 Calendario de Turnos</h1>
+      <div class="flex gap-2">
+        <button onclick="changeWeek(-1)" class="px-3 py-2 bg-slate-700 rounded">← Anterior</button>
+        <button onclick="goToToday()" class="px-3 py-2 bg-blue-600 rounded">Hoy</button>
+        <button onclick="changeWeek(1)" class="px-3 py-2 bg-slate-700 rounded">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- Week View -->
+    <div class="grid grid-cols-7 gap-2 mb-6">
+      <div class="text-center text-slate-400 font-bold">Lun</div>
+      <div class="text-center text-slate-400 font-bold">Mar</div>
+      <div class="text-center text-slate-400 font-bold">Mié</div>
+      <div class="text-center text-slate-400 font-bold">Jue</div>
+      <div class="text-center text-slate-400 font-bold">Vie</div>
+      <div class="text-center text-slate-400 font-bold">Sáb</div>
+      <div class="text-center text-slate-400 font-bold">Dom</div>
+    </div>
+
+    <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+      <!-- Days will be rendered here -->
+    </div>
+
+    <!-- Appointment Modal -->
+    <div id="appointment-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+      <div class="bg-slate-800 rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Nuevo Turno</h2>
+        <form id="appointment-form" class="space-y-4">
+          <input type="hidden" id="modal-date">
+          <input type="hidden" id="modal-time">
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Cliente</label>
+            <input type="text" id="modal-client" class="w-full bg-slate-700 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Teléfono</label>
+            <input type="tel" id="modal-phone" class="w-full bg-slate-700 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Vehículo</label>
+            <input type="text" id="modal-vehicle" class="w-full bg-slate-700 rounded px-3 py-2" required>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-400 mb-1">Servicio</label>
+            <select id="modal-service" class="w-full bg-slate-700 rounded px-3 py-2">
+              <option value="RAPIDO">Rápido (1h)</option>
+              <option value="PESADO">Pesado (4h)</option>
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" class="flex-1 bg-blue-600 py-2 rounded">Guardar</button>
+            <button type="button" onclick="closeModal()" class="flex-1 bg-slate-600 py-2 rounded">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── State ──────────────────────────────────
+    let currentWeekStart = getWeekStart(new Date());
+    let appointments = [];
+
+    // ─── Calendar Rendering ─────────────────────
+    function getWeekStart(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setDate(diff));
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(currentWeekStart);
+        date.setDate(date.getDate() + i);
+
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day bg-slate-800 rounded-lg p-2';
+        dayDiv.ondragover = (e) => e.preventDefault();
+        dayDiv.ondrop = (e) => handleDrop(e, date);
+
+        const isToday = date.toDateString() === new Date().toDateString();
+
+        dayDiv.innerHTML = `
+          <div class="text-sm ${isToday ? 'text-blue-400 font-bold' : 'text-slate-400'} mb-2">
+            ${date.getDate()}/${date.getMonth() + 1}
+          </div>
+          <div class="space-y-1" id="day-${i}">
+            ${getAppointmentsForDate(date).map(apt => `
+              <div class="appointment bg-blue-600/30 border border-blue-500/50 rounded p-1 text-xs cursor-grab"
+                   draggable="true"
+                   ondragstart="handleDragStart(event, '${apt.id}')">
+                ${apt.time} - ${apt.client}
+              </div>
+            `).join('')}
+          </div>
+          <button onclick="openModal('${date.toISOString()}')" class="mt-2 text-xs text-slate-500 hover:text-white">+ Agregar</button>
+        `;
+
+        grid.appendChild(dayDiv);
+      }
+    }
+
+    function getAppointmentsForDate(date) {
+      return appointments.filter(apt => {
+        const aptDate = new Date(apt.date);
+        return aptDate.toDateString() === date.toDateString();
+      });
+    }
+
+    // ─── Drag & Drop ────────────────────────────
+    let draggedId = null;
+
+    function handleDragStart(e, id) {
+      draggedId = id;
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDrop(e, newDate) {
+      e.preventDefault();
+      if (!draggedId) return;
+
+      const apt = appointments.find(a => a.id === draggedId);
+      if (apt) {
+        apt.date = newDate.toISOString();
+        renderCalendar();
+      }
+      draggedId = null;
+    }
+
+    // ─── Modal ──────────────────────────────────
+    function openModal(dateStr) {
+      document.getElementById('modal-date').value = dateStr;
+      document.getElementById('appointment-modal').classList.remove('hidden');
+      document.getElementById('appointment-modal').classList.add('flex');
+    }
+
+    function closeModal() {
+      document.getElementById('appointment-modal').classList.add('hidden');
+      document.getElementById('appointment-modal').classList.remove('flex');
+    }
+
+    document.getElementById('appointment-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const apt = {
+        id: Date.now().toString(),
+        date: document.getElementById('modal-date').value,
+        time: '09:00',
+        client: document.getElementById('modal-client').value,
+        phone: document.getElementById('modal-phone').value,
+        vehicle: document.getElementById('modal-vehicle').value,
+        service: document.getElementById('modal-service').value,
+      };
+      appointments.push(apt);
+      closeModal();
+      renderCalendar();
+    });
+
+    // ─── Navigation ─────────────────────────────
+    function changeWeek(direction) {
+      currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
+      renderCalendar();
+    }
+
+    function goToToday() {
+      currentWeekStart = getWeekStart(new Date());
+      renderCalendar();
+    }
+
+    // ─── Init ───────────────────────────────────
+    renderCalendar();
+  </script>
+</body>
+</html>
