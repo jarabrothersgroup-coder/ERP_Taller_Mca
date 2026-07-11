@@ -539,6 +539,112 @@ export async function fetchUsers(
   return data;
 }
 
+/* ── Scheduling: Appointment Mapper ─────────── */
+
+export interface UIMappedAppointment {
+  id: string;
+  clienteNombre: string;
+  clientePhone: string;
+  clienteEmail: string | null;
+  vehiculoChapa: string;
+  vehiculoMarca: string;
+  vehiculoModelo: string;
+  fechaTurno: string;
+  horaTurno: string;
+  tipoServicio: "RAPIDO" | "PESADO";
+  estado: "RESERVADO" | "CONFIRMADO" | "PROCESADO_EN_ERP" | "AUSENTE" | "CANCELADO";
+  createdAt: string;
+}
+
+function mapAppointmentFromApi(api: Record<string, unknown>): UIMappedAppointment {
+  return {
+    id: api.id as string,
+    clienteNombre: (api.clienteNombre as string) || "",
+    clientePhone: (api.clientePhone as string) || "",
+    clienteEmail: (api.clienteEmail as string) ?? null,
+    vehiculoChapa: (api.vehiculoChapa as string) || "",
+    vehiculoMarca: (api.vehiculoMarca as string) || "",
+    vehiculoModelo: (api.vehiculoModelo as string) || "",
+    fechaTurno: api.fechaTurno as string,
+    horaTurno: api.horaTurno as string,
+    tipoServicio: (api.tipoServicio as UIMappedAppointment["tipoServicio"]) || "RAPIDO",
+    estado: (api.estado as UIMappedAppointment["estado"]) || "RESERVADO",
+    createdAt: new Date((api.createdAt as string) || Date.now()).toLocaleDateString("es-PY"),
+  };
+}
+
+/**
+ * Fetches appointments from the API with fallback to mock data.
+ */
+export async function fetchAppointments(
+  getMockAppointments: () => UIMappedAppointment[],
+  tenantSlug?: string,
+): Promise<UIMappedAppointment[]> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/scheduling/appointments", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown>[] = await res.json();
+      return json.map(mapAppointmentFromApi);
+    },
+    getMockAppointments,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for appointments");
+  return data;
+}
+
+/* ── Config: Settings Mapper ───────────────── */
+
+export interface UIMappedConfigSettings {
+  companyName: string;
+  companyRuc: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyLogo?: string | null;
+  fiscalRegimen: string;
+  timbrado: string;
+  facturaInicio: string;
+}
+
+function mapConfigFromApi(api: Record<string, unknown>): UIMappedConfigSettings {
+  return {
+    companyName: (api.companyName as string) || (api.razon_social as string) || "",
+    companyRuc: (api.companyRuc as string) || (api.ruc as string) || "",
+    companyAddress: (api.companyAddress as string) || (api.direccion as string) || "",
+    companyPhone: (api.companyPhone as string) || (api.telefono as string) || "",
+    companyEmail: (api.companyEmail as string) || (api.email as string) || "",
+    companyLogo: (api.companyLogo as string) || (api.logo as string) || null,
+    fiscalRegimen: (api.fiscalRegimen as string) || "General",
+    timbrado: (api.timbrado as string) || "",
+    facturaInicio: (api.facturaInicio as string) || "001-001",
+  };
+}
+
+/**
+ * Fetches config/settings from the API with fallback to mock data.
+ */
+export async function fetchConfigSettings(
+  getMockSettings: () => UIMappedConfigSettings,
+  tenantSlug?: string,
+): Promise<UIMappedConfigSettings> {
+  const { data, source } = await fetchOrMock(
+    async (slug) => {
+      const res = await fetch("/api/config/settings", {
+        headers: { "X-Tenant-Slug": slug },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json: Record<string, unknown> = await res.json();
+      return mapConfigFromApi(json);
+    },
+    getMockSettings,
+  );
+  if (source === "api") console.log("[data-service] Using live API data for config");
+  return data;
+}
+
 /* ── Public API ─────────────────────────────── */
 
 /**
