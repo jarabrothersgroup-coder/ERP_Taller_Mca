@@ -50,7 +50,12 @@ export async function rlsTenantContext(
     // The app.current_tenant setting is consumed by RLS policies
     // ALTO-02 FIX: Use parameterized query instead of sql.unsafe()
     const safeSlug = tenantSlug.replace(/[^a-zA-Z0-9_-]/g, "");
-    await sql`SELECT set_config('app.current_tenant', ${safeSlug}, true)`;
+    // NOTE: session-scoped (false) so the setting survives on the acquired
+    // connection for the request's subsequent queries. Every request overwrites
+    // this at start, so stale values from a previous request are cleared.
+    // For strict per-request isolation under connection pooling, wrap request
+    // DB work in sql.begin() (see docs/RUNBOOK_ONPREM.md — "Seguridad multi-tenant").
+    await sql`SELECT set_config('app.current_tenant', ${safeSlug}, false)`;
   } catch (err) {
     // C-01 FIX: If SET LOCAL fails, BLOCK the request (fail-closed)
     // Previously this was a silent warn — allowing RLS bypass via NULL

@@ -1,0 +1,11 @@
+[Unit]
+Description=ERP Taller MCA - Backup de base de datos y archivos
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/data/ERP_Taller_Mca
+EnvironmentFile=/data/ERP_Taller_Mca/.env
+ExecStart=/data/ERP_Taller_Mca/scripts/backup.sh
