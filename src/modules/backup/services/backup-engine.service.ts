@@ -8,7 +8,7 @@
  * @module backup/services
  */
 
-import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
+import { randomBytes, createCipheriv, createDecipheriv, createHash, pbkdf2Sync } from "node:crypto";
 import { exec as execCb } from "node:child_process";
 import { mkdir, writeFile, readFile, readdir, stat, unlink, access } from "node:fs/promises";
 import { join } from "node:path";
@@ -74,7 +74,7 @@ const SALT_LENGTH = 32;
  * Derive a 256-bit key from password using PBKDF2.
  */
 function deriveKey(password: string, salt: Buffer): Buffer {
-  return require("node:crypto").pbkdf2Sync(password, salt, 100000, 32, "sha512");
+  return pbkdf2Sync(password, salt, 100000, 32, "sha512");
 }
 
 /**
