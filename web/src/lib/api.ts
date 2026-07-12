@@ -101,12 +101,21 @@ export interface Client {
   updatedAt: string;
 }
 
-/* ── API Client ─────────────────────────────── */
+/* ── Tenant Slug Resolution ─────────────────── */
 
-const BASE_HEADERS = {
-  "Content-Type": "application/json",
-  "X-Tenant-Slug": "demo",
-} as const;
+let _tenantSlug: string | undefined;
+
+/** Set the tenant slug from Clerk user's organization or session */
+export function setTenantSlug(slug: string): void {
+  _tenantSlug = slug;
+}
+
+/** Get the current tenant slug, falling back to "demo" */
+export function getTenantSlug(): string {
+  return _tenantSlug ?? "demo";
+}
+
+/* ── API Client ─────────────────────────────── */
 
 class ApiError extends Error {
   constructor(
@@ -124,7 +133,11 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetch(url, {
     ...options,
-    headers: { ...BASE_HEADERS, ...options?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Tenant-Slug": getTenantSlug(),
+      ...options?.headers,
+    },
   });
 
   if (!res.ok) {
@@ -138,6 +151,9 @@ async function request<T>(
 /* ── Work Orders (Taller) ───────────────────── */
 
 export const api = {
+  /** Generic request method for CRM and other endpoints */
+  request: <T>(url: string, options?: RequestInit) => request<T>(url, options),
+
   /** List work orders with optional status filter & pagination */
   listWorkOrders: (params?: {
     status?: string;
@@ -225,4 +241,170 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  /* ── DVI (Digital Vehicle Inspection) ──────── */
+
+  /** List DVI inspections */
+  listDVInspections: (params?: { vehicleId?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.vehicleId) qs.set("vehicleId", params.vehicleId);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<DVIInspection[]>(`/dvi${query ? `?${query}` : ""}`);
+  },
+
+  /** Get single DVI inspection */
+  getDVIInspection: (id: string) => request<DVIInspection>(`/dvi/${id}`),
+
+  /* ── Thinkcar ──────────────────────────────── */
+
+  /** List Thinkcar imports */
+  listThinkcarImports: (params?: { limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    const query = qs.toString();
+    return request<ThinkcarImport[]>(`/thinkcar/imports${query ? `?${query}` : ""}`);
+  },
+
+  /** Thinkcar health status */
+  getThinkcarHealth: () => request<ThinkcarHealth>("/thinkcar/health"),
+
+  /** Thinkcar stats */
+  getThinkcarStats: () => request<ThinkcarStats>("/thinkcar/stats"),
+
+  /* ── Presupuestos (Budget) ─────────────────── */
+
+  /** List budgets */
+  listPresupuestos: () => request<Presupuesto[]>("/finance/presupuestos"),
+
+  /** Get budget comparativa */
+  getPresupuestoComparativa: (id: string) =>
+    request<PresupuestoComparativa>(`/finance/presupuestos/${id}/comparativa`),
+
+  /** Get budget alertas */
+  getPresupuestoAlertas: () => request<PresupuestoAlerta[]>("/finance/presupuestos/alertas"),
+
+  /* ── Nómina (Payroll) ──────────────────────── */
+
+  /** Get break-even dashboard */
+  getBreakEven: () => request<BreakEvenData>("/api/v1/finance/dashboard/break-even"),
+
+  /* ── Marketing ─────────────────────────────── */
+
+  /** List campaigns */
+  listCampaigns: () => request<MarketingCampaign[]>("/marketing/campaigns"),
+
+  /* ── Label Printing ────────────────────────── */
+
+  /** Generate label */
+  generateLabel: (body: { type: "repuesto" | "herramienta"; id: string; copies?: number }) =>
+    request<{ success: boolean; label: string }>("/label-printing/generate", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /* ── Backup ────────────────────────────────── */
+
+  /** List backups */
+  listBackups: () => request<BackupJob[]>("/backup/list"),
+
+  /** Execute backup */
+  executeBackup: () => request<{ success: boolean; jobId: string }>("/backup/execute", { method: "POST" }),
+
+  /* ── Security HW ───────────────────────────── */
+
+  /** HW security status */
+  getSecurityHWStatus: () => request<SecurityHWStatus>("/security/hw/status"),
 };
+
+/* ── Additional Types ──────────────────────── */
+
+export interface DVIInspection {
+  id: string;
+  vehicleId: string;
+  technicianId: string;
+  status: string;
+  healthScore: number;
+  items: unknown[];
+  createdAt: string;
+}
+
+export interface ThinkcarImport {
+  id: string;
+  fileName: string;
+  source: string;
+  status: string;
+  dtcCount: number;
+  createdAt: string;
+}
+
+export interface ThinkcarHealth {
+  usb: { isHealthy: boolean; lastSuccessAt: string | null; consecutiveFailures: number };
+  email: { isHealthy: boolean; lastSuccessAt: string | null; consecutiveFailures: number };
+  bluetooth: { isHealthy: boolean; lastSuccessAt: string | null; consecutiveFailures: number };
+  allHealthy: boolean;
+}
+
+export interface ThinkcarStats {
+  totalImports: number;
+  pendingReview: number;
+  dtcCount: number;
+}
+
+export interface Presupuesto {
+  id: string;
+  periodo: string;
+  estado: string;
+  montoPresupuestado: string;
+  montoReal: string;
+  tenantSlug: string;
+  createdAt: string;
+}
+
+export interface PresupuestoComparativa {
+  presupuestoId: string;
+  items: { centroCostoId: string; categoria: string; presupuestado: number; real: number; desvio: number; estado: string }[];
+}
+
+export interface PresupuestoAlerta {
+  id: string;
+  presupuestoId: string;
+  centroCostoId: string;
+  categoria: string;
+  desvioPorcentaje: number;
+  severidad: string;
+}
+
+export interface BreakEvenData {
+  percentage: number;
+  currentRevenue: number;
+  threshold: number;
+  remaining: number;
+}
+
+export interface MarketingCampaign {
+  id: string;
+  nombre: string;
+  tipo: string;
+  status: string;
+  enviados: number;
+  aperturas: number;
+  conversiones: number;
+  createdAt: string;
+}
+
+export interface BackupJob {
+  id: string;
+  filename: string;
+  size: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface SecurityHWStatus {
+  hwLockEnabled: boolean;
+  fingerprint: string | null;
+  usbTokens: number;
+  lastValidation: string | null;
+}

@@ -103,7 +103,7 @@ export async function analyzeDTCs(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const content = data.choices?.[0]?.message?.content || "";
     const tokens = data.usage?.total_tokens || 0;
 

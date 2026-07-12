@@ -1,11 +1,11 @@
 "use client";
 
-import { SessionProvider as NextAuthSessionProvider } from "next-auth/react";
+import { ClerkProvider as ClerkReactProvider } from "@clerk/nextjs";
 
 /**
- * Wraps the app in NextAuth's SessionProvider.
- * Must be a client component because SessionProvider uses React Context.
+ * Wraps the app in Clerk's provider for auth state.
+ * Must be a client component because ClerkProvider uses React Context.
  */
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  return <NextAuthSessionProvider>{children}</NextAuthSessionProvider>;
+  return <ClerkReactProvider>{children}</ClerkReactProvider>;
 }

@@ -16,10 +16,9 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { whatsappMessages } from "../schema/whatsapp-log.js";
-import { eq, and, lte, sql, desc } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import {
   sendTextMessage,
-  sendDocumentMessage,
   sanitizePhone,
 } from "./whatsapp.service.js";
 import type { WhatsAppMessage } from "../schema/whatsapp-log.js";

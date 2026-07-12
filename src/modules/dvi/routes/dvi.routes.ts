@@ -20,6 +20,7 @@ import {
   createDvi,
   getDviById,
   listDviByOrden,
+  listDviInspections,
   updatePhotoMarkup,
   addItem,
   updateItemStatus,
@@ -66,6 +67,32 @@ interface ItemParams {
 }
 
 export async function dviRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /dvi — List all DVI inspections ──
+  app.get(
+    "/dvi",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            vehicleId: { type: "string", format: "uuid" },
+            limit: { type: "integer", minimum: 1, maximum: 100 },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Querystring: { vehicleId?: string; limit?: number } }>,
+      reply: FastifyReply,
+    ) => {
+      const result = await listDviInspections(
+        { vehicleId: request.query.vehicleId, limit: request.query.limit },
+        request.tenantSlug,
+      );
+      return reply.send(result);
+    },
+  );
+
   // ── POST /dvi — Create DVI inspection ──
   app.post<{ Body: CreateBody }>(
     "/dvi",

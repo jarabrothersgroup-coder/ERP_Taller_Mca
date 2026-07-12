@@ -443,6 +443,13 @@ async function buildApp() {
     (await import("./shared/routes/audit-export.routes.js")).auditExportRoutes,
   );
 
+  // ─── Enterprise Module (SSO + White-Label) ───
+  // SSO (SAML/OIDC), white-label config, data retention policies.
+  // Tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./modules/enterprise/plugin.js")).default,
+  );
+
   // ─── Startup health check ──────────────────
   app.addHook("onReady", async () => {
     const { validateConnection } = await import("./shared/database/connection.js");

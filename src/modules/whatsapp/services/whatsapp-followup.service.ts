@@ -7,6 +7,7 @@
 import { eq, and, lte, desc } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { whatsappFollowups } from "../schema/whatsapp-followup.js";
+import { whatsappTemplates } from "../schema/whatsapp-template.js";
 import { getTemplate, fillTemplate } from "./whatsapp-template.service.js";
 
 /**
@@ -120,20 +121,20 @@ export async function processDueFollowups(tenantSlug?: string) {
   for (const followup of due) {
     try {
       // Import dynamically to avoid circular deps
-      const { sendMessage } = await import("./whatsapp.service.js");
+      const { sendTextMessage } = await import("./whatsapp.service.js");
 
-      const result = await sendMessage({
-        tenantSlug: followup.tenantSlug,
-        phone: followup.phone,
-        message: followup.filledBody,
-      });
+      const result = await sendTextMessage(
+        followup.tenantSlug,
+        followup.phone,
+        followup.filledBody,
+      );
 
       await db()
         .update(whatsappFollowups)
         .set({
           status: "SENT",
           sentAt: new Date(),
-          messageId: result?.messageId || null,
+          messageId: result?.key || null,
           updatedAt: new Date(),
         })
         .where(eq(whatsappFollowups.id, followup.id));

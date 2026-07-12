@@ -220,9 +220,6 @@ export async function getRoleDashboard(
   sucursalId?: string,
   userEmail?: string,
 ): Promise<Record<string, unknown>> {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
   // ── Base stats for all roles ──
   const [totalOTs] = await db()
     .select({ total: count() })

@@ -383,7 +383,7 @@ export async function salidaStock(
       .from(inventoryAccountsMap)
       .where(
         and(
-          eq(inventoryAccountsMap.categoria, repuesto.categoria ?? "*"),
+          eq(inventoryAccountsMap.categoria, updated.categoria ?? "*"),
           eq(inventoryAccountsMap.tenantSlug, tenantSlug),
         ),
       )

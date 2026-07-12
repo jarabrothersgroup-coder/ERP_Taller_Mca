@@ -8,7 +8,7 @@
  */
 
 import { execFileSync } from "child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // ─── Configuration ─────────────────────────────

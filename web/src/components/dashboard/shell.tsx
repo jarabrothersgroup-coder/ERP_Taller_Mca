@@ -1,22 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@clerk/nextjs";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { setTenantSlug } from "@/lib/data-service";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { user } = useUser();
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  // Sync tenant slug from session to data-service
+  // Sync tenant slug from Clerk org to data-service
   React.useEffect(() => {
-    if (session?.user?.tenantSlug) {
-      setTenantSlug(session.user.tenantSlug);
-    }
-  }, [session]);
+    // For now, use default tenant until Clerk Organizations are configured
+    setTenantSlug("demo");
+  }, [user]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

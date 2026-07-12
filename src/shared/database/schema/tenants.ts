@@ -1,8 +1,11 @@
 /**
  * Tenants table — multi-tenant platform registry.
  *
- * Each tenant (automotive workshop) gets a row in `public.tenants`
- * and an isolated PostgreSQL schema (`tenant_<slug>`) for its data.
+ * Each tenant (automotive workshop) gets a row in `public.tenants`.
+ * Under Architecture A (canonical), data isolation is by `tenant_slug`
+ * column across the flat shared schema — there is NO per-tenant
+ * PostgreSQL schema. `schema_name` is retained for backward compatibility
+ * only.
  *
  * @module shared/database/schema/tenants
  */

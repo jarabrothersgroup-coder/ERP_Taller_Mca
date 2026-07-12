@@ -18,11 +18,9 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   getHardwareFingerprint,
   detectUsbDevices,
-  findUsbDongle,
   generateHardwareToken,
   validateHardwareToken,
   readTokenFromUsb,
-  writeTokenToUsb,
   setupUsbDongle,
   quickValidate,
 } from "../services/hardware-fingerprint.service.js";
@@ -34,13 +32,6 @@ interface SetupBody {
 
 interface ValidateBody {
   token: string;
-}
-
-interface AuditBody {
-  eventType: string;
-  descripcion: string;
-  usbSerial?: string;
-  severidad?: string;
 }
 
 export async function securityHwRoutes(app: FastifyInstance): Promise<void> {

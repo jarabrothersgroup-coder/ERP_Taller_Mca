@@ -10,7 +10,7 @@
  * @module client-portal/services/portal-auth.service
  */
 
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import crypto from "crypto";
@@ -33,9 +33,7 @@ const magicLinks: Map<string, { clientId: string; tenantSlug: string; expiresAt:
 /** In-memory PINs (production: use DB) */
 const pinStore: Map<string, { hash: string; clientId: string; tenantSlug: string }> = new Map();
 
-const SESSION_SECRET = process.env["PORTAL_SESSION_SECRET"] || "portal-dev-secret-change-in-prod";
 const MAGIC_LINK_EXPIRY = 15 * 60 * 1000; // 15 minutes
-const PIN_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 // ─── Rate Limiting ──────────────────────────
 

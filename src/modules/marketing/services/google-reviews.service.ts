@@ -47,7 +47,7 @@ export async function getReviews(
     LIMIT ${limit}
   `);
 
-  return result.rows.map((row: any) => ({
+  return result.map((row: any) => ({
     id: row.id,
     autor: row.autor,
     rating: row.rating,
@@ -74,7 +74,7 @@ export async function getReviewStats(
     WHERE tenant_slug = ${tenantSlug}
   `);
 
-  const row = result.rows[0] as any;
+  const row = result[0] as any;
   const total = Number(row.total) || 0;
   const responded = Number(row.responded_count) || 0;
 

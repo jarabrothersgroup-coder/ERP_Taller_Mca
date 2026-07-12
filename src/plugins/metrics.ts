@@ -47,7 +47,7 @@ let inFlightRequests = 0;
 
 // ─── Recording Functions ──────────────────────────
 
-export function recordHttpRequest(method: string, statusCode: number, durationSeconds: number, path?: string) {
+export function recordHttpRequest(method: string, statusCode: number, durationSeconds: number, _path?: string) {
   counters.httpRequestsTotal++;
 
   const methodKey = method || "UNKNOWN";

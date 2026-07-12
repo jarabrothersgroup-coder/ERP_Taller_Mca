@@ -13,7 +13,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   uploadPhoto,
-  downloadPhoto,
   deletePhoto,
   listPhotos,
   getSignedUrl,

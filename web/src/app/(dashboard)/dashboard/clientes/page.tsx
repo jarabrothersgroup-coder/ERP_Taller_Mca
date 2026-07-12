@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Plus,
   Users,
   Mail,
   Download,
@@ -17,7 +16,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { fetchClients, type UIMappedClient } from "@/lib/data-service";
+import { useClients } from "@/hooks/use-data";
+import { NewClientDialog } from "./new-client-dialog";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -32,51 +32,6 @@ interface ClientRecord {
   totalOrders: number;
   lastVisit: string;
   createdAt: string;
-}
-
-/* ── Mock Data ──────────────────────────────── */
-
-const cities = [
-  "Asunción", "San Lorenzo", "Capiatá", "Luque", "Fernando de la Mora",
-  "Coronel Oviedo", "Ciudad del Este", "Encarnación", "Hernandarias", "Villarrica",
-];
-
-function getMockClients(): ClientRecord[] {
-  const firstNames = [
-    "Juan Carlos", "María Fernanda", "Roberto", "Ana Lucía", "Pedro Enrique",
-    "Lucía Valentina", "Fernando Daniel", "Carolina Belén", "Miguel Ángel",
-    "Patricia Soledad", "Raúl Eduardo", "Gladys Mabel", "Hugo Alfredo",
-    "Sandra Milagros", "Oscar Daniel", "Carlos Alberto", "Mirta Nidia",
-    "Raquel Elizabeth", "Jorge Luis", "Silvia Patricia",
-  ];
-  const lastNames = [
-    "Martínez", "González", "Ávila", "Ferreira", "Benítez", "Romero",
-    "Gómez", "López", "Rojas", "Cabrera", "Torres", "Acosta", "Velázquez",
-    "Espinoza", "Medina", "Pereira", "Jara", "Paredes", "Achá", "Aquino",
-  ];
-
-  return firstNames.map((first, i) => {
-    const last = lastNames[i % lastNames.length];
-    const city = cities[i % cities.length];
-    const daysAgo = Math.floor(Math.random() * 365);
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const lastVisitDate = new Date(date);
-    lastVisitDate.setDate(lastVisitDate.getDate() + Math.floor(Math.random() * 60));
-
-    return {
-      id: `CLI-${String(100 + i).padStart(3, "0")}`,
-      name: `${first} ${last}`,
-      email: `${first.toLowerCase().replace(/\s/g, "")}.${last.toLowerCase()}@gmail.com`,
-      phone: `+595${String(981 + Math.floor(Math.random() * 18)).slice(0, 3)}${String(100000 + Math.floor(Math.random() * 900000)).slice(0, 6)}`,
-      ruc: `${String(1000000 + Math.floor(Math.random() * 9000000)).slice(0, 7)}-${Math.floor(Math.random() * 9)}`,
-      address: `Av. ${["Mariscal López", "San Martín", "Defensores del Chaco", "Artigas", "Brasil"][i % 5]} ${1000 + i * 100}, ${city}`,
-      vehicleCount: Math.floor(Math.random() * 4) + 1,
-      totalOrders: Math.floor(Math.random() * 15) + 1,
-      lastVisit: lastVisitDate.toLocaleDateString("es-PY"),
-      createdAt: date.toLocaleDateString("es-PY"),
-    };
-  });
 }
 
 /* ── Stats Cards ────────────────────────────── */
@@ -227,21 +182,30 @@ const columns: Column<ClientRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function ClientsPage() {
-  const [loading, setLoading] = React.useState(true);
-  const [clients, setClients] = React.useState<ClientRecord[]>([]);
+  const { data: rawClients = [], isLoading: loading } = useClients();
   const [search, setSearch] = React.useState("");
 
-  // Fetch from API with mock fallback
-  React.useEffect(() => {
-    let cancelled = false;
-    fetchClients(getMockClients as unknown as () => UIMappedClient[]).then((data) => {
-      if (!cancelled) {
-        setClients(data as unknown as ClientRecord[]);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
+  // Map API data to local ClientRecord shape
+  const clients: ClientRecord[] = React.useMemo(
+    () =>
+      (rawClients as unknown as Record<string, unknown>[]).map((c) => ({
+        id: (c.id as string) || "",
+        name: (c.name as string) || "",
+        email: (c.email as string) ?? null,
+        phone: (c.phone as string) ?? null,
+        ruc: (c.ruc as string) ?? null,
+        address: (c.address as string) ?? null,
+        vehicleCount: 0,
+        totalOrders: 0,
+        lastVisit: c.createdAt
+          ? new Date(c.createdAt as string).toLocaleDateString("es-PY")
+          : "",
+        createdAt: c.createdAt
+          ? new Date(c.createdAt as string).toLocaleDateString("es-PY")
+          : "",
+      })),
+    [rawClients],
+  );
 
   // Filter data
   const filtered = React.useMemo(() => {
@@ -279,10 +243,7 @@ export default function ClientsPage() {
         </div>
 
         {/* ⭐ PRIMARY CTA */}
-        <Button size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Nuevo Cliente
-        </Button>
+        <NewClientDialog />
       </div>
 
       {/* ── Stats ──────────────────────────── */}

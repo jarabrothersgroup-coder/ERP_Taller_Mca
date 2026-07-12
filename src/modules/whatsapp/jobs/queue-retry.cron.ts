@@ -14,9 +14,6 @@ import { processPendingMessages, retryFailedMessages } from "../services/whatsap
 /** Retry interval in milliseconds (5 minutes) */
 const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 
-/** Maximum retry attempts per message */
-const MAX_RETRIES = 3;
-
 // ─── Cron Job ──────────────────────────────────
 
 let retryTimer: ReturnType<typeof setInterval> | null = null;

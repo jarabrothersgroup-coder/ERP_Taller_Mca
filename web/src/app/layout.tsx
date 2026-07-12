@@ -5,6 +5,8 @@ import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
+import { TenantResolver } from "@/components/providers/tenant-resolver";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +31,12 @@ export default async function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider>
-            <SessionProvider>{children}</SessionProvider>
+            <QueryProvider>
+              <SessionProvider>
+                <TenantResolver />
+                {children}
+              </SessionProvider>
+            </QueryProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

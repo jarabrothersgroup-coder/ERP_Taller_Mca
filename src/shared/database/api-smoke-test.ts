@@ -17,6 +17,8 @@
  * @module shared/database/api-smoke-test
  */
 
+export {};
+
 const BASE_URL = process.argv.includes("--base-url")
   ? process.argv[process.argv.indexOf("--base-url") + 1]
   : process.env["API_BASE_URL"] || "http://localhost:3000";

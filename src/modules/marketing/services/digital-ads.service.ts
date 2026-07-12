@@ -39,7 +39,7 @@ export interface AdsStats {
  * Gets ad campaigns for a tenant.
  */
 export async function getCampaigns(
-  tenantSlug: string,
+  _tenantSlug: string,
 ): Promise<AdCampaign[]> {
   // Placeholder — would integrate with Google Ads API
   return [];
@@ -49,7 +49,7 @@ export async function getCampaigns(
  * Gets ads performance statistics.
  */
 export async function getAdsStats(
-  tenantSlug: string,
+  _tenantSlug: string,
 ): Promise<AdsStats> {
   return {
     campañasActivas: 0,

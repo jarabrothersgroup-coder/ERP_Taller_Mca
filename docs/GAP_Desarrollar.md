@@ -5,6 +5,10 @@
 **Clasificación:** Documento Interno — Planificación de Desarrollo  
 **Base:** Exploración directa del código fuente + Plan Conejo de Indias (Sprint 62-80)
 
+> ⚠️ **DOCUMENTO HISTÓRICO** — generado el 08/07/2026. Las métricas de abajo están
+> **DESACTUALIZADAS** (decía "React NO EXISTE" y "25 migraciones"). Ver
+> **"Estado Actualizado 2026-07-12"** al final del archivo para la realidad actual.
+
 ---
 
 ## 📊 Métricas Generales del Código Fuente
@@ -252,3 +256,41 @@ Ubicación: `src/shared/public/js/`
 
 **Estado del informe:** ✅ Generado automáticamente por exploración del código fuente  
 **Próximo paso:** Iniciar Sprint 62 — Design System + Dashboard Layout (React/Next.js)
+
+---
+
+## 🚨 Estado Actualizado — 2026-07-12 (reconcilación post-GAP)
+
+### Métricas corregidas
+
+| Categoría | Realidad actual | Nota vs informe original |
+|:---|:---|:---|
+| Módulos backend | **30+ plugins** | Original decía 19 (ya obsoleto en su momento) |
+| Archivos de schema Drizzle | **77** | — |
+| **Tablas definidas en Drizzle** | **95** | Fuente de tipos TS |
+| Tablas en `supabase/migrations/` | **35** (solo 2 archivos SQL) | No es la ruta real de migración |
+| Tablas creadas por `migrate.ts` + `scripts/apply-*.ts` | **~12** (nombres distintos) | Ruta real de migración en runtime |
+| Frontend React/Next.js (`web/`) | ✅ **EXISTE** — Sprint 62 COMPLETADO, 30 páginas | Original decía "NO EXISTE" |
+| Mobile React Native (`mobile/`) | ✅ **EXISTE** (temprano) | Original decía "NO EXISTE" |
+| Frontend vanilla legacy | ✅ Conectado (es el UI servido hoy) | — |
+
+### 🔴 BLOQUEO CRÍTICO — Fork de arquitectura de BD
+
+El repositorio contiene **dos arquitecturas de base de datos incompatibles**:
+
+- **Arquitectura A (la que usan los servicios del backend):** schema plano único,
+  Drizzle, 95 tablas con columna `tenant_slug` (ej. `vehiculos`, `ordenes_trabajo`,
+  `repuestos`, `facturas`). Confirmado en `orden.service.ts`, `analytics.service.ts`, etc.:
+  `db().select().from(ordenesTrabajo).where(eq(ordenesTrabajo.tenantSlug, ...))`.
+- **Arquitectura B (la que construyen `migrate.ts` / `seed.ts` / `drizzle.ts`):**
+  un schema `tenant_<slug>` **por tenant** con **nombres de tabla distintos**
+  (`vehicles`, `work_orders`, `inventory_items`, `fiscal_documents`).
+
+Ambas no pueden ser ciertas a la vez. Generar migraciones para las "20 tablas faltantes"
+es inútil hasta resolver este fork. **Decisión pendiente del arquitecto/usuario** antes de
+cualquier generación de migración o wiring de frontend contra el backend.
+
+### Próximos pasos reales
+1. **Decidir arquitectura canónica** (A plano vs B por-schema) → ver preguntas al usuario.
+2. Tras decisión: generar migración de reconciliación solo para las tablas faltantes de la arquitectura elegida.
+3. Wirear `web/` módulo por módulo (empezar Taller/Órdenes y Facturación) tras confirmar que el backend corre.

@@ -77,7 +77,7 @@ export async function getLoyaltyAccount(
     WHERE la.cliente_id = ${clienteId} AND la.tenant_slug = ${tenantSlug}
   `);
 
-  const row = result.rows[0] as any;
+  const row = result[0] as any;
   if (!row) return null;
 
   return {
@@ -100,7 +100,7 @@ export async function getRewards(tenantSlug: string): Promise<Reward[]> {
     ORDER BY puntos_requeridos
   `);
 
-  return result.rows.map((row: any) => ({
+  return result.map((row: any) => ({
     id: row.id,
     nombre: row.nombre,
     descripcion: row.descripcion,

@@ -22,11 +22,11 @@ import {
   CheckCircle,
   Car,
   Plus,
-  ArrowUpRight,
   ChevronRight,
   BarChart3,
 } from "lucide-react";
-import { fetchWorkOrders, fetchAuditLog, type UIMappedWorkOrder, type UIMappedAuditEntry } from "@/lib/data-service";
+import { useWorkOrders, useClients, useInvoices } from "@/hooks/use-data";
+import type { UIMappedWorkOrder, UIMappedAuditEntry } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -39,74 +39,80 @@ interface Stat {
   bgColor: string;
 }
 
-interface Order {
-  id: string;
-  client: string;
-  vehicle: string;
-  status: string;
-  statusVariant: "warning" | "secondary" | "success" | "destructive";
-  technician: string;
-  deadline: string;
-}
-
 interface AlertItem {
   type: "warning" | "info" | "success";
   message: string;
 }
 
-/* ── Mock Data Factory ──────────────────────── */
+/* ── Derived Data Helpers ──────────────────── */
 
-const clients = ["María González", "Pedro López", "Juan Pérez", "Lucía Fernández", "Carlos Ruiz", "Ana Martínez"];
-const vehicles = ["Toyota Corolla 2022", "Hyundai Tucson 2023", "Kia Sportage 2021", "VW Gol 2020", "Chevrolet Onix 2022", "Ford Ranger 2023"];
-const statuses: { label: string; variant: "warning" | "secondary" | "success"; key: string }[] = [
-  { label: "En Progreso", variant: "warning", key: "in_progress" },
-  { label: "Presupuestado", variant: "secondary", key: "budgeted" },
-  { label: "Listo", variant: "success", key: "ready" },
-  { label: "Control Calidad", variant: "warning", key: "quality" },
-];
-const deadlines = ["Hoy 17:00", "Mañana", "Retirado", "Hoy 15:00", "Jueves", "Viernes"];
-
-function generateRecentOrders(): Order[] {
-  return Array.from({ length: 5 }, (_, i) => ({
-    id: `OT-${String(100 + i).padStart(3, "0")}`,
-    client: clients[i % clients.length],
-    vehicle: vehicles[i % vehicles.length],
-    status: statuses[i % statuses.length].label,
-    statusVariant: statuses[i % statuses.length].variant,
-    technician: ["Carlos M.", "Ana R.", "Luis M.", "Carlos M.", "Pedro G.", "Sofía L."][i],
-    deadline: deadlines[i % deadlines.length],
-  }));
+function formatGuarani(amount: number): string {
+  if (amount >= 1_000_000) return `₲ ${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `₲ ${(amount / 1_000).toFixed(0)}K`;
+  return `₲ ${amount.toLocaleString("es-PY")}`;
 }
 
-const alerts: AlertItem[] = [
-  { type: "warning", message: "Stock bajo: Frenos Delanteros (3 unidades)" },
-  { type: "info", message: "CxC vencida: Factura #156 — ₲ 2.3M pendiente" },
-  { type: "success", message: "Backup automático completado hace 2 horas" },
-];
+function getStatusVariant(status: string): "warning" | "secondary" | "success" | "destructive" {
+  const map: Record<string, "warning" | "secondary" | "success" | "destructive"> = {
+    in_progress: "warning",
+    quality: "warning",
+    budgeted: "secondary",
+    ready: "success",
+    completed: "success",
+    cancelled: "destructive",
+  };
+  return map[status] ?? "secondary";
+}
+
+function getStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    in_progress: "En Progreso",
+    quality: "Control Calidad",
+    budgeted: "Presupuestado",
+    ready: "Listo",
+    completed: "Completada",
+    cancelled: "Cancelada",
+    pending: "Pendiente",
+  };
+  return map[status] ?? status;
+}
+
+function getDayName(date: Date): string {
+  return date.toLocaleDateString("es-PY", { weekday: "short" });
+}
+
+function computeWeeklyData(orders: UIMappedWorkOrder[]): { day: string; orders: number }[] {
+  const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+  const counts: Record<string, number> = {};
+  days.forEach((d) => (counts[d] = 0));
+
+  orders.forEach((o) => {
+    const created = new Date(o.createdAt);
+    const diffDays = Math.floor((today.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 0 && diffDays < 7) {
+      const d = getDayName(created);
+      if (counts[d] !== undefined) counts[d]++;
+    }
+  });
+
+  // Show last 7 days ending today
+  const result: { day: string; orders: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const name = getDayName(d);
+    result.push({ day: i === 0 ? "Hoy" : name, orders: counts[name] ?? 0 });
+  }
+  return result;
+}
 
 const alertIcons: Record<AlertItem["type"], React.ElementType> = {
   warning: AlertTriangle,
   info: DollarSign,
   success: CheckCircle,
 };
-
-const alertColors: Record<AlertItem["type"], string> = {
-  warning: "text-amber-500",
-  info: "text-blue-500",
-  success: "text-emerald-500",
-};
-
-/* ── Weekly Chart Data ──────────────────────── */
-
-const weeklyData = [
-  { day: "Lun", orders: 4 },
-  { day: "Mar", orders: 6 },
-  { day: "Mié", orders: 5 },
-  { day: "Jue", orders: 8 },
-  { day: "Vie", orders: 7 },
-  { day: "Sáb", orders: 3 },
-  { day: "Hoy", orders: 2 },
-];
 
 /* ── Loading Skeleton ───────────────────────── */
 
@@ -162,8 +168,8 @@ function StatsGrid({ items }: { items: Stat[] }) {
 
 /* ── Weekly Chart ───────────────────────────── */
 
-function WeeklyChart({ data }: { data: typeof weeklyData }) {
-  const maxOrders = Math.max(...data.map((d) => d.orders));
+function WeeklyChart({ data }: { data: { day: string; orders: number }[] }) {
+  const maxOrders = Math.max(...data.map((d) => d.orders), 1);
 
   return (
     <Card>
@@ -206,7 +212,7 @@ function WeeklyChart({ data }: { data: typeof weeklyData }) {
 
 /* ── Recent Orders ──────────────────────────── */
 
-function RecentOrdersList({ orders }: { orders: Order[] }) {
+function RecentOrdersList({ orders }: { orders: UIMappedWorkOrder[] }) {
   return (
     <Card>
       <CardHeader>
@@ -224,7 +230,7 @@ function RecentOrdersList({ orders }: { orders: Order[] }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2" role="list" aria-label="Órdenes de trabajo">
-          {orders.map((order) => (
+          {orders.slice(0, 8).map((order) => (
             <div
               key={order.id}
               role="listitem"
@@ -242,8 +248,8 @@ function RecentOrdersList({ orders }: { orders: Order[] }) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{order.id}</span>
-                    <Badge variant={order.statusVariant} className="text-[10px]">
-                      {order.status}
+                    <Badge variant={getStatusVariant(order.status)} className="text-[10px]">
+                      {getStatusLabel(order.status)}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
@@ -252,14 +258,19 @@ function RecentOrdersList({ orders }: { orders: Order[] }) {
                 </div>
               </div>
               <div className="text-right shrink-0 ml-3">
-                <p className="text-xs text-muted-foreground">Téc: {order.technician}</p>
+                <p className="text-xs text-muted-foreground">{order.plate}</p>
                 <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" aria-hidden="true" />
-                  {order.deadline}
+                  {order.createdAt}
                 </p>
               </div>
             </div>
           ))}
+          {orders.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No hay órdenes de trabajo registradas
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -304,8 +315,6 @@ function AlertsPanel({ items }: { items: AlertItem[] }) {
 /* ── Main Page ──────────────────────────────── */
 
 export default function DashboardPage() {
-  const [loading, setLoading] = React.useState(true);
-
   const today = React.useMemo(
     () => new Date().toLocaleDateString("es-PY", {
       weekday: "long",
@@ -316,76 +325,77 @@ export default function DashboardPage() {
     []
   );
 
-  // Fetch real data from API with mock fallback
-  const [stats, setStats] = React.useState<Stat[]>([
-    { title: "Órdenes Activas", value: "—", subtitle: "Cargando…", icon: Wrench, color: "text-orange-500", bgColor: "bg-orange-500/10" },
-    { title: "Clientes Totales", value: "—", subtitle: "Cargando…", icon: Users, color: "text-blue-500", bgColor: "bg-blue-500/10" },
-    { title: "Facturación Mes", value: "—", subtitle: "Cargando…", icon: DollarSign, color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
-    { title: "Tasa Finalización", value: "—", subtitle: "Cargando…", icon: TrendingUp, color: "text-violet-500", bgColor: "bg-violet-500/10" },
-  ]);
+  const { data: orders = [], isLoading: ordersLoading } = useWorkOrders();
+  const { data: clients = [], isLoading: clientsLoading } = useClients();
+  const { data: invoices = [], isLoading: invoicesLoading } = useInvoices();
+  const loading = ordersLoading || clientsLoading || invoicesLoading;
 
-  React.useEffect(() => {
-    let cancelled = false;
+  const stats = React.useMemo<Stat[]>(() => {
+    const active = orders.filter(
+      (o) => o.status === "in_progress" || o.status === "quality" || o.status === "budgeted"
+    ).length;
+    const completed = orders.filter((o) => o.status === "ready" || o.status === "completed").length;
+    const completionRate = orders.length > 0 ? Math.round((completed / orders.length) * 100) : 0;
 
-    // Mock data factories
-    const mockOrders = () => [] as UIMappedWorkOrder[];
-    const mockAudit = () => [] as UIMappedAuditEntry[];
+    const totalFacturacion = invoices.reduce((sum, inv) => sum + Number(inv.total ?? 0), 0);
 
-    Promise.all([
-      fetchWorkOrders(mockOrders),
-      fetchAuditLog(mockAudit),
-    ]).then(([orders]) => {
-      if (cancelled) return;
+    return [
+      {
+        title: "Órdenes Activas",
+        value: String(active),
+        subtitle: `${active} en progreso`,
+        icon: Wrench,
+        color: "text-orange-500",
+        bgColor: "bg-orange-500/10",
+      },
+      {
+        title: "Clientes Totales",
+        value: String(clients.length),
+        subtitle: `${clients.length} registrados`,
+        icon: Users,
+        color: "text-blue-500",
+        bgColor: "bg-blue-500/10",
+      },
+      {
+        title: "Facturación Mes",
+        value: formatGuarani(totalFacturacion),
+        subtitle: `${invoices.length} facturas emitidas`,
+        icon: DollarSign,
+        color: "text-emerald-500",
+        bgColor: "bg-emerald-500/10",
+      },
+      {
+        title: "Tasa Finalización",
+        value: `${completionRate}%`,
+        subtitle: `${completed} completadas`,
+        icon: TrendingUp,
+        color: "text-violet-500",
+        bgColor: "bg-violet-500/10",
+      },
+    ];
+  }, [orders, clients, invoices]);
 
-      const active = orders.filter(
-        (o) => o.status === "in_progress" || o.status === "quality" || o.status === "budgeted"
-      ).length;
-      const completed = orders.filter((o) => o.status === "ready" || o.status === "completed").length;
-      const completionRate = orders.length > 0 ? Math.round((completed / orders.length) * 100) : 87;
+  const weeklyData = React.useMemo(() => computeWeeklyData(orders), [orders]);
 
-      setStats([
-        {
-          title: "Órdenes Activas",
-          value: String(active || 12),
-          subtitle: `${active > 0 ? active : 12} en progreso`,
-          icon: Wrench,
-          color: "text-orange-500",
-          bgColor: "bg-orange-500/10",
-        },
-        {
-          title: "Clientes Totales",
-          value: "248",
-          subtitle: "+12 este mes",
-          icon: Users,
-          color: "text-blue-500",
-          bgColor: "bg-blue-500/10",
-        },
-        {
-          title: "Facturación Mes",
-          value: "₲ 45.2M",
-          subtitle: "+18% vs mes anterior",
-          icon: DollarSign,
-          color: "text-emerald-500",
-          bgColor: "bg-emerald-500/10",
-        },
-        {
-          title: "Tasa Finalización",
-          value: `${completionRate}%`,
-          subtitle: `${completed} completadas este período`,
-          icon: TrendingUp,
-          color: "text-violet-500",
-          bgColor: "bg-violet-500/10",
-        },
-      ]);
-      setLoading(false);
-    });
-
-    return () => { cancelled = true; };
-  }, []);
+  const alerts = React.useMemo<AlertItem[]>(() => {
+    const items: AlertItem[] = [];
+    const pendingInvoices = invoices.filter((inv) => inv.estadoPago === "PENDIENTE");
+    if (pendingInvoices.length > 0) {
+      const total = pendingInvoices.reduce((s, inv) => s + Number(inv.total ?? 0), 0);
+      items.push({ type: "info", message: `${pendingInvoices.length} facturas pendientes — ${formatGuarani(total)}` });
+    }
+    const completedCount = orders.filter((o) => o.status === "ready" || o.status === "completed").length;
+    const rate = orders.length > 0 ? Math.round((completedCount / orders.length) * 100) : 0;
+    if (orders.length > 0 && rate < 50) {
+      items.push({ type: "warning", message: `Tasa de finalización baja: ${rate}%` });
+    }
+    if (items.length === 0) {
+      items.push({ type: "success", message: "Todo funciona correctamente" });
+    }
+    return items;
+  }, [invoices, orders]);
 
   if (loading) return <DashboardSkeleton />;
-
-  const recentOrders = generateRecentOrders();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -415,7 +425,7 @@ export default function DashboardPage() {
       {/* ── Bottom Grid ────────────────────── */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <RecentOrdersList orders={recentOrders} />
+          <RecentOrdersList orders={orders} />
         </div>
         <AlertsPanel items={alerts} />
       </div>

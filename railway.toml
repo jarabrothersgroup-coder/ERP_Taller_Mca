@@ -1,0 +1,22 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd web && npm install && npm run build"
+startCommand = "cd web && npm start"
+
+[deploy]
+numReplicas = 1
+sleepApplication = false
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[env]
+NODE_ENV = "production"
+PORT = "3000"
+
+[[services]]
+name = "web"
+environmentVariableGroup = "production"
+
+[[services]]
+name = "backend"
+environmentVariableGroup = "production"

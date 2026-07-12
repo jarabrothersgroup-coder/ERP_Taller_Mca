@@ -20,7 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { fetchUsers, type UIMappedUser } from "@/lib/data-service";
+import { useUsers } from "@/hooks/use-data";
+import type { UIMappedUser } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -36,25 +37,6 @@ const roleConfig: Record<string, { label: string; icon: React.ElementType; color
   mechanic: { label: "Mecánico", icon: Wrench, color: "text-emerald-500", bgColor: "bg-emerald-500/10 border-emerald-200 dark:border-emerald-800" },
   user: { label: "Usuario", icon: User, color: "text-muted-foreground", bgColor: "bg-muted/50" },
 };
-
-/* ── Mock Data ──────────────────────────────── */
-
-function getMockUsers(): UserRecord[] {
-  return [
-    { id: "usr-001", name: "Juan Ángel Jara", email: "jaraju01@gmail.com", role: "admin", activo: true, createdAt: "01/01/2025" },
-    { id: "usr-002", name: "María Elena López", email: "maria.lopez@taller.com", role: "manager", activo: true, createdAt: "15/02/2025" },
-    { id: "usr-003", name: "Carlos Martínez", email: "carlos.m@taller.com", role: "mechanic", activo: true, createdAt: "01/03/2025" },
-    { id: "usr-004", name: "Ana Rodríguez", email: "ana.r@taller.com", role: "mechanic", activo: true, createdAt: "01/03/2025" },
-    { id: "usr-005", name: "Luis González", email: "luis.g@taller.com", role: "mechanic", activo: true, createdAt: "15/03/2025" },
-    { id: "usr-006", name: "Pedro Sánchez", email: "pedro.s@taller.com", role: "mechanic", activo: false, createdAt: "01/04/2025" },
-    { id: "usr-007", name: "Sofía Fernández", email: "sofia.f@taller.com", role: "user", activo: true, createdAt: "01/05/2025" },
-    { id: "usr-008", name: "Roberto Ayala", email: "roberto.a@taller.com", role: "manager", activo: true, createdAt: "15/05/2025" },
-    { id: "usr-009", name: "Laura Benítez", email: "laura.b@taller.com", role: "user", activo: true, createdAt: "01/06/2025" },
-    { id: "usr-010", name: "Diego Rivas", email: "diego.r@taller.com", role: "mechanic", activo: true, createdAt: "01/06/2025" },
-    { id: "usr-011", name: "Camila Torres", email: "camila.t@taller.com", role: "mechanic", activo: true, createdAt: "15/06/2025" },
-    { id: "usr-012", name: "Fernando Duarte", email: "fernando.d@taller.com", role: "admin", activo: true, createdAt: "20/06/2025" },
-  ];
-}
 
 /* ── Stats Cards ────────────────────────────── */
 
@@ -200,22 +182,9 @@ const columns: Column<UserRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function UsuariosPage() {
-  const [loading, setLoading] = React.useState(true);
-  const [users, setUsers] = React.useState<UserRecord[]>([]);
+  const { data: users = [], isLoading: loading } = useUsers();
   const [search, setSearch] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<string>("");
-
-  // Fetch from API with mock fallback
-  React.useEffect(() => {
-    let cancelled = false;
-    fetchUsers(getMockUsers).then((data) => {
-      if (!cancelled) {
-        setUsers(data as UserRecord[]);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
 
   // Filter data
   const filtered = React.useMemo(() => {

@@ -66,7 +66,7 @@ export async function searchByVIN(
       throw new Error(`TecDoc API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return {
       parts: data.parts || [],
       total: data.total || 0,
@@ -110,7 +110,7 @@ export async function searchByBrandModel(
 
     if (!response.ok) throw new Error(`TecDoc API error: ${response.status}`);
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return {
       parts: data.parts || [],
       total: data.total || 0,

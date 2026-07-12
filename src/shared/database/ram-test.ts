@@ -9,6 +9,8 @@
  * @module shared/database/ram-test
  */
 
+export {};
+
 const DATABASE_URL = process.env["DATABASE_URL"];
 if (!DATABASE_URL) {
   console.error("❌  DATABASE_URL required");

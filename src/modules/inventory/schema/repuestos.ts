@@ -114,6 +114,12 @@ export const repuestos = pgTable(
     /** Part image URL (Supabase Storage) */
     imagenUrl: text("imagen_url"),
 
+    /** Alias for precioCosto used by batch-import service */
+    precioCompra: numeric("precio_compra", { precision: 12, scale: 2 }),
+
+    /** Tenant slug for multi-tenant isolation */
+    tenantSlug: text("tenant_slug").notNull().default("demo"),
+
     // ─── Timestamps ─────────────────────────────
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

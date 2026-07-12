@@ -25,21 +25,6 @@ import {
   type BackupConfig,
 } from "../services/backup-engine.service.js";
 
-interface PolicyBody {
-  nombre: string;
-  activo?: boolean;
-  frecuencia?: string;
-  horaEjecucion?: number;
-  minutoEjecucion?: number;
-  destino?: string;
-  destinoConfig?: any;
-  retencionDias?: number;
-  maxBackups?: number;
-  comprimir?: boolean;
-  passwordEncriptacion?: string;
-  tipoBackup?: string;
-}
-
 interface ExecuteBody {
   policyId?: string;
   destino?: string;

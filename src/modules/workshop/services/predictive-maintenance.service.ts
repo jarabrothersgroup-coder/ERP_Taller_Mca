@@ -8,10 +8,9 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { sql, eq, and, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { vehiculos } from "../schema/vehiculos.js";
 import { ordenesTrabajo } from "../schema/ordenes-trabajo.js";
-import { clients } from "../../../shared/database/schema/clients.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -96,12 +95,7 @@ export async function predictMaintenance(
   // Estimate km per month based on visit frequency
   let kmPorMes = 1500; // Default: ~1500 km/month for Paraguay
   if (recentOTs.length >= 2) {
-    const firstVisit = recentOTs[recentOTs.length - 1].createdAt;
-    const lastVisit = recentOTs[0].createdAt;
-    const monthsDiff = Math.max(1,
-      (lastVisit.getTime() - firstVisit.getTime()) / (30 * 24 * 60 * 60 * 1000),
-    );
-    // Estimate: assume ~1500 km per month as baseline
+    // Estimate km per month based on visit frequency
     kmPorMes = Math.round(1500);
   }
 

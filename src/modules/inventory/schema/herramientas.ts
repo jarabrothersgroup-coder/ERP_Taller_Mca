@@ -94,6 +94,12 @@ export const herramientas = pgTable(
     /** Tool image URL (Supabase Storage) */
     imagenUrl: text("imagen_url"),
 
+    /** Calibration status: OK, VENCIDA, PENDIENTE, NO_APLICA */
+    estadoCalibracion: text("estado_calibracion").notNull().default("NO_APLICA"),
+
+    /** Tenant slug for multi-tenant isolation */
+    tenantSlug: text("tenant_slug").notNull().default("demo"),
+
     // ─── Timestamps ─────────────────────────────
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

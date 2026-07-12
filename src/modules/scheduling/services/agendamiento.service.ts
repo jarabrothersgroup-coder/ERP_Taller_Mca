@@ -190,6 +190,70 @@ export async function createAgendamiento(
 }
 
 /**
+ * Updates an existing appointment (used by offline sync).
+ *
+ * @param id - Appointment ID
+ * @param data - Partial appointment fields to update
+ * @param tenantSlug - Tenant identifier
+ * @returns Updated appointment id or null if not found
+ */
+export async function updateAgendamiento(
+  id: string,
+  data: Partial<CreateAgendamientoRequest>,
+  tenantSlug: string,
+): Promise<{ id: string } | null> {
+  const [existing] = await db()
+    .select({ id: agendamientos.id })
+    .from(agendamientos)
+    .where(
+      and(
+        eq(agendamientos.id, id),
+        eq(agendamientos.tenantSlug, tenantSlug),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) return null;
+
+  const updateData: Record<string, unknown> = {};
+  if (data.clienteNombre !== undefined) updateData.clienteNombre = data.clienteNombre;
+  if (data.clientePhone !== undefined) updateData.clientePhone = sanitizePhone(data.clientePhone);
+  if (data.clienteEmail !== undefined) updateData.clienteEmail = data.clienteEmail;
+  if (data.clienteDocumento !== undefined) updateData.clienteDocumento = data.clienteDocumento;
+  if (data.vehiculoChapa !== undefined) updateData.vehiculoChapa = data.vehiculoChapa;
+  if (data.vehiculoMarca !== undefined) updateData.vehiculoMarca = data.vehiculoMarca;
+  if (data.vehiculoModelo !== undefined) updateData.vehiculoModelo = data.vehiculoModelo;
+  if (data.vehiculoVin !== undefined) updateData.vehiculoVin = data.vehiculoVin;
+  if (data.fechaTurno !== undefined) updateData.fechaTurno = data.fechaTurno;
+  if (data.horaTurno !== undefined) updateData.horaTurno = data.horaTurno;
+  if (data.tipoServicio !== undefined) updateData.tipoServicio = data.tipoServicio;
+  if (data.diagnosticoPre !== undefined) updateData.diagnosticoPre = data.diagnosticoPre;
+  if (data.notas !== undefined) updateData.notas = data.notas;
+  updateData.updatedAt = new Date();
+
+  await db()
+    .update(agendamientos)
+    .set(updateData)
+    .where(eq(agendamientos.id, id));
+
+  return { id };
+}
+
+/**
+ * Cancels an appointment (used by offline sync).
+ *
+ * @param id - Appointment ID
+ * @param tenantSlug - Tenant identifier
+ * @returns Updated appointment or null if not found
+ */
+export async function cancelAgendamiento(
+  id: string,
+  tenantSlug: string,
+): Promise<{ id: string; estado: AgendamientoEstado } | null> {
+  return transitionState(id, "CANCELADO", tenantSlug);
+}
+
+/**
  * Lists appointments with filtering and pagination.
  */
 export async function listAgendamientos(

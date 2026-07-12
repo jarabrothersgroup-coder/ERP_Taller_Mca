@@ -257,13 +257,13 @@ const dviHandler: EntityHandler = async (action, payload, context) => {
   switch (action) {
     case "create": {
       const { createDvi } = await import("../../modules/dvi/services/dvi.service.js");
-      const result = await createDvi(
+      await createDvi(
         {
           ordenTrabajoId: payload["ordenTrabajoId"] as string,
-          inspectorNombre: payload["inspectorNombre"] as string,
+          inspector: payload["inspectorNombre"] as string,
           observaciones: payload["observaciones"] as string,
         },
-        context?.tenantSlug,
+        context?.tenantSlug ?? "",
       );
       return { operationId: "", status: "applied" };
     }
@@ -276,7 +276,11 @@ const dviHandler: EntityHandler = async (action, payload, context) => {
       if (payload["items"] && Array.isArray(payload["items"])) {
         const { addItem } = await import("../../modules/dvi/services/dvi.service.js");
         for (const item of payload["items"] as Array<{ nombre: string; estado: string; categoria: string }>) {
-          await addItem(id, item, context?.tenantSlug);
+          await addItem(
+            id,
+            { categoria: item.categoria, descripcion: item.nombre, estado: item.estado },
+            context?.tenantSlug ?? "",
+          );
         }
       }
       return { operationId: "", status: "applied" };
@@ -309,7 +313,7 @@ const signaturesHandler: EntityHandler = async (action, payload, context) => {
           clienteDocumento: payload["clienteDocumento"] as string,
           observaciones: payload["observaciones"] as string,
         },
-        context?.tenantSlug,
+        context?.tenantSlug ?? "",
       );
       return { operationId: "", status: "applied" };
     }
@@ -332,18 +336,20 @@ const signaturesHandler: EntityHandler = async (action, payload, context) => {
 const schedulingHandler: EntityHandler = async (action, payload, context) => {
   switch (action) {
     case "create": {
-      const { createAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
-      await createAppointment(
+      const { createAgendamiento } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await createAgendamiento(
         {
           clienteNombre: payload["clienteNombre"] as string,
-          telefono: payload["telefono"] as string,
-          vehiculoId: payload["vehiculoId"] as string,
-          fecha: payload["fecha"] as string,
-          hora: payload["hora"] as string,
-          tipoServicio: payload["tipoServicio"] as string,
+          clientePhone: payload["telefono"] as string,
+          vehiculoChapa: payload["vehiculoId"] as string,
+          vehiculoMarca: (payload["vehiculoMarca"] as string) || "N/A",
+          vehiculoModelo: (payload["vehiculoModelo"] as string) || "N/A",
+          fechaTurno: payload["fecha"] as string,
+          horaTurno: payload["hora"] as string,
+          tipoServicio: payload["tipoServicio"] as any,
           notas: payload["notas"] as string,
         },
-        context?.tenantSlug,
+        context?.tenantSlug ?? "",
       );
       return { operationId: "", status: "applied" };
     }
@@ -352,8 +358,8 @@ const schedulingHandler: EntityHandler = async (action, payload, context) => {
       if (!id) {
         return { operationId: "", status: "failed", error: "Se requiere 'id' para actualizar turno" };
       }
-      const { updateAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
-      await updateAppointment(id, payload, context?.tenantSlug);
+      const { updateAgendamiento } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await updateAgendamiento(id, payload as any, context?.tenantSlug ?? "");
       return { operationId: "", status: "applied" };
     }
     case "delete": {
@@ -361,8 +367,8 @@ const schedulingHandler: EntityHandler = async (action, payload, context) => {
       if (!id) {
         return { operationId: "", status: "failed", error: "Se requiere 'id' para cancelar turno" };
       }
-      const { cancelAppointment } = await import("../../modules/scheduling/services/agendamiento.service.js");
-      await cancelAppointment(id, context?.tenantSlug);
+      const { cancelAgendamiento } = await import("../../modules/scheduling/services/agendamiento.service.js");
+      await cancelAgendamiento(id, context?.tenantSlug ?? "");
       return { operationId: "", status: "applied" };
     }
     default:
