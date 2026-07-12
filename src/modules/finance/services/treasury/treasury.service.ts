@@ -735,7 +735,7 @@ async function actualizarSaldoCuenta(cuentaId: string): Promise<void> {
  * Versión transaccional de actualizarSaldoCuenta para usar dentro de tx.
  */
 async function actualizarSaldoCuentaTx(
-  tx: Parameters<Parameters<ReturnType<typeof db>['transaction']>[0]>[0],
+  tx: ReturnType<typeof db>,
   cuentaId: string,
 ): Promise<void> {
   const [result] = await tx

@@ -15,6 +15,7 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { getDb } from "../database/connection.js";
+import { env } from "../../config/env.js";
 
 /**
  * Fastify onRequest hook that sets the PostgreSQL tenant context.
@@ -43,6 +44,14 @@ export async function rlsTenantContext(
     // Public routes (login, health) won't have a tenant
     return;
   }
+
+  // When the per-request tenant context is enabled, the tenant context is set
+  // session-scoped on a dedicated reserved connection by the
+  // transaction-context middleware (see transaction-context.ts) at the start
+  // of every request. Setting it again here (session-scoped, on the shared
+  // pool) would re-introduce the pooled-connection leak we are fixing. So we
+  // defer to it.
+  if (env.ENABLE_REQUEST_TENANT_CONTEXT) return;
 
   try {
     const sql = getDb();

@@ -135,6 +135,17 @@ async function buildApp() {
   app.decorate("rlsTenantContext", rlsTenantContext);
   app.log.info("RLS tenant context middleware available (preHandler)");
 
+  // ─── Per-Request Tenant Context (multi-tenant RLS isolation) ──
+  // Reserves a dedicated connection + sets app.current_tenant per request when
+  // ENABLE_REQUEST_TENANT_CONTEXT is on. No-ops otherwise (current behavior).
+  const { registerRequestTransactions } = await import(
+    "./shared/middleware/transaction-context.js"
+  );
+  await registerRequestTransactions(app);
+  app.log.info(
+    `Per-request tenant context middleware registered (ENABLE_REQUEST_TENANT_CONTEXT=${env.ENABLE_REQUEST_TENANT_CONTEXT})`,
+  );
+
   // ─── Rate Limiting ──────────────────────────
   try {
     await app.register((await import("@fastify/rate-limit")).default, {
