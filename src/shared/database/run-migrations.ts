@@ -12,6 +12,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { sql } from "drizzle-orm";
 import { db } from "./drizzle.js";
 
 const MIGRATIONS_DIR = join(import.meta.dirname, "migrations");
@@ -38,7 +39,7 @@ async function getExecutedMigrations(): Promise<Set<string>> {
       `SELECT filename FROM _migrations ORDER BY id`
     );
 
-    const rows = result.rows || [];
+    const rows = result || [];
     return new Set(rows.map((r: any) => r.filename));
   } catch {
     return new Set();
@@ -47,8 +48,7 @@ async function getExecutedMigrations(): Promise<Set<string>> {
 
 async function recordMigration(filename: string): Promise<void> {
   await db().execute(
-    `INSERT INTO _migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING`,
-    [filename]
+    sql`INSERT INTO _migrations (filename) VALUES (${filename}) ON CONFLICT (filename) DO NOTHING`
   );
 }
 

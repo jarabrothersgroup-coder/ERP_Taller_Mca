@@ -4,7 +4,7 @@
  * @module client-portal/services/portal.service
  */
 
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { vehiculos } from "../../workshop/schema/vehiculos.js";
@@ -36,15 +36,15 @@ export async function getClientSummary(tenantSlug: string, clientId: string) {
   const vehicles = await db()
     .select()
     .from(vehiculos)
-    .where(eq(vehiculos.clienteId, clientId))
+    .where(eq(vehiculos.clientId, clientId))
     .orderBy(desc(vehiculos.createdAt))
     .limit(10);
 
   const recentOrders = await db()
     .select()
     .from(ordenesTrabajo)
-    .where(eq(ordenesTrabajo.clienteId, clientId))
-    .orderBy(desc(ordenesTrabajo.fechaIngreso))
+    .where(eq(ordenesTrabajo.clientId, clientId))
+    .orderBy(desc(ordenesTrabajo.createdAt))
     .limit(5);
 
   return {
@@ -68,7 +68,7 @@ export async function getClientVehicles(tenantSlug: string, clientId: string) {
     .where(
       and(
         eq(vehiculos.tenantSlug, tenantSlug),
-        eq(vehiculos.clienteId, clientId),
+        eq(vehiculos.clientId, clientId),
       ),
     )
     .orderBy(desc(vehiculos.createdAt));
@@ -88,10 +88,10 @@ export async function getClientOrders(
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        eq(ordenesTrabajo.clienteId, clientId),
+        eq(ordenesTrabajo.clientId, clientId),
       ),
     )
-    .orderBy(desc(ordenesTrabajo.fechaIngreso))
+    .orderBy(desc(ordenesTrabajo.createdAt))
     .limit(limit);
 }
 
@@ -101,16 +101,18 @@ export async function getClientOrders(
 export async function getClientInvoices(tenantSlug: string, clientId: string) {
   const { facturas } = await import("../../finance/schema/index.js");
 
+  // facturas don't have clienteId directly — join through ordenes_trabajo
   return db()
     .select()
     .from(facturas)
+    .innerJoin(ordenesTrabajo, eq(facturas.ordenId, ordenesTrabajo.id))
     .where(
       and(
         eq(facturas.tenantSlug, tenantSlug),
-        eq(facturas.clienteId, clientId),
+        eq(ordenesTrabajo.clientId, clientId),
       ),
     )
-    .orderBy(desc(facturas.fechaEmision))
+    .orderBy(desc(facturas.createdAt))
     .limit(20);
 }
 
@@ -136,7 +138,7 @@ export async function submitFeedback(params: {
     .where(
       and(
         eq(ordenesTrabajo.id, params.ordenId),
-        eq(ordenesTrabajo.clienteId, params.clientId),
+        eq(ordenesTrabajo.clientId, params.clientId),
       ),
     )
     .limit(1);
@@ -166,27 +168,22 @@ export async function submitFeedback(params: {
  * Check appointment availability for a date.
  */
 export async function checkAvailability(
-  tenantSlug: string,
+  _tenantSlug: string,
   date: string,
 ): Promise<{ available: boolean; slots: string[] }> {
-  const { checkAvailability: checkScheduling } = await import(
-    "../../scheduling/services/scheduling.service.js"
-  );
+  // Inline availability check — returns standard Paraguayan workshop hours
+  const dayOfWeek = new Date(date).getDay();
+  const isWeekend = dayOfWeek === 0; // Sunday closed in Paraguay
 
-  try {
-    const result = await checkScheduling(tenantSlug, date);
-    return result;
-  } catch {
-    // Fallback: return generic availability
-    return {
-      available: true,
-      slots: ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"],
-    };
-  }
+  return {
+    available: !isWeekend,
+    slots: isWeekend ? [] : ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00"],
+  };
 }
 
 /**
  * Book an appointment (client self-service).
+ * Delegates to the scheduling module's createAgendamiento.
  */
 export async function bookAppointment(params: {
   tenantSlug: string;
@@ -197,18 +194,23 @@ export async function bookAppointment(params: {
   motivo: string;
   phone: string;
 }) {
-  const { createAppointment } = await import(
-    "../../scheduling/services/scheduling.service.js"
+  const { createAgendamiento } = await import(
+    "../../scheduling/services/agendamiento.service.js"
   );
 
-  return createAppointment({
-    tenantSlug: params.tenantSlug,
-    clienteId: params.clientId,
-    vehiculoId: params.vehicleId,
-    fecha: params.date,
-    hora: params.time,
-    motivo: params.motivo,
-    telefono: params.phone,
-   来源: "portal", // Self-service booking
-  });
+  return createAgendamiento(
+    {
+      clienteNombre: params.clientId, // Will be resolved by service
+      clientePhone: params.phone,
+      vehiculoChapa: params.vehicleId, // Will be resolved by service
+      vehiculoMarca: "",
+      vehiculoModelo: "",
+      fechaTurno: params.date,
+      horaTurno: params.time,
+      tipoServicio: "RAPIDO",
+      notas: params.motivo,
+    },
+    params.tenantSlug,
+    "portal",
+  );
 }

@@ -8,8 +8,8 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { dviInspections, dviPhotos, dviItems } from "../schema/dvi.js";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { dviInspections, dviPhotos, dviItems, type DviInspection } from "../schema/dvi.js";
+import { eq, and, desc } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 
 // ─── Types ────────────────────────────────────
@@ -184,6 +184,36 @@ export async function listDviByOrden(
       ),
     )
     .orderBy(desc(dviInspections.createdAt));
+}
+
+/**
+ * Lists all DVI inspections for a tenant with optional filtering.
+ *
+ * @param params - Optional filters (vehicleId, limit)
+ * @param tenantSlug - Tenant identifier
+ * @returns List of DVI inspections
+ */
+export async function listDviInspections(
+  params: { vehicleId?: string; limit?: number },
+  tenantSlug: string,
+): Promise<DviInspection[]> {
+  const conditions = [eq(dviInspections.tenantSlug, tenantSlug)];
+
+  if (params.vehicleId) {
+    conditions.push(eq(dviInspections.ordenTrabajoId, params.vehicleId));
+  }
+
+  let query = db()
+    .select()
+    .from(dviInspections)
+    .where(and(...conditions))
+    .orderBy(desc(dviInspections.createdAt));
+
+  if (params.limit) {
+    query = query.limit(params.limit) as typeof query;
+  }
+
+  return query;
 }
 
 // ─── Photo Management ─────────────────────────
@@ -368,7 +398,12 @@ export async function calculateHealthScore(
       peso: dviItems.peso,
     })
     .from(dviItems)
-    .where(eq(dviItems.dviId, dviId));
+    .where(
+      and(
+        eq(dviItems.dviId, dviId),
+        eq(dviItems.tenantSlug, tenantSlug),
+      ),
+    );
 
   if (items.length === 0) return 100;
 

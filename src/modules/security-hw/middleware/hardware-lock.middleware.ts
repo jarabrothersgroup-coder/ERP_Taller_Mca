@@ -15,9 +15,7 @@
  */
 
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { quickValidate, getHardwareFingerprint } from "../services/hardware-fingerprint.service.js";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { quickValidate } from "../services/hardware-fingerprint.service.js";
 
 // ─── Configuration ────────────────────────────
 

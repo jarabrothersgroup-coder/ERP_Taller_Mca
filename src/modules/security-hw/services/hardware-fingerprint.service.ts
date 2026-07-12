@@ -9,8 +9,8 @@
  */
 
 import { execSync } from "node:child_process";
-import { randomBytes, createHash, createCipheriv, createDecipheriv, pbkdf2Sync, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { randomBytes, createCipheriv, createDecipheriv, pbkdf2Sync, timingSafeEqual } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { platform, hostname, arch } from "node:os";
 
@@ -422,7 +422,7 @@ export function readTokenFromUsb(usbMountPoint: string): string | null {
  */
 export function setupUsbDongle(
   usbMountPoint: string,
-  nombre: string,
+  _nombre: string,
 ): {
   success: boolean;
   fingerprint: HardwareFingerprint;
@@ -467,7 +467,6 @@ export function setupUsbDongle(
  */
 export function quickValidate(): boolean {
   try {
-    const envPath = process.env.SECURITY_TOKEN_PATH;
     const usbPath = process.env.USB_DONGLE_PATH || "/media/usb";
 
     // Check if USB device is present

@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useSession, signOut } from "next-auth/react";
-import { Menu, Bell, LogOut, User, ChevronDown, Sun, Moon } from "lucide-react";
+import { useUser, useAuth } from "@clerk/nextjs";
+import { Menu, Bell, LogOut, ChevronDown, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -38,16 +38,19 @@ function ThemeToggleButton() {
 /* ── Header ──────────────────────────────────── */
 
 export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
-  const { data: session } = useSession();
-  const user = session?.user;
-  const initials = user?.name
-    ? user.name
+  const { user } = useUser();
+  const { signOut } = useAuth();
+  const initials = user?.fullName
+    ? user.fullName
         .split(" ")
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join("")
         .slice(0, 2)
         .toUpperCase()
-    : "??";
+    : user?.primaryEmailAddress?.emailAddress?.slice(0, 2).toUpperCase() ?? "??";
+
+  const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Usuario";
+  const role = (user?.publicMetadata?.role as string) || "user";
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
@@ -68,7 +71,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Tenant badge */}
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5">
           <span className="text-sm font-medium hidden sm:inline capitalize">
-            {user?.tenantSlug || "demo"}
+            {user?.organizationMemberships?.[0]?.organization?.name || "demo"}
           </span>
         </div>
       </div>
@@ -96,13 +99,21 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* User Avatar + Name */}
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer transition-colors group relative">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-primary-foreground text-xs font-bold shadow-sm">
-            {initials}
-          </div>
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt={displayName}
+              className="h-7 w-7 rounded-full object-cover shadow-sm"
+            />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-primary-foreground text-xs font-bold shadow-sm">
+              {initials}
+            </div>
+          )}
           <div className="hidden sm:flex flex-col">
-            <span className="text-xs font-medium">{user?.name || "Usuario"}</span>
+            <span className="text-xs font-medium">{displayName}</span>
             <span className="text-[10px] text-muted-foreground capitalize">
-              {user?.role || "user"}
+              {role}
             </span>
           </div>
         </div>
@@ -111,7 +122,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => signOut({ callbackUrl: "/sign-in" })}
+          onClick={() => signOut({ redirectUrl: "/sign-in" })}
           className="text-muted-foreground hover:text-destructive transition-colors"
           aria-label="Cerrar sesión"
         >

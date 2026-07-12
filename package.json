@@ -18,7 +18,7 @@
     "build": "tsc && cp src/modules/intelligence/visual/tv-template.html dist/modules/intelligence/visual/ && rm -rf dist/shared/public && cp -r src/shared/public dist/shared/public",
     "start:prod": "node --max-old-space-size=48 --optimize-for-size --gc-interval=100 --expose-gc dist/app.js",
     "start:docker": "node --expose-gc --max-old-space-size=48 --optimize-for-size --gc-interval=100 dist/app.js",
-    "db:migrate": "tsx src/shared/database/migrate.ts",
+    "db:migrate": "drizzle-kit migrate",
     "db:validate": "tsx src/shared/database/validate.ts",
     "db:smoke": "tsx src/shared/database/smoke-test.ts",
     "db:generate": "drizzle-kit generate",
@@ -37,7 +37,10 @@
     "web:typecheck": "cd web && npm run typecheck",
     "dev": "echo '🚀 Iniciando backend + frontend...' && (npm run dev &) && (sleep 2 && cd web && npm run dev)",
     "dev:backend": "npm run dev",
-    "dev:frontend": "cd web && npm run dev"
+    "dev:frontend": "cd web && npm run dev",
+    "mobile:dev": "cd mobile && npm run start",
+    "mobile:android": "cd mobile && npm run android",
+    "mobile:ios": "cd mobile && npm run ios"
   },
   "keywords": [
     "erp",

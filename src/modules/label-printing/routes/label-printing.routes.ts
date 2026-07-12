@@ -30,20 +30,9 @@ interface GenerateBody {
   copias?: number;
 }
 
-interface TemplateBody {
-  nombre: string;
-  tipo: string;
-  protocolo: string;
-  anchoMm?: number;
-  altoMm?: number;
-  dpi?: number;
-  impresoraDefault?: string;
-  layout?: any;
-}
-
 export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /label-printing/repuesto/:id — Generate label for a spare part ──
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { protocolo?: string; copias?: number } }>(
     "/label-printing/repuesto/:id",
     {
       schema: {
@@ -81,7 +70,7 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
         descripcion: repuesto.descripcion,
         marca: repuesto.marca || "",
         modelo: repuesto.modelo || "",
-        precio: repuesto.precioVenta,
+        precio: repuesto.precioVenta ?? undefined,
         ubicacion: repuesto.ubicacion || "",
       };
 
@@ -103,7 +92,7 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /label-printing/herramienta/:id — Generate label for a tool ──
-  app.get<{ Params: { id: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { protocolo?: string; copias?: number } }>(
     "/label-printing/herramienta/:id",
     {
       schema: {
@@ -229,7 +218,6 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
  * Generate an HTML preview of a label for screen display.
  */
 function generateHtmlPreview(tipo: string, data: LabelData, widthMm: number, heightMm: number): string {
-  const barcodeData = data.codigoBarras || data.codigo || "";
   const qrData = JSON.stringify({ id: data.id, codigo: data.codigo });
 
   if (tipo === "REPUESTO") {

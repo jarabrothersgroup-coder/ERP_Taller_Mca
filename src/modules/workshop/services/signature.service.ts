@@ -8,7 +8,7 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { sql, eq, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 // ─── Schema (inline for flexibility) ──────────
 
@@ -16,22 +16,6 @@ import { sql, eq, and } from "drizzle-orm";
  * Signatures table — stores digital signature data.
  * Created as raw SQL since this is a new table.
  */
-const CREATE_SIGNATURES_TABLE = `
-  CREATE TABLE IF NOT EXISTS digital_signatures (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    orden_trabajo_id UUID NOT NULL,
-    tipo VARCHAR(50) NOT NULL,
-    firma_base64 TEXT NOT NULL,
-    cliente_nombre VARCHAR(255),
-    cliente_documento VARCHAR(50),
-    observaciones TEXT,
-    tenant_slug VARCHAR(100) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS idx_sig_orden ON digital_signatures(orden_trabajo_id);
-  CREATE INDEX IF NOT EXISTS idx_sig_tenant ON digital_signatures(tenant_slug);
-`;
-
 // ─── Types ────────────────────────────────────
 
 export interface SignatureData {
@@ -80,7 +64,7 @@ export async function saveSignature(
               cliente_nombre, cliente_documento, created_at
   `);
 
-  const row = result.rows[0] as any;
+  const row = result[0] as any;
   return {
     id: row.id,
     ordenTrabajoId: row.orden_trabajo_id,
@@ -112,7 +96,7 @@ export async function getSignaturesByOrden(
     ORDER BY created_at DESC
   `);
 
-  return result.rows.map((row: any) => ({
+  return result.map((row: any) => ({
     id: row.id,
     ordenTrabajoId: row.orden_trabajo_id,
     tipo: row.tipo,

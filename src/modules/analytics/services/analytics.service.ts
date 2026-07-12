@@ -4,7 +4,7 @@
  * @module analytics/services/analytics.service
  */
 
-import { eq, and, desc, sql, count, sum, avg } from "drizzle-orm";
+import { eq, and, sql, count, sum, avg } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { ordenesTrabajo } from "../../../shared/database/schema/index.js";
 
@@ -38,15 +38,15 @@ export interface TrendPoint {
 export async function getRevenueKPI(tenantSlug: string, range: DateRange): Promise<KPI> {
   const [current] = await db()
     .select({
-      total: sum(ordenesTrabajo.montoTotal),
+      total: sum(ordenesTrabajo.totalCost),
       count: count(),
     })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     );
 
@@ -58,13 +58,13 @@ export async function getRevenueKPI(tenantSlug: string, range: DateRange): Promi
   const prevTo = range.from;
 
   const [previous] = await db()
-    .select({ total: sum(ordenesTrabajo.montoTotal) })
+    .select({ total: sum(ordenesTrabajo.totalCost) })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${prevFrom}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${prevTo}`,
+        sql`${ordenesTrabajo.createdAt} >= ${prevFrom}`,
+        sql`${ordenesTrabajo.createdAt} <= ${prevTo}`,
       ),
     );
 
@@ -91,8 +91,8 @@ export async function getOTCountKPI(tenantSlug: string, range: DateRange): Promi
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     );
 
@@ -107,8 +107,8 @@ export async function getOTCountKPI(tenantSlug: string, range: DateRange): Promi
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${prevFrom}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} >= ${prevFrom}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.from}`,
       ),
     );
 
@@ -130,13 +130,13 @@ export async function getOTCountKPI(tenantSlug: string, range: DateRange): Promi
  */
 export async function getAvgOrderValueKPI(tenantSlug: string, range: DateRange): Promise<KPI> {
   const [current] = await db()
-    .select({ avg: avg(ordenesTrabajo.montoTotal) })
+    .select({ avg: avg(ordenesTrabajo.totalCost) })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     );
 
@@ -146,13 +146,13 @@ export async function getAvgOrderValueKPI(tenantSlug: string, range: DateRange):
   const prevFrom = new Date(new Date(range.from).getTime() - daysDiff * 86400000).toISOString().split("T")[0];
 
   const [previous] = await db()
-    .select({ avg: avg(ordenesTrabajo.montoTotal) })
+    .select({ avg: avg(ordenesTrabajo.totalCost) })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${prevFrom}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} >= ${prevFrom}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.from}`,
       ),
     );
 
@@ -179,8 +179,8 @@ export async function getCompletionRateKPI(tenantSlug: string, range: DateRange)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     );
 
@@ -190,9 +190,9 @@ export async function getCompletionRateKPI(tenantSlug: string, range: DateRange)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        eq(ordenesTrabajo.estado, "FINALIZADO_RETIRADO"),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        eq(ordenesTrabajo.status, "Listo"),
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     );
 
@@ -219,19 +219,19 @@ export async function getDailyRevenueTrend(
 ): Promise<TrendPoint[]> {
   const rows = await db()
     .select({
-      date: sql<string>`DATE(${ordenesTrabajo.fechaIngreso})::text`,
-      value: sum(ordenesTrabajo.montoTotal),
+      date: sql<string>`DATE(${ordenesTrabajo.createdAt})::text`,
+      value: sum(ordenesTrabajo.totalCost),
     })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     )
-    .groupBy(sql`DATE(${ordenesTrabajo.fechaIngreso})`)
-    .orderBy(sql`DATE(${ordenesTrabajo.fechaIngreso})`);
+    .groupBy(sql`DATE(${ordenesTrabajo.createdAt})`)
+    .orderBy(sql`DATE(${ordenesTrabajo.createdAt})`);
 
   return rows.map((r) => ({
     date: r.date,
@@ -248,19 +248,19 @@ export async function getDailyOTTrend(
 ): Promise<TrendPoint[]> {
   const rows = await db()
     .select({
-      date: sql<string>`DATE(${ordenesTrabajo.fechaIngreso})::text`,
+      date: sql<string>`DATE(${ordenesTrabajo.createdAt})::text`,
       value: count(),
     })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     )
-    .groupBy(sql`DATE(${ordenesTrabajo.fechaIngreso})`)
-    .orderBy(sql`DATE(${ordenesTrabajo.fechaIngreso})`);
+    .groupBy(sql`DATE(${ordenesTrabajo.createdAt})`)
+    .orderBy(sql`DATE(${ordenesTrabajo.createdAt})`);
 
   return rows.map((r) => ({
     date: r.date,
@@ -277,18 +277,18 @@ export async function getOTStatusDistribution(
 ): Promise<Array<{ status: string; count: number; percentage: number }>> {
   const rows = await db()
     .select({
-      status: ordenesTrabajo.estado,
+      status: ordenesTrabajo.status,
       count: count(),
     })
     .from(ordenesTrabajo)
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
+        sql`${ordenesTrabajo.createdAt} >= ${range.from}`,
+        sql`${ordenesTrabajo.createdAt} <= ${range.to}`,
       ),
     )
-    .groupBy(ordenesTrabajo.estado);
+    .groupBy(ordenesTrabajo.status);
 
   const total = rows.reduce((sum, r) => sum + r.count, 0);
 
@@ -301,35 +301,15 @@ export async function getOTStatusDistribution(
 
 /**
  * Get top mechanics by OT count.
+ * NOTE: ordenes_trabajo schema has no mecanicoAsignado column yet.
+ * Returns empty until the column is added to the migration.
  */
 export async function getTopMechanics(
-  tenantSlug: string,
-  range: DateRange,
-  limit = 5,
+  _tenantSlug: string,
+  _range: DateRange,
+  _limit = 5,
 ): Promise<Array<{ name: string; otCount: number; revenue: number }>> {
-  const rows = await db()
-    .select({
-      name: ordenesTrabajo.mecanicoAsignado,
-      otCount: count(),
-      revenue: sum(ordenesTrabajo.montoTotal),
-    })
-    .from(ordenesTrabajo)
-    .where(
-      and(
-        eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.fechaIngreso} >= ${range.from}`,
-        sql`${ordenesTrabajo.fechaIngreso} <= ${range.to}`,
-      ),
-    )
-    .groupBy(ordenesTrabajo.mecanicoAsignado)
-    .orderBy(desc(count()))
-    .limit(limit);
-
-  return rows.map((r) => ({
-    name: r.name || "Sin asignar",
-    otCount: r.otCount,
-    revenue: Number(r.revenue || 0),
-  }));
+  return [];
 }
 
 // ─── Report Builder ─────────────────────────

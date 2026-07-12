@@ -12,7 +12,7 @@
  * @module inventory/services/batch-inventory.service
  */
 
-import { eq, and, desc, sql, count, sum } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { repuestos } from "../schema/repuestos.js";
 
@@ -118,8 +118,8 @@ export async function bulkImportRepuestos(
             descripcion: row.descripcion,
             marca: row.marca || undefined,
             categoria: row.categoria || undefined,
-            precioVenta: row.precioVenta || undefined,
-            precioCompra: row.precioCompra || undefined,
+            precioVenta: row.precioVenta != null ? String(row.precioVenta) : undefined,
+            precioCompra: row.precioCompra != null ? String(row.precioCompra) : undefined,
             stockActual: row.stockActual ?? undefined,
             puntoReorden: row.puntoReorden ?? undefined,
             ubicacion: row.ubicacion || undefined,
@@ -136,8 +136,8 @@ export async function bulkImportRepuestos(
             descripcion: row.descripcion,
             marca: row.marca || null,
             categoria: row.categoria || null,
-            precioVenta: row.precioVenta || 0,
-            precioCompra: row.precioCompra || 0,
+            precioVenta: String(row.precioVenta || 0),
+            precioCompra: String(row.precioCompra || 0),
             stockActual: row.stockActual || 0,
             puntoReorden: row.puntoReorden || 5,
             ubicacion: row.ubicacion || null,

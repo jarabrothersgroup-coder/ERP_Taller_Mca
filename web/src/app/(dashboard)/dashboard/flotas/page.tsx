@@ -18,7 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { fetchFleets, type UIMappedFleet } from "@/lib/data-service";
+import { useFleets } from "@/hooks/use-data";
+import type { UIMappedFleet } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -34,21 +35,6 @@ const contractColors: Record<string, "success" | "default" | "secondary" | "warn
   SEMESTRAL: "secondary",
   ANUAL: "warning",
 };
-
-/* ── Mock Data ──────────────────────────────── */
-
-function getMockFleets(): FleetRecord[] {
-  return [
-    { id: "fl-001", nombre: "Transporte Norte", empresa: "Transportes del Norte S.A.", contacto: "Carlos Ruiz", telefono: "+595 981 111 222", email: "carlos@tnorte.com", ruc: "80012345-1", contratoTipo: "MENSUAL", descuentoPorcentaje: 15, createdAt: "15/01/2025" },
-    { id: "fl-002", nombre: "Flota Gómez", empresa: "Gómez Hermanos S.A.", contacto: "Ana Gómez", telefono: "+595 982 222 333", email: "ana@gomez.com", ruc: "80012345-2", contratoTipo: "TRIMESTRAL", descuentoPorcentaje: 10, createdAt: "01/02/2025" },
-    { id: "fl-003", nombre: "Taxi Express", empresa: "Express Mobility S.A.", contacto: "Pedro López", telefono: "+595 983 333 444", email: "pedro@express.com", ruc: "80012345-3", contratoTipo: "MENSUAL", descuentoPorcentaje: 20, createdAt: "10/02/2025" },
-    { id: "fl-004", nombre: "Distribuidora del Sur", empresa: "Distribuidora del Sur S.R.L.", contacto: "María Fernández", telefono: "+595 984 444 555", email: "maria@dsur.com", ruc: "80012345-4", contratoTipo: "SEMESTRAL", descuentoPorcentaje: 12, createdAt: "01/03/2025" },
-    { id: "fl-005", nombre: "Logística Rápida", empresa: "Logística Rápida Paraguay", contacto: "Roberto Sánchez", telefono: "+595 985 555 666", email: null, ruc: "80012345-5", contratoTipo: "MENSUAL", descuentoPorcentaje: 18, createdAt: "15/03/2025" },
-    { id: "fl-006", nombre: "Fletes Paraguay", empresa: "Fletes del Paraguay S.A.", contacto: "Laura Martínez", telefono: "+595 986 666 777", email: "laura@fletes.com", ruc: "80012345-6", contratoTipo: "ANUAL", descuentoPorcentaje: 25, createdAt: "01/04/2025" },
-    { id: "fl-007", nombre: "Transporte Escolar Seguro", empresa: "TES S.A.", contacto: "Diego Rivas", telefono: "+595 987 777 888", email: "diego@tes.com", ruc: "80012345-7", contratoTipo: "MENSUAL", descuentoPorcentaje: 8, createdAt: "01/05/2025" },
-    { id: "fl-008", nombre: "Camiones del Chaco", empresa: "Transporte Chaco S.R.L.", contacto: "Sofía Torres", telefono: "+595 988 888 999", email: "sofia@chaco.com", ruc: "80012345-8", contratoTipo: "TRIMESTRAL", descuentoPorcentaje: 15, createdAt: "15/05/2025" },
-  ];
-}
 
 /* ── Stats Cards ────────────────────────────── */
 
@@ -186,21 +172,9 @@ const columns: Column<FleetRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function FlotasPage() {
-  const [loading, setLoading] = React.useState(true);
-  const [fleets, setFleets] = React.useState<FleetRecord[]>([]);
+  const { data: fleets = [], isLoading: loading } = useFleets();
   const [search, setSearch] = React.useState("");
   const [contractFilter, setContractFilter] = React.useState<string>("");
-
-  React.useEffect(() => {
-    let cancelled = false;
-    fetchFleets(getMockFleets).then((data) => {
-      if (!cancelled) {
-        setFleets(data as FleetRecord[]);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
 
   const filtered = React.useMemo(() => {
     let result = fleets;

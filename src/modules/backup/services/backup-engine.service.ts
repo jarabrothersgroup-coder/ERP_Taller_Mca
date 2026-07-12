@@ -9,9 +9,9 @@
  */
 
 import { randomBytes, createCipheriv, createDecipheriv, createHash } from "node:crypto";
-import { execSync, exec as execCb } from "node:child_process";
+import { exec as execCb } from "node:child_process";
 import { mkdir, writeFile, readFile, readdir, stat, unlink, access } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 
 const execAsync = promisify(execCb);
@@ -182,7 +182,7 @@ export async function executeBackup(config: BackupConfig): Promise<BackupResult>
 
     // 1. Database dump
     const sqlDump = await dumpDatabase(config, log);
-    let data = Buffer.from(sqlDump, "utf-8");
+    let data: Buffer = Buffer.from(sqlDump, "utf-8");
 
     // 2. Compress
     if (config.compress !== false) {
@@ -272,7 +272,7 @@ export async function executeRestore(config: RestoreConfig): Promise<RestoreResu
     log.push(`[${new Date().toISOString()}] Iniciando restauración desde ${config.backupFilePath}...`);
 
     // 1. Read file
-    let data = await readFile(config.backupFilePath);
+    let data: Buffer = await readFile(config.backupFilePath);
     log.push(`[${new Date().toISOString()}] Archivo leído (${data.length} bytes)`);
 
     // 2. Decrypt if password provided

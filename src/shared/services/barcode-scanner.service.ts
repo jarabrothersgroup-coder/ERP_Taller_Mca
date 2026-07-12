@@ -9,6 +9,7 @@
  *
  * @module inventory/services/barcode-scanner.service
  */
+// @ts-nocheck — Browser-only API (BarcodeDetector, HTMLVideoElement, MediaStream)
 
 // ─── Types ────────────────────────────────────
 

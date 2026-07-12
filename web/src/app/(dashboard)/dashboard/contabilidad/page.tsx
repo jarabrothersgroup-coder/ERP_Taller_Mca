@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Plus,
   FileText,
   Download,
   Layers,
@@ -20,7 +19,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { fetchAccounts, type UIMappedAccount } from "@/lib/data-service";
+import { useAccounts } from "@/hooks/use-data";
+import { NewAccountDialog } from "./new-account-dialog";
+import type { UIMappedAccount } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -35,54 +36,6 @@ interface AccountRecord {
   saldoInicial: string;
   moneda: string;
   descripcion?: string;
-}
-
-/* ── Mock Data ──────────────────────────────── */
-
-function getMockAccounts(): AccountRecord[] {
-  const accounts = [
-    // Nivel 1: Raíces
-    { codigo: "1", nombre: "ACTIVO", tipo: "ACTIVO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "2", nombre: "PASIVO", tipo: "PASIVO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "3", nombre: "PATRIMONIO", tipo: "PATRIMONIO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "4", nombre: "INGRESOS", tipo: "INGRESO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "5", nombre: "COSTOS", tipo: "COSTO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6", nombre: "GASTOS", tipo: "GASTO", nivel: 1, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    // Nivel 2: Subgrupos
-    { codigo: "1.1", nombre: "Activo Corriente", tipo: "ACTIVO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "1.2", nombre: "Activo No Corriente", tipo: "ACTIVO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "2.1", nombre: "Pasivo Corriente", tipo: "PASIVO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "2.2", nombre: "Pasivo No Corriente", tipo: "PASIVO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "4.1", nombre: "Ingresos Operacionales", tipo: "INGRESO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "4.2", nombre: "Ingresos No Operacionales", tipo: "INGRESO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1", nombre: "Gastos Administrativos", tipo: "GASTO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.2", nombre: "Gastos de Ventas", tipo: "GASTO", nivel: 2, aceptaMovimientos: false, activo: true, saldoInicial: "0", moneda: "PYG" },
-    // Nivel 3: Cuentas contables
-    { codigo: "1.1.01", nombre: "Caja y Bancos", tipo: "ACTIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "15000000", moneda: "PYG" },
-    { codigo: "1.1.02", nombre: "Cuentas por Cobrar", tipo: "ACTIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "8500000", moneda: "PYG" },
-    { codigo: "1.1.03", nombre: "Inventarios", tipo: "ACTIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "12000000", moneda: "PYG" },
-    { codigo: "1.2.01", nombre: "Propiedades, Planta y Equipo", tipo: "ACTIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "45000000", moneda: "PYG" },
-    { codigo: "1.2.02", nombre: "Depreciación Acumulada", tipo: "ACTIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "-8500000", moneda: "PYG" },
-    { codigo: "2.1.01", nombre: "Cuentas por Pagar", tipo: "PASIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "5500000", moneda: "PYG" },
-    { codigo: "2.1.02", nombre: "IVA por Pagar", tipo: "PASIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "3200000", moneda: "PYG" },
-    { codigo: "2.1.03", nombre: "Salarios por Pagar", tipo: "PASIVO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "2800000", moneda: "PYG" },
-    { codigo: "3.1.01", nombre: "Capital Social", tipo: "PATRIMONIO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "50000000", moneda: "PYG" },
-    { codigo: "3.1.02", nombre: "Reserva Legal", tipo: "PATRIMONIO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "5000000", moneda: "PYG" },
-    { codigo: "3.1.03", nombre: "Resultados Acumulados", tipo: "PATRIMONIO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "12500000", moneda: "PYG" },
-    { codigo: "4.1.01", nombre: "Venta de Servicios", tipo: "INGRESO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "4.1.02", nombre: "Venta de Repuestos", tipo: "INGRESO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "5.1.01", nombre: "Costo de Servicios", tipo: "COSTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "5.1.02", nombre: "Costo de Repuestos", tipo: "COSTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1.01", nombre: "Sueldos y Salarios", tipo: "GASTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1.02", nombre: "Servicios Básicos", tipo: "GASTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1.03", nombre: "Alquileres", tipo: "GASTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1.04", nombre: "Depreciación", tipo: "GASTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-    { codigo: "6.1.05", nombre: "Impuestos y Tasas", tipo: "GASTO", nivel: 3, aceptaMovimientos: true, activo: true, saldoInicial: "0", moneda: "PYG" },
-  ];
-  return accounts.map((a, i) => ({
-    id: `ACC-${String(100 + i).padStart(3, "0")}`,
-    ...a,
-  }));
 }
 
 /* ── Type Config ────────────────────────────── */
@@ -235,20 +188,8 @@ const columns: Column<AccountRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function ContabilidadPage() {
-  const [loading, setLoading] = React.useState(true);
-  const [accounts, setAccounts] = React.useState<AccountRecord[]>([]);
+  const { data: accounts = [], isLoading: loading } = useAccounts();
   const [search, setSearch] = React.useState("");
-
-  React.useEffect(() => {
-    let cancelled = false;
-    fetchAccounts(getMockAccounts as unknown as () => UIMappedAccount[]).then((data) => {
-      if (!cancelled) {
-        setAccounts(data as unknown as AccountRecord[]);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
 
   const filtered = React.useMemo(() => {
     if (!search) return accounts;
@@ -270,10 +211,7 @@ export default function ContabilidadPage() {
             Plan de Cuentas — {accounts.length} cuentas registradas
           </p>
         </div>
-        <Button size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Nueva Cuenta
-        </Button>
+        <NewAccountDialog />
       </div>
 
       {!loading && <AccountStats accounts={filtered} />}

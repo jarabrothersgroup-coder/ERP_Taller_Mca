@@ -74,6 +74,14 @@ const nextConfig = {
         destination: 'http://localhost:4000/crm/:path*',
       },
       {
+        source: '/billing/:path*',
+        destination: 'http://localhost:4000/billing/:path*',
+      },
+      {
+        source: '/enterprise/:path*',
+        destination: 'http://localhost:4000/enterprise/:path*',
+      },
+      {
         source: '/portal/:path*',
         destination: 'http://localhost:4000/portal/:path*',
       },
@@ -96,6 +104,22 @@ const nextConfig = {
       {
         source: '/audit/:path*',
         destination: 'http://localhost:4000/audit/:path*',
+      },
+      {
+        source: '/dvi/:path*',
+        destination: 'http://localhost:4000/dvi/:path*',
+      },
+      {
+        source: '/label-printing/:path*',
+        destination: 'http://localhost:4000/label-printing/:path*',
+      },
+      {
+        source: '/backup/:path*',
+        destination: 'http://localhost:4000/backup/:path*',
+      },
+      {
+        source: '/security/:path*',
+        destination: 'http://localhost:4000/security/:path*',
       },
     ];
   },

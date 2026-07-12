@@ -8,7 +8,7 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { sql, eq, and, desc } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 // ─── Types ────────────────────────────────────
 
@@ -49,13 +49,13 @@ export async function createCampaign(
   data: CreateCampaignRequest,
   tenantSlug: string,
 ): Promise<Campaign> {
-  const result = await db().execute(sql`
+  const rows = await db().execute(sql`
     INSERT INTO marketing_campaigns (nombre, tipo, mensaje, programada_at, segmento, tenant_slug)
     VALUES (${data.nombre}, ${data.tipo}, ${data.mensaje}, ${data.programadaAt || null}, ${data.segmento || null}, ${tenantSlug})
     RETURNING id, nombre, tipo, 'BORRADOR' as estado, mensaje, programada_at, 0 as destinatarios, 0 as enviados, 0 as fallidos
   `);
 
-  const row = result.rows[0] as any;
+  const row = rows[0] as any;
   return {
     id: row.id,
     nombre: row.nombre,
@@ -83,7 +83,7 @@ export async function listCampaigns(
     ORDER BY created_at DESC
   `);
 
-  return result.rows.map((row: any) => ({
+  return result.map((row: any) => ({
     id: row.id,
     nombre: row.nombre,
     tipo: row.tipo,
@@ -113,7 +113,7 @@ export async function getCampaignStats(
     WHERE tenant_slug = ${tenantSlug}
   `);
 
-  const row = result.rows[0] as any;
+  const row = result[0] as any;
   const enviados = Number(row.enviados) || 0;
   const destinatarios = Number(row.destinatarios) || 0;
 

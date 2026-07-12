@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Plus,
   Car,
   BatteryWarning,
   Gauge,
@@ -18,7 +17,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { fetchVehicles, type UIMappedVehicle } from "@/lib/data-service";
+import { useVehicles } from "@/hooks/use-data";
+import { NewVehicleDialog } from "./new-vehicle-dialog";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -34,53 +34,6 @@ interface VehicleRecord {
   clientName: string;
   lastService: string;
   createdAt: string;
-}
-
-/* ── Mock Data ──────────────────────────────── */
-
-const brands = ["Toyota", "Volkswagen", "Hyundai", "Kia", "Chevrolet", "Ford", "Nissan", "Suzuki", "Honda", "Mitsubishi"];
-const models: Record<string, string[]> = {
-  Toyota: ["Corolla", "Hilux", "RAV4", "Yaris", "Fortuner"],
-  Volkswagen: ["Amarok", "Gol", "T-Cross", "Taos", "Vento"],
-  Hyundai: ["Tucson", "Creta", "HB20", "Santa Fe", "Elantra"],
-  Kia: ["Sportage", "Seltos", "Rio", "Cerato", "Sorento"],
-  Chevrolet: ["Onix", "Tracker", "S10", "Cruze", "Spin"],
-  Ford: ["Ranger", "Territory", "Ecosport", "Focus", "Maverick"],
-  Nissan: ["Frontier", "Sentra", "Kicks", "Versa", "X-Trail"],
-  Suzuki: ["Swift", "Vitara", "Jimny", "Baleno", "Ertiga"],
-  Honda: ["CR-V", "Civic", "HR-V", "City", "Fit"],
-  Mitsubishi: ["L200", "Montero Sport", "ASX", "Outlander", "Eclipse Cross"],
-};
-const engineTypes = ["Nafta", "Diésel", "HEV", "BEV"];
-const plates = ["ABC", "CDE", "FGH", "IJK", "LMN", "OPQ", "RST", "UVW", "XYZ", "BCD"];
-
-function generateMockVehicles(): VehicleRecord[] {
-  return Array.from({ length: 24 }, (_, i) => {
-    const brand = brands[i % brands.length];
-    const modelList = models[brand];
-    const model = modelList[i % modelList.length];
-    const engineType = engineTypes[i % engineTypes.length];
-    const year = [2020, 2021, 2022, 2023, 2024, 2025][i % 6];
-    const daysAgo = Math.floor(Math.random() * 365);
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    const serviceDate = new Date(date);
-    serviceDate.setDate(serviceDate.getDate() + Math.floor(Math.random() * 60));
-
-    return {
-      id: `VEH-${String(100 + i).padStart(3, "0")}`,
-      plate: `${plates[i % plates.length]} ${String(100 + i * 7).slice(0, 3)}`,
-      vin: `8AGDF${String(Math.floor(Math.random() * 1000000000)).padStart(11, "0")}`,
-      brand,
-      model,
-      year,
-      engineType,
-      kilometraje: Math.floor(Math.random() * 80000) + 5000,
-      clientName: `Cliente ${i + 1}`,
-      lastService: serviceDate.toLocaleDateString("es-PY"),
-      createdAt: date.toLocaleDateString("es-PY"),
-    };
-  });
 }
 
 /* ── Engine Type Config ─────────────────────── */
@@ -215,22 +168,29 @@ const columns: Column<VehicleRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function VehiclesPage() {
-  const [loading, setLoading] = React.useState(true);
-  const [vehicles, setVehicles] = React.useState<VehicleRecord[]>([]);
+  const { data: rawVehicles = [], isLoading: loading } = useVehicles();
   const [search, setSearch] = React.useState("");
 
-  // Fetch with mock fallback
-  React.useEffect(() => {
-    const mock = generateMockVehicles();
-    let cancelled = false;
-    fetchVehicles(() => mock as unknown as UIMappedVehicle[]).then((data) => {
-      if (!cancelled) {
-        setVehicles(data as unknown as VehicleRecord[]);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, []);
+  // Map API data to local VehicleRecord shape
+  const vehicles: VehicleRecord[] = React.useMemo(
+    () =>
+      (rawVehicles as unknown as Record<string, unknown>[]).map((v) => ({
+        id: (v.id as string) || "",
+        plate: (v.plate as string) ?? null,
+        vin: (v.vin as string) ?? null,
+        brand: (v.brand as string) || "",
+        model: (v.model as string) || "",
+        year: (v.year as number) ?? null,
+        engineType: (v.engineType as string) || "Nafta",
+        kilometraje: (v.kilometraje as number) ?? null,
+        clientName: "",
+        lastService: "",
+        createdAt: v.createdAt
+          ? new Date(v.createdAt as string).toLocaleDateString("es-PY")
+          : "",
+      })),
+    [rawVehicles],
+  );
 
   // Filter
   const filtered = React.useMemo(() => {
@@ -256,10 +216,7 @@ export default function VehiclesPage() {
           </p>
         </div>
 
-        <Button size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Nuevo Vehículo
-        </Button>
+        <NewVehicleDialog />
       </div>
 
       {/* ── Stats ──────────────────────────── */}

@@ -8,7 +8,7 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { sql, eq, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 // ─── Types ────────────────────────────────────
 
@@ -54,7 +54,7 @@ export async function createFleet(
     RETURNING *
   `);
 
-  return result.rows[0] as Fleet;
+  return result[0] as unknown as Fleet;
 }
 
 /**
@@ -67,7 +67,7 @@ export async function listFleets(tenantSlug: string): Promise<Fleet[]> {
     ORDER BY empresa
   `);
 
-  return result.rows as Fleet[];
+  return result as unknown as Fleet[];
 }
 
 /**
@@ -82,5 +82,5 @@ export async function getFleetById(
     WHERE id = ${id} AND tenant_slug = ${tenantSlug}
   `);
 
-  return (result.rows[0] as Fleet) || null;
+  return (result[0] as unknown as Fleet) || null;
 }

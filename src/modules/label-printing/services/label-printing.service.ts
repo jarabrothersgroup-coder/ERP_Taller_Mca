@@ -97,7 +97,7 @@ function escposBarcode128(data: string, height: number = 50): string {
  * @param data - QR code data string
  * @param moduleSize - Module size in dots (1-16, default 4)
  */
-function escposQRCode(data: string, moduleSize: number = 4): string {
+function escposQRCode(data: string, _moduleSize: number = 4): string {
   const dataLen = data.length;
   // QR Code: Store data
   const storeData = [
@@ -353,7 +353,7 @@ export function generateLabelPayload(
   tipo: string,
   protocolo: string,
   data: LabelData,
-  layout?: LabelLayout,
+  _layout?: LabelLayout,
 ): PrintPayload {
   let raw = "";
   let widthMm = 50;
