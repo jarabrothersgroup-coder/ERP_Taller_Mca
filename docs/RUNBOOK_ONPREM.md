@@ -58,6 +58,9 @@ systemctl restart erp-taller
 - `scripts/setup-tls.sh` genera un cert self-signed en `/etc/erp-taller/tls/`.
 - En producción reemplazalo por un cert real (CA interna del taller o Let's Encrypt).
   nginx lo lee de `/etc/erp-taller/tls/fullchain.pem` + `privkey.pem`.
+- **SELinux (Fedora):** nginx (`httpd_t`) no puede conectar al backend en :3000 por
+  defecto → 502 Bad Gateway. Habilitar: `setsebool -P httpd_can_network_connect on`
+  (el script `provision-i3.sh` lo hace automáticamente).
 
 ## Monitoreo
 
@@ -81,6 +84,8 @@ systemctl restart erp-taller
 ## Secretos obligatorios en `.env`
 
 - `JWT_SECRET` — fuerte, obligatorio en producción (el arranque falla si falta).
+- `TOKEN_SECRET` — fuerte, obligatorio en producción (firma tokens de hardware-lock;
+  si falta usa un fallback inseguro y lo avisa en logs).
 - `SIFEN_CERT_PATH` + `SIFEN_CERT_PASS` — cert .p12 de DNIT.
 - Password de BD (`DATABASE_URL`).
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — solo para el web en la nube.

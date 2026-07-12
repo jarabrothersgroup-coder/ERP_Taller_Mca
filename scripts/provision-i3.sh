@@ -115,6 +115,11 @@ fi
 grep -q '^DATABASE_URL="postgresql://erp_user:erp_dev_password' .env \
   && sed -i "s#erp_dev_password#$ERP_DB_PASSWORD#" .env || true
 
+# TOKEN_SECRET fuerte para firmar tokens de hardware-lock (evita fallback inseguro)
+if ! grep -q '^TOKEN_SECRET=' .env; then
+  echo "TOKEN_SECRET=\"$(openssl rand -hex 32)\"" >> .env
+fi
+
 # ─── 5. Migraciones + RLS ──────────────────────────────────────────────────
 npm run db:migrate
 sudo -u postgres psql -d "$DB_NAME" -f scripts/apply-rls.sql
@@ -133,6 +138,10 @@ systemctl enable --now erp-taller.service
 # ─── 8. nginx + TLS ────────────────────────────────────────────────────────
 cp scripts/erp-taller.nginx.conf /etc/nginx/conf.d/erp-taller.conf
 bash scripts/setup-tls.sh
+# SELinux (Fedora): permitir que nginx conecte al backend en puertos no estándar
+if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" == "Enforcing" ]]; then
+  setsebool -P httpd_can_network_connect on || warn "No pude setear httpd_can_network_connect (SELinux)."
+fi
 nginx -t && systemctl enable --now nginx
 
 # ─── 9. Backup + healthcheck timers ────────────────────────────────────────
