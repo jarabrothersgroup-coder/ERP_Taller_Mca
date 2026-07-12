@@ -187,7 +187,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("vehicle_types");
@@ -198,7 +198,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("fuel_types");
@@ -208,7 +208,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("mileage_intervals");
@@ -218,7 +218,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("service_categories");
@@ -228,7 +228,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("service_pricing_rules");
@@ -242,7 +242,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("service_brand_map");
@@ -252,7 +252,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("rh_service_hours");
@@ -262,7 +262,7 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("vehiculos_marca");
@@ -272,25 +272,21 @@ describe("📝 [Sprint 19] Migration 0020 Structure", () => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
     const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
+      join(process.cwd(), "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql"),
       "utf-8"
     );
     expect(sql).toContain("vehiculos_modelo");
   });
 
   it("extends servicios_catalogo with new columns", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0020_service_catalog_multidimensional.sql"),
-      "utf-8"
+    const { getDb } = await import("../src/shared/database/connection.js");
+    const rows = await getDb().unsafe(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='servicios_catalogo'`
     );
-    expect(sql).toContain("servicios_catalogo");
-    expect(sql).toContain("ADD COLUMN");
-    expect(sql).toContain("codigo");
-    expect(sql).toContain("categoria_id");
-    expect(sql).toContain("thinkcar_modulo");
-    expect(sql).toContain("descripcion_tecnica");
+    const cols = (rows as unknown as any[]).map((r) => r.column_name);
+    for (const c of ["codigo", "categoria_id", "thinkcar_modulo", "descripcion_tecnica"]) {
+      expect(cols).toContain(c);
+    }
   });
 });
 

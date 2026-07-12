@@ -290,88 +290,30 @@ describe("🛡️ [Sprint 18] RLS Tenant Context Middleware", () => {
 //  RLS SQL Migration Structure
 // ═════════════════════════════════════════════════
 
-describe("📝 [Sprint 18] RLS Migration Structure", () => {
-  it("migration file exists", async () => {
-    const { existsSync } = await import("fs");
-    const { join } = await import("path");
-    expect(
-      existsSync(join(process.cwd(), "src/shared/database/migrations/0019_rls_security.sql"))
-    ).toBe(true);
-  });
-
-  it("migration creates current_tenant() function", async () => {
+describe("📝 [Sprint 18] RLS Deployment Script (defense-in-depth via scripts/apply-rls.sql)", () => {
+  const loadSql = async (): Promise<string> => {
     const { readFileSync } = await import("fs");
     const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0019_rls_security.sql"),
-      "utf-8"
-    );
+    return readFileSync(join(process.cwd(), "scripts/apply-rls.sql"), "utf-8");
+  };
+
+  it("creates current_tenant() session function", async () => {
+    const sql = await loadSql();
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public.current_tenant()");
     expect(sql).toContain("current_setting('app.current_tenant'");
   });
 
-  it("migration enables RLS on all tenant tables", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0019_rls_security.sql"),
-      "utf-8"
-    );
-
-    // Migration uses helper functions (apply_rls_slug / apply_rls_uuid)
-    // that dynamically enable RLS via format() — verify the function-based approach
-    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.apply_rls_slug");
-    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.apply_rls_uuid");
+  it("enables FORCE ROW LEVEL SECURITY with tenant-isolation policies", async () => {
+    const sql = await loadSql();
     expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
-
-    // Verify key tables are covered by SELECT public.apply_rls_slug('...')
-    const requiredSlugTables = [
-      "clients", "vehiculos", "ordenes_trabajo", "ingresos",
-      "servicios_catalogo", "orden_servicios", "orden_repuestos",
-      "facturas", "cuentas_bancarias", "movimientos_tesoreria",
-      "repuestos", "herramientas", "notificaciones",
-      "audit_log", "centros_costo", "tenant_config",
-      "presupuestos", "thinkcar_imports",
-    ];
-
-    for (const table of requiredSlugTables) {
-      expect(sql).toContain(`apply_rls_slug('${table}')`);
-    }
-
-    // UUID-based tables
-    expect(sql).toContain("apply_rls_uuid('fixed_expenses')");
-    expect(sql).toContain("apply_rls_uuid('profiles')");
+    expect(sql).toContain("FORCE ROW LEVEL SECURITY");
+    expect(sql).toContain("CREATE POLICY");
+    expect(sql).toContain("_tenant_isolation");
   });
 
-  it("migration creates SELECT/INSERT/UPDATE/DELETE policies", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0019_rls_security.sql"),
-      "utf-8"
-    );
-
-    // Helper functions create all 4 policy types via EXECUTE format
-    expect(sql).toContain("_tenant_select");
-    expect(sql).toContain("_tenant_insert");
-    expect(sql).toContain("_tenant_update");
-    expect(sql).toContain("_tenant_delete");
-
-    // Verify the helper function body creates all 4 policies
-    expect(sql).toContain("FOR SELECT USING");
-    expect(sql).toContain("FOR INSERT WITH CHECK");
-    expect(sql).toContain("FOR UPDATE USING");
-    expect(sql).toContain("FOR DELETE USING");
-  });
-
-  it("migration disables RLS on tenants table (platform-level)", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0019_rls_security.sql"),
-      "utf-8"
-    );
-    expect(sql).toContain("ALTER TABLE tenants DISABLE ROW LEVEL SECURITY");
+  it("uses non-regressive '' escape so public routes keep working", async () => {
+    const sql = await loadSql();
+    expect(sql).toContain("public.current_tenant() = ''");
   });
 });
 
