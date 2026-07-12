@@ -20,6 +20,7 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { env } from "../../config/env.js";
+import { randomBytes } from "node:crypto";
 
 // ─── CSP Directives ────────────────────────────────
 
@@ -209,6 +210,6 @@ export async function securityHeadersHook(
  * ```
  */
 export function generateCspNonce(): string {
-  const { randomBytes } = require("crypto") as typeof import("crypto");
+  // randomBytes is imported at the top of this module
   return randomBytes(16).toString("base64");
 }

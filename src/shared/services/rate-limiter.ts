@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { RateLimitError } from "../errors/app-error.js";
 
 interface RateLimitEntry {
   count: number;
@@ -116,7 +117,7 @@ export function checkRateLimit(
   if (entry && now < entry.resetAt) {
     if (entry.count >= config.maxAttempts) {
       const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-      const { RateLimitError } = require("../errors/app-error.js") as typeof import("../errors/app-error.js");
+      // RateLimitError is imported at the top of this module
       throw new RateLimitError(
         `Demasiados intentos. Intente de nuevo en ${retryAfter} segundos.`,
       );

@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod";
+import { ValidationError } from "../errors/app-error.js";
 
 // ─── Common schemas ──────────────────────────────
 
@@ -156,7 +157,7 @@ export function validateBody<T extends z.ZodType>(
 ): z.infer<T> {
   const result = schema.safeParse(body);
   if (!result.success) {
-    const { ValidationError } = require("../errors/app-error.js") as typeof import("../errors/app-error.js");
+    // ValidationError is imported at the top of this module
     const details: Record<string, string[]> = {};
     for (const issue of result.error.issues) {
       const path = issue.path.join(".");
@@ -177,7 +178,7 @@ export function validateQuery<T extends z.ZodType>(
 ): z.infer<T> {
   const result = schema.safeParse(query);
   if (!result.success) {
-    const { ValidationError } = require("../errors/app-error.js") as typeof import("../errors/app-error.js");
+    // ValidationError is imported at the top of this module
     throw new ValidationError("Parámetros de consulta inválidos");
   }
   return result.data;
