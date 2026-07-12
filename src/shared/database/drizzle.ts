@@ -14,6 +14,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { getDb } from "./connection.js";
+import { requestDbStorage } from "./request-context.js";
 import * as schema from "./schema/index.js";
 
 // Re-export `sql` helper so all modules import from one place
@@ -40,6 +41,12 @@ let _db: PostgresJsDatabase<DbSchema> | null = null;
  * ```
  */
 export function db(): PostgresJsDatabase<DbSchema> {
+  // When a request tenant context is active, return the connection-bound
+  // Drizzle instance so all queries run on that request's dedicated
+  // connection (and inherit its `app.current_tenant` RLS context). Outside a
+  // request (cron, CLI, background jobs) fall back to the shared singleton.
+  const ctx = requestDbStorage.getStore();
+  if (ctx) return ctx.drizzle;
   if (!_db) {
     const sql = getDb();
     _db = drizzle(sql, { schema, logger: false });
@@ -53,6 +60,11 @@ export function db(): PostgresJsDatabase<DbSchema> {
  * This allows querying per-tenant tables using the same Drizzle API
  * but scoped to the tenant's isolated schema (e.g., `tenant_taller_el_chero`).
  *
+ * IMPORTANT: this always uses the shared singleton connection (never the
+ * request's reserved connection) so it cannot mutate the active request's
+ * `app.current_tenant` RLS context. Used for explicit cross-tenant operations
+ * (admin/backfill) outside the normal request path.
+ *
  * @param schemaName - The tenant's PostgreSQL schema name (e.g. `tenant_acme`)
  * @returns A Drizzle ORM instance scoped to that schema
  *
@@ -63,8 +75,13 @@ export function db(): PostgresJsDatabase<DbSchema> {
  * ```
  */
 export function dbForTenant(schemaName: string): PostgresJsDatabase<DbSchema> {
+  const safe = String(schemaName).replace(/[^a-zA-Z0-9_-]/g, "");
   const sql = getDb();
-  // Set the search path to the tenant schema + public
-  sql`SET search_path TO ${sql(schemaName)}, public`.execute();
-  return drizzle(sql, { schema, logger: false });
+  // Session-scoped search_path on the singleton (used for explicit cross-tenant
+  // queries outside a request transaction — e.g. CLI/backfill scripts).
+  sql`SET search_path TO ${sql(safe)}, public`.execute();
+  if (!_db) {
+    _db = drizzle(sql, { schema, logger: false });
+  }
+  return _db;
 }
