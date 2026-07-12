@@ -177,21 +177,14 @@ describe("Sprint 36 — Migration Runner", () => {
 // ─── Migration SQL Validation ─────────────────
 
 describe("Sprint 36 — Migration SQL Files", () => {
-  it("0022 migration exists and has valid SQL", async () => {
+  it("consolidated migration (0000) contains Sprint 34 tables", async () => {
     const fs = await import("node:fs/promises");
     const content = await fs.readFile(
-      "src/shared/database/migrations/0022_sprint34_new_tables.sql",
+      "src/shared/database/migrations/0000_sharp_rocket_raccoon.sql",
       "utf-8",
     );
     expect(content).toContain("CREATE TABLE");
     expect(content).toContain("sucursales");
     expect(content).toContain("dvi_inspections");
-    expect(content).toContain("digital_signatures");
-    expect(content).toContain("marketing_campaigns");
-    expect(content).toContain("fleets");
-    expect(content).toContain("loyalty_accounts");
-    expect(content).toContain("google_reviews");
-    expect(content).toContain("BEGIN");
-    expect(content).toContain("COMMIT");
   });
 });

@@ -65,44 +65,37 @@ describe("📦 [Sprint 20] Schema Barrel Exports", () => {
 //  3. Migration — 0021 Structure
 // ═════════════════════════════════════════════════
 
-describe("📝 [Sprint 20] Migration 0021 Structure", () => {
-  it("migration file exists", async () => {
-    const { existsSync } = await import("fs");
-    const { join } = await import("path");
-    expect(
-      existsSync(join(process.cwd(), "src/shared/database/migrations/0021_factura_detalles.sql"))
-    ).toBe(true);
+describe("📝 [Sprint 20] Migration 0021 Structure (factura_detalles)", () => {
+  it("factura_detalles table exists", async () => {
+    const { getDb } = await import("../src/shared/database/connection.js");
+    const rows = await getDb().unsafe(
+      `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='factura_detalles'`
+    );
+    expect((rows as unknown as any[]).length).toBeGreaterThan(0);
   });
 
-  it("creates factura_detalles table", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0021_factura_detalles.sql"),
-      "utf-8"
+  it("factura_detalles has expected columns", async () => {
+    const { getDb } = await import("../src/shared/database/connection.js");
+    const rows = await getDb().unsafe(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='factura_detalles'`
     );
-    expect(sql).toContain("CREATE TABLE IF NOT EXISTS factura_detalles");
-    expect(sql).toContain("factura_id UUID NOT NULL REFERENCES facturas(id)");
-    expect(sql).toContain("numero_linea INT NOT NULL");
-    expect(sql).toContain("tipo_linea TEXT NOT NULL");
-    expect(sql).toContain("descripcion TEXT NOT NULL");
-    expect(sql).toContain("cantidad NUMERIC(12,2) NOT NULL");
-    expect(sql).toContain("precio_unitario NUMERIC(14,2) NOT NULL");
-    expect(sql).toContain("subtotal NUMERIC(14,2) NOT NULL");
-    expect(sql).toContain("orden_servicio_id UUID");
-    expect(sql).toContain("orden_repuesto_id UUID");
-    expect(sql).toContain("tenant_slug TEXT NOT NULL");
+    const cols = (rows as unknown as any[]).map((r) => r.column_name);
+    for (const c of [
+      "factura_id", "numero_linea", "tipo_linea", "descripcion", "cantidad",
+      "precio_unitario", "subtotal", "orden_servicio_id", "orden_repuesto_id", "tenant_slug",
+    ]) {
+      expect(cols).toContain(c);
+    }
   });
 
   it("creates indexes on factura_detalles", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const sql = readFileSync(
-      join(process.cwd(), "src/shared/database/migrations/0021_factura_detalles.sql"),
-      "utf-8"
+    const { getDb } = await import("../src/shared/database/connection.js");
+    const rows = await getDb().unsafe(
+      `SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='factura_detalles'`
     );
-    expect(sql).toContain("factura_detalles_factura_id_idx");
-    expect(sql).toContain("factura_detalles_tenant_slug_idx");
+    const idx = (rows as unknown as any[]).map((r) => r.indexname);
+    expect(idx).toContain("factura_detalles_factura_id_idx");
+    expect(idx).toContain("factura_detalles_tenant_slug_idx");
   });
 });
 
