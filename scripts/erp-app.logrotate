@@ -1,0 +1,12 @@
+# Logrotate para el backend ERP Taller MCA (placeholder)
+# El backend usa pino (stdout -> journald por defecto). Si escribís a archivo,
+# descomentá y ajustá la ruta.
+#/data/ERP_Taller_Mca/logs/*.log {
+#    daily
+#    missingok
+#    notifempty
+#    rotate 14
+#    compress
+#    delaycompress
+#    copytruncate
+#}

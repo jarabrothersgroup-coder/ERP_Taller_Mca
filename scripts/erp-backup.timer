@@ -1,0 +1,10 @@
+[Unit]
+Description=ERP Taller MCA - Timer de backup diario (03:00)
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+Unit=erp-backup.service
+
+[Install]
+WantedBy=timers.target

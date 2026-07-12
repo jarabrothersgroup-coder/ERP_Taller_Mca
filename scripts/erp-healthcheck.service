@@ -1,0 +1,8 @@
+[Unit]
+Description=ERP Taller MCA - Healthcheck y auto-reinicio
+After=erp-taller.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash -c 'curl -fsS http://127.0.0.1:3000/health || (systemctl restart erp-taller.service; exit 1)'

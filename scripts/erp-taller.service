@@ -1,0 +1,22 @@
+[Unit]
+Description=ERP Taller MCA - Fastify Backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=erp
+Group=erp
+WorkingDirectory=/data/ERP_Taller_Mca
+EnvironmentFile=/data/ERP_Taller_Mca/.env
+ExecStart=/usr/bin/node --import tsx/esm src/app.ts
+Restart=always
+RestartSec=5
+
+# Límites para PC modesto (i3 / 8 GB)
+LimitNOFILE=65536
+MemoryMax=350M
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
