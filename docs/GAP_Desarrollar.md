@@ -297,3 +297,31 @@ Ubicación: `src/shared/public/js/`
 2. **Email templates en producción** — conectar `POST /email/send` con emisión real de facturas desde módulo finance/workshop
 3. **Ejecutar E2E tests** — `cd web && npx playwright test` (requiere app corriendo en :3000)
 4. **Backend tests** — 51 tests siguen fallando por DB no disponible (esperado, no bloqueante)
+
+---
+
+## 🚨 Estado Actualizado — 2026-07-14 (Sprint 69 — Multi-tenant SaaS)
+
+### Estado del Proyecto
+
+| Categoría | Estado |
+|:---|:---|
+| **Sprint Actual** | Sprint 69 — Billing SaaS + API Documentation + Email Transaccional |
+| **Fase** | Fase 2 — Escalabilidad (Sprint 69-74) |
+| **Meta Fase 2** | Multi-tenant SaaS funcional |
+| **Backend** | 30+ plugins, 0 errores TS |
+| **Frontend React/Next.js** | ✅ 30 páginas, PWA, tests passing |
+| **Mobile React Native** | ✅ MVP con detail screens |
+| **Billing Module** | ✅ Stripe routes + plans + portal |
+| **Email Transaccional** | ✅ Resend + SMTP + HTML templates |
+| **API Documentation** | ✅ Swagger UI en /docs |
+| **Tests** | 1406/1406 passing (backend) + 43 unit + 20 E2E (frontend) |
+
+### Próximos Pasos (Sprint 69-74)
+
+1. **Sprint 69** — Completar billing module con webhooks y suscripciones
+2. **Sprint 70** — API pública + SDK + developer portal
+3. **Sprint 71** — Analytics + Reporting con Metabase
+4. **Sprint 72** — Push Notifications + Email marketing
+5. **Sprint 73** — RBAC avanzado + Audit logs enterprise
+6. **Sprint 74** — Load testing + Performance tuning

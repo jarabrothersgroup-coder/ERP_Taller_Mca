@@ -43,8 +43,41 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 68 COMPLETED — DVI + Thinkcar + Mobile MVP (DVI create dialog + Thinkcar ingest wiring + Mobile MVP verified)",
-    "next_sprint": "Sprint 69 — TBD",
+    "current_sprint": "Sprint 69 — Billing SaaS + API Documentation + Email Transaccional",
+    "next_sprint": "Sprint 70 — TBD",
+    "sprint_69_objectives": {
+      "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
+      "duration": "2 weeks",
+      "priority": "HIGH",
+      "tasks": [
+        {
+          "id": "S69-1",
+          "name": "Billing Module Enhancement",
+          "description": "Complete Stripe integration with subscription plans, customer portal, and webhook handling",
+          "status": "IN_PROGRESS",
+          "files": ["src/modules/billing/*"]
+        },
+        {
+          "id": "S69-2",
+          "name": "API Documentation",
+          "description": "Complete Swagger/OpenAPI documentation for all endpoints with examples",
+          "status": "PLANNED",
+          "files": ["src/app.ts"]
+        },
+        {
+          "id": "S69-3",
+          "name": "Email Transaccional",
+          "description": "Connect email service with invoice emission and appointment reminders",
+          "status": "PLANNED",
+          "files": ["src/modules/email/*"]
+        }
+      ],
+      "success_criteria": [
+        "Stripe billing functional with test mode",
+        "API documentation accessible at /docs",
+        "Email notifications sent on invoice creation"
+      ]
+    },
     "conejo_de_indias": {
       "status": "PLAN COMPLETADO",
       "document": "docs/Proyecto/08_Plan_Maestro_Conejo_de_Indias.md",

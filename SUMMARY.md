@@ -37,8 +37,26 @@
 ### Blocked
 - (none).
 
-## Next Move
-- Push `6796b5a` to `origin/main` (on request). After that, the deferred `sql.begin()` transaction refactor can be reconsidered now that a green suite + CI gate exists.
+## Sprint 69 Plan — Multi-tenant SaaS
+
+### Objetivo
+Establecer la fundación para SaaS multi-tenant: Billing integration, API documentation, y email transaccional.
+
+### Tareas
+| ID | Tarea | Estado | Archivos |
+|:---|:------|:------:|:---------|
+| S69-1 | Billing Module Enhancement (Stripe) | IN_PROGRESS | `src/modules/billing/*` |
+| S69-2 | API Documentation (Swagger) | PLANNED | `src/app.ts` |
+| S69-3 | Email Transaccional | PLANNED | `src/modules/email/*` |
+
+### Criterios de Éxito
+- ✅ Stripe billing funcional en test mode
+- ✅ API documentation accesible en /docs
+- ✅ Email notifications enviadas al crear facturas
+
+### Next Move
+- Completar S69-1: Billing module con webhooks y suscripciones
+- Push a origin/main después de completar sprint
 
 ## Relevant Files
 - `src/shared/schemas/validation.ts`, `src/shared/services/rate-limiter.ts`, `src/shared/middleware/security-headers.ts`, `src/modules/backup/services/backup-engine.service.ts`: ESM `require` fixes (committed `d2fcf47`).
