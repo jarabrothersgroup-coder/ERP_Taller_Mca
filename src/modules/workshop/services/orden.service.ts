@@ -1,9 +1,41 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { db } from "../../../shared/database/drizzle.js";
 import { ordenesTrabajo, vehiculos, type EstadoOrden } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
+import { smartSend } from "../../email/services/email.service.js";
+import { orderCompletedTemplate } from "../../email/templates/index.js";
+
+// ─── Tenant settings cache ──────────────────────
+
+let _tenantSettingsCache: Record<string, unknown> | null = null;
+
+/**
+ * Reads the workshop address from config/tenant_settings.json.
+ * Falls back to a default if the file is not found or unparseable.
+ */
+async function getWorkshopAddress(): Promise<string> {
+  if (_tenantSettingsCache) return (_tenantSettingsCache.address as string | undefined) ?? "Coronel Oviedo, Paraguay";
+  try {
+    const raw = await readFile(join(process.cwd(), "config", "tenant_settings.json"), "utf-8");
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    _tenantSettingsCache = parsed;
+    return (parsed.address as string | undefined) ?? "Coronel Oviedo, Paraguay";
+  } catch {
+    return "Coronel Oviedo, Paraguay";
+  }
+}
+
+/**
+ * Invalidates the tenant settings cache so the next call re-reads from disk.
+ * Call this from config PUT handlers when settings are updated at runtime.
+ */
+export function invalidateSettingsCache(): void {
+  _tenantSettingsCache = null;
+}
 
 // ─── Tenant isolation helper ──────────────────
 
@@ -169,6 +201,89 @@ export async function signHvLockout(
   return { signed: true, signedAt: now };
 }
 
+// ─── Create orden ──────────────────────────────
+
+/**
+ * Creates a new work order for a vehicle + client.
+ *
+ * Validates that both vehicleId and clientId exist in the database.
+ * Status defaults to "Presupuestado" (workshop workflow).
+ *
+ * @param data - Work order payload (vehicleId, clientId, description, etc.)
+ * @param tenantSlug - Tenant slug for multi-tenant isolation
+ * @returns The created work order row
+ * @throws {NotFoundError} If vehicle or client does not exist
+ */
+export async function createOrden(
+  data: {
+    vehicleId: string;
+    clientId: string;
+    description?: string;
+    hvAlert?: boolean;
+    dtcCodes?: string[];
+  },
+  tenantSlug?: string,
+): Promise<OrdenListRow> {
+  const { vehicleId, clientId, description, hvAlert, dtcCodes } = data;
+
+  // ── Validate vehicle exists (tenant-scoped) ──
+  const vehicleConditions = [eq(vehiculos.id, vehicleId)];
+  if (tenantSlug) {
+    vehicleConditions.push(eq(vehiculos.tenantSlug, tenantSlug));
+  }
+  const [vehicle] = await db()
+    .select({ id: vehiculos.id })
+    .from(vehiculos)
+    .where(and(...vehicleConditions))
+    .limit(1);
+
+  if (!vehicle) {
+    throw new NotFoundError(`Vehículo con ID ${vehicleId} no encontrado`);
+  }
+
+  // ── Validate client exists ──
+  const [client] = await db()
+    .select({ id: clients.id })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  if (!client) {
+    throw new NotFoundError(`Cliente con ID ${clientId} no encontrado`);
+  }
+
+  // ── Insert work order ──
+  const [orden] = await db()
+    .insert(ordenesTrabajo)
+    .values({
+      vehicleId,
+      clientId,
+      description: description ?? null,
+      hvAlert: hvAlert ?? false,
+      dtcCodes: dtcCodes ?? [],
+      status: "Presupuestado",
+      tenantSlug: tenantSlug ?? "default",
+    })
+    .returning();
+
+  // ── Return as OrdenListRow with joined fields ──
+  return {
+    id: orden.id,
+    vehicleId: orden.vehicleId,
+    clientId: orden.clientId,
+    description: orden.description,
+    status: orden.status,
+    hvAlert: orden.hvAlert,
+    hvLockoutSigned: orden.hvLockoutSigned,
+    dtcCodes: orden.dtcCodes,
+    createdAt: orden.createdAt.toISOString(),
+    updatedAt: orden.updatedAt.toISOString(),
+    vehiculo: null,
+    plate: null,
+    cliente: null,
+  };
+}
+
 // ─── Status transition ─────────────────────────
 
 export async function updateOrdenStatus(
@@ -229,7 +344,84 @@ export async function updateOrdenStatus(
     });
   }
 
-  broadcastToScreens(updated.id, newStatus).catch(() => {});
+  // ── Send completion notification email when OT is ready ──
+  if (newStatus === "Listo" && tenantSlug) {
+    (async () => {
+      try {
+        const [orden] = await db()
+          .select({
+            clientId: ordenesTrabajo.clientId,
+            description: ordenesTrabajo.description,
+            totalCost: ordenesTrabajo.totalCost,
+            vehicleId: ordenesTrabajo.vehicleId,
+          })
+          .from(ordenesTrabajo)
+          .where(and(eq(ordenesTrabajo.id, ordenId), eq(ordenesTrabajo.tenantSlug, tenantSlug)))
+          .limit(1);
+
+        if (!orden?.clientId) return;
+
+        const [client] = await db()
+          .select({ email: clients.email, name: clients.name })
+          .from(clients)
+          .where(eq(clients.id, orden.clientId))
+          .limit(1);
+
+        if (!client?.email) return;
+
+        // Fetch vehicle info for the email
+        let vehiculoDesc = "";
+        if (orden.vehicleId) {
+          const [v] = await db()
+            .select({
+              brand: vehiculos.brand,
+              model: vehiculos.model,
+              plate: vehiculos.plate,
+            })
+            .from(vehiculos)
+            .where(eq(vehiculos.id, orden.vehicleId))
+            .limit(1);
+          if (v) vehiculoDesc = `${v.brand} ${v.model} (${v.plate ?? "sin chapa"})`;
+        }
+
+        const totalVal = Number(orden.totalCost ?? 0);
+        const html = orderCompletedTemplate({
+          cliente: client.name,
+          vehiculo: vehiculoDesc || "Vehículo del taller",
+          serviciosRealizados: orden.description ?? "Servicio completado",
+          total: totalVal.toLocaleString("es-PY", { minimumFractionDigits: 0 }),
+          tallerNombre: tenantSlug,
+          tallerDireccion: await getWorkshopAddress(),
+          fecha: new Date().toLocaleDateString("es-PY"),
+        });
+
+        const subject = `✅ Servicio Completado — OT #${ordenId.slice(0, 8)} — AutomotiveOS`;
+
+        await smartSend({
+          to: client.email,
+          subject,
+          html,
+          entityType: "orden_completada",
+          entityId: ordenId,
+          tenantSlug,
+        });
+
+        console.warn(`[orden] Notificación de completado enviada a ${client.email}`);
+      } catch (emailErr) {
+        console.warn(
+          `[orden] Error enviando email de completado OT ${ordenId}:`,
+          emailErr instanceof Error ? emailErr.message : emailErr,
+        );
+      }
+    })();
+  }
+
+  broadcastToScreens(updated.id, newStatus).catch((err) => {
+    console.warn(
+      `[orden] Error broadcasting OT ${updated.id} to screens:`,
+      err instanceof Error ? err.message : err,
+    );
+  });
   return { id: updated.id, status: updated.status };
 }
 

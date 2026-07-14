@@ -216,6 +216,31 @@ export async function sendAndLogEmail(
   return result;
 }
 
+// ─── Smart Send: Resend first, SMTP fallback ────────────
+
+/**
+ * Smart send: use Resend if configured, fall back to SMTP/nodemailer.
+ *
+ * Central routing function so all backend modules (finance, workshop)
+ * use the same provider selection logic without duplication.
+ */
+export async function smartSend(request: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+  entityType?: string;
+  entityId?: string;
+  tenantSlug?: string;
+}): Promise<SendEmailResult> {
+  // Lazy import to avoid circular dependency at module load time
+  const { isResendConfigured, sendViaResend } = await import("./resend.service.js");
+  if (isResendConfigured()) {
+    return sendViaResend(request);
+  }
+  return sendAndLogEmail(request);
+}
+
 // ─── Cleanup ────────────────────────────────────────────
 
 export async function closeTransporter(): Promise<void> {

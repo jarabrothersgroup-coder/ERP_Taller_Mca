@@ -106,6 +106,10 @@ export type {
 export {
   notificaciones,
 } from "./notifications.js";
+
+export {
+  emailLog,
+} from "../../../modules/email/schema/index.js";
 export type {
   Notificacion,
   NewNotificacion,

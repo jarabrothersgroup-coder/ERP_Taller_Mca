@@ -6,6 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getTenantSlug } from "@/lib/api";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -65,7 +66,7 @@ const billingKeys = {
 async function fetchBilling<T>(url: string, fallback: T): Promise<T> {
   try {
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+      headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
     });
     if (!res.ok) return fallback;
     return res.json();
@@ -109,7 +110,7 @@ export function useBillingCheckout() {
     mutationFn: async (body: { planId: string; interval?: "monthly" | "annual" }) => {
       const res = await fetch("/billing/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Error creating checkout session");
@@ -118,6 +119,22 @@ export function useBillingCheckout() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: billingKeys.subscription() });
       qc.invalidateQueries({ queryKey: billingKeys.invoices() });
+    },
+  });
+}
+
+export function useBillingPortal() {
+  return useMutation({
+    mutationFn: async (): Promise<{ url: string }> => {
+      const res = await fetch("/billing/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+      });
+      if (!res.ok) throw new Error("Error creating portal session");
+      return res.json() as Promise<{ url: string }>;
+    },
+    onSuccess: (data) => {
+      if (data.url) window.location.href = data.url;
     },
   });
 }

@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { useDVIInspections } from "@/hooks/use-data";
+import { DVICreateDialog } from "./dvi-create-dialog";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck, Plus, Loader2 } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 
 const statusVariant: Record<string, "default" | "secondary" | "warning" | "success" | "destructive"> = {
   COMPLETADA: "success",
@@ -36,7 +36,7 @@ export default function DVIPage() {
           <h1 className="text-2xl font-bold tracking-tight">Inspección Vehicular (DVI)</h1>
           <p className="text-sm text-muted-foreground">Inspecciones digitales con fotos y score de salud</p>
         </div>
-        <Button className="gap-2"><Plus className="h-4 w-4" /> Nueva Inspección</Button>
+        <DVICreateDialog />
       </div>
 
       {inspections.length === 0 ? (

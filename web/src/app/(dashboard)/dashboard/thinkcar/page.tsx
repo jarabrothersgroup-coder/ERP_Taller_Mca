@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useThinkcarImports, useThinkcarHealth, useThinkcarStats } from "@/hooks/use-data";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,31 @@ export default function ThinkcarPage() {
   const { data: stats, isLoading: statsLoading } = useThinkcarStats();
   const loading = importsLoading || healthLoading || statsLoading;
 
+  const qc = useQueryClient();
+  const [feedback, setFeedback] = React.useState<{ type: "ok" | "error"; msg: string } | null>(null);
+
+  const usbMutation = useMutation({
+    mutationFn: () => api.ingestThinkcarUsb(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["thinkcar-imports"] });
+      qc.invalidateQueries({ queryKey: ["thinkcar-stats"] });
+      qc.invalidateQueries({ queryKey: ["thinkcar-health"] });
+      setFeedback({ type: "ok", msg: "Importación desde USB iniciada" });
+    },
+    onError: () => setFeedback({ type: "error", msg: "No se pudo importar desde USB" }),
+  });
+
+  const btMutation = useMutation({
+    mutationFn: () => api.ingestThinkcarBluetooth(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["thinkcar-imports"] });
+      qc.invalidateQueries({ queryKey: ["thinkcar-stats"] });
+      qc.invalidateQueries({ queryKey: ["thinkcar-health"] });
+      setFeedback({ type: "ok", msg: res.message ?? "Escaneo Bluetooth completado" });
+    },
+    onError: () => setFeedback({ type: "error", msg: "No se pudo conectar por Bluetooth" }),
+  });
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -41,9 +68,29 @@ export default function ThinkcarPage() {
           <h1 className="text-2xl font-bold tracking-tight">Thinkcar Diagnóstico</h1>
           <p className="text-sm text-muted-foreground">Importación de diagnósticos OBD2</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2"><Upload className="h-4 w-4" /> Importar</Button>
-          <Button className="gap-2"><Scan className="h-4 w-4" /> Conectar</Button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => usbMutation.mutate()}
+              loading={usbMutation.isPending}
+            >
+              <Upload className="h-4 w-4" /> Importar
+            </Button>
+            <Button
+              className="gap-2"
+              onClick={() => btMutation.mutate()}
+              loading={btMutation.isPending}
+            >
+              <Scan className="h-4 w-4" /> Conectar
+            </Button>
+          </div>
+          {feedback && (
+            <p className={feedback.type === "ok" ? "text-xs text-emerald-600" : "text-xs text-destructive"}>
+              {feedback.msg}
+            </p>
+          )}
         </div>
       </div>
 

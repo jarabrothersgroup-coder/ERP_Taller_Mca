@@ -4,8 +4,11 @@ export const dynamic = "force-dynamic";
 
 import { SignUp } from "@clerk/nextjs";
 import { Car } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
+  const router = useRouter();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -46,6 +49,8 @@ export default function RegisterPage() {
                 footerActionLink: "text-primary hover:underline",
               },
             }}
+            afterSignUpUrl="/onboarding"
+            signInUrl="/sign-in"
           />
         </div>
 

@@ -126,4 +126,29 @@ export const api = {
 
   // Appointments
   listAppointments: () => request<Appointment[]>("/scheduling/citas"),
+
+  // Mutations
+  createWorkOrder: (data: { vehicleId: string; clientId: string; description?: string; status?: string }) =>
+    request<WorkOrder>("/workshop/ordenes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateWorkOrderStatus: (id: string, data: { status: string }) =>
+    request<WorkOrder>(`/workshop/ordenes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  createClient: (data: { name: string; email?: string; phone?: string; ruc?: string }) =>
+    request<Client>("/workshop/clientes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  createVehicle: (data: { clientId: string; brand: string; model: string; plate?: string; year?: number; engineType: string; vin?: string }) =>
+    request<Vehicle>("/workshop/vehiculos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };

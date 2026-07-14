@@ -2,16 +2,21 @@
  * React Query hooks for the mobile app.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type WorkOrder, type Client, type Vehicle, type DashboardStats, type Appointment } from "../api/client";
 
 export const queryKeys = {
   dashboard: ["dashboard"] as const,
   workOrders: ["work-orders"] as const,
+  workOrderDetail: (id: string) => ["work-orders", id] as const,
   clients: ["clients"] as const,
+  clientDetail: (id: string) => ["clients", id] as const,
   vehicles: ["vehicles"] as const,
+  vehicleDetail: (id: string) => ["vehicles", id] as const,
   appointments: ["appointments"] as const,
 };
+
+/* ── Query Hooks ─────────────────────────────── */
 
 export function useDashboard() {
   return useQuery<DashboardStats, Error>({
@@ -27,10 +32,26 @@ export function useWorkOrders(params?: { status?: string }) {
   });
 }
 
+export function useWorkOrder(id: string) {
+  return useQuery<WorkOrder, Error>({
+    queryKey: queryKeys.workOrderDetail(id),
+    queryFn: () => api.getWorkOrder(id),
+    enabled: !!id,
+  });
+}
+
 export function useClients() {
   return useQuery<Client[], Error>({
     queryKey: queryKeys.clients,
     queryFn: () => api.listClients(),
+  });
+}
+
+export function useClient(id: string) {
+  return useQuery<Client, Error>({
+    queryKey: queryKeys.clientDetail(id),
+    queryFn: () => api.getClient(id),
+    enabled: !!id,
   });
 }
 
@@ -41,9 +62,65 @@ export function useVehicles() {
   });
 }
 
+export function useVehicle(id: string) {
+  return useQuery<Vehicle, Error>({
+    queryKey: queryKeys.vehicleDetail(id),
+    queryFn: () => api.getVehicle(id),
+    enabled: !!id,
+  });
+}
+
 export function useAppointments() {
   return useQuery<Appointment[], Error>({
     queryKey: queryKeys.appointments,
     queryFn: () => api.listAppointments(),
+  });
+}
+
+/* ── Mutation Hooks ──────────────────────────── */
+
+export function useCreateWorkOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.createWorkOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders });
+    },
+  });
+}
+
+export function useUpdateWorkOrderStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.updateWorkOrderStatus(id, { status }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrderDetail(variables.id) });
+    },
+  });
+}
+
+export function useCreateClient() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.createClient,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.clients });
+    },
+  });
+}
+
+export function useCreateVehicle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.createVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.vehicles });
+    },
   });
 }

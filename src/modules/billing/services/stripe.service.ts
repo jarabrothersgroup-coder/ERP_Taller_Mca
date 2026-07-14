@@ -15,8 +15,9 @@
  * @module billing/services/stripe.service
  */
 
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
+import { tenants } from "../../../shared/database/schema/tenants.js";
 import { plans } from "../schema/plans.js";
 import { subscriptions } from "../schema/subscriptions.js";
 import { subscriptionInvoices } from "../schema/invoices.js";
@@ -30,7 +31,19 @@ import type {
 
 /** Whether Stripe is configured */
 function isStripeConfigured(): boolean {
-  return !!process.env.STRIPE_SECRET_KEY;
+  return !!process.env["STRIPE_SECRET_KEY"];
+}
+
+/**
+ * Resolve a tenant slug to its UUID.
+ */
+async function resolveTenantId(tenantSlug: string): Promise<string | null> {
+  const [tenant] = await db()
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(eq(tenants.slug, tenantSlug))
+    .limit(1);
+  return tenant?.id ?? null;
 }
 
 /**
@@ -51,8 +64,12 @@ export async function getPlanById(planId: string): Promise<BillingPlan | null> {
 
 /**
  * Get the current subscription for a tenant.
+ * Accepts tenantSlug (resolves to UUID internally).
  */
-export async function getSubscription(tenantId: string): Promise<BillingSubscription | null> {
+export async function getSubscription(tenantSlug: string): Promise<BillingSubscription | null> {
+  const tenantId = await resolveTenantId(tenantSlug);
+  if (!tenantId) return null;
+
   const [row] = await db()
     .select({
       sub: subscriptions,
@@ -72,8 +89,12 @@ export async function getSubscription(tenantId: string): Promise<BillingSubscrip
 
 /**
  * Get billing history for a tenant.
+ * Accepts tenantSlug (resolves to UUID internally).
  */
-export async function getInvoices(tenantId: string, limit = 20): Promise<BillingInvoice[]> {
+export async function getInvoices(tenantSlug: string, limit = 20): Promise<BillingInvoice[]> {
+  const tenantId = await resolveTenantId(tenantSlug);
+  if (!tenantId) return [];
+
   const rows = await db()
     .select()
     .from(subscriptionInvoices)
@@ -85,12 +106,13 @@ export async function getInvoices(tenantId: string, limit = 20): Promise<Billing
 
 /**
  * Create a Stripe Checkout session for a new subscription.
+ * Accepts tenantSlug (resolves to UUID internally).
  *
  * In dev mode (no Stripe key), returns a mock URL.
  */
 export async function createCheckoutSession(
   input: CreateCheckoutRequest,
-  tenantId: string,
+  tenantSlug: string,
 ): Promise<CreateCheckoutResponse> {
   const plan = await getPlanById(input.planId);
   if (!plan) throw new Error("Plan not found");
@@ -106,7 +128,7 @@ export async function createCheckoutSession(
   // Production: create real Stripe checkout session
   // Lazy-load Stripe SDK to keep RAM low
   const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
 
   const priceId = input.interval === "annual" ? plan.stripePriceIdAnnual : plan.stripePriceIdMonthly;
   if (!priceId) throw new Error("Plan does not support this billing interval");
@@ -117,7 +139,7 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
-    metadata: { tenantId, planId: input.planId, interval: input.interval },
+    metadata: { tenantSlug, planId: input.planId, interval: input.interval },
   });
 
   return {
@@ -137,13 +159,20 @@ export async function processWebhookEvent(eventType: string, data: Record<string
 
   switch (eventType) {
     case "checkout.session.completed": {
-      const tenantId = obj.metadata?.tenantId;
+      const tenantSlug = obj.metadata?.tenantSlug;
       const planId = obj.metadata?.planId;
       const interval = obj.metadata?.interval || "monthly";
-      if (!tenantId || !planId) break;
+      if (!tenantSlug || !planId) break;
+
+      // Resolve tenantSlug to UUID
+      const tenantId = await resolveTenantId(tenantSlug);
+      if (!tenantId) {
+        console.error(`[billing] Webhook: tenant not found for slug "${tenantSlug}"`);
+        break;
+      }
 
       // Create or update subscription
-      const existing = await getSubscription(tenantId);
+      const existing = await getSubscription(tenantSlug);
       if (existing?.id) {
         await db()
           .update(subscriptions)
@@ -209,6 +238,53 @@ export async function processWebhookEvent(eventType: string, data: Record<string
       break;
     }
 
+    case "customer.subscription.updated": {
+      const subscriptionId = obj.id;
+      if (!subscriptionId) break;
+
+      const [sub] = await db()
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
+      if (!sub) break;
+
+      // Resolve plan from the new price (handles plan changes/upgrades)
+      const priceId = obj.items?.data?.[0]?.price?.id as string | undefined;
+      let planId = sub.planId;
+      let interval = sub.interval;
+      if (priceId) {
+        const [matched] = await db()
+          .select()
+          .from(plans)
+          .where(
+            or(eq(plans.stripePriceIdMonthly, priceId), eq(plans.stripePriceIdAnnual, priceId)),
+          );
+        if (matched) {
+          planId = matched.id;
+          interval = matched.stripePriceIdAnnual === priceId ? "annual" : "monthly";
+        }
+      }
+
+      const isCancelled = obj.status === "canceled" || obj.status === "cancelled";
+      await db()
+        .update(subscriptions)
+        .set({
+          status: (obj.status as string) ?? sub.status,
+          planId,
+          interval,
+          currentPeriodStart: obj.current_period_start
+            ? new Date(obj.current_period_start * 1000)
+            : sub.currentPeriodStart,
+          currentPeriodEnd: obj.current_period_end
+            ? new Date(obj.current_period_end * 1000)
+            : sub.currentPeriodEnd,
+          cancelledAt: isCancelled ? new Date() : sub.cancelledAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
+      break;
+    }
+
     case "customer.subscription.deleted": {
       const subscriptionId = obj.id;
       if (!subscriptionId) break;
@@ -223,6 +299,36 @@ export async function processWebhookEvent(eventType: string, data: Record<string
       break;
     }
   }
+}
+
+/**
+ * Create a Stripe Customer Portal session for managing subscription.
+ *
+ * Allows tenants to update payment methods, view invoices, cancel subscription.
+ * In dev mode (no Stripe key), returns a mock URL.
+ */
+export async function createPortalSession(
+  tenantSlug: string,
+  returnUrl: string,
+): Promise<{ url: string }> {
+  const sub = await getSubscription(tenantSlug);
+  if (!sub?.stripeCustomerId) {
+    throw new Error("No active subscription found for this tenant");
+  }
+
+  if (!isStripeConfigured()) {
+    return { url: `/dashboard/billing?mock_portal=true` };
+  }
+
+  const Stripe = (await import("stripe")).default;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: sub.stripeCustomerId,
+    return_url: returnUrl,
+  });
+
+  return { url: session.url };
 }
 
 /* ── Row mappers ─────────────────────────────── */

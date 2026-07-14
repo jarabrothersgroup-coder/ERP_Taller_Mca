@@ -250,6 +250,14 @@ async function buildApp() {
     (await import("./plugins/monitoring.js")).monitoringPlugin,
   );
 
+  // ─── Email Module ────────────────────────────
+  // Transactional email via Resend + SMTP fallback.
+  // Routes: POST /email/send, POST /email/send-invoice, POST /email/send-estimate, GET /email/status
+  await app.register(
+    (await import("./modules/email/plugin.js")).default,
+  );
+  app.log.info("Email module registered (Resend + SMTP)");
+
   // ─── Visual Orchestration Module ───────────────
   // WebSocket gateway for TV displays (waiting room & mechanic bay).
   // Real-time JSON streaming (< 1KB/event) — zero GPU/rendering on server.

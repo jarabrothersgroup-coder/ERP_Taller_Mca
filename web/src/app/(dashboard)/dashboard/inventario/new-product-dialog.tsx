@@ -19,6 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { queryKeys } from "@/hooks/use-data";
+import { getTenantSlug } from "@/lib/api";
 
 interface ProductForm {
   codigo: string;
@@ -61,7 +62,7 @@ export function NewProductDialog({ onCreated }: { onCreated?: () => void }) {
     mutationFn: async (data: ProductForm) => {
       const res = await fetch("/inventory/repuestos", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
         body: JSON.stringify({
           codigo: data.codigo,
           descripcion: data.descripcion,

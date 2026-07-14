@@ -1,28 +1,66 @@
 /**
  * AutomotiveOS Mobile — Root Navigation
  *
- * Bottom tabs: Dashboard, Work Orders, Clients, Vehicles, Appointments
+ * Bottom tabs with stack navigators for detail screens.
  */
 
 import * as React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
 
 import DashboardScreen from "../screens/DashboardScreen";
 import WorkOrdersScreen from "../screens/WorkOrdersScreen";
+import WorkOrderDetailScreen from "../screens/WorkOrderDetailScreen";
 import ClientsScreen from "../screens/ClientsScreen";
+import ClientDetailScreen from "../screens/ClientDetailScreen";
 import VehiclesScreen from "../screens/VehiclesScreen";
+import VehicleDetailScreen from "../screens/VehicleDetailScreen";
 import AppointmentsScreen from "../screens/AppointmentsScreen";
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const headerStyle = {
+  backgroundColor: colors.primary,
+};
+const headerTintColor = colors.textInverse;
+const headerTitleStyle = { fontWeight: "600" as const };
+
+function WorkOrdersStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle, headerTintColor, headerTitleStyle }}>
+      <Stack.Screen name="WorkOrdersList" component={WorkOrdersScreen} options={{ title: "Órdenes de Trabajo" }} />
+      <Stack.Screen name="WorkOrderDetail" component={WorkOrderDetailScreen} options={{ title: "Detalle" }} />
+    </Stack.Navigator>
+  );
+}
+
+function ClientsStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle, headerTintColor, headerTitleStyle }}>
+      <Stack.Screen name="ClientsList" component={ClientsScreen} options={{ title: "Clientes" }} />
+      <Stack.Screen name="ClientDetail" component={ClientDetailScreen} options={{ title: "Detalle" }} />
+    </Stack.Navigator>
+  );
+}
+
+function VehiclesStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle, headerTintColor, headerTitleStyle }}>
+      <Stack.Screen name="VehiclesList" component={VehiclesScreen} options={{ title: "Vehículos" }} />
+      <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} options={{ title: "Detalle" }} />
+    </Stack.Navigator>
+  );
+}
 
 const tabs = [
   { name: "Dashboard", component: DashboardScreen, icon: "grid" as const },
-  { name: "WorkOrders", component: WorkOrdersScreen, icon: "build" as const },
-  { name: "Clients", component: ClientsScreen, icon: "people" as const },
-  { name: "Vehicles", component: VehiclesScreen, icon: "car" as const },
+  { name: "WorkOrders", component: WorkOrdersStack, icon: "build" as const },
+  { name: "Clients", component: ClientsStack, icon: "people" as const },
+  { name: "Vehicles", component: VehiclesStack, icon: "car" as const },
   { name: "Appointments", component: AppointmentsScreen, icon: "calendar" as const },
 ];
 
@@ -54,6 +92,7 @@ export default function RootNavigation() {
             component={tab.component}
             options={{
               title: getTabTitle(tab.name),
+              headerShown: tab.name !== "Dashboard",
               tabBarIcon: ({ color, size }) => (
                 <Ionicons name={tab.icon} size={size} color={color} />
               ),

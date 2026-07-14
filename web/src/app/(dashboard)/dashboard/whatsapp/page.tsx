@@ -1,12 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Send, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { useWhatsAppMessages } from "@/hooks/use-data";
 import { WAMessageStats, ConnectionStatus, statusConfig } from "./stats";
 import { columns } from "./columns";
+import { SendMessageDialog } from "./send-message-dialog";
 import type { UIMappedWhatsAppMessage as WAMessageRecord } from "@/lib/data-service";
 
 export default function WhatsAppPage() {
@@ -38,10 +39,7 @@ export default function WhatsAppPage() {
           <h1 className="text-2xl font-bold tracking-tight">WhatsApp</h1>
           <p className="text-sm text-muted-foreground">Mensajería y notificaciones para clientes</p>
         </div>
-        <Button size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
-          <Send className="h-5 w-5" aria-hidden="true" />
-          Nuevo Mensaje
-        </Button>
+        <SendMessageDialog />
       </div>
 
       {!loading && <ConnectionStatus />}

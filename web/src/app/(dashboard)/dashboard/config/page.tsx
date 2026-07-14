@@ -13,6 +13,7 @@ import { useConfigSettings } from "@/hooks/use-data";
 import type { UIMappedConfigSettings } from "@/lib/data-service";
 import { LogoUpload } from "@/components/dashboard/config/logo-upload";
 import { FormField } from "@/components/dashboard/config/form-field";
+import { getTenantSlug } from "@/lib/api";
 
 export default function ConfigPage() {
   const { data: settingsData, isLoading: loading } = useConfigSettings();
@@ -37,7 +38,7 @@ export default function ConfigPage() {
     try {
       const res = await fetch("/api/config/settings", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error("Error al guardar");

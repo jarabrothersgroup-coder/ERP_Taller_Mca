@@ -23,11 +23,14 @@ import {
   facturaDetalles,
   ordenServicios,
   ordenRepuestos,
+  clients,
   type SifenStatus,
 } from "../../../shared/database/schema/index.js";
 import { signXMLInWorker } from "../services/sifen/sifen-crypto.service.js";
 import { emit, resolveAccount } from "../services/index.js";
 import { AccountingBusCodes } from "./accounting-bus-codes.js";
+import { smartSend } from "../../email/services/email.service.js";
+import { invoiceReadyTemplate } from "../../email/templates/index.js";
 
 // ─── Request body type ─────────────────────────
 
@@ -327,6 +330,73 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
         } catch (err) {
           request.log.warn({ err }, "[accounting-bus] Auto VENTA falló (no bloqueante)");
         }
+
+        // ── 8. Send invoice email to client (non-blocking, fire-and-forget) ──
+        (async () => {
+          try {
+            // Fetch client email from the work order's client
+            const [orden] = await db()
+              .select({
+                clientId: ordenesTrabajo.clientId,
+              })
+              .from(ordenesTrabajo)
+              .where(and(eq(ordenesTrabajo.id, ordenId), eq(ordenesTrabajo.tenantSlug, tenant)))
+              .limit(1);
+
+            if (orden?.clientId) {
+              const [client] = await db()
+                .select({ email: clients.email, name: clients.name, ruc: clients.ruc })
+                .from(clients)
+                .where(eq(clients.id, orden.clientId))
+                .limit(1);
+
+              if (client?.email) {
+                // Fetch the line items that were just inserted
+                const items = await db()
+                  .select()
+                  .from(facturaDetalles)
+                  .where(eq(facturaDetalles.facturaId, resultadoFactura.id))
+                  .orderBy(facturaDetalles.numeroLinea);
+
+                const now = new Date();
+                const vencimiento = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+                const totalVal = Number(resultadoFactura.total ?? 0);
+
+                const html = invoiceReadyTemplate({
+                  numeroFactura: resultadoFactura.numeroFacturaManual ?? resultadoFactura.id.slice(0, 12),
+                  cliente: client.name,
+                  ruc: client.ruc ?? "",
+                  total: totalVal.toLocaleString("es-PY", { minimumFractionDigits: 0 }),
+                  fechaEmision: now.toLocaleDateString("es-PY"),
+                  fechaVencimiento: vencimiento.toLocaleDateString("es-PY"),
+                  estado: resultadoFactura.estadoPago === "PAGADA" ? "Pagada" : "Pendiente",
+                  lineaItems: items.map((it) => ({
+                    descripcion: it.descripcion,
+                    cantidad: Number(it.cantidad ?? 1),
+                    precio: `₲ ${Number(it.precioUnitario ?? 0).toLocaleString("es-PY", { minimumFractionDigits: 0 })}`,
+                    total: `₲ ${Number(it.subtotal ?? 0).toLocaleString("es-PY", { minimumFractionDigits: 0 })}`,
+                  })),
+                  cdc: resultadoFactura.sifenCdc ?? undefined,
+                });
+
+                const subject = `Factura Electrónica #${resultadoFactura.numeroFacturaManual ?? "S/N"} — AutomotiveOS`;
+
+                await smartSend({
+                  to: client.email,
+                  subject,
+                  html,
+                  entityType: "factura",
+                  entityId: resultadoFactura.id,
+                  tenantSlug: tenant,
+                });
+
+                request.log.info({ clientEmail: client.email }, "[invoice] Factura enviada por email");
+              }
+            }
+          } catch (emailErr) {
+            request.log.warn({ err: emailErr }, "[invoice] Envío de email no bloqueante falló");
+          }
+        })();
 
         return reply.code(201).send({ success: true, data: resultadoFactura });
       } catch (error: unknown) {
