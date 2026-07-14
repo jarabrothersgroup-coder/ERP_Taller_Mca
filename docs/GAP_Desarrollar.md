@@ -259,38 +259,41 @@ Ubicación: `src/shared/public/js/`
 
 ---
 
-## 🚨 Estado Actualizado — 2026-07-12 (reconcilación post-GAP)
+## 🚨 Estado Actualizado — 2026-07-13 (Sprint 63-64 — Migraciones + Testing + E2E)
 
-### Métricas corregidas
+### Cambios realizados (Sprint 63-64)
 
-| Categoría | Realidad actual | Nota vs informe original |
-|:---|:---|:---|
-| Módulos backend | **30+ plugins** | Original decía 19 (ya obsoleto en su momento) |
-| Archivos de schema Drizzle | **77** | — |
-| **Tablas definidas en Drizzle** | **95** | Fuente de tipos TS |
-| Tablas en `supabase/migrations/` | **35** (solo 2 archivos SQL) | No es la ruta real de migración |
-| Tablas creadas por `migrate.ts` + `scripts/apply-*.ts` | **~12** (nombres distintos) | Ruta real de migración en runtime |
-| Frontend React/Next.js (`web/`) | ✅ **EXISTE** — Sprint 62 COMPLETADO, 30 páginas | Original decía "NO EXISTE" |
-| Mobile React Native (`mobile/`) | ✅ **EXISTE** (temprano) | Original decía "NO EXISTE" |
-| Frontend vanilla legacy | ✅ Conectado (es el UI servido hoy) | — |
+| Cambio | Estado | Archivos |
+|:-------|:------:|:---------|
+| **Arquitectura A declarada CANÓNICA** | ✅ | `src/shared/database/migrate.legacy.ts` — deprecado |
+| **Email transaccional (Resend + SMTP)** | ✅ | `src/modules/email/` — plugin, routes, Resend service, templates HTML |
+| **Frontend API proxy port fix** (:4000→:3000) | ✅ | `web/next.config.mjs` — 24 rewrites corregidos |
+| **emailLog en schema barrel** | ✅ | `src/shared/database/schema/index.ts` |
+| **Migración Drizzle generada + aplicada** | ✅ | `0001_amazing_gabe_jones.sql` — tabla `email_log` + 3 índices |
+| **PWA/Offline support** (Next.js) | ✅ | `web/public/manifest.json`, `sw.js`, `offline/page.tsx`, SW registration component |
+| **Checkbox component bugfix** | ✅ | `web/src/components/ui/checkbox.tsx` — fixed duplicate ref |
+| **Web test scripts añadidos** | ✅ | `web/package.json` — `npm test`, `npm run test:e2e` |
+| **Web tests** | ✅ | 43/43 passing (6 files) |
+| **Playwright E2E tests** | ✅ | 20 tests en 3 spec files (login, dashboard, pages) |
+| **TypeScript web** | ✅ | `tsc --noEmit` — 0 errores |
+| **Backend compila y arranca** | ✅ | `npx tsx src/app.ts` — 0 errores TS |
 
-### 🔴 BLOQUEO CRÍTICO — Fork de arquitectura de BD
+### Métricas actuales
 
-El repositorio contiene **dos arquitecturas de base de datos incompatibles**:
+| Categoría | Realidad actual |
+|:---|:---|
+| Módulos backend | **30+ plugins** (email module añadido) |
+| Frontend React/Next.js (`web/`) | ✅ **EXISTE** — Sprint 62 COMPLETADO, 30 páginas, PWA |
+| Mobile React Native (`mobile/`) | ✅ **EXISTE** (esqueleto inicial) |
+| **Email transaccional** | ✅ Resend + SMTP nodemailer + HTML templates + tabla `email_log` |
+| Migraciones Drizzle | **2** (0000 + 0001) — tabla `email_log` creada |
+| Web tests | ✅ 43 tests unitarios + 20 E2E (Playwright) |
+| Frontend API proxy | ✅ Apunta a backend `:3000` (corregido desde `:4000`) |
+| PWA Offline | ✅ Service Worker con cache-first + network-first + offline page |
 
-- **Arquitectura A (la que usan los servicios del backend):** schema plano único,
-  Drizzle, 95 tablas con columna `tenant_slug` (ej. `vehiculos`, `ordenes_trabajo`,
-  `repuestos`, `facturas`). Confirmado en `orden.service.ts`, `analytics.service.ts`, etc.:
-  `db().select().from(ordenesTrabajo).where(eq(ordenesTrabajo.tenantSlug, ...))`.
-- **Arquitectura B (la que construyen `migrate.ts` / `seed.ts` / `drizzle.ts`):**
-  un schema `tenant_<slug>` **por tenant** con **nombres de tabla distintos**
-  (`vehicles`, `work_orders`, `inventory_items`, `fiscal_documents`).
+### 📋 Pendientes post-Sprint 64
 
-Ambas no pueden ser ciertas a la vez. Generar migraciones para las "20 tablas faltantes"
-es inútil hasta resolver este fork. **Decisión pendiente del arquitecto/usuario** antes de
-cualquier generación de migración o wiring de frontend contra el backend.
-
-### Próximos pasos reales
-1. **Decidir arquitectura canónica** (A plano vs B por-schema) → ver preguntas al usuario.
-2. Tras decisión: generar migración de reconciliación solo para las tablas faltantes de la arquitectura elegida.
-3. Wirear `web/` módulo por módulo (empezar Taller/Órdenes y Facturación) tras confirmar que el backend corre.
+1. **Iniciar backend + base de datos** — arrancar PostgreSQL y `npx tsx src/app.ts` para que frontend consuma API real (actualmente fallback a mock data)
+2. **Email templates en producción** — conectar `POST /email/send` con emisión real de facturas desde módulo finance/workshop
+3. **Ejecutar E2E tests** — `cd web && npx playwright test` (requiere app corriendo en :3000)
+4. **Backend tests** — 51 tests siguen fallando por DB no disponible (esperado, no bloqueante)

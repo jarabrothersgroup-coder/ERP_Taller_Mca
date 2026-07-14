@@ -17,7 +17,7 @@ import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useClients } from "../hooks/use-data";
 import type { Client } from "../api/client";
 
-function ClientCard({ client }: { client: Client }) {
+function ClientCard({ client, onPress }: { client: Client; onPress: () => void }) {
   const initials = client.name
     .split(" ")
     .map((n) => n[0])
@@ -26,7 +26,7 @@ function ClientCard({ client }: { client: Client }) {
     .toUpperCase();
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{initials}</Text>
       </View>
@@ -40,11 +40,11 @@ function ClientCard({ client }: { client: Client }) {
         )}
       </View>
       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-    </View>
+    </TouchableOpacity>
   );
 }
 
-export default function ClientsScreen() {
+export default function ClientsScreen({ navigation }: any) {
   const [search, setSearch] = React.useState("");
   const [refreshing, setRefreshing] = React.useState(false);
   const { data: clients = [], isLoading, refetch } = useClients();
@@ -97,7 +97,12 @@ export default function ClientsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => <ClientCard client={item} />}
+        renderItem={({ item }) => (
+          <ClientCard
+            client={item}
+            onPress={() => navigation.navigate("ClientDetail", { id: item.id })}
+          />
+        )}
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.empty}>

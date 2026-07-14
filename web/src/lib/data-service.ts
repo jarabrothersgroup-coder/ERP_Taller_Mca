@@ -79,11 +79,20 @@ function getTenantSlug(override?: string): string {
 /* ── Fetch with fallback ────────────────────── */
 
 /**
- * Tries an API call. On failure (network error, timeout, 5xx), falls back to
- * the mockData factory. On 4xx errors, also falls back.
+ * Whether mock data fallback is enabled.
+ * Set NEXT_PUBLIC_ENABLE_MOCKS=true for development only.
+ * In production, API errors are thrown instead of falling back to mock data.
+ */
+const ENABLE_MOCKS = process.env["NEXT_PUBLIC_ENABLE_MOCKS"] === "true";
+
+/**
+ * Tries an API call. Behavior depends on environment:
+ *
+ * - **Development** (NEXT_PUBLIC_ENABLE_MOCKS=true): Falls back to mock data on error
+ * - **Production** (default): Throws errors — no silent mock fallback
  *
  * @param apiCall - Function that calls the real API
- * @param mockData - Fallback data factory
+ * @param mockData - Fallback data factory (only used in dev mode)
  * @param timeoutMs - Timeout in ms (default 4000)
  */
 async function fetchOrMock<T>(
@@ -102,11 +111,17 @@ async function fetchOrMock<T>(
     ]);
     return { data: result, source: "api" };
   } catch (err) {
-    console.warn(
-      "[data-service] API unavailable, falling back to mock data:",
-      err instanceof Error ? err.message : err,
-    );
-    return { data: mockData(), source: "mock" };
+    if (ENABLE_MOCKS) {
+      // Dev mode: fall back to mock data
+      console.warn(
+        "[data-service] API unavailable, falling back to mock data:",
+        err instanceof Error ? err.message : err,
+      );
+      return { data: mockData(), source: "mock" };
+    }
+
+    // Production mode: re-throw — callers must handle API errors
+    throw err;
   }
 }
 

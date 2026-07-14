@@ -1,13 +1,22 @@
 /**
- * Multi-Tenant database schema migrator.
+ * ⚠️ LEGACY — DO NOT USE. Kept for reference only.
  *
- * Creates the base PostgreSQL schema for AutomotiveOS Cloud ERP:
- *   - `public` schema: platform-level tables (tenants registry, migrations)
- *   - `tenant_*` schemas: per-tenant isolated data (clients, vehicles, work orders, inventory)
+ * This file implements Arquitectura B (per-tenant PostgreSQL schemas), which
+ * was superseded by Arquitectura A (flat single schema with `tenant_slug`
+ * column isolation).
  *
- * Run with: `npx tsx src/shared/database/migrate.ts`
+ * The CANONICAL migration is `0000_sharp_rocket_raccoon.sql` (88 tables)
+ * managed via drizzle-kit:
+ *   DATABASE_URL="postgresql://..." npx drizzle-kit migrate
  *
- * @module shared/database/migrate
+ * All backend services use Arquitectura A via `src/shared/database/drizzle.ts`
+ * which queries a single schema with `WHERE tenant_slug = ?` filters + RLS.
+ *
+ * Run with: `npx tsx src/shared/database/migrate.ts` (only if you're intentionally
+ * testing the legacy per-schema approach — NOT for production)
+ *
+ * @deprecated Use Drizzle canonical migration instead
+ * @module shared/database/migrate (LEGACY — Arquitectura B)
  */
 
 import { getDb, closeDb } from "./connection.js";

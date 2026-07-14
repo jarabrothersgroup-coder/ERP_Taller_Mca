@@ -74,6 +74,24 @@ interface EnvConfig {
   TWENTY_API_KEY: string;
   /** Twenty CRM GraphQL endpoint */
   TWENTY_GRAPHQL_URL: string;
+
+  // ─── Clerk Auth ────────────────────────────────
+  /** Clerk secret key for backend API calls */
+  CLERK_SECRET_KEY: string;
+  /** Clerk publishable key (used for JWKS fetching) */
+  CLERK_PUBLISHABLE_KEY: string;
+  /** Clerk issuer URL for JWT verification (e.g. "https://clerk.your-app.com") */
+  CLERK_ISSUER: string;
+
+  // ─── Stripe Billing ────────────────────────────
+  /** Stripe secret key for API calls */
+  STRIPE_SECRET_KEY: string;
+  /** Stripe webhook signing secret */
+  STRIPE_WEBHOOK_SECRET: string;
+
+  // ─── Resend (Email) ────────────────────────────
+  /** Resend API key for transactional email */
+  RESEND_API_KEY: string;
 }
 
 /**
@@ -126,4 +144,16 @@ export const env: EnvConfig = {
   TWENTY_API_URL: process.env["TWENTY_API_URL"] || "http://localhost:3001",
   TWENTY_API_KEY: process.env["TWENTY_API_KEY"] ?? "",
   TWENTY_GRAPHQL_URL: process.env["TWENTY_GRAPHQL_URL"] || "",
+
+  // ─── Clerk Auth ────────────────────────────────
+  CLERK_SECRET_KEY: process.env["CLERK_SECRET_KEY"] ?? "",
+  CLERK_PUBLISHABLE_KEY: process.env["CLERK_PUBLISHABLE_KEY"] ?? "",
+  CLERK_ISSUER: process.env["CLERK_ISSUER"] ?? "",
+
+  // ─── Stripe Billing ────────────────────────────
+  STRIPE_SECRET_KEY: process.env["STRIPE_SECRET_KEY"] ?? "",
+  STRIPE_WEBHOOK_SECRET: process.env["STRIPE_WEBHOOK_SECRET"] ?? "",
+
+  // ─── Resend (Email) ────────────────────────────────────
+  RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "",
 };

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, accessSync } from "node:fs";
 import { readdir, copyFile, unlink } from "node:fs/promises";
 import { join, extname } from "node:path";
 import { processFile } from "./thinkcar-pipeline.service.js";
@@ -20,6 +20,31 @@ const STAGING_DIR = join(
 interface CmdError extends Error {
   stderr?: string;
   stdout?: string;
+}
+
+let _aftMtpMountChecked = false;
+let _aftMtpMountAvailable = false;
+
+function isAftMtpMountAvailable(): boolean {
+  if (_aftMtpMountChecked) return _aftMtpMountAvailable;
+  _aftMtpMountChecked = true;
+  try {
+    const pathDirs = (process.env.PATH || "/usr/local/bin:/usr/bin:/bin").split(":");
+    _aftMtpMountAvailable = pathDirs.some((dir) => {
+      try {
+        accessSync(join(dir, "aft-mtp-mount"), 0o111);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    if (!_aftMtpMountAvailable) {
+      console.warn("[Thinkcar USB] aft-mtp-mount no encontrado en PATH — USB watcher deshabilitado");
+    }
+  } catch {
+    _aftMtpMountAvailable = false;
+  }
+  return _aftMtpMountAvailable;
 }
 
 function runCmd(cmd: string, timeoutMs = 30000): string {
@@ -46,6 +71,11 @@ export async function mountThinkcar(): Promise<void> {
   await ensureDirectories();
   const isMounted = existsSync(THINKCAR_PATH);
   if (isMounted) return;
+
+  if (!isAftMtpMountAvailable()) {
+    console.warn("[Thinkcar USB] aft-mtp-mount no disponible — saltando montaje USB");
+    throw new Error("aft-mtp-mount no disponible en el sistema");
+  }
 
   await withRetry(
     async () => {
@@ -167,6 +197,12 @@ export function startUsbWatcher(
   onIngest?: (result: { processed: number; summary: string }) => void,
 ): void {
   if (_usbTimer) return;
+
+  // Skip watcher entirely if aft-mtp-mount is not available
+  if (!isAftMtpMountAvailable()) {
+    console.warn("[Thinkcar USB] USB watcher no iniciado: aft-mtp-mount no encontrado");
+    return;
+  }
 
   _usbTimer = setInterval(async () => {
     try {

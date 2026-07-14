@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { useBillingPlans, useBillingSubscription, useBillingInvoices, useBillingCheckout } from "@/hooks/use-billing";
+import { useBillingPlans, useBillingSubscription, useBillingInvoices, useBillingCheckout, useBillingPortal } from "@/hooks/use-billing";
 import { PlanCard } from "@/components/billing/plan-card";
 import { InvoiceTable } from "@/components/billing/invoice-table";
 
@@ -24,6 +24,7 @@ export default function BillingPage() {
   const { data: subData, isLoading: subLoading } = useBillingSubscription();
   const { data: invoicesData, isLoading: invoicesLoading } = useBillingInvoices();
   const checkoutMutation = useBillingCheckout();
+  const portalMutation = useBillingPortal();
   const [isAnnual, setIsAnnual] = React.useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = React.useState(false);
 
@@ -85,22 +86,34 @@ export default function BillingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-bold">{subscription.plan?.name ?? "Plan Desconocido"}</p>
-                <p className="text-sm text-muted-foreground">
-                  {subscription.status === "active" ? "Activo" : subscription.status} · {subscription.interval === "annual" ? "Anual" : "Mensual"}
-                </p>
-                {subscription.currentPeriodEnd && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Próxima facturación: {new Date(subscription.currentPeriodEnd).toLocaleDateString("es-PY")}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-bold">{subscription.plan?.name ?? "Plan Desconocido"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {subscription.status === "active" ? "Activo" : subscription.status} · {subscription.interval === "annual" ? "Anual" : "Mensual"}
                   </p>
-                )}
+                  {subscription.currentPeriodEnd && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Próxima facturación: {new Date(subscription.currentPeriodEnd).toLocaleDateString("es-PY")}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <Badge variant={subscription.status === "active" ? "success" : "secondary"}>
+                    {subscription.status === "active" ? "Activo" : subscription.status}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => portalMutation.mutate()}
+                    loading={portalMutation.isPending}
+                  >
+                    <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                    Gestionar
+                  </Button>
+                </div>
               </div>
-              <Badge variant={subscription.status === "active" ? "success" : "secondary"}>
-                {subscription.status === "active" ? "Activo" : subscription.status}
-              </Badge>
-            </div>
           </CardContent>
         </Card>
       )}

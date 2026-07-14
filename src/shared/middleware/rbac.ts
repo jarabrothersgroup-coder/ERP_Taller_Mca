@@ -21,6 +21,7 @@ import { db } from "../database/drizzle.js";
 import { profiles, type Profile } from "../database/schema/index.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/app-error.js";
 import { verifyToken, extractTokenFromHeader } from "../services/auth-jwt.js";
+import { verifyClerkToken, extractClerkToken, isClerkConfigured, type ClerkUserClaims } from "../services/clerk-verify.js";
 
 // ─── Request augmentation ──────────────────────────────
 
@@ -44,62 +45,105 @@ const ROLE_HIERARCHY: Record<string, number> = {
  * Fastify preHandler hook that resolves the current user's profile
  * from a verified JWT token.
  *
- * Security: Verifies JWT signature and expiry before trusting any claims.
- * Falls back to X-User-Email header ONLY for backward compatibility
- * during migration (will be removed in future).
+ * Verification order:
+ *   1. Clerk JWT (RS256 via JWKS) — production auth
+ *   2. Custom HMAC-SHA256 JWT — legacy/internal auth
+ *   3. X-User-Email header — DEPRECATED fallback (will be removed)
  *
+ * Security: Verifies JWT signature and expiry before trusting any claims.
  * Must run AFTER resolveTenant (needs `request.tenantSlug`).
  */
 export async function resolveProfile(
   request: FastifyRequest,
   _reply: FastifyReply,
 ): Promise<void> {
-  // Try JWT token first (secure path)
   const authHeader = request.headers["authorization"] as string | undefined;
-  const token = extractTokenFromHeader(authHeader);
 
-  if (token) {
-    const payload = verifyToken(token);
-    if (!payload) {
-      throw new UnauthorizedError("Token inválido o expirado");
+  // ── 1. Try Clerk JWT (production) ──────────────
+  if (isClerkConfigured()) {
+    const clerkToken = extractClerkToken(authHeader);
+    if (clerkToken) {
+      const claims = await verifyClerkToken(clerkToken);
+      if (claims) {
+        await resolveProfileFromClerkClaims(request, claims);
+        return;
+      }
+      // Clerk token invalid — fall through to legacy
     }
+  }
 
-    // Verify user still exists and is active in DB
-    const tenantSlug = request.tenantSlug;
-    if (!tenantSlug) return;
-
-    const [profile] = await db()
-      .select({
-        id: profiles.id,
-        email: profiles.email,
-        fullName: profiles.fullName,
-        role: profiles.role,
-        isActive: profiles.isActive,
-        tenantId: profiles.tenantId,
-      })
-      .from(profiles)
-      .where(
-        and(
-          eq(profiles.email, payload.email),
-          eq(profiles.isActive, true),
-        ),
-      )
-      .limit(1);
-
-    if (!profile) {
-      throw new UnauthorizedError("Usuario no encontrado o inactivo");
+  // ── 2. Try custom HMAC JWT (legacy/internal) ───
+  const legacyToken = extractTokenFromHeader(authHeader);
+  if (legacyToken) {
+    const payload = verifyToken(legacyToken);
+    if (payload) {
+      await resolveProfileFromEmail(request, payload.email);
+      return;
     }
+    // Invalid token — don't fall through to header trust
+    throw new UnauthorizedError("Token inválido o expirado");
+  }
 
-    request.profile = profile;
+  // ── 3. DEPRECATED: X-User-Email header ─────────
+  // Only used during migration when no JWT is available.
+  // Will be removed once all clients send JWTs.
+  const email = request.headers["x-user-email"] as string | undefined;
+  if (email) {
+    request.log.warn({ email: email.slice(0, 3) + "***" }, "DEPRECATED: X-User-Email header used — migrate to JWT");
+    await resolveProfileFromEmail(request, email);
     return;
   }
 
-  // Backward compatibility: X-User-Email header (DEPRECATED — will be removed)
-  const email = request.headers["x-user-email"] as string | undefined;
-  if (!email) {
-    return; // No auth — allow unauthenticated routes (login, health, etc.)
+  // No auth provided — allow unauthenticated routes (login, health, etc.)
+}
+
+/**
+ * Resolve user profile from Clerk JWT claims.
+ * Maps Clerk org_id → tenant, looks up profile by email.
+ */
+async function resolveProfileFromClerkClaims(
+  request: FastifyRequest,
+  claims: ClerkUserClaims,
+): Promise<void> {
+  const email = claims.email;
+  if (!email) return;
+
+  const tenantSlug = request.tenantSlug;
+  if (!tenantSlug) return;
+
+  const [profile] = await db()
+    .select({
+      id: profiles.id,
+      email: profiles.email,
+      fullName: profiles.fullName,
+      role: profiles.role,
+      isActive: profiles.isActive,
+      tenantId: profiles.tenantId,
+    })
+    .from(profiles)
+    .where(
+      and(
+        eq(profiles.email, email),
+        eq(profiles.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  if (!profile) {
+    throw new UnauthorizedError("Usuario no encontrado o inactivo");
   }
 
+  request.profile = profile;
+}
+
+/**
+ * Resolve user profile from email address.
+ * Used by both custom JWT and deprecated X-User-Email header.
+ */
+async function resolveProfileFromEmail(
+  request: FastifyRequest,
+  email: string,
+): Promise<void> {
   const tenantSlug = request.tenantSlug;
   if (!tenantSlug) return;
 

@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TextInput,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
@@ -25,11 +26,11 @@ const engineColors: Record<string, string> = {
   Eléctrico: colors.error,
 };
 
-function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
+function VehicleCard({ vehicle, onPress }: { vehicle: Vehicle; onPress: () => void }) {
   const engineColor = engineColors[vehicle.engineType] ?? colors.textSecondary;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={[styles.engineIndicator, { backgroundColor: engineColor }]} />
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
@@ -51,11 +52,11 @@ function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
           <Text style={styles.cardVin}>VIN: {vehicle.vin}</Text>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-export default function VehiclesScreen() {
+export default function VehiclesScreen({ navigation }: any) {
   const [search, setSearch] = React.useState("");
   const [refreshing, setRefreshing] = React.useState(false);
   const { data: vehicles = [], isLoading, refetch } = useVehicles();
@@ -101,7 +102,12 @@ export default function VehiclesScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => <VehicleCard vehicle={item} />}
+        renderItem={({ item }) => (
+          <VehicleCard
+            vehicle={item}
+            onPress={() => navigation.navigate("VehicleDetail", { id: item.id })}
+          />
+        )}
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.empty}>

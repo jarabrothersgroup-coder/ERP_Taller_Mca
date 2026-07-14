@@ -1,10 +1,18 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden } from "../services/orden.service.js";
+import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden } from "../services/orden.service.js";
 import { previewStockConsumption } from "../../inventory/services/ot-stock-consumer.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 
 interface OrdenParams {
   id: string;
+}
+
+interface CreateOrdenBody {
+  vehicleId: string;
+  clientId: string;
+  description?: string;
+  hvAlert?: boolean;
+  dtcCodes?: string[];
 }
 
 interface SignLockoutBody {
@@ -38,6 +46,33 @@ const ORDEN_RESPONSE_PROPS = {
 };
 
 export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
+  // ── POST /workshop/ordenes — Create work order ──
+  app.post<{ Body: CreateOrdenBody }>(
+    "/workshop/ordenes",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["vehicleId", "clientId"],
+          properties: {
+            vehicleId: { type: "string", format: "uuid" },
+            clientId: { type: "string", format: "uuid" },
+            description: { type: "string", maxLength: 2000 },
+            hvAlert: { type: "boolean" },
+            dtcCodes: { type: "array", items: { type: "string" } },
+          },
+        },
+        response: {
+          201: { type: "object", properties: ORDEN_RESPONSE_PROPS },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: CreateOrdenBody }>, reply: FastifyReply) => {
+      const orden = await createOrden(request.body, request.tenantSlug);
+      return reply.status(201).send(orden);
+    },
+  );
+
   // ── GET /workshop/ordenes — List work orders ──
   app.get<{ Querystring: OrdenesQuery }>(
     "/workshop/ordenes",

@@ -41,29 +41,19 @@ export function NewOrderDialog({ onCreated }: { onCreated: () => void }) {
       // Create client first
       const client = await api.createClient({ name: data.client });
       // Create vehicle
-      const vehicleRes = await fetch("/workshop/vehiculos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
-        body: JSON.stringify({
-          plate: data.plate.toUpperCase(),
-          brand: data.vehicle.split(" ")[0] || "Sin marca",
-          model: data.vehicle,
-          clientId: client.id,
-        }),
+      const vehicle = await api.createVehicle({
+        plate: data.plate.toUpperCase(),
+        brand: data.vehicle.split(" ")[0] || "Sin marca",
+        model: data.vehicle,
+        clientId: client.id,
       });
-      const vehicle = await vehicleRes.json();
-      // Create work order
-      const orderRes = await fetch("/workshop/ordenes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
-        body: JSON.stringify({
-          vehicleId: vehicle.id,
-          clientId: client.id,
-          description: data.service,
-          status: "Presupuestado",
-        }),
+      // Create work order (status defaults to PENDIENTE on backend)
+      const order = await api.createWorkOrder({
+        vehicleId: vehicle.id,
+        clientId: client.id,
+        description: data.service,
       });
-      return orderRes.json();
+      return order;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.workOrders });

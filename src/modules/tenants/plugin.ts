@@ -10,6 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import { resolveTenant } from "../../shared/middleware/tenant-resolver.js";
 import { tenantConfigRoutes } from "./routes/tenants.js";
+import { onboardingRoutes } from "./routes/onboarding.js";
 
 /**
  * Fastify plugin that bootstraps the Tenants configuration module.
@@ -23,13 +24,18 @@ import { tenantConfigRoutes } from "./routes/tenants.js";
  * @param app - Fastify instance
  */
 async function tenantsPlugin(app: FastifyInstance): Promise<void> {
-  // ── Tenant isolation hook ──
-  app.addHook("onRequest", resolveTenant);
+  // ── Register onboarding routes (public — no tenant context) ──
+  // These routes handle new tenant creation and slug validation
+  await app.register(onboardingRoutes);
 
-  // ── Register tenant routes ──
-  await app.register(tenantConfigRoutes);
+  // ── Tenant-scoped routes (require X-Tenant-Slug header) ──
+  // Register with tenant isolation hook for profile management
+  await app.register(async function tenantScopedRoutes(tenantApp) {
+    tenantApp.addHook("onRequest", resolveTenant);
+    await tenantApp.register(tenantConfigRoutes);
+  });
 
-  app.log.info("Tenants module registered (profile + classification)");
+  app.log.info("Tenants module registered (profile + classification + onboarding)");
 }
 
 export default tenantsPlugin;

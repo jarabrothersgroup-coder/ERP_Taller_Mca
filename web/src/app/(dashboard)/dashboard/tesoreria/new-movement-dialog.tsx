@@ -19,6 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { queryKeys, useBankAccounts } from "@/hooks/use-data";
+import { getTenantSlug } from "@/lib/api";
 
 interface MovementForm {
   cuentaId: string;
@@ -53,7 +54,7 @@ export function NewMovementDialog({ onCreated }: { onCreated?: () => void }) {
     mutationFn: async (data: MovementForm) => {
       const res = await fetch("/finance/treasury/movimientos", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
         body: JSON.stringify({
           cuentaId: data.cuentaId,
           tipo: data.tipo,

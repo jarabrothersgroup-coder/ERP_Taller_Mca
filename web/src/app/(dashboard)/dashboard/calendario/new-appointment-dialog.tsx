@@ -19,6 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { queryKeys, useClients, useVehicles } from "@/hooks/use-data";
+import { getTenantSlug } from "@/lib/api";
 
 interface AppointmentForm {
   clienteId: string;
@@ -65,7 +66,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
     mutationFn: async (data: AppointmentForm) => {
       const res = await fetch("/workshop/citas", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": "demo" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
         body: JSON.stringify({
           clienteId: data.clienteId || null,
           vehiculoId: data.vehiculoId || null,
