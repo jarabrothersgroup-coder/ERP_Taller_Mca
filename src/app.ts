@@ -211,6 +211,7 @@ async function buildApp() {
           { name: "Workshop", description: "Módulo de Taller (vehículos, OTs, ingresos)" },
           { name: "Inventory", description: "Inventario (repuestos, herramientas, stock)" },
           { name: "Finance", description: "Contabilidad, facturación, tesorería" },
+          { name: "Billing", description: "Gestión de suscripciones SaaS (Stripe)" },
           { name: "Search", description: "Búsqueda global" },
           { name: "Export", description: "Exportación CSV" },
           { name: "Config", description: "Configuración del taller" },
@@ -461,6 +462,14 @@ async function buildApp() {
   await app.register(
     (await import("./shared/routes/audit-export.routes.js")).auditExportRoutes,
   );
+
+  // ─── Billing Module (Stripe SaaS) ───────────
+  // Stripe subscription management, checkout, customer portal.
+  // Tenant-isolated via X-Tenant-Slug header.
+  await app.register(
+    (await import("./modules/billing/plugin.js")).default,
+  );
+  app.log.info("Billing module registered (/billing/*)");
 
   // ─── Enterprise Module (SSO + White-Label) ───
   // SSO (SAML/OIDC), white-label config, data retention policies.
