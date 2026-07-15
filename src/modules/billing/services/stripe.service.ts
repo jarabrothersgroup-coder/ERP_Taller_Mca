@@ -15,6 +15,7 @@
  * @module billing/services/stripe.service
  */
 
+import { resolveTenantId } from "../../../shared/utils/tenant-email.js";
 import { eq, or } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants } from "../../../shared/database/schema/tenants.js";
@@ -64,14 +65,6 @@ export async function getStripeClient(): Promise<any> {
 /**
  * Resolve a tenant slug to its UUID.
  */
-async function resolveTenantId(tenantSlug: string): Promise<string | null> {
-  const [tenant] = await db()
-    .select({ id: tenants.id })
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
-  return tenant?.id ?? null;
-}
 
 /**
  * Get all available billing plans.
