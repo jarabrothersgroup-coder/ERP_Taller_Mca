@@ -23,6 +23,7 @@ import { flatRateRoutes } from "./flat-rate.routes.js";
 import { signatureRoutes } from "./signature.routes.js";
 import { predictiveMaintenanceRoutes } from "./predictive-maintenance.routes.js";
 import { notificationPushRoutes } from "./notification-push.routes.js";
+import { notificationSseRoutes } from "./notification-sse.routes.js";
 
 /**
  * Registers all workshop routes on the given Fastify instance.
@@ -77,4 +78,5 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(signatureRoutes);
   await app.register(predictiveMaintenanceRoutes);
   await app.register(notificationPushRoutes);
+  await app.register(notificationSseRoutes);
 }
