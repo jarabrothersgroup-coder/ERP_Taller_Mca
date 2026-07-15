@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSse, type SseNotification } from "@/hooks/use-sse";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,6 +103,41 @@ export function NotificationBell({
 }: NotificationBellProps) {
   const [storedNotifications, setStoredNotifications] = useState<StoredNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+
+  /** Fetch initial notifications from API */
+  const fetchInitialNotifications = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications?limit=50", {
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.notifications ?? (Array.isArray(data) ? data : []);
+        if (items.length > 0) {
+          setStoredNotifications(
+            items.map((n: any) => ({
+              id: n.id,
+              tipo: n.tipo,
+              titulo: n.titulo,
+              mensaje: n.mensaje,
+              entityType: n.entityType,
+              entityId: n.entityId,
+              priority: n.priority || "normal",
+              timestamp: n.createdAt || n.timestamp,
+              read: n.leido || false,
+            })),
+          );
+        }
+      }
+    } catch (err) {
+      console.error("[NotificationBell] Failed to fetch initial notifications:", err);
+    }
+  }, []);
+
+  /* Fetch initial notifications on mount */
+  useEffect(() => {
+    fetchInitialNotifications();
+  }, [fetchInitialNotifications]);
 
   /* SSE connection for real-time updates */
   const { status: sseStatus, lastNotification } = useSse({
