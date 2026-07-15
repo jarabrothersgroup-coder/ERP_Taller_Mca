@@ -252,23 +252,25 @@ export async function validateApiKey(
  * Revoke (disable) an API key.
  */
 export async function revokeApiKey(tenantSlug: string, keyId: string): Promise<boolean> {
-  await db()
+  const result = await db()
     .update(apiKeys)
     .set({ isActive: false, updatedAt: new Date() })
-    .where(and(eq(apiKeys.tenantSlug, tenantSlug), eq(apiKeys.id, keyId)));
+    .where(and(eq(apiKeys.tenantSlug, tenantSlug), eq(apiKeys.id, keyId)))
+    .returning({ id: apiKeys.id });
 
-  return true;
+  return result.length > 0;
 }
 
 /**
  * Delete an API key permanently.
  */
 export async function deleteApiKey(tenantSlug: string, keyId: string): Promise<boolean> {
-  await db()
+  const result = await db()
     .delete(apiKeys)
-    .where(and(eq(apiKeys.tenantSlug, tenantSlug), eq(apiKeys.id, keyId)));
+    .where(and(eq(apiKeys.tenantSlug, tenantSlug), eq(apiKeys.id, keyId)))
+    .returning({ id: apiKeys.id });
 
-  return true;
+  return result.length > 0;
 }
 
 /**
