@@ -223,6 +223,14 @@ export async function processWebhookEvent(eventType: string, data: Record<string
           currentPeriodEnd: new Date(obj.current_period_end * 1000),
         });
       }
+
+      // Send subscription activated email notification
+      try {
+        const { notifySubscriptionActivated } = await import("./billing-notifications.service.js");
+        await notifySubscriptionActivated(tenantSlug, planId, interval);
+      } catch (err) {
+        console.error("[billing] Failed to send subscription activated email:", err);
+      }
       break;
     }
 
@@ -259,6 +267,17 @@ export async function processWebhookEvent(eventType: string, data: Record<string
           status: "failed",
           dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
         });
+
+        // Send payment failed email notification (resolve tenantId → slug)
+        try {
+          const { notifyPaymentFailed } = await import("./billing-notifications.service.js");
+          const [tenant] = await db().select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, sub.tenantId)).limit(1);
+          if (tenant?.slug) {
+            await notifyPaymentFailed(tenant.slug, obj.id, obj.amount_due || 0, obj.due_date ? new Date(obj.due_date * 1000) : null);
+          }
+        } catch (err) {
+          console.error("[billing] Failed to send payment failed email:", err);
+        }
       }
       break;
     }
@@ -313,6 +332,10 @@ export async function processWebhookEvent(eventType: string, data: Record<string
     case "customer.subscription.deleted": {
       const subscriptionId = obj.id;
       if (!subscriptionId) break;
+      const [cancelledSub] = await db()
+        .select({ tenantId: subscriptions.tenantId })
+        .from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
       await db()
         .update(subscriptions)
         .set({
@@ -321,6 +344,19 @@ export async function processWebhookEvent(eventType: string, data: Record<string
           updatedAt: new Date(),
         })
         .where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
+
+      // Send subscription cancelled email notification (resolve tenantId → slug)
+      if (cancelledSub?.tenantId) {
+        try {
+          const { notifySubscriptionCancelled } = await import("./billing-notifications.service.js");
+          const [tenant] = await db().select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, cancelledSub.tenantId)).limit(1);
+          if (tenant?.slug) {
+            await notifySubscriptionCancelled(tenant.slug, new Date());
+          }
+        } catch (err) {
+          console.error("[billing] Failed to send subscription cancelled email:", err);
+        }
+      }
       break;
     }
   }
