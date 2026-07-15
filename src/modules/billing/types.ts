@@ -4,6 +4,13 @@
  * @module billing/types
  */
 
+// Type augmentation for raw body capture in webhook signature verification
+ declare module "fastify" {
+   interface FastifyRequest {
+     _rawBody?: Buffer;
+   }
+ }
+
 /** Plan record from DB */
 export interface BillingPlan {
   id: string;
