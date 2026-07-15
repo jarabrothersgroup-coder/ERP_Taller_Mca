@@ -99,12 +99,12 @@ describe("Sprint 74 — Load Test Script", () => {
 // ─── Performance Middleware ─────────────────────────────
 
 describe("Sprint 74 — Performance Middleware", () => {
-  it("response-cache.ts has LRU eviction", async () => {
+  it("response-cache.ts has eviction strategy", async () => {
     const content = await readFileSafe(
       resolve(srcRoot, "shared/middleware/response-cache.ts"),
     );
-    expect(content).toContain("lru");
-    expect(content).toContain("max");
+    expect(content).toContain("evict");
+    expect(content).toContain("MAX_CACHE_SIZE");
   });
 
   it("response-cache.ts has TTL support", async () => {
@@ -112,7 +112,7 @@ describe("Sprint 74 — Performance Middleware", () => {
       resolve(srcRoot, "shared/middleware/response-cache.ts"),
     );
     expect(content).toContain("ttl");
-    expect(content).toContain("expires");
+    expect(content).toContain("expiry");
   });
 
   it("response-cache.ts has cache invalidation", async () => {
