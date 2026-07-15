@@ -12,7 +12,7 @@
  * @module billing/services/billing-notifications
  */
 
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants } from "../../../shared/database/schema/tenants.js";
 import { profiles } from "../../../shared/database/schema/profiles.js";
@@ -56,15 +56,17 @@ async function getTenantAdminEmail(tenantSlug: string): Promise<string | null> {
     .limit(1);
   if (!tenant) return null;
 
-  // Then get admin email from profiles (prefer admin role, fallback to any profile)
-  const [adminProfile] = await db()
-    .select({ email: profiles.email })
-    .from(profiles)
-    .where(eq(profiles.tenantId, tenant.id))
-    .limit(1);
-  if (adminProfile?.email) return adminProfile.email;
+  // Get admin email from profiles (prefer admin role, fallback to manager, then any)
+  for (const role of ["admin", "manager"]) {
+    const [profile] = await db()
+      .select({ email: profiles.email })
+      .from(profiles)
+      .where(and(eq(profiles.tenantId, tenant.id), eq(profiles.role, role)))
+      .limit(1);
+    if (profile?.email) return profile.email;
+  }
 
-  // Fallback: any profile email
+  // Fallback: any active profile email
   const [anyProfile] = await db()
     .select({ email: profiles.email })
     .from(profiles)
