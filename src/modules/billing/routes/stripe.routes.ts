@@ -143,7 +143,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
           return reply.code(500).send({ error: "Raw body not captured" });
         }
         const event = stripe.webhooks.constructEvent(
-          rawBody.toString(),
+          rawBody,
           signature,
           webhookSecret,
         );
