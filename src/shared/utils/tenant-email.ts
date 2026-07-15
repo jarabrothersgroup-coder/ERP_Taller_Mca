@@ -16,19 +16,26 @@ import { tenants } from "../database/schema/tenants.js";
 import { profiles } from "../database/schema/profiles.js";
 
 /**
+ * Resolve tenant slug to tenant UUID.
+ */
+export async function resolveTenantId(tenantSlug: string): Promise<string | null> {
+  const [tenant] = await db()
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(eq(tenants.slug, tenantSlug))
+    .limit(1);
+  return tenant?.id ?? null;
+}
+
+/**
  * Resolve admin email from tenant slug.
  * Prefers admin role, then manager, then any profile.
  *
  * Uses a single query with ORDER BY for efficiency.
  */
 export async function resolveTenantAdminEmail(tenantSlug: string): Promise<string | null> {
-  // Get tenant ID from slug
-  const [tenant] = await db()
-    .select({ id: tenants.id })
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
-  if (!tenant) return null;
+  const tenantId = await resolveTenantId(tenantSlug);
+  if (!tenantId) return null;
 
   // Single query: order by role priority (admin=0, manager=1, any=2), skip inactive profiles and null emails
   const [profile] = await db()
@@ -36,7 +43,7 @@ export async function resolveTenantAdminEmail(tenantSlug: string): Promise<strin
     .from(profiles)
     .where(
       and(
-        eq(profiles.tenantId, tenant.id),
+        eq(profiles.tenantId, tenantId),
         eq(profiles.isActive, true),
         isNotNull(profiles.email),
       ),

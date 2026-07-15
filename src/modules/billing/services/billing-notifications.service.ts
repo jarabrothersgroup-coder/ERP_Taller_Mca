@@ -14,9 +14,10 @@
 
 import { eq } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
+import { tenants } from "../../../shared/database/schema/tenants.js";
 import { plans } from "../schema/plans.js";
 import { subscriptions } from "../schema/subscriptions.js";
-import { resolveTenantAdminEmail } from "../../../shared/utils/tenant-email.js";
+import { resolveTenantAdminEmail, resolveTenantId } from "../../../shared/utils/tenant-email.js";
 
 // ─── Lazy email sender ──────────────────────────────────
 
@@ -44,9 +45,22 @@ async function sendBillingEmail(params: {
   }
 }
 
-// ─── Get tenant admin email ──────────────────────────────
+// ─── Shared helpers ──────────────────────────────────────
 
-
+/**
+ * Get plan name for a tenant's active subscription.
+ * Single query with JOINs: slug → tenant → subscription → plan.
+ */
+async function getPlanNameForTenant(tenantSlug: string): Promise<string> {
+  const [row] = await db()
+    .select({ planName: plans.name })
+    .from(subscriptions)
+    .innerJoin(plans, eq(subscriptions.planId, plans.id))
+    .innerJoin(tenants, eq(subscriptions.tenantId, tenants.id))
+    .where(eq(tenants.slug, tenantSlug))
+    .limit(1);
+  return row?.planName ?? "Plan Desconocido";
+}
 
 // ─── Format price in PYG ─────────────────────────────────
 
@@ -119,18 +133,7 @@ export async function notifyPaymentFailed(
   const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
-  // Get subscription and plan details
-  const [sub] = await db()
-    .select({ planId: subscriptions.planId })
-    .from(subscriptions)
-    .where(eq(subscriptions.tenantId, tenantSlug))
-    .limit(1);
-  
-  let planName = "Plan Desconocido";
-  if (sub?.planId) {
-    const [plan] = await db().select().from(plans).where(eq(plans.id, sub.planId)).limit(1);
-    planName = plan?.name ?? planName;
-  }
+  const planName = await getPlanNameForTenant(tenantSlug);
 
   const { paymentFailedTemplate } = await import("../../../modules/email/templates/index.js");
   const html = paymentFailedTemplate({
@@ -162,25 +165,28 @@ export async function notifySubscriptionCancelled(
   const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
-  // Get subscription and plan details
-  const [sub] = await db()
-    .select({ planId: subscriptions.planId, currentPeriodEnd: subscriptions.currentPeriodEnd })
-    .from(subscriptions)
-    .where(eq(subscriptions.tenantId, tenantSlug))
-    .limit(1);
-  
-  let planName = "Plan Desconocido";
-  if (sub?.planId) {
-    const [plan] = await db().select().from(plans).where(eq(plans.id, sub.planId)).limit(1);
-    planName = plan?.name ?? planName;
+  // Get subscription for current period end
+  const tenantId = await resolveTenantId(tenantSlug);
+  let accessUntil = "Fin del período actual";
+  if (tenantId) {
+    const [sub] = await db()
+      .select({ currentPeriodEnd: subscriptions.currentPeriodEnd })
+      .from(subscriptions)
+      .where(eq(subscriptions.tenantId, tenantId))
+      .limit(1);
+    if (sub?.currentPeriodEnd) {
+      accessUntil = sub.currentPeriodEnd.toLocaleDateString("es-PY");
+    }
   }
+
+  const planName = await getPlanNameForTenant(tenantSlug);
 
   const { subscriptionCancelledTemplate } = await import("../../../modules/email/templates/index.js");
   const html = subscriptionCancelledTemplate({
     tenantName: tenantSlug,
     planName,
     cancelDate: cancelledAt.toLocaleDateString("es-PY"),
-    accessUntil: sub?.currentPeriodEnd?.toLocaleDateString("es-PY") ?? "Fin del período actual",
+    accessUntil,
   });
 
   await sendBillingEmail({
@@ -205,18 +211,7 @@ export async function notifyTrialEnding(
   const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
-  // Get subscription and plan details
-  const [sub] = await db()
-    .select({ planId: subscriptions.planId })
-    .from(subscriptions)
-    .where(eq(subscriptions.tenantId, tenantSlug))
-    .limit(1);
-  
-  let planName = "Plan Desconocido";
-  if (sub?.planId) {
-    const [plan] = await db().select().from(plans).where(eq(plans.id, sub.planId)).limit(1);
-    planName = plan?.name ?? planName;
-  }
+  const planName = await getPlanNameForTenant(tenantSlug);
 
   const { trialEndingTemplate } = await import("../../../modules/email/templates/index.js");
   const html = trialEndingTemplate({
