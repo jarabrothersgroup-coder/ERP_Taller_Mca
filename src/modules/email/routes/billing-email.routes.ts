@@ -14,11 +14,8 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { eq, and } from "drizzle-orm";
-import { db } from "../../../shared/database/drizzle.js";
-import { tenants } from "../../../shared/database/schema/tenants.js";
-import { profiles } from "../../../shared/database/schema/profiles.js";
 import { smartSend } from "../services/email.service.js";
+import { resolveTenantAdminEmail } from "../../../shared/utils/tenant-email.js";
 import {
   subscriptionActivatedTemplate,
   paymentFailedTemplate,
@@ -30,34 +27,7 @@ import {
   type TrialEndingTemplateData,
 } from "../templates/index.js";
 
-/**
- * Auto-resolve admin email from tenant context.
- * Prefers admin role, then manager, then any profile.
- */
-async function resolveTenantAdminEmail(tenantSlug: string): Promise<string | null> {
-  const [tenant] = await db()
-    .select({ id: tenants.id })
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
-  if (!tenant) return null;
 
-  for (const role of ["admin", "manager"]) {
-    const [profile] = await db()
-      .select({ email: profiles.email })
-      .from(profiles)
-      .where(and(eq(profiles.tenantId, tenant.id), eq(profiles.role, role)))
-      .limit(1);
-    if (profile?.email) return profile.email;
-  }
-
-  const [anyProfile] = await db()
-    .select({ email: profiles.email })
-    .from(profiles)
-    .where(eq(profiles.tenantId, tenant.id))
-    .limit(1);
-  return anyProfile?.email ?? null;
-}
 
 export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
   // ── Send subscription activated email ─────────────────

@@ -12,12 +12,11 @@
  * @module billing/services/billing-notifications
  */
 
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
-import { tenants } from "../../../shared/database/schema/tenants.js";
-import { profiles } from "../../../shared/database/schema/profiles.js";
 import { plans } from "../schema/plans.js";
 import { subscriptions } from "../schema/subscriptions.js";
+import { resolveTenantAdminEmail } from "../../../shared/utils/tenant-email.js";
 
 // ─── Lazy email sender ──────────────────────────────────
 
@@ -47,33 +46,7 @@ async function sendBillingEmail(params: {
 
 // ─── Get tenant admin email ──────────────────────────────
 
-async function getTenantAdminEmail(tenantSlug: string): Promise<string | null> {
-  // First get tenant ID from slug
-  const [tenant] = await db()
-    .select({ id: tenants.id })
-    .from(tenants)
-    .where(eq(tenants.slug, tenantSlug))
-    .limit(1);
-  if (!tenant) return null;
 
-  // Get admin email from profiles (prefer admin role, fallback to manager, then any)
-  for (const role of ["admin", "manager"]) {
-    const [profile] = await db()
-      .select({ email: profiles.email })
-      .from(profiles)
-      .where(and(eq(profiles.tenantId, tenant.id), eq(profiles.role, role)))
-      .limit(1);
-    if (profile?.email) return profile.email;
-  }
-
-  // Fallback: any active profile email
-  const [anyProfile] = await db()
-    .select({ email: profiles.email })
-    .from(profiles)
-    .where(eq(profiles.tenantId, tenant.id))
-    .limit(1);
-  return anyProfile?.email ?? null;
-}
 
 // ─── Format price in PYG ─────────────────────────────────
 
@@ -96,7 +69,7 @@ export async function notifySubscriptionActivated(
   planId: string,
   interval: string,
 ): Promise<void> {
-  const email = await getTenantAdminEmail(tenantSlug);
+  const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) {
     console.warn(`[Billing Notifications] No email found for tenant "${tenantSlug}"`);
     return;
@@ -143,7 +116,7 @@ export async function notifyPaymentFailed(
   amountPyg: number,
   dueDate: Date | null,
 ): Promise<void> {
-  const email = await getTenantAdminEmail(tenantSlug);
+  const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
   // Get subscription and plan details
@@ -186,7 +159,7 @@ export async function notifySubscriptionCancelled(
   tenantSlug: string,
   cancelledAt: Date,
 ): Promise<void> {
-  const email = await getTenantAdminEmail(tenantSlug);
+  const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
   // Get subscription and plan details
@@ -229,7 +202,7 @@ export async function notifyTrialEnding(
   trialEndDate: Date,
   daysRemaining: number,
 ): Promise<void> {
-  const email = await getTenantAdminEmail(tenantSlug);
+  const email = await resolveTenantAdminEmail(tenantSlug);
   if (!email) return;
 
   // Get subscription and plan details
