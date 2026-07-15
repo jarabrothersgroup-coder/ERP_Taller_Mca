@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 75 COMPLETED — Enterprise Features (SSO + 2FA + Audit Trail)",
-    "next_sprint": "Sprint 76 — Data Export + Import + Migration Tools",
+    "current_sprint": "Sprint 76 COMPLETED — Data Export + Import + Migration Tools",
+    "next_sprint": "Sprint 77 — White-label + Custom Domain",
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
       "duration": "2 weeks",
