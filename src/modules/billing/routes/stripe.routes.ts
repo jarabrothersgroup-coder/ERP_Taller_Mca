@@ -137,7 +137,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
       try {
         const Stripe = (await import("stripe")).default;
         const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
-        const rawBody = (req as any)._rawBody as Buffer;
+        const rawBody = req._rawBody!;
         if (!rawBody) {
           app.log.error("Raw body not available for webhook verification");
           return reply.code(500).send({ error: "Raw body not captured" });
