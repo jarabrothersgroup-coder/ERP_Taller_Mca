@@ -274,3 +274,139 @@ export function orderCompletedTemplate(data: OrderCompletedTemplateData): string
   `;
   return baseTemplate("✅ Servicio Completado", bodyHtml);
 }
+
+/* ── Billing & Subscription Templates ──────────────── */
+
+export interface SubscriptionActivatedTemplateData {
+  tenantName: string;
+  planName: string;
+  interval: string;
+  price: string;
+  nextBillingDate: string;
+}
+
+/** Subscription activated email template */
+export function subscriptionActivatedTemplate(data: SubscriptionActivatedTemplateData): string {
+  const bodyHtml = `
+    <p>¡Su suscripción ha sido activada exitosamente!</p>
+    <div class="details">
+      <dl>
+        <dt>Plan</dt>
+        <dd>${data.planName}</dd>
+        <dt>Facturación</dt>
+        <dd>${data.interval === "annual" ? "Anual" : "Mensual"}</dd>
+        <dt>Precio</dt>
+        <dd style="font-size:20px;color:#f97316">₲ ${data.price}</dd>
+        <dt>Próxima Facturación</dt>
+        <dd>${data.nextBillingDate}</dd>
+      </dl>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <span class="badge badge-success">Activa</span>
+    </div>
+    <p style="text-align:center;margin-top:16px;font-size:13px">Puede gestionar su suscripción desde el portal de facturación.</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Gestionar Suscripción</a>
+    </div>
+  `;
+  return baseTemplate("✅ Suscripción Activada", bodyHtml);
+}
+
+export interface PaymentFailedTemplateData {
+  tenantName: string;
+  planName: string;
+  amount: string;
+  dueDate: string;
+  invoiceId: string;
+}
+
+/** Payment failed email template */
+export function paymentFailedTemplate(data: PaymentFailedTemplateData): string {
+  const bodyHtml = `
+    <p>Estimado/a ${data.tenantName}, hemos tenido un problema con el pago de su suscripción.</p>
+    <div class="details">
+      <dl>
+        <dt>Plan</dt>
+        <dd>${data.planName}</dd>
+        <dt>Monto</dt>
+        <dd style="font-size:20px;color:#dc2626">₲ ${data.amount}</dd>
+        <dt>Fecha de Vencimiento</dt>
+        <dd>${data.dueDate}</dd>
+        <dt>ID de Factura</dt>
+        <dd style="font-size:13px">${data.invoiceId}</dd>
+      </dl>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <span class="badge badge-warning">Pago Fallido</span>
+    </div>
+    <p style="text-align:center;margin-top:16px;font-size:13px">Por favor, actualice su método de pago para evitar la suspensión del servicio.</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Actualizar Método de Pago</a>
+    </div>
+  `;
+  return baseTemplate("⚠️ Pago Fallido", bodyHtml);
+}
+
+export interface SubscriptionCancelledTemplateData {
+  tenantName: string;
+  planName: string;
+  cancelDate: string;
+  accessUntil: string;
+}
+
+/** Subscription cancelled email template */
+export function subscriptionCancelledTemplate(data: SubscriptionCancelledTemplateData): string {
+  const bodyHtml = `
+    <p>Estimado/a ${data.tenantName}, su suscripción ha sido cancelada.</p>
+    <div class="details">
+      <dl>
+        <dt>Plan</dt>
+        <dd>${data.planName}</dd>
+        <dt>Fecha de Cancelación</dt>
+        <dd>${data.cancelDate}</dd>
+        <dt>Acceso Until</dt>
+        <dd>${data.accessUntil}</dd>
+      </dl>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <span class="badge badge-warning">Cancelada</span>
+    </div>
+    <p style="text-align:center;margin-top:16px;font-size:13px">Su acceso continuará hasta la fecha indicada. Puede reactivar su suscripción en cualquier momento.</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Reactivar Suscripción</a>
+    </div>
+  `;
+  return baseTemplate("❌ Suscripción Cancelada", bodyHtml);
+}
+
+export interface TrialEndingTemplateData {
+  tenantName: string;
+  planName: string;
+  trialEndDate: string;
+  daysRemaining: number;
+}
+
+/** Trial ending soon email template */
+export function trialEndingTemplate(data: TrialEndingTemplateData): string {
+  const bodyHtml = `
+    <p>Estimado/a ${data.tenantName}, su período de prueba está por finalizar.</p>
+    <div class="details">
+      <dl>
+        <dt>Plan</dt>
+        <dd>${data.planName}</dd>
+        <dt>Días Restantes</dt>
+        <dd style="font-size:20px;color:#f97316">${data.daysRemaining} días</dd>
+        <dt>Fecha de Finalización</dt>
+        <dd>${data.trialEndDate}</dd>
+      </dl>
+    </div>
+    <div style="text-align:center;margin-top:24px">
+      <span class="badge badge-warning">Próximo a Vencer</span>
+    </div>
+    <p style="text-align:center;margin-top:16px;font-size:13px">Para continuar usando el servicio, elija un plan de suscripción.</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Elegir Plan</a>
+    </div>
+  `;
+  return baseTemplate("⏰ Período de Prueba por Vencer", bodyHtml);
+}
