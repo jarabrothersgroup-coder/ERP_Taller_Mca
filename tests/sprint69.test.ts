@@ -219,3 +219,83 @@ describe("Sprint 69 — Billing Types", () => {
     expect(types).toContain("_rawBody");
   });
 });
+
+// ═══════════════════════════════════════════════
+// 7. Billing Notification Service
+// ═══════════════════════════════════════════════
+describe("Sprint 69 — Billing Notification Service", () => {
+  it("billing-notifications.service.ts exports notification handlers", async () => {
+    const mod = await import("../src/modules/billing/services/billing-notifications.service.js");
+    expect(typeof mod.notifySubscriptionActivated).toBe("function");
+    expect(typeof mod.notifyPaymentFailed).toBe("function");
+    expect(typeof mod.notifySubscriptionCancelled).toBe("function");
+    expect(typeof mod.notifyTrialEnding).toBe("function");
+  });
+
+  it("billing-notifications.service.ts imports admin role filtering", () => {
+    const service = readFile("src/modules/billing/services/billing-notifications.service.ts");
+    expect(service).toContain('eq(profiles.role, role)');
+    expect(service).toContain('"admin"');
+    expect(service).toContain('"manager"');
+  });
+
+  it("billing-notifications.service.ts uses lazy email import to avoid circular deps", () => {
+    const service = readFile("src/modules/billing/services/billing-notifications.service.ts");
+    expect(service).toContain('await import("../../../modules/email/services/email.service.js")');
+  });
+
+  it("billing-notifications.service.ts imports profiles table for admin email lookup", () => {
+    const service = readFile("src/modules/billing/services/billing-notifications.service.ts");
+    expect(service).toContain('import { profiles }');
+    expect(service).toContain('profiles.email');
+  });
+
+  it("webhook handler wires notifications for checkout.session.completed", () => {
+    const service = readFile("src/modules/billing/services/stripe.service.ts");
+    expect(service).toContain('notifySubscriptionActivated');
+    expect(service).toContain('notifyPaymentFailed');
+    expect(service).toContain('notifySubscriptionCancelled');
+  });
+
+  it("webhook handler resolves tenantId to slug before calling notifications", () => {
+    const service = readFile("src/modules/billing/services/stripe.service.ts");
+    // Verify tenantId→slug resolution exists for payment failed and subscription cancelled
+    expect(service).toContain('tenants.slug');
+    expect(service).toContain('eq(tenants.id, sub.tenantId)');
+  });
+});
+
+// ═══════════════════════════════════════════════
+// 8. Billing Email Routes
+// ═══════════════════════════════════════════════
+describe("Sprint 69 — Billing Email Routes", () => {
+  it("billing-email.routes.ts exports billingEmailRoutes function", async () => {
+    const mod = await import("../src/modules/email/routes/billing-email.routes.js");
+    expect(typeof mod.billingEmailRoutes).toBe("function");
+  });
+
+  it("billing email routes auto-resolve email from tenant context (no to param)", () => {
+    const routes = readFile("src/modules/email/routes/billing-email.routes.ts");
+    // Should NOT have 'to' in body schema — email is auto-resolved
+    expect(routes).toContain('resolveTenantAdminEmail');
+    // Body schemas should require 'data' but not 'to'
+    expect(routes).not.toMatch(/required: \["to", "data"\]/);
+  });
+
+  it("billing email routes return 401 when tenant not identified", () => {
+    const routes = readFile("src/modules/email/routes/billing-email.routes.ts");
+    expect(routes).toContain('401');
+    expect(routes).toContain('Tenant not identified');
+  });
+
+  it("billing email routes return sentTo in response", () => {
+    const routes = readFile("src/modules/email/routes/billing-email.routes.ts");
+    expect(routes).toContain('sentTo');
+  });
+
+  it("email plugin registers billing email routes", () => {
+    const plugin = readFile("src/modules/email/plugin.ts");
+    expect(plugin).toContain('billingEmailRoutes');
+    expect(plugin).toContain('import { billingEmailRoutes }');
+  });
+});

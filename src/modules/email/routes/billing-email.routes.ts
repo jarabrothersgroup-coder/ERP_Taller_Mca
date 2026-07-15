@@ -8,11 +8,16 @@
  *   POST /email/billing/trial-ending           — Send trial ending soon notification
  *
  * All endpoints are tenant-isolated via X-Tenant-Slug header.
+ * Recipient email is auto-resolved from tenant's admin profile (no `to` parameter).
  *
  * @module email/routes/billing-email.routes
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { eq, and } from "drizzle-orm";
+import { db } from "../../../shared/database/drizzle.js";
+import { tenants } from "../../../shared/database/schema/tenants.js";
+import { profiles } from "../../../shared/database/schema/profiles.js";
 import { smartSend } from "../services/email.service.js";
 import {
   subscriptionActivatedTemplate,
@@ -25,6 +30,35 @@ import {
   type TrialEndingTemplateData,
 } from "../templates/index.js";
 
+/**
+ * Auto-resolve admin email from tenant context.
+ * Prefers admin role, then manager, then any profile.
+ */
+async function resolveTenantAdminEmail(tenantSlug: string): Promise<string | null> {
+  const [tenant] = await db()
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(eq(tenants.slug, tenantSlug))
+    .limit(1);
+  if (!tenant) return null;
+
+  for (const role of ["admin", "manager"]) {
+    const [profile] = await db()
+      .select({ email: profiles.email })
+      .from(profiles)
+      .where(and(eq(profiles.tenantId, tenant.id), eq(profiles.role, role)))
+      .limit(1);
+    if (profile?.email) return profile.email;
+  }
+
+  const [anyProfile] = await db()
+    .select({ email: profiles.email })
+    .from(profiles)
+    .where(eq(profiles.tenantId, tenant.id))
+    .limit(1);
+  return anyProfile?.email ?? null;
+}
+
 export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
   // ── Send subscription activated email ─────────────────
   app.post(
@@ -33,7 +67,7 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         tags: ["Email", "Billing"],
         summary: "Enviar email de suscripción activada",
-        description: "Sends a subscription activation confirmation email to the tenant admin.",
+        description: "Sends a subscription activation confirmation email to the tenant's admin. Email is auto-resolved from tenant context.",
         headers: {
           type: "object",
           required: ["X-Tenant-Slug"],
@@ -43,9 +77,8 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
         },
         body: {
           type: "object",
-          required: ["to", "data"],
+          required: ["data"],
           properties: {
-            to: { type: "string", description: "Recipient email address" },
             data: {
               type: "object",
               required: ["tenantName", "planName", "interval", "price", "nextBillingDate"],
@@ -60,24 +93,30 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
           },
         },
         response: {
-          200: { type: "object", properties: { messageId: { type: "string" } } },
+          200: { type: "object", properties: { messageId: { type: "string" }, sentTo: { type: "string" } } },
+          401: { type: "object", properties: { error: { type: "string" } } },
           500: { type: "object", properties: { error: { type: "string" } } },
         },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { to, data } = request.body as { to: string; data: SubscriptionActivatedTemplateData };
       const tenantSlug = request.tenantSlug;
+      if (!tenantSlug) return reply.status(401).send({ error: "Tenant not identified" });
+
+      const email = await resolveTenantAdminEmail(tenantSlug);
+      if (!email) return reply.status(404).send({ error: "No admin email found for this tenant" });
+
+      const { data } = request.body as { data: SubscriptionActivatedTemplateData };
       const html = subscriptionActivatedTemplate(data);
       const subject = `✅ Suscripción ${data.planName} Activada — AutomotiveOS`;
 
-      const result = await smartSend({ to, subject, html, entityType: "billing", entityId: "subscription-activated", tenantSlug });
+      const result = await smartSend({ to: email, subject, html, entityType: "billing", entityId: "subscription-activated", tenantSlug });
 
       if (!result.success) {
         return reply.status(500).send({ error: result.error });
       }
 
-      return reply.send({ messageId: result.messageId });
+      return reply.send({ messageId: result.messageId, sentTo: email });
     },
   );
 
@@ -88,7 +127,7 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         tags: ["Email", "Billing"],
         summary: "Enviar email de pago fallido",
-        description: "Sends a payment failure notification email to the tenant admin.",
+        description: "Sends a payment failure notification email to the tenant's admin. Email is auto-resolved from tenant context.",
         headers: {
           type: "object",
           required: ["X-Tenant-Slug"],
@@ -98,9 +137,8 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
         },
         body: {
           type: "object",
-          required: ["to", "data"],
+          required: ["data"],
           properties: {
-            to: { type: "string" },
             data: {
               type: "object",
               required: ["tenantName", "planName", "amount", "dueDate", "invoiceId"],
@@ -115,24 +153,30 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
           },
         },
         response: {
-          200: { type: "object", properties: { messageId: { type: "string" } } },
+          200: { type: "object", properties: { messageId: { type: "string" }, sentTo: { type: "string" } } },
+          401: { type: "object", properties: { error: { type: "string" } } },
           500: { type: "object", properties: { error: { type: "string" } } },
         },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { to, data } = request.body as { to: string; data: PaymentFailedTemplateData };
       const tenantSlug = request.tenantSlug;
+      if (!tenantSlug) return reply.status(401).send({ error: "Tenant not identified" });
+
+      const email = await resolveTenantAdminEmail(tenantSlug);
+      if (!email) return reply.status(404).send({ error: "No admin email found for this tenant" });
+
+      const { data } = request.body as { data: PaymentFailedTemplateData };
       const html = paymentFailedTemplate(data);
       const subject = `⚠️ Pago Fallido — ${data.planName} — AutomotiveOS`;
 
-      const result = await smartSend({ to, subject, html, entityType: "billing", entityId: "payment-failed", tenantSlug });
+      const result = await smartSend({ to: email, subject, html, entityType: "billing", entityId: "payment-failed", tenantSlug });
 
       if (!result.success) {
         return reply.status(500).send({ error: result.error });
       }
 
-      return reply.send({ messageId: result.messageId });
+      return reply.send({ messageId: result.messageId, sentTo: email });
     },
   );
 
@@ -143,7 +187,7 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         tags: ["Email", "Billing"],
         summary: "Enviar email de suscripción cancelada",
-        description: "Sends a subscription cancellation confirmation email to the tenant admin.",
+        description: "Sends a subscription cancellation confirmation email to the tenant's admin. Email is auto-resolved from tenant context.",
         headers: {
           type: "object",
           required: ["X-Tenant-Slug"],
@@ -153,9 +197,8 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
         },
         body: {
           type: "object",
-          required: ["to", "data"],
+          required: ["data"],
           properties: {
-            to: { type: "string" },
             data: {
               type: "object",
               required: ["tenantName", "planName", "cancelDate", "accessUntil"],
@@ -169,24 +212,30 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
           },
         },
         response: {
-          200: { type: "object", properties: { messageId: { type: "string" } } },
+          200: { type: "object", properties: { messageId: { type: "string" }, sentTo: { type: "string" } } },
+          401: { type: "object", properties: { error: { type: "string" } } },
           500: { type: "object", properties: { error: { type: "string" } } },
         },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { to, data } = request.body as { to: string; data: SubscriptionCancelledTemplateData };
       const tenantSlug = request.tenantSlug;
+      if (!tenantSlug) return reply.status(401).send({ error: "Tenant not identified" });
+
+      const email = await resolveTenantAdminEmail(tenantSlug);
+      if (!email) return reply.status(404).send({ error: "No admin email found for this tenant" });
+
+      const { data } = request.body as { data: SubscriptionCancelledTemplateData };
       const html = subscriptionCancelledTemplate(data);
       const subject = `❌ Suscripción Cancelada — ${data.planName} — AutomotiveOS`;
 
-      const result = await smartSend({ to, subject, html, entityType: "billing", entityId: "subscription-cancelled", tenantSlug });
+      const result = await smartSend({ to: email, subject, html, entityType: "billing", entityId: "subscription-cancelled", tenantSlug });
 
       if (!result.success) {
         return reply.status(500).send({ error: result.error });
       }
 
-      return reply.send({ messageId: result.messageId });
+      return reply.send({ messageId: result.messageId, sentTo: email });
     },
   );
 
@@ -197,7 +246,7 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
       schema: {
         tags: ["Email", "Billing"],
         summary: "Enviar email de período de prueba por vencer",
-        description: "Sends a trial ending soon notification email to the tenant admin.",
+        description: "Sends a trial ending soon notification email to the tenant's admin. Email is auto-resolved from tenant context.",
         headers: {
           type: "object",
           required: ["X-Tenant-Slug"],
@@ -207,9 +256,8 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
         },
         body: {
           type: "object",
-          required: ["to", "data"],
+          required: ["data"],
           properties: {
-            to: { type: "string" },
             data: {
               type: "object",
               required: ["tenantName", "planName", "trialEndDate", "daysRemaining"],
@@ -223,24 +271,30 @@ export async function billingEmailRoutes(app: FastifyInstance): Promise<void> {
           },
         },
         response: {
-          200: { type: "object", properties: { messageId: { type: "string" } } },
+          200: { type: "object", properties: { messageId: { type: "string" }, sentTo: { type: "string" } } },
+          401: { type: "object", properties: { error: { type: "string" } } },
           500: { type: "object", properties: { error: { type: "string" } } },
         },
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { to, data } = request.body as { to: string; data: TrialEndingTemplateData };
       const tenantSlug = request.tenantSlug;
+      if (!tenantSlug) return reply.status(401).send({ error: "Tenant not identified" });
+
+      const email = await resolveTenantAdminEmail(tenantSlug);
+      if (!email) return reply.status(404).send({ error: "No admin email found for this tenant" });
+
+      const { data } = request.body as { data: TrialEndingTemplateData };
       const html = trialEndingTemplate(data);
       const subject = `⏰ Período de Prueba por Vencer — ${data.planName} — AutomotiveOS`;
 
-      const result = await smartSend({ to, subject, html, entityType: "billing", entityId: "trial-ending", tenantSlug });
+      const result = await smartSend({ to: email, subject, html, entityType: "billing", entityId: "trial-ending", tenantSlug });
 
       if (!result.success) {
         return reply.status(500).send({ error: result.error });
       }
 
-      return reply.send({ messageId: result.messageId });
+      return reply.send({ messageId: result.messageId, sentTo: email });
     },
   );
 }
