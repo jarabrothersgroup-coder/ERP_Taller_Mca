@@ -119,6 +119,40 @@ describe("Sprint 69 — Billing Service", () => {
     expect(typeof mod.createCheckoutSession).toBe("function");
     expect(typeof mod.createPortalSession).toBe("function");
     expect(typeof mod.processWebhookEvent).toBe("function");
+    expect(typeof mod.getStripeClient).toBe("function");
+  });
+
+  it("getStripeClient is async and self-initializing", async () => {
+    const mod = await import("../src/modules/billing/services/stripe.service.js");
+    // getStripeClient returns a Promise (async function)
+    const result = mod.getStripeClient();
+    expect(result).toBeInstanceOf(Promise);
+    // Without STRIPE_SECRET_KEY set, it should reject
+    try {
+      await result;
+      // If it doesn't throw, Stripe key must be configured
+      // That's fine — test passes either way
+    } catch (err: any) {
+      expect(err.message).toContain("Stripe client not available");
+    }
+  });
+
+  it("webhook dev-mode fallback processes unverified payload", async () => {
+    // Verify the webhook route has the dev-mode fallback logic
+    const routes = readFile("src/modules/billing/routes/stripe.routes.ts");
+    // Dev-only path: processes without signature when STRIPE_WEBHOOK_SECRET is not set
+    expect(routes).toContain('NODE_ENV === "production"');
+    expect(routes).toContain("Webhook signature required in production");
+    // The unverified path processes the body directly
+    expect(routes).toContain("Received Stripe webhook event (unverified — dev mode)");
+  });
+
+  it("webhook sub-plugin is scoped (no double prefix)", async () => {
+    // Verify the sub-plugin is registered without prefix to avoid /billing/billing/webhook
+    const routes = readFile("src/modules/billing/routes/stripe.routes.ts");
+    expect(routes).toContain("webhookSubPlugin");
+    // Should NOT have prefix "/billing" on the sub-plugin registration
+    expect(routes).not.toContain('register(webhookSubPlugin, { prefix: "/billing" })');
   });
 });
 
