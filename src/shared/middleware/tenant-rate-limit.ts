@@ -20,16 +20,34 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
-// Cleanup stale entries every 5 minutes
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitStore) {
-    if (entry.resetAt < now) {
-      rateLimitStore.delete(key);
+// Lazy cleanup — avoids setInterval leaking handles in test environments
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function ensureCleanupRunning(): void {
+  if (cleanupTimer) return;
+  cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of rateLimitStore) {
+      if (entry.resetAt < now) {
+        rateLimitStore.delete(key);
+      }
     }
+    // Stop if store is empty to avoid unnecessary timer
+    if (rateLimitStore.size === 0 && cleanupTimer) {
+      clearInterval(cleanupTimer);
+      cleanupTimer = null;
+    }
+  }, 5 * 60 * 1000);
+  cleanupTimer.unref();
+}
+
+/** Stop the cleanup timer (for test teardown). */
+export function stopCleanup(): void {
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
   }
-}, CLEANUP_INTERVAL_MS).unref();
+}
 
 // ─── Rate Limit Configuration ───────────────────────────────────────────
 
@@ -76,6 +94,9 @@ export function tenantRateLimit(config?: Partial<RateLimitConfig>) {
     const rateLimitKey = apiKeyId
       ? `apikey:${apiKeyId}`
       : `tenant:${tenantSlug}:ip:${clientIp}`;
+
+    // Ensure cleanup is running (lazy init)
+    ensureCleanupRunning();
 
     // Check rate limit
     const now = Date.now();

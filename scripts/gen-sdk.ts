@@ -91,6 +91,13 @@ function generateTypes(spec: any): string {
       lines.push("}");
       lines.push("");
     }
+  } else {
+    // No schemas defined in OpenAPI spec — generate placeholder
+    lines.push("/** No schemas defined in OpenAPI spec. Add Swagger schema decorators to routes.");
+    lines.push(" *  See: https://fastify.dev/docs/latest/Guides/Fluent-Schema/");
+    lines.push(" */");
+    lines.push("");
+    lines.push("export type Placeholder = Record<string, any>;");
   }
 
   return lines.join("\n");
@@ -187,7 +194,7 @@ function generateClient(spec: any): string {
       for (const [method, operation] of Object.entries(methods as Record<string, any>)) {
         if (["get", "post", "put", "patch", "delete"].includes(method)) {
           const operationId = operation.operationId || generateOperationId(method, pathStr);
-          const params = extractParams(pathStr, operation);
+          const params = extractParams(pathStr, operation, method);
 
           lines.push(`  /** ${operation.summary || operation.description || operationId} */`);
           lines.push(`  async ${operationId}(${params.declaration}): Promise<any> {`);
@@ -233,7 +240,7 @@ function generateOperationId(method: string, path: string): string {
   return `${method}${name}`;
 }
 
-function extractParams(pathStr: string, operation: any): {
+function extractParams(pathStr: string, operation: any, httpMethod?: string): {
   declaration: string;
   hasBody: boolean;
   queryStr: string;
@@ -241,7 +248,7 @@ function extractParams(pathStr: string, operation: any): {
   const pathParams = (pathStr.match(/\{(\w+)\}/g) || []).map((m: string) => m.replace(/[{}]/g, ""));
   const queryParams =
     operation.parameters?.filter((p: any) => p.in === "query").map((p: any) => p.name) || [];
-  const hasBody = ["post", "put", "patch"].includes(operation.method || "");
+  const hasBody = ["post", "put", "patch"].includes(httpMethod || operation.method || "");
 
   const params: string[] = [];
 

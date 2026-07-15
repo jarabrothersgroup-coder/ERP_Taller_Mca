@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 71 — Analytics + Reporting",
-    "next_sprint": "Sprint 72 — Push Notifications + Email Marketing",
+    "current_sprint": "Sprint 72 — Push Notifications + Email Marketing",
+    "next_sprint": "Sprint 73 — RBAC Advanced + Audit Logs",
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
       "duration": "2 weeks",
