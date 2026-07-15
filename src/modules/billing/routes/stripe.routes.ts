@@ -20,31 +20,10 @@ import {
   createCheckoutSession,
   createPortalSession,
   processWebhookEvent,
+  getStripeClient,
 } from "../services/stripe.service.js";
 
-/**
- * Capture raw body buffer before JSON parsing for Stripe webhook signature verification.
- * Stripe's constructEvent() requires the original raw bytes, not re-serialized JSON.
- */
-function registerRawBodyParser(app: FastifyInstance): void {
-  app.addContentTypeParser(
-    "application/json",
-    { parseAs: "buffer" },
-    (req: FastifyRequest, body: Buffer, done: (err: Error | null, body?: unknown) => void) => {
-      // Attach raw body to request for webhook verification
-      (req as any)._rawBody = body;
-      try {
-        done(null, JSON.parse(body.toString()));
-      } catch (err) {
-        done(err as Error);
-      }
-    },
-  );
-}
-
 export async function billingRoutes(app: FastifyInstance): Promise<void> {
-  // Register raw body parser for Stripe webhook signature verification
-  registerRawBodyParser(app);
   /**
    * GET /billing/plans
    * Returns all active billing plans.
@@ -123,8 +102,34 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
    * POST /billing/webhook
    * Stripe webhook receiver. Verifies signature when STRIPE_WEBHOOK_SECRET is set.
    * NO AUTH — Stripe calls this directly.
+   *
+   * Registered as a separate sub-plugin so the raw body parser
+   * only applies to this route, not all /billing/* routes.
    */
-  app.post("/billing/webhook", { schema: { tags: ["Billing"], summary: "Recibir webhook de Stripe" } }, async (req: FastifyRequest, reply: FastifyReply) => {
+  await app.register(webhookSubPlugin);
+}
+
+/**
+ * Sub-plugin for the Stripe webhook route.
+ * Registers its own raw body parser scoped to /webhook only,
+ * avoiding overhead on all other billing routes.
+ */
+async function webhookSubPlugin(app: FastifyInstance): Promise<void> {
+  // Register raw body parser — only affects routes in this sub-plugin (just /webhook)
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (req: FastifyRequest, body: Buffer, done: (err: Error | null, body?: unknown) => void) => {
+      (req as any)._rawBody = body;
+      try {
+        done(null, JSON.parse(body.toString()));
+      } catch (err) {
+        done(err as Error);
+      }
+    },
+  );
+
+  app.post("/webhook", { schema: { tags: ["Billing"], summary: "Recibir webhook de Stripe" } }, async (req: FastifyRequest, reply: FastifyReply) => {
     const signature = req.headers["stripe-signature"] as string | undefined;
     const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
 
@@ -135,9 +140,8 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "Missing stripe-signature header" });
       }
       try {
-        const Stripe = (await import("stripe")).default;
-        const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
-        const rawBody = req._rawBody!;
+        const stripe = await getStripeClient();
+        const rawBody = req._rawBody;
         if (!rawBody) {
           app.log.error("Raw body not available for webhook verification");
           return reply.code(500).send({ error: "Raw body not captured" });

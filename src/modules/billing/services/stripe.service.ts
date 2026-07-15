@@ -35,6 +35,33 @@ function isStripeConfigured(): boolean {
 }
 
 /**
+ * Lazy-loaded Stripe client singleton.
+ * Avoids creating a new instance per request while keeping RAM low (~50KB).
+ * Self-initializing: calls ensureStripeClient() on first access.
+ */
+let _stripeClient: any = null;
+
+/** Initialize Stripe client (called lazily on first use) */
+async function ensureStripeClient(): Promise<void> {
+  if (!_stripeClient && isStripeConfigured()) {
+    const Stripe = (await import("stripe")).default;
+    _stripeClient = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
+  }
+}
+
+/**
+ * Get the Stripe client, initializing lazily if needed.
+ * Throws if STRIPE_SECRET_KEY is not configured.
+ */
+export async function getStripeClient(): Promise<any> {
+  await ensureStripeClient();
+  if (!_stripeClient) {
+    throw new Error("Stripe client not available — STRIPE_SECRET_KEY not configured");
+  }
+  return _stripeClient;
+}
+
+/**
  * Resolve a tenant slug to its UUID.
  */
 async function resolveTenantId(tenantSlug: string): Promise<string | null> {
@@ -126,9 +153,7 @@ export async function createCheckoutSession(
   }
 
   // Production: create real Stripe checkout session
-  // Lazy-load Stripe SDK to keep RAM low
-  const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
+  const stripe = await getStripeClient();
 
   const priceId = input.interval === "annual" ? plan.stripePriceIdAnnual : plan.stripePriceIdMonthly;
   if (!priceId) throw new Error("Plan does not support this billing interval");
@@ -320,8 +345,7 @@ export async function createPortalSession(
     return { url: `/dashboard/billing?mock_portal=true` };
   }
 
-  const Stripe = (await import("stripe")).default;
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const stripe = await getStripeClient();
 
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripeCustomerId,
