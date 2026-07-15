@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Portal — AutomotiveOS API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .code-block {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .code-block .keyword { color: #cba6f7; }
+    .code-block .string { color: #a6e3a1; }
+    .code-block .comment { color: #6c7086; }
+    .code-block .number { color: #fab387; }
+    .method-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .method-get { background: #a6e3a1; color: #1e1e2e; }
+    .method-post { background: #89b4fa; color: #1e1e2e; }
+    .method-put { background: #f9e2af; color: #1e1e2e; }
+    .method-patch { background: #fab387; color: #1e1e2e; }
+    .method-delete { background: #f38ba8; color: #1e1e2e; }
+    .endpoint-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .endpoint-card { transition: all 0.2s ease; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+            <span class="text-xl">🔧</span>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold">AutomotiveOS Developer Portal</h1>
+            <p class="text-sm text-gray-400">API Documentation & SDK</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="/docs" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
+            Swagger UI
+          </a>
+          <a href="/dashboard" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition">
+            Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Quick Start -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">🚀 Quick Start</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <div class="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">1️⃣</span>
+          </div>
+          <h3 class="font-semibold mb-2">Get API Key</h3>
+          <p class="text-gray-400 text-sm">Generate an API key from your dashboard settings. Store it securely — it won't be shown again.</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <div class="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">2️⃣</span>
+          </div>
+          <h3 class="font-semibold mb-2">Install SDK</h3>
+          <p class="text-gray-400 text-sm">Install the TypeScript SDK or use curl for direct API access.</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <div class="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">3️⃣</span>
+          </div>
+          <h3 class="font-semibold mb-2">Start Building</h3>
+          <p class="text-gray-400 text-sm">Make your first API call and explore the full API reference.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Installation -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">📦 Installation</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- npm -->
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="font-semibold mb-4">TypeScript / JavaScript</h3>
+          <div class="code-block mb-4">
+            <span class="comment">// Install the SDK</span><br>
+            npm install @automotiveos/sdk
+          </div>
+        </div>
+        <!-- curl -->
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="font-semibold mb-4">cURL / REST</h3>
+          <div class="code-block mb-4">
+            <span class="comment"># No installation needed — use curl</span><br>
+            curl -H "X-Tenant-Slug: taller_oviedo" \<br>
+            &nbsp;&nbsp;-H "Authorization: Bearer aos_live_..." \<br>
+            &nbsp;&nbsp;http://localhost:3000/workshop/clientes
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Authentication -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">🔐 Authentication</h2>
+      <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <p class="text-gray-400 mb-4">
+          The API uses two authentication methods. For external integrations, use API Keys.
+        </p>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <h4 class="font-semibold mb-2 text-blue-400">API Key (Recommended)</h4>
+            <div class="code-block">
+              <span class="comment">// SDK Usage</span><br>
+              <span class="keyword">import</span> { createClient } <span class="keyword">from</span> <span class="string">'@automotiveos/sdk'</span>;<br><br>
+              <span class="keyword">const</span> client = createClient({<br>
+              &nbsp;&nbsp;baseUrl: <span class="string">'http://localhost:3000'</span>,<br>
+              &nbsp;&nbsp;tenantSlug: <span class="string">'taller_oviedo'</span>,<br>
+              &nbsp;&nbsp;apiKey: <span class="string">'aos_live_...'</span>,<br>
+              });
+            </div>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-2 text-green-400">Tenant Header (Internal)</h4>
+            <div class="code-block">
+              <span class="comment"># For internal SPA communication</span><br>
+              curl -H <span class="string">"X-Tenant-Slug: taller_oviedo"</span> \<br>
+              &nbsp;&nbsp;-H <span class="string">"X-User-Email: admin@taller.com"</span> \<br>
+              &nbsp;&nbsp;http://localhost:3000/workshop/ordenes
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- API Endpoints -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">📡 API Endpoints</h2>
+      
+      <!-- Workshop -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-blue-600/20 rounded flex items-center justify-center">🔧</span>
+          Workshop
+        </h3>
+        <div class="grid gap-3">
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-get">GET</span>
+            <code class="text-sm font-mono">/workshop/clientes</code>
+            <span class="text-gray-500 text-sm ml-auto">List clients</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-post">POST</span>
+            <code class="text-sm font-mono">/workshop/clientes</code>
+            <span class="text-gray-500 text-sm ml-auto">Create client</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-get">GET</span>
+            <code class="text-sm font-mono">/workshop/vehiculos</code>
+            <span class="text-gray-500 text-sm ml-auto">List vehicles</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-post">POST</span>
+            <code class="text-sm font-mono">/workshop/vehiculos</code>
+            <span class="text-gray-500 text-sm ml-auto">Create vehicle</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-get">GET</span>
+            <code class="text-sm font-mono">/workshop/ordenes</code>
+            <span class="text-gray-500 text-sm ml-auto">List work orders</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-green-600/20 rounded flex items-center justify-center">📦</span>
+          Inventory
+        </h3>
+        <div class="grid gap-3">
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-get">GET</span>
+            <code class="text-sm font-mono">/inventory/repuestos</code>
+            <span class="text-gray-500 text-sm ml-auto">List spare parts</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-post">POST</span>
+            <code class="text-sm font-mono">/inventory/repuestos</code>
+            <span class="text-gray-500 text-sm ml-auto">Create spare part</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-post">POST</span>
+            <code class="text-sm font-mono">/inventory/repuestos/salida</code>
+            <span class="text-gray-500 text-sm ml-auto">Stock withdrawal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Finance -->
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+          <span class="w-8 h-8 bg-yellow-600/20 rounded flex items-center justify-center">💰</span>
+          Finance
+        </h3>
+        <div class="grid gap-3">
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-post">POST</span>
+            <code class="text-sm font-mono">/finance/invoices/issue</code>
+            <span class="text-gray-500 text-sm ml-auto">Issue invoice</span>
+          </div>
+          <div class="endpoint-card bg-gray-800 rounded-lg p-4 border border-gray-700 flex items-center gap-4">
+            <span class="method-badge method-get">GET</span>
+            <code class="text-sm font-mono">/finance/sifen/documentos</code>
+            <span class="text-gray-500 text-sm ml-auto">List fiscal documents</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rate Limits -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">⏱️ Rate Limits</h2>
+      <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <p class="text-gray-400 mb-4">
+          API requests are rate-limited to ensure fair usage. Check the response headers for your current limits.
+        </p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-700">
+                <th class="text-left py-3 px-4">Plan</th>
+                <th class="text-left py-3 px-4">Requests/Min</th>
+                <th class="text-left py-3 px-4">Requests/Day</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4">Free</td>
+                <td class="py-3 px-4">100</td>
+                <td class="py-3 px-4">10,000</td>
+              </tr>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4">Pro</td>
+                <td class="py-3 px-4">500</td>
+                <td class="py-3 px-4">100,000</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4">Enterprise</td>
+                <td class="py-3 px-4">Custom</td>
+                <td class="py-3 px-4">Unlimited</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 text-sm text-gray-500">
+          Response headers: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error Codes -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">❌ Error Codes</h2>
+      <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-700">
+                <th class="text-left py-3 px-4">Code</th>
+                <th class="text-left py-3 px-4">Error</th>
+                <th class="text-left py-3 px-4">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4"><code>400</code></td>
+                <td class="py-3 px-4">BadRequest</td>
+                <td class="py-3 px-4">Invalid request payload</td>
+              </tr>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4"><code>401</code></td>
+                <td class="py-3 px-4">Unauthorized</td>
+                <td class="py-3 px-4">Missing or invalid API key</td>
+              </tr>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4"><code>403</code></td>
+                <td class="py-3 px-4">Forbidden</td>
+                <td class="py-3 px-4">Insufficient permissions</td>
+              </tr>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4"><code>404</code></td>
+                <td class="py-3 px-4">NotFound</td>
+                <td class="py-3 px-4">Resource does not exist</td>
+              </tr>
+              <tr class="border-b border-gray-700">
+                <td class="py-3 px-4"><code>422</code></td>
+                <td class="py-3 px-4">ValidationError</td>
+                <td class="py-3 px-4">Semantic validation error</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4"><code>429</code></td>
+                <td class="py-3 px-4">TooManyRequests</td>
+                <td class="py-3 px-4">Rate limit exceeded</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SDK Examples -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">💻 Code Examples</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="font-semibold mb-4">List Clients</h3>
+          <div class="code-block">
+            <span class="keyword">const</span> clients = <span class="keyword">await</span> client.getWorkshopClientes();<br>
+            console.log(clients);<br>
+            <span class="comment">// [{ id: '...', name: 'Juan Pérez', ... }]</span>
+          </div>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+          <h3 class="font-semibold mb-4">Create Work Order</h3>
+          <div class="code-block">
+            <span class="keyword">const</span> order = <span class="keyword">await</span> client.postWorkshopIngresos({<br>
+            &nbsp;&nbsp;vehicleId: <span class="string">'vehicle-uuid'</span>,<br>
+            &nbsp;&nbsp;kilometraje: <span class="number">45000</span>,<br>
+            &nbsp;&nbsp;crearOrden: <span class="keyword">true</span>,<br>
+            });
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Support -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">📞 Support</h2>
+      <div class="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div class="grid md:grid-cols-3 gap-6">
+          <div>
+            <h4 class="font-semibold mb-2">Documentation</h4>
+            <a href="/docs" class="text-blue-400 hover:text-blue-300">Swagger UI →</a>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-2">Status</h4>
+            <a href="/health" class="text-green-400 hover:text-green-300">Health Check →</a>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-2">Contact</h4>
+            <p class="text-gray-400 text-sm">jaraju01@gmail.com</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-gray-800 border-t border-gray-700 py-6 mt-12">
+    <div class="max-w-7xl mx-auto px-6 text-center text-gray-500 text-sm">
+      © 2026 AutomotiveOS Cloud ERP — Jara Brothers Group
+    </div>
+  </footer>
+</body>
+</html>
