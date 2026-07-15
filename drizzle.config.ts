@@ -48,6 +48,7 @@ export default defineConfig({
     "./src/modules/security-hw/schema/*.ts",
     "./src/modules/whatsapp/schema/*.ts",
     "./src/modules/email/schema/*.ts",
+    "./src/modules/api-keys/schema/*.ts",
   ],
   out: "./src/shared/database/migrations",
   dialect: "postgresql",

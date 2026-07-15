@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 70 — API Publica + SDK",
-    "next_sprint": "Sprint 71 — Analytics + Reporting",
+    "current_sprint": "Sprint 71 — Analytics + Reporting",
+    "next_sprint": "Sprint 72 — Push Notifications + Email Marketing",
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
       "duration": "2 weeks",

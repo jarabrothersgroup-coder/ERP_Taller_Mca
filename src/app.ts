@@ -215,6 +215,7 @@ async function buildApp() {
           { name: "Search", description: "Búsqueda global" },
           { name: "Export", description: "Exportación CSV" },
           { name: "Config", description: "Configuración del taller" },
+          { name: "API Keys", description: "Gestión de claves API para integraciones externas" },
         ],
       },
     });
@@ -477,6 +478,27 @@ async function buildApp() {
   await app.register(
     (await import("./modules/enterprise/plugin.js")).default,
   );
+
+  // ─── API Keys Module (Sprint 70) ──────────────
+  // External API key management for SaaS integrations.
+  // Routes: /api-keys/*
+  await app.register(
+    (await import("./modules/api-keys/plugin.js")).default,
+  );
+  app.log.info("API Keys module registered (/api-keys)");
+
+  // ─── Developer Portal (Sprint 70) ──────────────
+  // Public developer portal at /developer — HTML cached at startup
+  const { readFileSync } = await import("fs");
+  const { join: pathJoin } = await import("path");
+  const developerPortalHtml = readFileSync(
+    pathJoin(process.cwd(), "src/shared/public/developer-portal.html"),
+    "utf-8",
+  );
+  app.get("/developer", async (_req, reply) => {
+    reply.type("text/html").send(developerPortalHtml);
+  });
+  app.log.info("Developer Portal available at /developer");
 
   // ─── Startup health check ──────────────────
   app.addHook("onReady", async () => {
