@@ -37,26 +37,26 @@
 ### Blocked
 - (none).
 
-## Sprint 69 Plan — Multi-tenant SaaS
+## Sprint 69 COMPLETED — Multi-tenant SaaS ✅
 
 ### Objetivo
-Establecer la fundación para SaaS multi-tenant: Billing integration, API documentation, y email transaccional.
+Fundación SaaS multi-tenant: Billing, API docs, email transaccional.
 
 ### Tareas
 | ID | Tarea | Estado | Archivos |
 |:---|:------|:------:|:---------|
-| S69-1 | Billing Module Enhancement (Stripe) | IN_PROGRESS | `src/modules/billing/*` |
-| S69-2 | API Documentation (Swagger) | PLANNED | `src/app.ts` |
-| S69-3 | Email Transaccional | PLANNED | `src/modules/email/*` |
+| S69-1 | Billing Module Enhancement (Stripe) | ✅ COMPLETED | `src/modules/billing/*`, `src/shared/utils/tenant-email.ts` |
+| S69-2 | API Documentation (Swagger) | ✅ COMPLETED | `src/app.ts`, `src/modules/billing/routes/stripe.routes.ts` |
+| S69-3 | Email Transaccional | ✅ COMPLETED | `src/modules/email/*`, `src/modules/billing/services/billing-notifications.service.ts` |
 
-### Criterios de Éxito
-- ✅ Stripe billing funcional en test mode
-- ✅ API documentation accesible en /docs
-- ✅ Email notifications enviadas al crear facturas
+### Archivos Creados/Modificados
+- `src/shared/utils/tenant-email.ts` — Shared utility: resolveTenantId + resolveTenantAdminEmail
+- `src/modules/billing/services/billing-notifications.service.ts` — Webhook-triggered email notifications
+- `src/modules/email/routes/billing-email.routes.ts` — 4 billing email API endpoints
+- `tests/sprint69.test.ts` — 34 structural tests (all passing)
 
 ### Next Move
-- Completar S69-1: Billing module con webhooks y suscripciones
-- Push a origin/main después de completar sprint
+- Sprint 70: API Pública + SDK + Developer Portal
 
 ## Relevant Files
 - `src/shared/schemas/validation.ts`, `src/shared/services/rate-limiter.ts`, `src/shared/middleware/security-headers.ts`, `src/modules/backup/services/backup-engine.service.ts`: ESM `require` fixes (committed `d2fcf47`).

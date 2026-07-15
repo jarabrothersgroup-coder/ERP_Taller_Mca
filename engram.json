@@ -43,39 +43,55 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 69 — Billing SaaS + API Documentation + Email Transaccional",
-    "next_sprint": "Sprint 70 — TBD",
-    "sprint_69_objectives": {
+    "current_sprint": "Sprint 70 — API Publica + SDK",
+    "next_sprint": "Sprint 71 — Analytics + Reporting",
+    "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
       "duration": "2 weeks",
       "priority": "HIGH",
+      "completed_date": "2026-07-15",
       "tasks": [
         {
           "id": "S69-1",
           "name": "Billing Module Enhancement",
           "description": "Complete Stripe integration with subscription plans, customer portal, and webhook handling",
-          "status": "IN_PROGRESS",
-          "files": ["src/modules/billing/*"]
+          "status": "COMPLETED",
+          "files": ["src/modules/billing/*", "src/shared/utils/tenant-email.ts", "tests/sprint69.test.ts"]
         },
         {
           "id": "S69-2",
           "name": "API Documentation",
-          "description": "Complete Swagger/OpenAPI documentation for all endpoints with examples",
-          "status": "PLANNED",
-          "files": ["src/app.ts"]
+          "description": "Swagger/OpenAPI documentation for all billing endpoints with schemas, security, and examples",
+          "status": "COMPLETED",
+          "files": ["src/app.ts", "src/modules/billing/routes/stripe.routes.ts", "src/modules/email/routes/billing-email.routes.ts"]
         },
         {
           "id": "S69-3",
           "name": "Email Transaccional",
-          "description": "Connect email service with invoice emission and appointment reminders",
-          "status": "PLANNED",
-          "files": ["src/modules/email/*"]
+          "description": "Email service (Resend + SMTP) with billing notification templates and webhook-triggered emails",
+          "status": "COMPLETED",
+          "files": ["src/modules/email/*", "src/modules/billing/services/billing-notifications.service.ts"]
         }
       ],
       "success_criteria": [
         "Stripe billing functional with test mode",
         "API documentation accessible at /docs",
-        "Email notifications sent on invoice creation"
+        "Email notifications sent on billing events"
+      ],
+      "files_created": [
+        "src/shared/utils/tenant-email.ts",
+        "src/modules/email/routes/billing-email.routes.ts",
+        "src/modules/billing/services/billing-notifications.service.ts",
+        "tests/sprint69.test.ts"
+      ],
+      "files_modified": [
+        "src/modules/billing/routes/stripe.routes.ts",
+        "src/modules/billing/services/stripe.service.ts",
+        "src/modules/billing/types.ts",
+        "src/modules/email/templates/index.ts",
+        "src/modules/email/plugin.ts",
+        "src/modules/billing/plugin.ts",
+        "src/app.ts"
       ]
     },
     "conejo_de_indias": {
