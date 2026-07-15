@@ -232,11 +232,11 @@ describe("Sprint 69 — Billing Notification Service", () => {
     expect(typeof mod.notifyTrialEnding).toBe("function");
   });
 
-  it("billing-notifications.service.ts imports admin role filtering", () => {
-    const service = readFile("src/modules/billing/services/billing-notifications.service.ts");
-    expect(service).toContain('eq(profiles.role, role)');
-    expect(service).toContain('"admin"');
-    expect(service).toContain('"manager"');
+  it("tenant-email.ts utility implements admin role filtering", () => {
+    const util = readFile("src/shared/utils/tenant-email.ts");
+    expect(util).toContain("admin");
+    expect(util).toContain("manager");
+    expect(util).toContain('profiles.role');
   });
 
   it("billing-notifications.service.ts uses lazy email import to avoid circular deps", () => {
@@ -244,10 +244,10 @@ describe("Sprint 69 — Billing Notification Service", () => {
     expect(service).toContain('await import("../../../modules/email/services/email.service.js")');
   });
 
-  it("billing-notifications.service.ts imports profiles table for admin email lookup", () => {
+  it("billing-notifications.service.ts imports shared tenant-email utility", () => {
     const service = readFile("src/modules/billing/services/billing-notifications.service.ts");
-    expect(service).toContain('import { profiles }');
-    expect(service).toContain('profiles.email');
+    expect(service).toContain('resolveTenantAdminEmail');
+    expect(service).toContain('../../../shared/utils/tenant-email.js');
   });
 
   it("webhook handler wires notifications for checkout.session.completed", () => {
