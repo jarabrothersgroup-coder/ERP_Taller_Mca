@@ -29,6 +29,10 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const MAX_CACHE_SIZE = 500;
 
+// ─── Hit/miss tracking for observability ──
+let cacheHits = 0;
+let cacheMisses = 0;
+
 // ─── Helpers ────────────────────────────────────
 
 /**
@@ -110,6 +114,7 @@ export function createCacheMiddleware(ttlMs: number = 60_000) {
 
     if (entry && Date.now() < entry.expiry) {
       // Cache hit
+      cacheHits++;
       entry.lastAccessed = Date.now();
       reply.code(entry.statusCode).header("content-type", entry.contentType);
       reply.send(entry.data);
@@ -117,6 +122,7 @@ export function createCacheMiddleware(ttlMs: number = 60_000) {
     }
 
     // Cache miss — intercept response to cache it
+    cacheMisses++;
     const originalSend = reply.send.bind(reply);
 
     reply.send = function (data: unknown) {
@@ -147,10 +153,14 @@ export function clearCache(): void {
 /**
  * Returns cache statistics.
  */
-export function getCacheStats(): { size: number; maxSize: number; hitRate: number } {
+export function getCacheStats(): { size: number; maxSize: number; hits: number; misses: number; hitRate: number } {
+  const total = cacheHits + cacheMisses;
+  const hitRate = total > 0 ? cacheHits / total : 0;
   return {
     size: cache.size,
     maxSize: MAX_CACHE_SIZE,
-    hitRate: 0, // TODO: track hits/misses for observability
+    hits: cacheHits,
+    misses: cacheMisses,
+    hitRate: Number(hitRate.toFixed(4)),
   };
 }

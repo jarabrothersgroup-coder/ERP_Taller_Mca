@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
-import { useWorkOrder, useUpdateWorkOrderStatus } from "../hooks/use-data";
+import { useWorkOrder, useUpdateWorkOrderStatus, useSignHvLockout } from "../hooks/use-data";
+import { useAuth } from "../auth/AuthContext";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorView from "../components/ErrorView";
 
@@ -32,8 +33,10 @@ const nextStatus: Record<string, string> = {
 
 export default function WorkOrderDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
+  const { session } = useAuth();
   const { data: workOrder, isLoading, error, refetch } = useWorkOrder(id);
   const updateStatus = useUpdateWorkOrderStatus();
+  const signHv = useSignHvLockout();
 
   React.useEffect(() => {
     navigation.setOptions({ title: `OT-${id.slice(0, 8).toUpperCase()}` });
@@ -53,6 +56,21 @@ export default function WorkOrderDetailScreen({ route, navigation }: any) {
         {
           text: "Confirmar",
           onPress: () => updateStatus.mutate({ id, status: next }),
+        },
+      ]
+    );
+  };
+
+  const handleSignHv = () => {
+    if (!workOrder || !session) return;
+    Alert.alert(
+      "Firma de Lockout HV",
+      "Confirmo la desconexión de alto voltaje del vehículo (Ley 1034/83).",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Firmar",
+          onPress: () => signHv.mutate({ id, mechanicId: session.email }),
         },
       ]
     );
@@ -124,6 +142,18 @@ export default function WorkOrderDetailScreen({ route, navigation }: any) {
             <Text style={styles.alertText}>
               {workOrder.hvLockoutSigned ? "Lockout firmado ✓" : "Lockout pendiente"}
             </Text>
+            {workOrder.hvAlert && !workOrder.hvLockoutSigned && (
+              <TouchableOpacity
+                style={[styles.hvSignButton, { backgroundColor: colors.error }]}
+                onPress={handleSignHv}
+                disabled={signHv.isPending}
+              >
+                <Ionicons name="shield-checkmark" size={14} color={colors.textInverse} />
+                <Text style={styles.hvSignButtonText}>
+                  {signHv.isPending ? "Firmando..." : "Firmar Lockout HV"}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -223,6 +253,17 @@ const styles = StyleSheet.create({
   alertContent: { flex: 1, marginLeft: spacing.md },
   alertTitle: { fontSize: fontSize.sm, fontWeight: "600", color: colors.error },
   alertText: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  hvSignButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    alignSelf: "flex-start",
+  },
+  hvSignButtonText: { color: colors.textInverse, fontSize: fontSize.xs, fontWeight: "600" },
   dtcContainer: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   dtcBadge: {
     backgroundColor: colors.warning + "20",

@@ -13,7 +13,7 @@
  * @module scheduling/services/agendamiento.service
  */
 
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, gte, lte } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import {
   agendamientos,
@@ -623,11 +623,32 @@ export async function getSchedulingStats(
       ),
     );
 
+  // ── This week range (Monday → Sunday, ISO dates) ──
+  const now = new Date();
+  const dayOfWeek = (now.getDay() + 6) % 7; // 0 = Monday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekStart = monday.toISOString().split("T")[0];
+  const weekEnd = sunday.toISOString().split("T")[0];
+
+  const [weekTotal] = await db()
+    .select({ total: count() })
+    .from(agendamientos)
+    .where(
+      and(
+        eq(agendamientos.tenantSlug, tenantSlug),
+        gte(agendamientos.fechaTurno, weekStart),
+        lte(agendamientos.fechaTurno, weekEnd),
+      ),
+    );
+
   return {
     today: Number(todayTotal?.total ?? 0),
     todayConfirmed: Number(todayConfirmed?.total ?? 0),
     todayPending: Number(todayPending?.total ?? 0),
-    thisWeek: 0, // TODO: implement week range query
+    thisWeek: Number(weekTotal?.total ?? 0),
     totalActive: Number(totalActive?.total ?? 0),
   };
 }

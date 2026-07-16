@@ -230,3 +230,26 @@ export type {
   PresupuestoItem,
   NewPresupuestoItem,
 } from "./budget.js";
+
+// ─── Compras (Sprint 78) ─────────────────────
+export {
+  compras,
+  compraDetalles,
+  estadoPagoCompraEnum,
+} from "./compras.js";
+export type {
+  Compra,
+  NewCompra,
+  CompraDetalle,
+  NewCompraDetalle,
+  EstadoPagoCompra,
+} from "./compras.js";
+
+// ─── Donaciones (Sprint 78) ──────────────────
+export {
+  donaciones,
+} from "./donaciones.js";
+export type {
+  Donacion,
+  NewDonacion,
+} from "./donaciones.js";

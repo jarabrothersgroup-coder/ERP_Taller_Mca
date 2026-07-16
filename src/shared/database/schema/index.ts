@@ -237,3 +237,11 @@ export type {
   DataRetentionPolicy,
   NewDataRetentionPolicy,
 } from "../../../modules/enterprise/schema/index.js";
+
+export {
+  mobilePushTokens,
+} from "../../../modules/mobile/schema/index.js";
+export type {
+  MobilePushToken,
+  NewMobilePushToken,
+} from "../../../modules/mobile/schema/index.js";

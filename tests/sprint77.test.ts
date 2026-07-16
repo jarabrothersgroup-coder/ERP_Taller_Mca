@@ -167,9 +167,10 @@ describe("Sprint 77 — Frontend white-label injection", () => {
 // ─── Integration ────────────────────────────────
 
 describe("Sprint 77 — Integration", () => {
-  it("engram.json current_sprint is Sprint 77", async () => {
+  it("engram.json records Sprint 77 as COMPLETED", async () => {
     const content = await readFileSafe(resolve(srcRoot, "..", "engram.json"));
-    expect(content).toContain("Sprint 77");
+    expect(content).toContain("sprint_77_progress");
+    expect(content).toContain('"status": "COMPLETED"');
   });
 
   it("migration 0004 (audit) still present", async () => {

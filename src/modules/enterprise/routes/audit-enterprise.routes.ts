@@ -56,6 +56,42 @@ export async function enterpriseAuditRoutes(
   });
 
   /**
+   * GET /enterprise/audit/log — Alias para el listado de auditoría.
+   *
+   * El frontend (api.ts → listAuditLog) llama a `/audit/log`. Se expone
+   * este alias para mantener compatibilidad sin romper la ruta canónica `/audit`.
+   */
+  app.get("/log", async (request: FastifyRequest, reply: FastifyReply) => {
+    const tenantSlug = request.tenantSlug!;
+    const {
+      from,
+      to,
+      action,
+      entityType,
+      entityId,
+      userEmail,
+      severity,
+      limit,
+      offset,
+    } = request.query as Record<string, string>;
+
+    const result = await queryAuditLog({
+      tenantSlug,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      action: action as any,
+      entityType,
+      entityId,
+      userEmail,
+      severity,
+      limit: limit ? parseInt(limit) : 100,
+      offset: offset ? parseInt(offset) : 0,
+    });
+
+    return reply.send(result);
+  });
+
+  /**
    * GET /enterprise/audit/verify — Verify hash chain integrity
    */
   app.get("/verify", async (request: FastifyRequest, reply: FastifyReply) => {
