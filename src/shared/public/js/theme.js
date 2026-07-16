@@ -341,11 +341,74 @@ function updateSolarTheme() {
     init();
   }
 
+  // ─── White-Label Branding ────────────────────
+  // Applies per-tenant branding from /enterprise/white-label.
+  // Respects the user's manually chosen accent (localStorage) — only
+  // overrides when the tenant explicitly sets brand colors.
+
+  function applyWhiteLabel(config) {
+    if (!config || typeof config !== 'object') return;
+    const root = document.documentElement;
+
+    // Brand colors → CSS variables (override defaults)
+    if (config.primaryColor) {
+      root.style.setProperty('--accent', config.primaryColor);
+      root.style.setProperty('--accent-hover', shade(config.primaryColor, -12));
+    }
+    if (config.accentColor) {
+      root.style.setProperty('--accent', config.accentColor);
+      root.style.setProperty('--accent-hover', shade(config.accentColor, -12));
+    }
+    if (config.secondaryColor) {
+      root.style.setProperty('--secondary', config.secondaryColor);
+    }
+
+    // Favicon
+    if (config.faviconUrl) {
+      let link = document.querySelector('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = config.faviconUrl;
+    }
+
+    // Document title
+    if (config.companyName) {
+      document.title = `${config.companyName} — ERP`;
+    }
+
+    // Footer text
+    if (config.footerText) {
+      let footer = document.getElementById('app-footer-text');
+      if (!footer) {
+        footer = document.createElement('span');
+        footer.id = 'app-footer-text';
+        footer.className = 'text-xs text-gray-500';
+        const footerWrap = document.querySelector('footer .flex.items-center');
+        if (footerWrap) footerWrap.appendChild(footer);
+      }
+      footer.textContent = config.footerText;
+    }
+  }
+
+  // Lighten/darken a hex color by percent (-100..100)
+  function shade(hex, percent) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) return hex;
+    const clamp = (v) => Math.max(0, Math.min(255, v));
+    const adj = (c) => clamp(Math.round(parseInt(c, 16) + (percent / 100) * 255));
+    const toHex = (c) => adj(c).toString(16).padStart(2, '0');
+    return `#${toHex(parseInt(m[1], 16))}${toHex(parseInt(m[2], 16))}${toHex(parseInt(m[3], 16))}`;
+  }
+
   // ─── Expose ──────────────────────────────────
   window.ThemeSystem = {
     toggle: toggleTheme,
     setTheme: applyTheme,
     setAccent: applyAccent,
+    applyWhiteLabel: applyWhiteLabel,
     getTheme: () => localStorage.getItem(THEME_KEY) || 'dark',
     getSolarElevation: getSolarElevation,
     updateSolarTheme: updateSolarTheme
