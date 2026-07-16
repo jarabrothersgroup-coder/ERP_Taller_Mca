@@ -246,10 +246,33 @@ function enterApp() {
   // Init global search bar (Ctrl+K)
   if (typeof initSearchBar === 'function') initSearchBar();
   fetchSettings();
+  fetchWhiteLabel();
   navigate('dashboard');
   connectWs();
   startPolling();
   restoreOfflineQueue();
+}
+
+// ─── White-Label Branding (Sprint 77) ──────────
+// Fetches per-tenant branding and applies it via ThemeSystem.
+async function fetchWhiteLabel() {
+  try {
+    const wl = await api('/enterprise/white-label');
+    if (!wl) return;
+    if (typeof window.ThemeSystem?.applyWhiteLabel === 'function') {
+      window.ThemeSystem.applyWhiteLabel(wl);
+    }
+    // Prefer white-label company name over tenant name in the sidebar
+    if (wl.companyName) {
+      dom.sidebarCompany.textContent = wl.companyName;
+    }
+    // Logo from white-label takes precedence over tenant logo
+    if (wl.logoUrl && dom.sidebarLogo) {
+      dom.sidebarLogo.src = wl.logoUrl;
+    }
+  } catch {
+    // White-label is optional — ignore failures
+  }
 }
 
 async function checkAuth() {

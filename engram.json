@@ -43,8 +43,47 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 76 COMPLETED — Data Export + Import + Migration Tools",
-    "next_sprint": "Sprint 77 — White-label + Custom Domain",
+    "current_sprint": "Sprint 77 COMPLETED — White-label + Custom Domain",
+    "next_sprint": "Sprint 78 — Mobile + AI (Conejo de Indias Fase 3)",
+    "sprint_77_progress": {
+      "goal": "White-label branding + custom domain / subdomain tenant resolution",
+      "duration": "1 week",
+      "priority": "HIGH",
+      "completed_date": "2026-07-15",
+      "tasks": [
+        {
+          "id": "S77-1",
+          "name": "White-label DB migration + schema barrel",
+          "description": "Migration 0005 creates white_label_config, sso_config, data_retention_policy with RLS; registered in main schema barrel",
+          "status": "COMPLETED",
+          "files": ["src/shared/database/migrations/0005_white_label.sql", "src/shared/database/schema/index.ts"]
+        },
+        {
+          "id": "S77-2",
+          "name": "Hostname-based tenant resolution",
+          "description": "tenant-resolver resolves tenant via X-Tenant-Slug header → custom domain (white_label_config.customDomain) → subdomain slug; reserved subdomains ignored",
+          "status": "COMPLETED",
+          "files": ["src/shared/middleware/tenant-resolver.ts"]
+        },
+        {
+          "id": "S77-3",
+          "name": "Frontend white-label injection",
+          "description": "applyWhiteLabel() in theme.js sets accent/secondary colors, favicon, title, footer; app.js fetches /enterprise/white-label on enterApp and applies company name + logo",
+          "status": "COMPLETED",
+          "files": ["src/shared/public/js/theme.js", "src/shared/public/app.js"]
+        }
+      ],
+      "deferred": [
+        "S77-4 Custom domain DNS verification/SSL provisioning — postponed per user decision (resolution + branding only this sprint)"
+      ],
+      "success_criteria": [
+        "Tenant resolvable by custom domain and subdomain, not just header",
+        "Per-tenant branding (colors, logo, favicon, company name, footer) applied on boot",
+        "Migration + schema compile; 16 sprint77 tests passing"
+      ],
+      "files_created": ["src/shared/database/migrations/0005_white_label.sql", "tests/sprint77.test.ts"],
+      "files_modified": ["src/shared/database/schema/index.ts", "src/shared/middleware/tenant-resolver.ts", "src/shared/public/js/theme.js", "src/shared/public/app.js"]
+    },
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
       "duration": "2 weeks",

@@ -223,3 +223,17 @@ export type {
   MedioPago,
   EstadoPago,
 } from "../../../modules/finance/schema/index.js";
+
+export {
+  ssoConfig,
+  whiteLabelConfig,
+  dataRetentionPolicy,
+} from "../../../modules/enterprise/schema/index.js";
+export type {
+  SsoConfig,
+  NewSsoConfig,
+  WhiteLabelConfig,
+  NewWhiteLabelConfig,
+  DataRetentionPolicy,
+  NewDataRetentionPolicy,
+} from "../../../modules/enterprise/schema/index.js";
