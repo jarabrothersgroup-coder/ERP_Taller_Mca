@@ -3,19 +3,37 @@
  *
  * Typed fetch wrapper for the Fastify backend.
  * Same endpoints as the web app, accessed via the configured backend URL.
+ * Injects the per-tenant slug + JWT from the secure session at request time.
  */
+
+import { getSession } from "../auth/session";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000";
 
-const BASE_HEADERS = {
-  "Content-Type": "application/json",
-  "X-Tenant-Slug": "demo",
-} as const;
-
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const session = await getSession();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+
+  // Tenant resolution: explicit slug from session, else fall back to header/env.
+  if (session?.slug) {
+    headers["X-Tenant-Slug"] = session.slug;
+  } else if (process.env.EXPO_PUBLIC_TENANT_SLUG) {
+    headers["X-Tenant-Slug"] = process.env.EXPO_PUBLIC_TENANT_SLUG;
+  } else {
+    headers["X-Tenant-Slug"] = "demo";
+  }
+
+  if (session?.token) {
+    headers["Authorization"] = `Bearer ${session.token}`;
+  }
+
   const res = await fetch(`${BACKEND_URL}${url}`, {
     ...options,
-    headers: { ...BASE_HEADERS, ...options?.headers },
+    headers,
   });
 
   if (!res.ok) {
@@ -99,7 +117,24 @@ export interface Appointment {
 
 /* ── API Methods ────────────────────────────── */
 
+export interface LoginResult {
+  ok: boolean;
+  token: string;
+  profile: { id: string; email: string; full_name: string; role: string; is_active: boolean };
+  tenant: { name: string; slug: string; ruc: string };
+}
+
 export const api = {
+  // Auth
+  login: (tenantSlug: string, email: string, password: string) =>
+    request<LoginResult>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ tenantSlug, email, password }),
+    }),
+
+  logout: () =>
+    request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
+
   // Dashboard
   getDashboard: () => request<DashboardStats>("/intelligence/dashboard"),
 
@@ -134,6 +169,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // HV Safety lockout signing (mandatory before EV/HEV work completion)
+  signHvLockout: (ordenId: string, mechanicId: string) =>
+    request<WorkOrder>(`/workshop/ordenes/${ordenId}/hv-lockout`, {
+      method: "POST",
+      body: JSON.stringify({ mechanicId }),
+    }),
+
   updateWorkOrderStatus: (id: string, data: { status: string }) =>
     request<WorkOrder>(`/workshop/ordenes/${id}`, {
       method: "PATCH",
@@ -151,4 +193,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // ── Mobile push tokens (Sprint 78) ──────────
+  registerPushToken: (data: { deviceId: string; pushToken: string; platform?: "ios" | "android" | "web"; profileEmail?: string }) =>
+    request<{ ok: boolean; id: string; updated: boolean }>("/mobile/push-token", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  unregisterPushToken: (deviceId: string) =>
+    request<{ ok: boolean }>("/mobile/push-token", {
+      method: "DELETE",
+      body: JSON.stringify({ deviceId }),
+    }),
+
+  listPushTokens: () =>
+    request<{ tokens: Array<{ id: string; deviceId: string; platform: string; profileEmail: string | null; createdAt: string }> }>("/mobile/push-tokens"),
 };

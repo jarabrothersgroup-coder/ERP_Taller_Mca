@@ -145,11 +145,12 @@ export async function centralizeSales(
 /**
  * Centraliza las compras del período.
  *
- * Agrega todas las compras registradas y genera:
+ * Agrega todas las compras registradas (tabla `compras`) y genera:
  *   Débito: Costo / Inventario / Gastos
  *   Crédito: Proveedores / Cuentas por Pagar
  *
- * (Requiere tabla `compras` — placeholder con facturas de compras)
+ * Si no hay registros en el módulo de compras, deriva el total desde
+ * stock_movements (INGRESO) como respaldo.
  */
 export async function centralizePurchases(
   tenantSlug: string,
@@ -160,17 +161,25 @@ export async function centralizePurchases(
   const end = new Date(anho, mes, 0, 23, 59, 59);
   const periodo = `${anho}-${String(mes).padStart(2, "0")}`;
 
-  // Buscar compras desde facturas con tipo "COMPRA" o en stock_movements
-  const purchases = await getDb()<Array<{ total: string }>>`
-    SELECT COALESCE(SUM(sm.cantidad * COALESCE(sm.costo_unitario, 0)::numeric), 0)::text as total
-    FROM stock_movements sm
-    WHERE sm.tenant_slug = ${tenantSlug}
-      AND sm.tipo = 'INGRESO'
-      AND sm.created_at >= ${start}
-      AND sm.created_at <= ${end}
-  `;
+  // Preferir el módulo de compras (tabla `compras`); si no hay datos,
+  // derivar desde stock_movements (INGRESO) como respaldo.
+  const { getComprasTotalByPeriod } = await import(
+    "../compras.service.js"
+  );
+  let total = await getComprasTotalByPeriod(tenantSlug, start, end);
 
-  const total = parseFloat(purchases[0]?.total ?? "0");
+  if (total === 0) {
+    const purchases = await getDb()<Array<{ total: string }>>`
+      SELECT COALESCE(SUM(sm.cantidad * COALESCE(sm.costo_unitario, 0)::numeric), 0)::text as total
+      FROM stock_movements sm
+      WHERE sm.tenant_slug = ${tenantSlug}
+        AND sm.tipo = 'INGRESO'
+        AND sm.created_at >= ${start}
+        AND sm.created_at <= ${end}
+    `;
+    total = parseFloat(purchases[0]?.total ?? "0");
+  }
+
   if (total === 0) {
     return { module: "COMPRAS", success: true, asientoId: null, asientoNumero: null, montoTotal: 0, registrosCentralizados: 0, message: "No hay compras en el período" };
   }

@@ -304,4 +304,50 @@ export async function thinkcarRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ count: result?.count ?? 0 });
   });
+
+  // ── GET /thinkcar/dtc/lookup/:code — Definición de código DTC ──
+  // Expone el diccionario OBD-II de intelligence para el frontend
+  // (api.ts → lookupDtc). Mapea DtcDefinition → forma DtcLookup del frontend.
+
+  const DTC_SYSTEM_MAP: Record<string, string> = {
+    P: "Powertrain (Motor/Transmisión)",
+    C: "Chassis (Chasis/Frenos)",
+    B: "Body (Carrocería/Electrónica)",
+    U: "Network (Comunicación/Red)",
+  };
+
+  app.get<{ Params: { code: string } }>(
+    "/thinkcar/dtc/lookup/:code",
+    async (request: FastifyRequest<{ Params: { code: string } }>, reply: FastifyReply) => {
+      const rawCode = (request.params.code ?? "").trim().toUpperCase();
+      if (!rawCode) throw new BadRequestError("Código DTC requerido");
+
+      const { getDtcDefinition } = await import(
+        "../../intelligence/utils/dtc-database.js"
+      );
+      const def = getDtcDefinition(rawCode);
+
+      if (!def) {
+        return reply.send({
+          code: rawCode,
+          found: false,
+          description: "Código DTC no encontrado en la base de datos local",
+          system: DTC_SYSTEM_MAP[rawCode[0]] ?? "Desconocido",
+          severity: "Info",
+          possibleCauses: [],
+          recommendedActions: [],
+        });
+      }
+
+      return reply.send({
+        code: def.code,
+        found: true,
+        description: def.description,
+        system: DTC_SYSTEM_MAP[def.code[0]] ?? "Desconocido",
+        severity: def.severity,
+        possibleCauses: def.suggestedParts,
+        recommendedActions: def.suggestions,
+      });
+    },
+  );
 }

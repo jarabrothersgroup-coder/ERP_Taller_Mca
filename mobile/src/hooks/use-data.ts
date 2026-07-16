@@ -124,3 +124,16 @@ export function useCreateVehicle() {
     },
   });
 }
+
+export function useSignHvLockout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, mechanicId }: { id: string; mechanicId: string }) =>
+      api.signHvLockout(id, mechanicId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrderDetail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workOrders });
+    },
+  });
+}

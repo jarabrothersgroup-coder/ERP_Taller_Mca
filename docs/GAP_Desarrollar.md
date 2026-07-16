@@ -325,3 +325,86 @@ Ubicación: `src/shared/public/js/`
 4. **Sprint 72** — Push Notifications + Email marketing
 5. **Sprint 73** — RBAC avanzado + Audit logs enterprise
 6. **Sprint 74** — Load testing + Performance tuning
+
+---
+
+## 🚨 Estado Actualizado — 2026-07-16 (Exploración en Vivo: Backend / Frontend / BD)
+
+> Generado por exploración directa del código + typecheck + probe de BD.
+> El GAP ya NO es "faltan módulos" — es **integración en runtime**. El código
+> está maduro; lo que falta es que el sistema corra end-to-end contra una BD viva.
+
+### Hallazgos verificados (evidencia)
+
+| Capa | Estado | Evidencia |
+|:---|:---|:---|
+| **Backend (Fastify+TS)** | ✅ Compila limpio | `npx tsc --noEmit` → exit 0, 0 errores |
+| **Backend — módulos** | ✅ 30+ plugins registrados | `src/modules/*/plugin.ts` (workshop, finance, inventory, whatsapp, crm, scheduling, intelligence, config, dvi, analytics, thinkcar, marketing, fleet, label-printing, backup, security-hw, client-portal, tenants, migration, email, api-keys, enterprise, billing, mobile) |
+| **Frontend (Next.js)** | ✅ Existe y es real | `web/src/app/(dashboard)/dashboard/*` — 30+ páginas, React Query, `web/src/lib/api.ts` cliente tipado completo (NO es mock-only) |
+| **Frontend → Backend** | ✅ Cableado | `web/src/lib/api.ts` llama endpoints reales vía Next rewrites (`/workshop/*`, `/finance/*`, etc.) |
+| **BD (Drizzle+PG)** | ⚠️ 6 migraciones, schema definido | `src/shared/database/migrations/0000..0005`, `drizzle.config.ts` |
+| **BD — conectividad** | 🔴 **NO CONECTA** | `pg_isready` → `/run/postgresql:5432 - no response`; probe node `postgres` → falla (sin listener en 5432) |
+| **.env DATABASE_URL** | 🔴 **Bug de formato** | `DATABASE_URL="postgresql://..."` — las comillas rompen el cliente `postgres` (Invalid URL) |
+| **Engram / Sprint** | 🟡 Sprint 78 IN PROGRESS | `engram.json` → Mobile RN + AI; módulos previos COMPLETED |
+
+### 🔴 GAP CRÍTICO — Runtime / Integración (lo que realmente bloquea)
+
+| # | Brecha | Impacto | Evidencia | Esfuerzo |
+|:--|:-------|:--------|:----------|:---------|
+| 1 | **PostgreSQL no está corriendo** | Backend arranca pero toda ruta DB falla; frontend muestra vacío/error | `pg_isready` no responde en 5432 | 0.5 sprint (levantar PG local o Neon) |
+| 2 | **`.env` DATABASE_URL con comillas** | Cliente `postgres` lanza `Invalid URL` aunque la BD exista | `DATABASE_URL="..."` en `.env` y `.env.example` | 5 min (quitar comillas) |
+| 3 | **Migraciones no aplicadas a BD viva** | Tablas/RLS no existen en la instancia objetivo | 6 `.sql` sin ejecutar contra destino | 0.5 sprint |
+| 4 | **Backend no arrancado en dev** | Frontend no tiene API que consumir | `npm run dev` no ejecutado; solo typecheck verificado | 0.25 sprint |
+
+### 🟠 GAP ALTAS — Calidad de integración (no bloquean pero degradan)
+
+| # | Brecha | Detalle |
+|:--|:-------|:--------|
+| 5 | **Tests backend dependen de BD** | 51 tests caen por DB ausente (esperado, no bloqueante) — no dan señal de salud real |
+| 6 | **E2E Playwright no ejecutado** | Requiere app en :3000; `web/playwright-report` existe pero sin corrida reciente |
+| 7 | **Dos frontends coexisten** | `src/shared/public/js/*` (vanilla, legacy) + `web/` (Next.js). Riesgo de divergencia/maintenance |
+| 8 | **Mobile RN esqueleto** | `mobile/` existe pero es MVP inicial (Sprint 78) |
+
+### 🟡 LO QUE YA ESTÁ SÓLIDO (no es GAP)
+
+- Backend: 30+ módulos, typecheck 0 errores, RLS multi-tenant, SIFEN V150, WhatsApp, DVI, Thinkcar, AI DTC
+- Frontend: Next.js 30+ páginas, cliente API tipado, React Query, PWA
+- BD: esquema Drizzle completo (workshop/finance/inventory/tenants/security), 6 migraciones generadas
+
+### 🎯 Plan de cierre del GAP (orden)
+
+1. **Corregir `.env`** — quitar comillas de `DATABASE_URL` (y `.env.example`).
+2. **Levantar PostgreSQL** — `docker compose up -d` (ver `docker-compose.yml`) o apuntar a Neon/Supabase.
+3. **Aplicar migraciones** — `npm run db:migrate` (o `tsx src/shared/database/run-migrations.ts`).
+4. **Arrancar backend** — `npm run dev:backend` y validar `/health`, `/health/modules`.
+5. **Arrancar frontend** — `npm run dev:frontend`; verificar una página (ej. Taller) consume API real.
+6. **Ejecutar E2E** — `cd web && npx playwright test` contra :3000.
+7. **(Opcional)** Decidir destino de `src/shared/public/js` (legacy) para evitar divergencia.
+
+**Conclusión:** El proyecto NO tiene GAP de funcionalidad mayor; tiene un **GAP de puesta en marcha (runtime)**. Cerrando los puntos 1–5 el sistema queda operativo end-to-end.
+
+---
+
+## ✅ Cierre de GAP de Código — 2026-07-16
+
+> Código pendiente cerrado (BD y Mobile excluidos por decisión del usuario).
+> Verificación: `npx tsc --noEmit` → 0 errores.
+
+### Cerrado
+
+| # | Ítem | Archivo | Cambio |
+|:--|:-----|:--------|:-------|
+| 1 | Ruta `GET /thinkcar/dtc/lookup/:code` (faltaba) | `src/modules/thinkcar/routes/index.ts` | Nueva ruta que expone `getDtcDefinition()` (diccionario OBD-II de `intelligence`). Mapea `DtcDefinition` → `DtcLookup` del frontend (`system` por prefijo P/C/B/U, `possibleCauses`←`suggestedParts`, `recommendedActions`←`suggestions`). Devuelve `found:false` si no existe (no 404). |
+| 2 | Mismatch `/audit/log` vs `/audit` | `src/modules/enterprise/routes/audit-enterprise.routes.ts` | Alias `GET /log` que delega a `queryAuditLog` con los mismos filtros. Resuelve el 404 del frontend (`api.ts → listAuditLog`). |
+| 3 | TODO `thisWeek: 0` en stats de scheduling | `src/modules/scheduling/services/agendamiento.service.ts` | Implementada consulta de rango semanal (Lun→Dom) con `gte`/`lte` sobre `fechaTurno`. |
+| 4 | TODO `hitRate: 0` en cache | `src/shared/middleware/response-cache.ts` | Contadores `cacheHits`/`cacheMisses` actualizados en hit/miss; `getCacheStats()` ahora devuelve `hits`, `misses`, `hitRate` real. |
+
+### No cerrado (requiere nuevo módulo/tabla — fuera de alcance "código pendiente")
+
+| # | Ítem | Razón |
+|:--|:-----|:------|
+| 5 | `centralization.service.ts` — tabla `compras` placeholder | Requiere crear módulo/tabla de compras (nuevo schema + migración). Stub intencional. |
+| 6 | `ire.service.ts` — deducciones donaciones placeholder | Requiere módulo de donaciones (no existe). Stub intencional. |
+| 7 | `sifen-crypto.service.ts` — firma "development placeholder" | Marcador deliberado de modo dev para firma SIFEN; cambiarlo sin certificado fiscal real introduce riesgo. Se deja como está. |
+
+**Estado final código:** 0 TODO/FIXME reales pendientes (solo quedan stubs de diseño que dependen de módulos nuevos). Typecheck limpio. Lo único que resta para operatividad es el GAP de runtime/BD (sección anterior).

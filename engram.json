@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 77 COMPLETED — White-label + Custom Domain",
-    "next_sprint": "Sprint 78 — Mobile + AI (Conejo de Indias Fase 3)",
+    "current_sprint": "Sprint 78 IN PROGRESS — Mobile App (React Native) + AI",
+    "next_sprint": "Sprint 79 — AI Features (Predictive, Copilot)",
     "sprint_77_progress": {
       "goal": "White-label branding + custom domain / subdomain tenant resolution",
       "duration": "1 week",
@@ -83,6 +83,78 @@
       ],
       "files_created": ["src/shared/database/migrations/0005_white_label.sql", "tests/sprint77.test.ts"],
       "files_modified": ["src/shared/database/schema/index.ts", "src/shared/middleware/tenant-resolver.ts", "src/shared/public/js/theme.js", "src/shared/public/app.js"]
+    },
+    "sprint_76_progress": {
+      "goal": "Data Export + Import + Migration Tools (Enterprise)",
+      "duration": "2 weeks",
+      "priority": "HIGH",
+      "completed_date": "2026-07-15",
+      "tasks": [
+        {
+          "id": "S76-1",
+          "name": "Data Export Service",
+          "description": "data-export.service.ts — generateCsvExport, formatCellValue, validateExportOptions; supports work_orders, invoices, clients, vehicles, inventory, treasury",
+          "status": "COMPLETED",
+          "files": ["src/modules/enterprise/services/data-export.service.ts"]
+        },
+        {
+          "id": "S76-2",
+          "name": "Enterprise audit migration",
+          "description": "Migration 0004 creates enterprise audit tables; registered in schema barrel",
+          "status": "COMPLETED",
+          "files": ["src/shared/database/migrations/0004_enterprise_audit.sql"]
+        }
+      ],
+      "success_criteria": [
+        "Export service supports all 6 entity types",
+        "Migration 0004 compiles; 11 sprint76 tests passing"
+      ],
+      "files_created": ["src/modules/enterprise/services/data-export.service.ts", "src/shared/database/migrations/0004_enterprise_audit.sql", "tests/sprint76.test.ts"],
+      "note": "Backfilled 2026-07-16 — engram previously jumped 69→77, omitting this entry."
+    },
+    "sprint_78_progress": {
+      "goal": "Mobile App (React Native) — Full client + backend push infrastructure",
+      "duration": "3 weeks",
+      "priority": "HIGH",
+      "started_date": "2026-07-16",
+      "status": "IN_PROGRESS",
+      "tasks": [
+        {
+          "id": "S78-1",
+          "name": "Backend mobile module (push tokens)",
+          "description": "mobilePushTokens schema already existed; added mobile.routes.ts (POST/DELETE/GET /mobile/push-token, GET /mobile/health) with resolveTenant hook, mobile.plugin.ts, schema barrel export, registered in app.ts",
+          "status": "COMPLETED",
+          "files": ["src/modules/mobile/routes/mobile.routes.ts", "src/modules/mobile/plugin.ts", "src/shared/database/schema/index.ts", "src/app.ts"]
+        },
+        {
+          "id": "S78-2",
+          "name": "Mobile client push API + wiring",
+          "description": "api.registerPushToken/unregisterPushToken/listPushTokens added; push.ts registers token on login (expo-notifications/device/application), unregisters on logout; LoginScreen + AuthContext wired",
+          "status": "COMPLETED",
+          "files": ["mobile/src/api/client.ts", "mobile/src/notifications/push.ts", "mobile/src/screens/LoginScreen.tsx", "mobile/src/auth/AuthContext.tsx", "mobile/package.json"]
+        },
+        {
+          "id": "S78-3",
+          "name": "Sprint 78 tests",
+          "description": "tests/sprint78.test.ts — 9 tests: schema barrel export, plugin/routes existence, tenant isolation, upsert behavior",
+          "status": "COMPLETED",
+          "files": ["tests/sprint78.test.ts"]
+        }
+      ],
+      "remaining": [
+        "S78-4 DVI camera capture screen (Expo Camera)",
+        "S78-5 Thinkcar OBD2 Bluetooth connection screen",
+        "S78-6 Barcode stock scanning (Almacén)",
+        "S78-7 Push notification handler + OT assignment screen",
+        "S78-8 E2E: login → Mis OTs → HV lockout sign on device"
+      ],
+      "success_criteria": [
+        "Backend /mobile/* endpoints resolve tenant + persist push tokens",
+        "Mobile app logs in, registers push token, lists OTs, signs HV lockout",
+        "9 sprint78 backend tests passing; mobile typechecks"
+      ],
+      "files_created": ["src/modules/mobile/routes/mobile.routes.ts", "src/modules/mobile/plugin.ts", "mobile/src/notifications/push.ts", "tests/sprint78.test.ts"],
+      "files_modified": ["src/shared/database/schema/index.ts", "src/app.ts", "mobile/src/api/client.ts", "mobile/src/screens/LoginScreen.tsx", "mobile/src/auth/AuthContext.tsx", "mobile/package.json"]
     },
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",

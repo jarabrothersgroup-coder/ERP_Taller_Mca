@@ -29,6 +29,7 @@ import {
 } from "../../schema/index.js";
 import { ValidationError } from "../../../../shared/errors/app-error.js";
 import type { CalcularIreRequest, IreResult } from "../../types.js";
+import { getDonacionesTotalByPeriod } from "../donaciones.service.js";
 
 // ─── Constants ──────────────────────────────────
 
@@ -175,8 +176,12 @@ export async function calcularIre(
     total: parseFloat(gastos?.administrativos ?? "0") + parseFloat(gastos?.ventas ?? "0"),
   };
 
-  // Deducciones adicionales (placeholder — se poblarán con el módulo de donaciones)
-  const donacionesVal = 0;
+  // Deducciones adicionales — donaciones deducibles del módulo de donaciones
+  // IRE es anual: suma las donaciones de los 12 meses del ejercicio.
+  let donacionesVal = 0;
+  for (let m = 1; m <= 12; m++) {
+    donacionesVal += await getDonacionesTotalByPeriod(tenantSlug, anho, m);
+  }
   const otrasDeduccionesVal = 0;
 
   // ── 7. Calcular según formulario ──

@@ -479,6 +479,14 @@ async function buildApp() {
     (await import("./modules/enterprise/plugin.js")).default,
   );
 
+  // ─── Mobile Module (Sprint 78) ────────────────
+  // Backend for the React Native app: push token management + health.
+  // Routes: /mobile/*
+  await app.register(
+    (await import("./modules/mobile/plugin.js")).mobilePlugin,
+  );
+  app.log.info("Mobile module registered (/mobile)");
+
   // ─── API Keys Module (Sprint 70) ──────────────
   // External API key management for SaaS integrations.
   // Routes: /api-keys/*
