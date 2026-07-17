@@ -48,6 +48,7 @@ function makeRequest(overrides: Record<string, any> = {}) {
     headers: {},
     tenantSlug: "test-tenant",
     profile: undefined,
+    log: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
     ...overrides,
   } as any;
 }

@@ -16,7 +16,7 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { whatsappMessages } from "../schema/whatsapp-log.js";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import {
   sendTextMessage,
   sanitizePhone,
@@ -199,7 +199,7 @@ export async function retryFailedMessages(
 
   const conditions = [
     eq(whatsappMessages.status, "FAILED"),
-    sql`${whatsappMessages.createdAt} > ${oneHourAgo}`,
+    gt(whatsappMessages.createdAt, oneHourAgo),
   ];
   if (tenantSlug) {
     conditions.push(eq(whatsappMessages.tenantSlug, tenantSlug));

@@ -35,8 +35,8 @@ async function thinkcarPlugin(app: FastifyInstance): Promise<void> {
         `[Thinkcar] Email polling iniciado (intervalo: ${emailInterval}ms)`,
       );
     } else {
-      app.log.warn(
-        "[Thinkcar] THINKCAR_EMAIL_USER no configurado — email deshabilitado",
+      app.log.info(
+        "[Thinkcar] THINKCAR_EMAIL_USER no configurado — email polling deshabilitado (feature opcional)",
       );
     }
   }

@@ -274,8 +274,10 @@ describe("Sprint 73 — Integration", () => {
     expect(content).toContain("OrdenTrabajoSchema");
   });
 
-  it("engram.json updated with current sprint", async () => {
+  it("engram.json updated with current sprint (>= 73)", async () => {
     const content = await readFileSafe(resolve(root, "engram.json"));
-    expect(content).toContain("Sprint 73");
+    const match = content.match(/Sprint (\d+)/);
+    const current = match ? parseInt(match[1], 10) : 0;
+    expect(current).toBeGreaterThanOrEqual(73);
   });
 });

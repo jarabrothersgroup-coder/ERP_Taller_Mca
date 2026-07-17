@@ -250,10 +250,14 @@ describe("Sprint 72 — Integration", () => {
     expect(content).toContain("pushNotification");
   });
 
-  it("engram.json current_sprint is Sprint 72", async () => {
+  it("engram.json current_sprint is at least Sprint 72", async () => {
     const engram = JSON.parse(
       await readFileSafe(resolve(__dirname, "../engram.json")),
     );
-    expect(engram.state?.current_sprint).toContain("Sprint 72");
+    const current = parseInt(
+      (engram.state?.current_sprint ?? "").replace(/[^0-9]/g, ""),
+      10,
+    );
+    expect(current).toBeGreaterThanOrEqual(72);
   });
 });

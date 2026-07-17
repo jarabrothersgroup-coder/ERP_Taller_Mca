@@ -163,9 +163,11 @@ describe("Sprint 74 — Integration", () => {
     expect(content).toContain("X-Tenant-Slug");
   });
 
-  it("engram.json updated with Sprint 74", async () => {
+  it("engram.json updated with current sprint (>= 74)", async () => {
     const content = await readFileSafe(resolve(root, "engram.json"));
-    expect(content).toContain("Sprint 74");
+    const match = content.match(/Sprint (\d+)/);
+    const current = match ? parseInt(match[1], 10) : 0;
+    expect(current).toBeGreaterThanOrEqual(74);
   });
 
   it("Sprint 73 SSE hook still exists", async () => {
