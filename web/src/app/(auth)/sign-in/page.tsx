@@ -2,10 +2,33 @@
 
 export const dynamic = "force-dynamic";
 
-import { SignIn } from "@clerk/nextjs";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/session-provider";
 import { Car, Loader2 } from "lucide-react";
 
 export default function SignInPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+  const [tenantSlug, setTenantSlug] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const result = await login(tenantSlug, email, password);
+    setLoading(false);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       {/* Background pattern */}
@@ -26,7 +49,7 @@ export default function SignInPage() {
           </p>
         </div>
 
-        {/* Clerk SignIn component */}
+        {/* Login form */}
         <div className="rounded-xl border bg-card p-6 shadow-lg">
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">Iniciar Sesión</h2>
@@ -35,21 +58,59 @@ export default function SignInPage() {
             </p>
           </div>
 
-          <SignIn
-            routing="hash"
-            appearance={{
-              elements: {
-                rootBox: "w-full",
-                card: "shadow-none border-0 bg-transparent p-0",
-                headerTitle: "hidden",
-                headerSubtitle: "hidden",
-                socialButtonsBlockButton: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                formFieldLabel: "text-sm font-medium",
-                formButtonPrimary: "bg-orange-500 hover:bg-orange-600 text-white",
-                footerActionLink: "text-primary hover:underline",
-              },
-            }}
-          />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Taller</label>
+              <input
+                type="text"
+                value={tenantSlug}
+                onChange={(e) => setTenantSlug(e.target.value)}
+                placeholder="mi-taller"
+                required
+                className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@taller.com"
+                required
+                className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Ingresar"
+              )}
+            </button>
+          </form>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">

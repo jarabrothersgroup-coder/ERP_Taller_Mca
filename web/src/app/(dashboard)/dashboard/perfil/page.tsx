@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -55,7 +55,7 @@ function ProfileSkeleton() {
 /* ── Main Page ──────────────────────────────── */
 
 export default function ProfilePage() {
-  const { user, isLoaded } = useUser();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [editing, setEditing] = React.useState(false);
   const [editName, setEditName] = React.useState("");
@@ -65,17 +65,17 @@ export default function ProfilePage() {
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
 
   React.useEffect(() => {
-    if (isLoaded && !user) {
+    if (!loading && !user) {
       router.push("/sign-in");
     }
-  }, [isLoaded, user, router]);
+  }, [loading, user, router]);
 
-  if (!isLoaded) return <ProfileSkeleton />;
+  if (loading) return <ProfileSkeleton />;
   if (!user) return <ProfileSkeleton />;
 
-  const displayName = user.fullName || user.primaryEmailAddress?.emailAddress || "";
-  const email = user.primaryEmailAddress?.emailAddress || "";
-  const role = (user.publicMetadata?.role as string) || "user";
+  const displayName = user.fullName || user.email || "";
+  const email = user.email || "";
+  const role = user.role || "user";
   const roleInfo = roleConfig[role] ?? roleConfig.user;
 
   const startEditing = () => {
@@ -160,7 +160,7 @@ export default function ProfilePage() {
           />
 
           <ProfileSessionCard
-            tenantSlug={user.organizationMemberships?.[0]?.organization?.name || "demo"}
+            tenantSlug={user.tenantName || "demo"}
             sessionExpires={new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()}
           />
 

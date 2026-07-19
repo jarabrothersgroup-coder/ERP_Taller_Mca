@@ -1,10 +1,8 @@
 /**
- * Clerk authentication for AutomotiveOS ERP
+ * Auth — local JWT authentication for AutomotiveOS ERP.
  *
- * Replaces NextAuth.js v5 with Clerk for SaaS-ready auth.
- * Clerk handles login, signup, password reset, MFA, and organizations.
- *
- * Backend JWT verification uses Clerk's JWKS endpoint.
+ * Backend handles JWT verification. Frontend stores token in localStorage.
  */
 
-export { auth, currentUser } from "@clerk/nextjs/server";
+// No Clerk exports needed. Auth is handled via AuthContext.
+export {};

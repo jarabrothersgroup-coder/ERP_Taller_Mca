@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 import { useRouter } from "next/navigation";
 import { Car, Building2, Users, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 
@@ -30,7 +30,7 @@ const formasJuridicas = [
 ];
 
 export default function OnboardingWizard() {
-  const { user } = useUser();
+  const { user } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
