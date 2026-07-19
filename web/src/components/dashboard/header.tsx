@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 import { Menu, Bell, LogOut, ChevronDown, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +38,7 @@ function ThemeToggleButton() {
 /* ── Header ──────────────────────────────────── */
 
 export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
-  const { user } = useUser();
-  const { signOut } = useAuth();
+  const { user, logout } = useAuth();
   const initials = user?.fullName
     ? user.fullName
         .split(" ")
@@ -47,10 +46,10 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         .join("")
         .slice(0, 2)
         .toUpperCase()
-    : user?.primaryEmailAddress?.emailAddress?.slice(0, 2).toUpperCase() ?? "??";
+    : user?.email?.slice(0, 2).toUpperCase() ?? "??";
 
-  const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Usuario";
-  const role = (user?.publicMetadata?.role as string) || "user";
+  const displayName = user?.fullName || user?.email || "Usuario";
+  const role = user?.role || "user";
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
@@ -71,7 +70,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         {/* Tenant badge */}
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-1.5">
           <span className="text-sm font-medium hidden sm:inline capitalize">
-            {user?.organizationMemberships?.[0]?.organization?.name || "demo"}
+            {user?.tenantName || "demo"}
           </span>
         </div>
       </div>
@@ -122,7 +121,7 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => signOut({ redirectUrl: "/sign-in" })}
+          onClick={logout}
           className="text-muted-foreground hover:text-destructive transition-colors"
           aria-label="Cerrar sesión"
         >

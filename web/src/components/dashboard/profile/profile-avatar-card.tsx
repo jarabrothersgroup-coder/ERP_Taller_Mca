@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PasswordChangeDialog } from "./password-change-dialog";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 
 export function ProfileAvatarCard({
   user,
@@ -15,7 +15,7 @@ export function ProfileAvatarCard({
   user: { name: string; email: string; role: string; id?: string };
   roleInfo: { label: string; color: string; bgColor: string };
 }) {
-  const { signOut } = useAuth();
+  const { logout } = useAuth();
   const initials = user.name
     ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "??";
@@ -47,7 +47,7 @@ export function ProfileAvatarCard({
               variant="outline"
               size="sm"
               className="gap-2 text-muted-foreground justify-start hover:text-destructive hover:border-destructive/30"
-              onClick={() => signOut({ redirectUrl: "/sign-in" })}
+              onClick={logout}
             >
               <LogOut className="h-3.5 w-3.5" />
               Cerrar sesión

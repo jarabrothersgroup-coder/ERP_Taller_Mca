@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { setTenantSlug } from "@/lib/data-service";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { user } = useUser();
+  const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 

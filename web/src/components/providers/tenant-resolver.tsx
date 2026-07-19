@@ -1,29 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth } from "@/components/providers/session-provider";
 import { setTenantSlug } from "@/lib/api";
 
 /**
- * Reads the Clerk user's publicMetadata.tenantSlug (or org slug)
+ * Reads the user's tenantSlug from the JWT auth context
  * and sets it on the API client so all subsequent requests use the
  * correct tenant header.
  */
 export function TenantResolver() {
-  const { user, isLoaded } = useUser();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!isLoaded || !user) return;
-
-    const slug =
-      (user.publicMetadata as Record<string, unknown>)?.tenantSlug as
-        | string
-        | undefined;
-
-    if (slug) {
-      setTenantSlug(slug);
-    }
-  }, [user, isLoaded]);
+    if (loading || !user) return;
+    setTenantSlug(user.tenantSlug);
+  }, [user, loading]);
 
   return null;
 }

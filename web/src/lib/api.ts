@@ -126,7 +126,7 @@ export interface Client {
 
 let _tenantSlug: string | undefined;
 
-/** Set the tenant slug from Clerk user's organization or session */
+/** Set the tenant slug from JWT user data or session */
 export function setTenantSlug(slug: string): void {
   _tenantSlug = slug;
 }
@@ -148,20 +148,14 @@ class ApiError extends Error {
   }
 }
 
-/** Get the current JWT token from Clerk (client-side) */
+/** Get the current JWT token from localStorage */
 async function getAuthToken(): Promise<string | undefined> {
   if (typeof window === "undefined") return undefined;
   try {
-    // Use Clerk's getSession() from the ClerkProvider context
-    // The token is available via the Clerk object attached to window
-    const clerk = (window as unknown as { Clerk?: { session?: { getToken: () => Promise<string | null> } } }).Clerk;
-    if (clerk?.session?.getToken) {
-      return (await clerk.session.getToken()) ?? undefined;
-    }
+    return localStorage.getItem("auth_token") ?? undefined;
   } catch {
-    // Ignore errors — proceed without token
+    return undefined;
   }
-  return undefined;
 }
 
 async function request<T>(

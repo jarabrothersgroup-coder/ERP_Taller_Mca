@@ -2,7 +2,6 @@
 
 export const dynamic = "force-dynamic";
 
-import { SignUp } from "@clerk/nextjs";
 import { Car } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,27 +30,17 @@ export default function RegisterPage() {
           <div className="text-center mb-4">
             <h2 className="text-lg font-semibold">Registrar Taller</h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Completá los datos para crear tu cuenta
+              Los usuarios son creados por el administrador del taller.
+              Contactá al administrador para obtener acceso.
             </p>
           </div>
 
-          <SignUp
-            routing="hash"
-            appearance={{
-              elements: {
-                rootBox: "w-full",
-                card: "shadow-none border-0 bg-transparent p-0",
-                headerTitle: "hidden",
-                headerSubtitle: "hidden",
-                socialButtonsBlockButton: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-                formFieldLabel: "text-sm font-medium",
-                formButtonPrimary: "bg-orange-500 hover:bg-orange-600 text-white",
-                footerActionLink: "text-primary hover:underline",
-              },
-            }}
-            afterSignUpUrl="/onboarding"
-            signInUrl="/sign-in"
-          />
+          <button
+            onClick={() => router.push("/sign-in")}
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 transition-colors"
+          >
+            Ir a Iniciar Sesión
+          </button>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
