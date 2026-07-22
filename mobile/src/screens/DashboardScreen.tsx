@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useDashboard, useWorkOrders, useBalanceGeneral, useEstadoResultados } from "../hooks/use-data";
+import { LoadingSpinner, FadeInView, AnimatedEmptyState } from "../components/AnimatedComponents";
 
 function StatCard({
   label,
@@ -166,9 +167,7 @@ export default function DashboardScreen({ navigation }: any) {
 
       {/* Financial Metrics Cards */}
       {(isLoadingBalance || isLoadingEstadoResultados) ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Cargando datos financieros...</Text>
-        </View>
+        <LoadingSpinner message="Cargando datos financieros..." />
       ) : (
         <View style={styles.financialGrid}>
           {/* Balance General Cards */}
@@ -274,14 +273,15 @@ export default function DashboardScreen({ navigation }: any) {
         </View>
 
         {recentOrders.length === 0 && !isLoading ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
-            <Text style={styles.emptyText}>No hay órdenes recientes</Text>
-          </View>
+          <AnimatedEmptyState
+            icon="document-text-outline"
+            title="No hay órdenes recientes"
+            subtitle="Las órdenes de trabajo aparecerán aquí"
+          />
         ) : (
-          recentOrders.map((order) => (
+          recentOrders.map((order, idx) => (
+            <FadeInView key={order.id} delay={idx * 80}>
             <TouchableOpacity
-              key={order.id}
               style={styles.orderCard}
               onPress={() => navigation.navigate("WorkOrderDetail", { id: order.id })}
             >
@@ -303,6 +303,7 @@ export default function DashboardScreen({ navigation }: any) {
                 )}
               </View>
             </TouchableOpacity>
+            </FadeInView>
           ))
         )}
       </View>
@@ -374,15 +375,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   actionLabel: { fontSize: fontSize.sm, fontWeight: "500", color: colors.text },
-  emptyCard: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.xxl,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.sm },
   orderCard: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -430,15 +422,6 @@ const styles = StyleSheet.create({
   },
   monthChipTextActive: {
     color: colors.textInverse,
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    fontStyle: "italic",
   },
   financialGrid: {
     flexDirection: "row",
