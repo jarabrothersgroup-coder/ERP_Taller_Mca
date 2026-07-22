@@ -9,6 +9,7 @@
 import { getSession } from "../auth/session";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000";
+export { BACKEND_URL };
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const session = await getSession();
@@ -336,4 +337,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // ── Notifications (Sprint 82) ──────────────────
+  listNotifications: (params?: { leido?: boolean; tipo?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.leido !== undefined) qs.set("leido", String(params.leido));
+    if (params?.tipo) qs.set("tipo", params.tipo);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<any[]>(`/api/notifications${query ? `?${query}` : ""}`);
+  },
+
+  markNotificationRead: (id: string) =>
+    request<{ ok: boolean }>(`/api/notifications/${id}/read`, { method: "PATCH" }),
+
+  markAllNotificationsRead: () =>
+    request<{ ok: boolean }>("/api/notifications/read-all", { method: "POST" }),
+
+  getUnreadNotificationCount: () =>
+    request<{ count: number }>("/api/notifications/count"),
 };

@@ -21,6 +21,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
+import { api } from "../api/client";
 
 interface ScannedItem {
   barcode: string;
@@ -53,22 +54,44 @@ export default function BarcodeScannerScreen({ route, navigation }: any) {
     setLastScan(data);
     setScanCount((c) => c + 1);
 
-    if (mode === "LOOKUP") {
-      // Look up item and show result
-      Alert.alert(
-        "Producto Encontrado",
-        `Código: ${data}\nDescripción: Filtro de Aceite (simulado)\nStock: 15 unidades`,
-        [
-          { text: "Cerrar", style: "cancel" },
-          {
-            text: "Ver Detalle",
-            onPress: () => {
-              // Navigate to inventory detail
-              navigation.navigate("InventoryDetail", { barcode: data });
+    const handleLookup = async () => {
+      try {
+        const result = await api.lookupByBarcode(data);
+        const rep = result.repuesto;
+        Alert.alert(
+          "Producto Encontrado",
+          `Código: ${data}\nDescripción: ${rep?.descripcion ?? "—"}\nStock: ${rep?.stock ?? "—"} unidades`,
+          [
+            { text: "Cerrar", style: "cancel" },
+            {
+              text: "Ver Detalle",
+              onPress: () => {
+                navigation.navigate("InventoryDetail", { barcode: data });
+              },
             },
-          },
-        ],
-      );
+          ],
+        );
+      } catch (err) {
+        Alert.alert("No encontrado", `No se encontró un producto con código: ${data}`);
+      }
+    };
+
+    const handleStockMovement = async (tipo: "ENTRADA" | "SALIDA") => {
+      try {
+        const result = await api.lookupByBarcode(data);
+        await api.recordStockMovement({
+          repuestoId: result.repuesto?.id ?? data,
+          tipo,
+          cantidad: 1,
+        });
+        Alert.alert("Éxito", `${tipo} de stock registrada para ${data}.`);
+      } catch (err: any) {
+        Alert.alert("Error", err?.message ?? `No se pudo registrar la ${tipo.toLowerCase()}.`);
+      }
+    };
+
+    if (mode === "LOOKUP") {
+      handleLookup();
     } else if (mode === "ENTRADA" || mode === "SALIDA") {
       const action = mode === "ENTRADA" ? "Entrada" : "Salida";
       Alert.alert(
@@ -78,9 +101,7 @@ export default function BarcodeScannerScreen({ route, navigation }: any) {
           { text: "Cancelar", style: "cancel" },
           {
             text: `Confirmar ${action}`,
-            onPress: () => {
-              Alert.alert("Éxito", `${action} de stock registrada para ${data}.`);
-            },
+            onPress: () => handleStockMovement(mode as "ENTRADA" | "SALIDA"),
           },
         ],
       );
