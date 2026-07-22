@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 81 COMPLETED — AI Features (Predictive, Copilot)",
-    "next_sprint": "Sprint 82 — Mobile App Finalization (DVI, Thinkcar OBD2, Barcode Scanner) & Performance",
+    "current_sprint": "Sprint 80/81 COMPLETED — Accounting Configurators & GAP Closure",
+    "next_sprint": "Sprint 82 — Mobile App Finalization (DVI, Thinkcar OBD2, Barcode Scanner, Push Notifications) & Performance",
     "sprint_77_progress": {
       "goal": "White-label branding + custom domain / subdomain tenant resolution",
       "duration": "1 week",
@@ -284,42 +284,112 @@
       ]
     },
     "sprint_81_progress": {
-      "goal": "AI Features — Intelligence module audit & completion (Predictive Maintenance, AI DTC Copilot, OCR, RAG, HV Safety)",
-      "duration": "1 week",
+      "goal": "GAP Closure — Accounting GAPs 01-05 + Financial Statements React Pages + Deploy",
+      "duration": "2 semanas",
       "priority": "HIGH",
       "completed_date": "2026-07-22",
       "tasks": [
         {
-          "id": "S81-1",
-          "name": "Intelligence module audit",
-          "description": "Audited 25 existing .ts files in src/modules/intelligence: plugin, routes (dtc, ocr, safety, vehicle-intelligence, ai-dtc-assistant, locale), services (diagnostic-engine, dtc-parser, hv-safety, ocr, ai-dtc-assistant, vehicle-intelligence, async-processor), RAG (manual-ingestion, rag-routes, rag-schema), visual (VisualStreamGateway, plugin), utils (dtc-database, multipart-loader), types",
+          "id": "GAP-01",
+          "name": "Pre-transaction validator service",
+          "description": "Valida antes de emitir asientos: verifica mapping exista, cuentas activas, centro costo válido, monto positivo. Retorna errores/advertencias detallados.",
           "status": "COMPLETED",
-          "files": []
+          "files": ["src/modules/finance/services/accounting/pre-transaction-validator.service.ts", "src/modules/finance/routes/accounting.ts", "src/modules/finance/services/index.ts"]
         },
         {
-          "id": "S81-2",
-          "name": "Frontend build fix — dynamic export conflict",
-          "description": "Fixed web/src/app/layout.tsx: renamed `import dynamic from next/dynamic` to `import nextDynamic` to resolve naming conflict with `export const dynamic = force-dynamic`. Added `force-dynamic` to root layout to prevent static generation errors with next-intl. Added `force-dynamic` to offline/page.tsx.",
+          "id": "GAP-02",
+          "name": "Credit/Debit notes auto-generation",
+          "description": "Genera Notas de Crédito/Débito automáticas al revertir facturas. Resuelve cuentas desde cuenta_mapping o fallback por defecto. Vincula NC/ND al asiento de reversión.",
           "status": "COMPLETED",
-          "files": ["web/src/app/layout.tsx", "web/src/app/offline/page.tsx"]
+          "files": ["src/modules/finance/services/accounting/credit-debit-note.service.ts", "src/modules/finance/routes/accounting.ts"]
         },
         {
-          "id": "S81-3",
-          "name": "PC01Tmca production deploy",
-          "description": "Built and deployed production frontend on PC01Tmca. Created deploy/deploy-frontend-pc01tmca.sh with git pull, npm install, next build, server restart, and HTTP verification.",
+          "id": "GAP-03a",
+          "name": "Cash Flow Statement (Estado de Flujo de Efectivo)",
+          "description": "Método indirecto: utilidad neta → ajustes no efectivo → capital trabajo → inversión → financiamiento. Verificación con saldos de caja.",
           "status": "COMPLETED",
-          "files": ["deploy/deploy-frontend-pc01tmca.sh"]
+          "files": ["src/modules/finance/services/accounting/cash-flow.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/flujo-efectivo/page.tsx"]
+        },
+        {
+          "id": "GAP-03b",
+          "name": "Equity Statement (Estado de Evolución del Patrimonio)",
+          "description": "Capital, reservas y resultados con saldos inicial/final por cuenta. Incluye resultado del ejercicio y variación patrimonial.",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/equity-statement.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/evolucion-patrimonio/page.tsx"]
+        },
+        {
+          "id": "GAP-03c",
+          "name": "Financial Notes (Notas a los Estados Financieros)",
+          "description": "11 notas automáticas: base preparación, políticas contables, efectivo, CxC, inventarios, activos fijos, CxP, patrimonio, ingresos/gastos, contingencias, balance. Datos reales con fallback graceful.",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/financial-notes.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/notas-financieras/page.tsx"]
+        },
+        {
+          "id": "GAP-04",
+          "name": "Conciliación bancaria (verificación)",
+          "description": "Ya existente en treasury.service.ts con iniciarConciliacion/cerrarConciliacion/listConciliaciones. Verificado y documentado.",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/treasury/treasury.service.ts", "src/modules/finance/schema/treasury.ts"]
+        },
+        {
+          "id": "GAP-05",
+          "name": "Libros IVA Compras y Ventas",
+          "description": "Libro de Compras IVA (desde facturas_proveedor) y Libro de Ventas IVA (desde facturas). Cálculo de IVA 10%. Formato JSON/CSV.",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/libro-compras-iva.service.ts", "src/modules/finance/services/accounting/libro-ventas-iva.service.ts", "src/modules/finance/routes/accounting.ts"]
+        },
+        {
+          "id": "GAP-06",
+          "name": "Depreciación mensual automática (verificación)",
+          "description": "Ya existente en depreciation.service.ts con runMonthlyDepreciation, generateToolDepreciation, generateFixedAssetDepreciation, createDepreciationAsiento. Opera independientemente del cierre mensual.",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/depreciation.service.ts"]
+        },
+        {
+          "id": "S81-SIDEBAR",
+          "name": "Sidebar menu actualizado",
+          "description": "3 nuevos ítems en sidebar: Flujo Efectivo, Patrimonio, Notas EE.FF. con iconos TrendingUp, Landmark, ScrollText.",
+          "status": "COMPLETED",
+          "files": ["web/src/components/dashboard/sidebar.tsx"]
+        },
+        {
+          "id": "S81-TESTS",
+          "name": "Tests para GAP services",
+          "description": "sprint81-gap.test.ts: 19 tests estructurales/behaviorales para libro-compras-iva, libro-ventas-iva, pre-transaction-validator, credit-debit-note, cash-flow, equity-statement.",
+          "status": "COMPLETED",
+          "files": ["tests/sprint81-gap.test.ts"]
         }
       ],
       "success_criteria": [
-        "Intelligence module audited — 25 files across 6 functional areas",
-        "Frontend builds with 0 errors (dynamic export conflict resolved)",
-        "Frontend deployed on PC01Tmca production mode",
-        "Tests: 1689/1689 passing, 76/76 test files",
-        "TypeScript: 0 errors"
+        "TypeScript: 0 errores (frontend + backend)",
+        "38 tests pasan (19 sprint90 + 19 sprint81-gap)",
+        "4 GAPs implementados y 2 GAPs verificados como existentes",
+        "API endpoints operativos para todos los nuevos servicios",
+        "React dashboard pages con carga/error/vacío/impresión",
+        "Sidebar actualizado con accesos directos",
+        "Código pusheado a GitHub (commit bf85fff)",
+        "PC01Tmca actualizado con git pull"
       ],
-      "files_created": ["deploy/deploy-frontend-pc01tmca.sh"],
-      "files_modified": ["web/src/app/layout.tsx", "web/src/app/offline/page.tsx", "engram.json"]
+      "files_created": [
+        "src/modules/finance/services/accounting/pre-transaction-validator.service.ts",
+        "src/modules/finance/services/accounting/credit-debit-note.service.ts",
+        "src/modules/finance/services/accounting/cash-flow.service.ts",
+        "src/modules/finance/services/accounting/equity-statement.service.ts",
+        "src/modules/finance/services/accounting/financial-notes.service.ts",
+        "src/modules/finance/services/accounting/libro-compras-iva.service.ts",
+        "src/modules/finance/services/accounting/libro-ventas-iva.service.ts",
+        "tests/sprint81-gap.test.ts",
+        "web/src/app/(dashboard)/dashboard/contabilidad/flujo-efectivo/page.tsx",
+        "web/src/app/(dashboard)/dashboard/contabilidad/evolucion-patrimonio/page.tsx",
+        "web/src/app/(dashboard)/dashboard/contabilidad/notas-financieras/page.tsx"
+      ],
+      "files_modified": [
+        "src/modules/finance/services/index.ts",
+        "src/modules/finance/routes/accounting.ts",
+        "web/src/lib/api.ts",
+        "web/src/components/dashboard/sidebar.tsx",
+        "web/src/app/(dashboard)/dashboard/contabilidad/page.tsx"
+      ]
     },
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",
