@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useVehicles } from "../hooks/use-data";
 import type { Vehicle } from "../api/client";
+import { FadeInView, AnimatedEmptyState, LoadingSpinner } from "../components/AnimatedComponents";
 
 const engineColors: Record<string, string> = {
   Nafta: colors.info,
@@ -102,19 +103,24 @@ export default function VehiclesScreen({ navigation }: any) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => (
-          <VehicleCard
-            vehicle={item}
-            onPress={() => navigation.navigate("VehicleDetail", { id: item.id })}
-          />
+        renderItem={({ item, index }) => (
+          <FadeInView delay={index * 50}>
+            <VehicleCard
+              vehicle={item}
+              onPress={() => navigation.navigate("VehicleDetail", { id: item.id })}
+            />
+          </FadeInView>
         )}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.empty}>
-              <Ionicons name="car-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No hay vehículos registrados</Text>
-            </View>
-          ) : null
+          isLoading ? (
+            <LoadingSpinner message="Cargando vehículos..." />
+          ) : (
+            <AnimatedEmptyState
+              icon="car-outline"
+              title="No hay vehículos registrados"
+              subtitle="Agregue vehículos desde el detalle de cliente"
+            />
+          )
         }
       />
     </View>
@@ -168,6 +174,4 @@ const styles = StyleSheet.create({
   cardEngine: { fontSize: fontSize.xs, fontWeight: "500" },
   cardKm: { fontSize: fontSize.xs, color: colors.textMuted },
   cardVin: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xs, fontFamily: "monospace" },
-  empty: { alignItems: "center", paddingVertical: spacing.xxl * 2 },
-  emptyText: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.md },
 });
