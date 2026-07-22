@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useAppointments } from "../hooks/use-data";
 import type { Appointment } from "../api/client";
+import { FadeInView, AnimatedEmptyState, LoadingSpinner } from "../components/AnimatedComponents";
 
 const estadoConfig: Record<string, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   PROGRAMADO: { label: "Programado", color: colors.info, icon: "time" },
@@ -86,14 +87,21 @@ export default function AppointmentsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => <AppointmentCard appointment={item} />}
+        renderItem={({ item, index }) => (
+          <FadeInView delay={index * 60}>
+            <AppointmentCard appointment={item} />
+          </FadeInView>
+        )}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.empty}>
-              <Ionicons name="calendar-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No hay turnos agendados</Text>
-            </View>
-          ) : null
+          isLoading ? (
+            <LoadingSpinner message="Cargando turnos..." />
+          ) : (
+            <AnimatedEmptyState
+              icon="calendar-outline"
+              title="No hay turnos agendados"
+              subtitle="Agende un turno desde el menú de agenda"
+            />
+          )
         }
       />
     </View>
@@ -130,6 +138,4 @@ const styles = StyleSheet.create({
   cardVehicle: { fontSize: fontSize.xs, color: colors.textSecondary },
   cardService: { fontSize: fontSize.xs, color: colors.primary, fontWeight: "500", marginTop: 2 },
   cardNotes: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.xs, fontStyle: "italic" },
-  empty: { alignItems: "center", paddingVertical: spacing.xxl * 2 },
-  emptyText: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.md },
 });
