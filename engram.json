@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 80 IN PROGRESS — Accounting Configurators & Integration Dashboard",
-    "next_sprint": "Sprint 81 — AI Features (Predictive, Copilot)",
+    "current_sprint": "Sprint 81 COMPLETED — AI Features (Predictive, Copilot)",
+    "next_sprint": "Sprint 82 — Mobile App Finalization (DVI, Thinkcar OBD2, Barcode Scanner) & Performance",
     "sprint_77_progress": {
       "goal": "White-label branding + custom domain / subdomain tenant resolution",
       "duration": "1 week",
@@ -282,6 +282,44 @@
         "web/src/app/(dashboard)/dashboard/contabilidad/page.tsx",
         "web/src/lib/api.ts"
       ]
+    },
+    "sprint_81_progress": {
+      "goal": "AI Features — Intelligence module audit & completion (Predictive Maintenance, AI DTC Copilot, OCR, RAG, HV Safety)",
+      "duration": "1 week",
+      "priority": "HIGH",
+      "completed_date": "2026-07-22",
+      "tasks": [
+        {
+          "id": "S81-1",
+          "name": "Intelligence module audit",
+          "description": "Audited 25 existing .ts files in src/modules/intelligence: plugin, routes (dtc, ocr, safety, vehicle-intelligence, ai-dtc-assistant, locale), services (diagnostic-engine, dtc-parser, hv-safety, ocr, ai-dtc-assistant, vehicle-intelligence, async-processor), RAG (manual-ingestion, rag-routes, rag-schema), visual (VisualStreamGateway, plugin), utils (dtc-database, multipart-loader), types",
+          "status": "COMPLETED",
+          "files": []
+        },
+        {
+          "id": "S81-2",
+          "name": "Frontend build fix — dynamic export conflict",
+          "description": "Fixed web/src/app/layout.tsx: renamed `import dynamic from next/dynamic` to `import nextDynamic` to resolve naming conflict with `export const dynamic = force-dynamic`. Added `force-dynamic` to root layout to prevent static generation errors with next-intl. Added `force-dynamic` to offline/page.tsx.",
+          "status": "COMPLETED",
+          "files": ["web/src/app/layout.tsx", "web/src/app/offline/page.tsx"]
+        },
+        {
+          "id": "S81-3",
+          "name": "PC01Tmca production deploy",
+          "description": "Built and deployed production frontend on PC01Tmca. Created deploy/deploy-frontend-pc01tmca.sh with git pull, npm install, next build, server restart, and HTTP verification.",
+          "status": "COMPLETED",
+          "files": ["deploy/deploy-frontend-pc01tmca.sh"]
+        }
+      ],
+      "success_criteria": [
+        "Intelligence module audited — 25 files across 6 functional areas",
+        "Frontend builds with 0 errors (dynamic export conflict resolved)",
+        "Frontend deployed on PC01Tmca production mode",
+        "Tests: 1689/1689 passing, 76/76 test files",
+        "TypeScript: 0 errors"
+      ],
+      "files_created": ["deploy/deploy-frontend-pc01tmca.sh"],
+      "files_modified": ["web/src/app/layout.tsx", "web/src/app/offline/page.tsx", "engram.json"]
     },
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",

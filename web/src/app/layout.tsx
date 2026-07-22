@@ -1,15 +1,17 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { TenantResolver } from "@/components/providers/tenant-resolver";
 
-const ServiceWorkerRegistration = dynamic(
+const ServiceWorkerRegistration = nextDynamic(
   () =>
     import(
       "@/components/providers/service-worker-registration"
