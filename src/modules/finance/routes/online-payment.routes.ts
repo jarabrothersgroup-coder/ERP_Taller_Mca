@@ -4,14 +4,14 @@
  * Sprint 85 — P1-5.
  *
  * Endpoints:
- *   POST /finance/payments/link        — Generate payment link for invoice
- *   POST /finance/payments/webhook     — Unified webhook for Stripe & PagosPy
+ *   POST /finance/payments/link — Generate payment link for invoice
+ *   (Webhook is registered in app.ts directly — no auth required)
  *
  * @module finance/routes/online-payment.routes
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { generatePaymentLink, processPaymentWebhook } from "../services/index.js";
+import { generatePaymentLink } from "../services/index.js";
 
 export async function onlinePaymentRoutes(app: FastifyInstance): Promise<void> {
   // ── POST /finance/payments/link — Generate payment link ──
@@ -43,26 +43,6 @@ export async function onlinePaymentRoutes(app: FastifyInstance): Promise<void> {
         request.body,
         request.tenantSlug,
       );
-      return reply.send(result);
-    },
-  );
-
-  // ── POST /finance/payments/webhook — Process payment webhook ──
-  app.post<{
-    Headers: { "x-payment-provider"?: string };
-  }>(
-    "/finance/payments/webhook",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const provider = (
-        request.headers["x-payment-provider"] as string
-      ) ?? "STRIPE";
-
-      const result = await processPaymentWebhook(provider, request.body as Record<string, any>);
-
-      if (!result.ok) {
-        return reply.status(400).send(result);
-      }
-
       return reply.send(result);
     },
   );

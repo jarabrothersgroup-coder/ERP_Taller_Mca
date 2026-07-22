@@ -332,6 +332,17 @@ async function buildApp() {
     (await import("./modules/thinkcar/plugin.js")).default,
   );
 
+  // ─── Payment Webhook (Public — no auth required) ──
+  // Stripe/PagosPy webhooks don't send auth headers, so this must be
+  // registered OUTSIDE the finance plugin (which has auth middleware).
+  app.post("/finance/payments/webhook", async (req, reply) => {
+    const { processPaymentWebhook } = await import("./modules/finance/services/index.js");
+    const provider = (req.headers["x-payment-provider"] as string) ?? "STRIPE";
+    const result = await processPaymentWebhook(provider, req.body as Record<string, any>);
+    if (!result.ok) return reply.status(400).send(result);
+    return reply.send(result);
+  });
+
   // ─── Finance Module (SIFEN + Accounting) ──────
   // SIFEN V150 electronic invoicing with X.509 digital signature
   // (signed async via worker_threads to prevent RAM spikes — @qa-optimizer validated).
