@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useClients } from "../hooks/use-data";
 import type { Client } from "../api/client";
+import { FadeInView, AnimatedEmptyState, LoadingSpinner } from "../components/AnimatedComponents";
 
 function ClientCard({ client, onPress }: { client: Client; onPress: () => void }) {
   const initials = client.name
@@ -97,19 +98,24 @@ export default function ClientsScreen({ navigation }: any) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => (
-          <ClientCard
-            client={item}
-            onPress={() => navigation.navigate("ClientDetail", { id: item.id })}
-          />
+        renderItem={({ item, index }) => (
+          <FadeInView delay={index * 50}>
+            <ClientCard
+              client={item}
+              onPress={() => navigation.navigate("ClientDetail", { id: item.id })}
+            />
+          </FadeInView>
         )}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.empty}>
-              <Ionicons name="people-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No hay clientes</Text>
-            </View>
-          ) : null
+          isLoading ? (
+            <LoadingSpinner message="Cargando clientes..." />
+          ) : (
+            <AnimatedEmptyState
+              icon="people-outline"
+              title="No hay clientes"
+              subtitle="Agregue clientes desde el menú de clientes"
+            />
+          )
         }
       />
     </View>

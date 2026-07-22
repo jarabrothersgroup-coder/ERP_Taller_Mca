@@ -27,7 +27,6 @@ import {
   sql,
   desc,
   count,
-  inArray,
 } from "drizzle-orm";
 
 // ─── Types ──────────────────────────────────────
@@ -388,101 +387,34 @@ export async function getTopClientes(
   tenantSlug: string,
   limitVal = 10,
 ): Promise<TopCliente[]> {
-  // Get client IDs per OT
-  const ots = await db()
+  // Single optimized query: JOIN OTs → facturas → clients → last visit
+  // Eliminates the previous N+1 pattern (4 separate query cycles)
+  const rows = await db()
     .select({
-      ordenId: ordenesTrabajo.id,
       clientId: ordenesTrabajo.clientId,
-    })
-    .from(ordenesTrabajo)
-    .where(eq(ordenesTrabajo.tenantSlug, tenantSlug));
-
-  if (ots.length === 0) return [];
-
-  const otClientMap = new Map(ots.map((o) => [o.ordenId, o.clientId]));
-  const otIds = [...otClientMap.keys()];
-
-  // Aggregate facturas per OT
-  const factRows = await db()
-    .select({
-      ordenId: facturas.ordenId,
-      totalFacturado: sql<string>`COALESCE(SUM(${facturas.total}::numeric), 0)`,
-      totalOTs: sql<string>`COUNT(DISTINCT ${facturas.ordenId})`,
-    })
-    .from(facturas)
-    .where(and(
-      eq(facturas.tenantSlug, tenantSlug),
-      inArray(facturas.ordenId, otIds),
-    ))
-    .groupBy(facturas.ordenId)
-    .orderBy(desc(sql`COALESCE(SUM(${facturas.total}::numeric), 0)`))
-    .limit(limitVal * 2); // extra to account for OT→client grouping
-
-  if (factRows.length === 0) return [];
-
-  // Aggregate by actual client
-  const clientBuckets = new Map<string, {
-    totalFacturado: number;
-    totalOTs: Set<string>;
-  }>();
-
-  for (const r of factRows) {
-    const cid = otClientMap.get(r.ordenId);
-    if (!cid) continue;
-    if (!clientBuckets.has(cid)) {
-      clientBuckets.set(cid, { totalFacturado: 0, totalOTs: new Set() });
-    }
-    const bucket = clientBuckets.get(cid)!;
-    bucket.totalFacturado += Number(r.totalFacturado);
-    bucket.totalOTs.add(r.ordenId);
-  }
-
-  const sortedClients = [...clientBuckets.entries()]
-    .map(([clientId, data]) => ({ clientId, ...data }))
-    .sort((a, b) => b.totalFacturado - a.totalFacturado)
-    .slice(0, limitVal);
-
-  if (sortedClients.length === 0) return [];
-
-  // Fetch client info
-  const cIds = sortedClients.map((c) => c.clientId);
-  const clientRows = await db()
-    .select({
-      id: clients.id,
       nombre: clients.name,
       telefono: clients.phone,
-    })
-    .from(clients)
-    .where(inArray(clients.id, cIds));
-
-  const clientInfoMap = new Map(clientRows.map((c) => [c.id, c]));
-
-  // Fetch last visit dates
-  const visitRows = await db()
-    .select({
-      clientId: ordenesTrabajo.clientId,
-      ultimaVisita: sql<string>`MAX(${ordenesTrabajo.createdAt})`,
+      totalFacturado: sql<number>`COALESCE(SUM(${facturas.total}::numeric), 0)`,
+      totalOTs: sql<number>`COUNT(DISTINCT ${facturas.ordenId})`,
+      ultimaVisita: sql<string | null>`MAX(${ordenesTrabajo.createdAt}::text)`,
     })
     .from(ordenesTrabajo)
-    .where(and(
-      inArray(ordenesTrabajo.clientId, cIds as string[]),
-      eq(ordenesTrabajo.tenantSlug, tenantSlug),
-    ))
-    .groupBy(ordenesTrabajo.clientId);
+    .leftJoin(facturas, eq(ordenesTrabajo.id, facturas.ordenId))
+    .leftJoin(clients, eq(ordenesTrabajo.clientId, clients.id))
+    .where(eq(ordenesTrabajo.tenantSlug, tenantSlug))
+    .groupBy(ordenesTrabajo.clientId, clients.name, clients.phone)
+    .orderBy(desc(sql`COALESCE(SUM(${facturas.total}::numeric), 0)`))
+    .having(sql`COALESCE(SUM(${facturas.total}::numeric), 0) > 0`)
+    .limit(limitVal);
 
-  const visitMap = new Map(visitRows.map((v) => [v.clientId, v.ultimaVisita]));
-
-  return sortedClients.map((c) => {
-    const info = clientInfoMap.get(c.clientId);
-    return {
-      clientId: c.clientId,
-      nombre: info?.nombre ?? 'Cliente desconocido',
-      telefono: info?.telefono ?? null,
-      totalFacturado: c.totalFacturado,
-      totalOTs: c.totalOTs.size,
-      ultimaVisita: visitMap.get(c.clientId) ?? null,
-    };
-  });
+  return rows.map((r) => ({
+    clientId: r.clientId,
+    nombre: r.nombre ?? 'Cliente desconocido',
+    telefono: r.telefono ?? null,
+    totalFacturado: Number(r.totalFacturado),
+    totalOTs: Number(r.totalOTs),
+    ultimaVisita: r.ultimaVisita ?? null,
+  }));
 }
 
 // ─── Productivity ───────────────────────────────

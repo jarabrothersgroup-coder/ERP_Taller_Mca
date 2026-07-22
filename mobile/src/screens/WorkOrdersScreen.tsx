@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useWorkOrders } from "../hooks/use-data";
 import type { WorkOrder } from "../api/client";
+import { FadeInView, AnimatedEmptyState, LoadingSpinner } from "../components/AnimatedComponents";
 
 const statusFilters = [
   { key: "", label: "Todas" },
@@ -105,19 +106,24 @@ export default function WorkOrdersScreen({ navigation }: any) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        renderItem={({ item }) => (
-          <OrderCard
-            order={item}
-            onPress={() => navigation.navigate("WorkOrderDetail", { id: item.id })}
-          />
+        renderItem={({ item, index }) => (
+          <FadeInView delay={index * 60}>
+            <OrderCard
+              order={item}
+              onPress={() => navigation.navigate("WorkOrderDetail", { id: item.id })}
+            />
+          </FadeInView>
         )}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.empty}>
-              <Ionicons name="build-outline" size={48} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No hay órdenes de trabajo</Text>
-            </View>
-          ) : null
+          isLoading ? (
+            <LoadingSpinner message="Cargando órdenes..." />
+          ) : (
+            <AnimatedEmptyState
+              icon="build-outline"
+              title="No hay órdenes de trabajo"
+              subtitle="Cree una nueva orden desde el dashboard"
+            />
+          )
         }
       />
     </View>
