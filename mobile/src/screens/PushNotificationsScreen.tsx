@@ -47,7 +47,7 @@ function getPriorityColor(priority: string): string {
   }
 }
 
-function getPriorityIcon(priority: string): keyof typeof Ionicons.glyphMap {
+function getPriorityIcon(priority: string): string {
   switch (priority) {
     case "urgent": return "alert-circle";
     case "high": return "warning";

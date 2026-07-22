@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
-import { CameraView, useCameraPermissions, type CameraCapturedPicture } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 
 interface PhotoEntry {
   uri: string;
@@ -56,7 +56,7 @@ export default function DVICameraScreen({ route, navigation }: any) {
   const handleTakePhoto = React.useCallback(async () => {
     if (!cameraRef.current || !cameraReady) return;
     try {
-      const photo: CameraCapturedPicture = await cameraRef.current.takePictureAsync({ quality: 0.7 }) as CameraCapturedPicture;
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 }) as { uri: string };
       const entry: PhotoEntry = {
         uri: photo.uri,
         label: currentLabel,
