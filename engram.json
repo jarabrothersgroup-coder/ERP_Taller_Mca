@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 80/81 COMPLETED — Accounting Configurators & GAP Closure",
-    "next_sprint": "Sprint 82 — Mobile App Finalization (DVI, Thinkcar OBD2, Barcode Scanner, Push Notifications) & Performance",
+    "current_sprint": "Sprint 82 COMPLETED — Mobile App Finalization + Backend Integration + Animations",
+    "next_sprint": "Sprint 83 — Performance, Testing E2E & Monitoreo (Prometheus, Playwright, Offline-first)",
     "sprint_77_progress": {
       "goal": "White-label branding + custom domain / subdomain tenant resolution",
       "duration": "1 week",
