@@ -30,6 +30,9 @@ import {
   Printer,
   Database,
   Fingerprint,
+  TrendingUp,
+  Landmark,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,6 +60,9 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Facturación", href: "/dashboard/facturacion", icon: DollarSign },
       { label: "Contabilidad", href: "/dashboard/contabilidad", icon: FileText },
+      { label: "Flujo Efectivo", href: "/dashboard/contabilidad/flujo-efectivo", icon: TrendingUp },
+      { label: "Patrimonio", href: "/dashboard/contabilidad/evolucion-patrimonio", icon: Landmark },
+      { label: "Notas EE.FF.", href: "/dashboard/contabilidad/notas-financieras", icon: ScrollText },
       { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign },
       { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },
       { label: "Nómina", href: "/dashboard/nomina", icon: Calculator },

@@ -661,6 +661,11 @@ export const api = {
     return request<EquityStatement>(`/finance/contabilidad/evolucion-patrimonio/${anho}/${mes}${qs}`);
   },
 
+  getFinancialNotes: (anho: number, mes: number, acumulado?: boolean) => {
+    const qs = acumulado ? "?acumulado=true" : "";
+    return request<FinancialNotesReport>(`/finance/contabilidad/notas-financieras/${anho}/${mes}${qs}`);
+  },
+
   /* ── Finance: Presupuestos ─────────────────── */
 
   listPresupuestos: () => request<Presupuesto[]>("/finance/presupuestos"),
@@ -1553,6 +1558,23 @@ export interface EquityStatement {
   totalPatrimonioFinal: number;
   variacionPeriodo: number;
   resultadoEjercicio: number;
+}
+
+/* ── Financial Notes Types ──────────────────── */
+
+export interface FinancialNote {
+  numero: number;
+  titulo: string;
+  contenido: string;
+  detalle?: Record<string, string | number>[];
+}
+
+export interface FinancialNotesReport {
+  periodo: { anho: number; mes: number };
+  tipo: "MENSUAL" | "ACUMULADO";
+  empresa: { nombre: string; ruc: string; regimenFiscal: string };
+  notas: FinancialNote[];
+  generadoEn: string;
 }
 
 /* ── Backup Types ──────────────────────────── */

@@ -6,14 +6,11 @@ import {
   TrendingUp,
   TrendingDown,
   RefreshCw,
-  CheckCircle2,
   XCircle,
   PiggyBank,
   Shield,
   ScrollText,
   BarChart4,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
