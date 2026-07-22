@@ -14,7 +14,7 @@ const intlMiddleware = createIntlMiddleware({
   locales: locales as unknown as string[],
   defaultLocale,
   localeDetection: true,
-  localePrefix: "never",
+  localePrefix: "as-needed",
 });
 
 const publicRoutes = ["/sign-in", "/sign-up", "/api/auth"];

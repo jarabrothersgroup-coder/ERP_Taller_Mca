@@ -128,6 +128,22 @@ export {
 } from "./accounting/libro-diario.service.js";
 
 export {
+  generarLibroComprasIVA,
+} from "./accounting/libro-compras-iva.service.js";
+
+export {
+  generarLibroVentasIVA,
+} from "./accounting/libro-ventas-iva.service.js";
+
+export {
+  validarPreTransaccion,
+} from "./accounting/pre-transaction-validator.service.js";
+
+export {
+  generarNotaCreditoDebito,
+} from "./accounting/credit-debit-note.service.js";
+
+export {
   generarLibroMayor,
 } from "./accounting/libro-mayor.service.js";
 
@@ -185,6 +201,24 @@ export type {
   PnLCuenta,
   PnLGrupo,
 } from "./accounting/pnl.service.js";
+
+export {
+  getCashFlowStatement,
+} from "./accounting/cash-flow.service.js";
+export type {
+  CashFlowStatement,
+  CashFlowSection,
+  CashFlowLine,
+} from "./accounting/cash-flow.service.js";
+
+export {
+  getEquityStatement,
+} from "./accounting/equity-statement.service.js";
+export type {
+  EquityStatement,
+  EquityAccountGroup,
+  EquityLine,
+} from "./accounting/equity-statement.service.js";
 
 export type {
   LogAuditParams,
