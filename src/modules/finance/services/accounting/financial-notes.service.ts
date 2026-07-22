@@ -14,7 +14,7 @@
 
 import { db } from "../../../../shared/database/drizzle.js";
 import { planCuentas, asientosContables, asientosDetalle } from "../../schema/index.js";
-import { eq, and, gte, lte, sql, count } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { ValidationError } from "../../../../shared/errors/app-error.js";
 import { getBalanceGeneral } from "./balance.service.js";
 import { getEstadoResultados } from "./pnl.service.js";
@@ -122,7 +122,7 @@ export async function generarNotasFinancieras(
         `Las cuentas por cobrar comerciales netas al ${getMonthName(mes)} de ${anho} ascienden a ₲ ${totalCxc.toLocaleString("es-PY", { minimumFractionDigits: 0 })}.`,
         `Corresponden principalmente a facturas de servicios de taller emitidas y pendientes de cobro.`,
         `El plazo promedio de crédito otorgado es de 30 días. No se ha constituido provisión para deudores incobrables al cierre del período.`,
-        totalCxc > 10000000 ? `Las cuentas por cobrar representan un monto significativo, equivalente al ${Math.round(totalCxc / (cashFlow?.saldoFinal || 1) * 100)}% del efectivo disponible.` : "",
+        totalCxc > 10000000 ? `Las cuentas por cobrar representan un monto significativo del total de activos.` : "",
       ].filter(Boolean).join("\n\n"),
     });
   } catch {
@@ -194,7 +194,7 @@ export async function generarNotasFinancieras(
 
   // ─── Nota 7: Cuentas por Pagar ──
   try {
-    const totalCxp = await getTotalCuentasPorTipo("2.1.01.%");
+    const totalCxp = await getTotalCuentasPorTipo("2.1.01.%", true); // Pasivo: saldo acreedor
     notas.push({
       numero: 7,
       titulo: "Cuentas por Pagar Comerciales",
@@ -320,7 +320,7 @@ function getMonthName(mes: number): string {
   return meses[mes - 1] ?? "";
 }
 
-async function getTotalCuentasPorTipo(codigoPattern: string): Promise<number> {
+async function getTotalCuentasPorTipo(codigoPattern: string, isLiability = false): Promise<number> {
   const result = await db()
     .select({
       debe: sql<number>`COALESCE(SUM(CAST(${asientosDetalle.debe} AS NUMERIC)), 0)`,
@@ -338,7 +338,8 @@ async function getTotalCuentasPorTipo(codigoPattern: string): Promise<number> {
 
   const debe = Number(result[0]?.debe ?? 0);
   const haber = Number(result[0]?.haber ?? 0);
-  return debe - haber; // Para cuentas de activo: saldo deudor
+  // Activo: saldo deudor (debe - haber). Pasivo: saldo acreedor (haber - debe)
+  return isLiability ? haber - debe : debe - haber;
 }
 
 interface ActivoFijoResumen {
