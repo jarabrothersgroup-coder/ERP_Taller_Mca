@@ -356,4 +356,31 @@ export const api = {
 
   getUnreadNotificationCount: () =>
     request<{ count: number }>("/api/notifications/count"),
+
+  // ── Thinkcar / OBD2 (Sprint 82) ─────────────
+  listThinkcarImports: (params?: { status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<{ data: any[]; total: number }>(`/thinkcar/imports${query ? `?${query}` : ""}`);
+  },
+
+  lookupDtcCode: (code: string) =>
+    request<any>(`/thinkcar/dtc/lookup/${encodeURIComponent(code)}`),
+
+  submitMobileDtc: (data: { dtcCodes: string[]; dtcDescriptions?: any[]; vehicleId?: string; ordenTrabajoId?: string; notas?: string }) =>
+    request<{ ok: boolean; id: string }>("/thinkcar/mobile-dtc", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  linkThinkcarImport: (id: string, data: { ordenTrabajoId?: string; vin?: string }) =>
+    request<{ ok: boolean }>(`/thinkcar/imports/${id}/link`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listThinkcarPending: () =>
+    request<{ data: any[]; total: number }>("/thinkcar/pending"),
 };

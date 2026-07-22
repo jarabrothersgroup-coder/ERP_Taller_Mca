@@ -11,6 +11,14 @@ import { getAllHealth } from "../services/thinkcar-health.service.js";
 import { ordenesTrabajo } from "../../workshop/schema/ordenes-trabajo.js";
 import { BadRequestError, NotFoundError } from "../../../shared/errors/app-error.js";
 
+interface MobileDtcBody {
+  dtcCodes: string[];
+  dtcDescriptions?: any[];
+  vehicleId?: string;
+  ordenTrabajoId?: string;
+  notas?: string;
+}
+
 interface ListQuery {
   status?: string;
   vin?: string;
@@ -304,6 +312,51 @@ export async function thinkcarRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send({ count: result?.count ?? 0 });
   });
+
+  // ── POST /thinkcar/mobile-dtc — Submit DTC codes from mobile OBD2 reading ──
+
+  app.post<{ Body: MobileDtcBody }>(
+    "/thinkcar/mobile-dtc",
+    async (request: FastifyRequest<{ Body: MobileDtcBody }>, reply: FastifyReply) => {
+      const { dtcCodes, dtcDescriptions, vehicleId, ordenTrabajoId, notas } = request.body;
+
+      if (!dtcCodes || dtcCodes.length === 0) {
+        throw new BadRequestError("Se requiere al menos un código DTC");
+      }
+
+      // Store as a new thinkcar import with mobile origin
+      const [created] = await db()
+        .insert(thinkcarImports)
+        .values({
+          fileName: `mobile_obd2_${Date.now()}.json`,
+          fileHash: `mobile_${Date.now()}`,
+          sourceChannel: "mobile",
+          dtcCodes,
+          dtcDescriptions: dtcDescriptions ? JSON.stringify(dtcDescriptions) : null,
+          vehicleId,
+          ordenTrabajoId,
+          status: ordenTrabajoId ? "linked" : "manual_review",
+          pendingAssignment: !ordenTrabajoId,
+          rawText: notas ?? null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: thinkcarImports.id });
+
+      // If linked to an OT, update the OT and vehicle DTC codes
+      if (ordenTrabajoId && vehicleId) {
+        await updateOrdenDtcs(ordenTrabajoId, dtcCodes, notas ?? "Diagnóstico OBD2 móvil");
+        await updateVehicleDtcs(vehicleId, dtcCodes);
+      }
+
+      return reply.status(201).send({
+        ok: true,
+        id: created!.id,
+        status: ordenTrabajoId ? "linked" : "manual_review",
+        message: `${dtcCodes.length} códigos DTC registrados desde el móvil`,
+      });
+    },
+  );
 
   // ── GET /thinkcar/dtc/lookup/:code — Definición de código DTC ──
   // Expone el diccionario OBD-II de intelligence para el frontend
