@@ -22,6 +22,8 @@ export {
   planCuentas,
   asientosContables,
   asientosDetalle,
+  cuentaMapping,
+  configuradorModulo,
   tipoCuentaEnum,
   estadoAsientoEnum,
 } from "./accounting.js";
@@ -32,6 +34,10 @@ export type {
   NewAsientoContable,
   AsientoDetalle,
   NewAsientoDetalle,
+  CuentaMapping,
+  NewCuentaMapping,
+  ConfiguradorModulo,
+  NewConfiguradorModulo,
   TipoCuenta,
   EstadoAsiento,
 } from "./accounting.js";

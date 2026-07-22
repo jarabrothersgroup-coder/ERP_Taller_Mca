@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type WorkOrder, type Client, type Vehicle, type DashboardStats, type Appointment } from "../api/client";
+import { api, type WorkOrder, type Client, type Vehicle, type DashboardStats, type Appointment, type BalanceGeneral, type EstadoResultados, type RG90Report } from "../api/client";
 
 export const queryKeys = {
   dashboard: ["dashboard"] as const,
@@ -14,6 +14,9 @@ export const queryKeys = {
   vehicles: ["vehicles"] as const,
   vehicleDetail: (id: string) => ["vehicles", id] as const,
   appointments: ["appointments"] as const,
+  balanceGeneral: ["balance-general"] as const,
+  estadoResultados: ["estado-resultados"] as const,
+  rg90: ["rg90"] as const,
 };
 
 /* ── Query Hooks ─────────────────────────────── */
@@ -74,6 +77,32 @@ export function useAppointments() {
   return useQuery<Appointment[], Error>({
     queryKey: queryKeys.appointments,
     queryFn: () => api.listAppointments(),
+  });
+}
+
+/* ── Accounting Report Hooks ─────────────────────────────── */
+
+export function useBalanceGeneral(fecha: string) {
+  return useQuery<BalanceGeneral, Error>({
+    queryKey: [...queryKeys.balanceGeneral, fecha],
+    queryFn: () => api.getBalanceGeneral(fecha),
+    enabled: !!fecha,
+  });
+}
+
+export function useEstadoResultados(anho: number, mes: number, acumulado?: boolean) {
+  return useQuery<EstadoResultados, Error>({
+    queryKey: [...queryKeys.estadoResultados, anho, mes, acumulado],
+    queryFn: () => api.getEstadoResultados(anho, mes, acumulado),
+    enabled: !!anho && !!mes,
+  });
+}
+
+export function useRG90Report(tipo: "VENTAS" | "COMPRAS" | "RETENCIONES", anho: number, mes: number, formato?: "JSON" | "TXT" | "CSV") {
+  return useQuery<RG90Report, Error>({
+    queryKey: [...queryKeys.rg90, tipo, anho, mes, formato],
+    queryFn: () => api.getRG90Report(tipo, anho, mes, formato),
+    enabled: !!tipo && !!anho && !!mes,
   });
 }
 

@@ -33,8 +33,53 @@ import { db } from "../../../../shared/database/drizzle.js";
 import { planCuentas } from "../../schema/index.js";
 import { createAsiento } from "./ledger.service.js";
 import { logAudit } from "./audit-log.service.js";
+import { resolveMapping } from "./mapping.service.js";
 import { eq } from "drizzle-orm";
 import type { CreateAsientoRequest, AsientoLineaRequest } from "../../types.js";
+
+// ─── Transaction Event ─────────────────────────
+
+/**
+ * Evento simplificado para emitir asientos desde transacciones de negocio.
+ *
+ * A diferencia de AccountingEvent (que requiere líneas explícitas),
+ * TransactionEvent solo necesita el módulo + tipo de evento + monto,
+ * y el bus resuelve las cuentas de Débito/Haber mediante MappingService.
+ */
+export interface TransactionEvent {
+  /** Tenant slug */
+  tenantSlug: string;
+  /** Tipo de asiento (VENTA, COMPRA, PAGO, etc.) */
+  tipo: AccountingEventType;
+  /** Fecha de la transacción */
+  fecha: Date;
+  /** ID de la transacción origen */
+  referenciaId: string;
+  /** Tipo de referencia (compra, factura, orden_trabajo, etc.) */
+  referenciaTipo: string;
+  /** Concepto / descripción del asiento */
+  descripcion: string;
+  /** Módulo de negocio (COMPRAS, SIFEN, WORKSHOP, TESORERIA) */
+  modulo: string;
+  /** Tipo de evento (CREADA, PAGADA, ANULADA, etc.) */
+  tipoEvento: string;
+  /** Subtipo opcional (CONTADO, CREDITO, EXENTA, GRAVADA) */
+  subTipo?: string;
+  /** Monto base del asiento */
+  monto: number;
+  /** Monto de IVA (se agrega como línea adicional si está presente) */
+  montoIva?: number;
+  /** Override: cuenta de Débito específica (salta MappingService) */
+  cuentaDebeOverride?: string;
+  /** Override: cuenta de Haber específica (salta MappingService) */
+  cuentaHaberOverride?: string;
+  /** Work order UUID si aplica */
+  ordenTrabajoId?: string | null;
+
+  /** Centro de Costo (dimensión analítica).
+   *  Obligatorio para cuentas de COSTO (5) y GASTO (6). */
+  centroCostoId?: string | null;
+}
 
 // ─── Types ──────────────────────────────────────
 
@@ -234,3 +279,119 @@ export async function emit(
     };
   }
 }
+
+// ─── High-level: emitFromTransaction ──────────
+
+/**
+ * Emite un asiento contable desde una transacción de negocio.
+ *
+ * A diferencia de `emit()` (que requiere líneas explícitas),
+ * esta función usa el MappingService para resolver automáticamente
+ * las cuentas de Débito y Haber según (modulo, tipoEvento, subTipo).
+ *
+ * Flujo:
+ *   1. Resuelve mapping: (modulo, tipoEvento, subTipo) → (cuentaDebe, cuentaHaber)
+ *   2. Si hay montoIva, agrega línea de IVA Crédito Fiscal (SIFEN)
+ *   3. Delega a `emit()` para crear el asiento
+ *   4. Graceful degradation: error contable NO explota la transacción origen
+ *
+ * @param event - Evento de transacción simplificado
+ * @returns Resultado con asientoId si success
+ */
+export async function emitFromTransaction(
+  event: TransactionEvent,
+): Promise<AccountingEventResult> {
+  try {
+    // 1. Resolve accounts (mapping or override)
+    let cuentaDebe = event.cuentaDebeOverride;
+    let cuentaHaber = event.cuentaHaberOverride;
+
+    if (!cuentaDebe || !cuentaHaber) {
+      const mapping = await resolveMapping({
+        modulo: event.modulo,
+        tipoEvento: event.tipoEvento,
+        subTipo: event.subTipo,
+        tenantSlug: event.tenantSlug,
+      });
+
+      if (!mapping) {
+        return {
+          success: false,
+          error:
+            `No hay mapping contable para ${event.modulo}/` +
+            `${event.tipoEvento}${event.subTipo ? `/${event.subTipo}` : ""}` +
+            `. Configure el Plan de Cuentas y los mappings por defecto.`,
+        };
+      }
+
+      cuentaDebe ??= mapping.cuentaDebeId;
+      cuentaHaber ??= mapping.cuentaHaberId;
+    }
+
+    // 2. Build lines
+    const lineas: BusAccountingLine[] = [
+      {
+        cuentaId: cuentaDebe,
+        debe: event.monto,
+        descripcion: `Débito: ${event.descripcion}`,
+        centroCostoId: event.centroCostoId ?? null,
+        ordenTrabajoId: event.ordenTrabajoId ?? null,
+      },
+      {
+        cuentaId: cuentaHaber,
+        haber: event.monto,
+        descripcion: `Haber: ${event.descripcion}`,
+        centroCostoId: event.centroCostoId ?? null,
+        ordenTrabajoId: event.ordenTrabajoId ?? null,
+      },
+    ];
+
+    // 3. If IVA present, add IVA Crédito Fiscal line
+    //    Debita el IVA como un activo (crédito fiscal recuperable)
+    if (event.montoIva && event.montoIva > 0) {
+      const cuentaIva = await resolveAccount("1.1.02.001");
+      if (cuentaIva) {
+        lineas.push({
+          cuentaId: cuentaIva,
+          debe: event.montoIva,
+          descripcion: `IVA Crédito Fiscal: ${event.descripcion}`,
+        });
+
+        // The Haber side needs an extra line to balance the IVA
+        // We add it to the same cuentaHaber (the total invoice includes IVA)
+        const ivaToHaber: BusAccountingLine = {
+          cuentaId: cuentaHaber,
+          haber: event.montoIva,
+          descripcion: `IVA ${event.descripcion}`,
+        };
+        lineas.push(ivaToHaber);
+      }
+    }
+
+    // 4. Delegate to emit
+    return emit({
+      tenantSlug: event.tenantSlug,
+      tipo: event.tipo,
+      fecha: event.fecha,
+      referenciaId: event.referenciaId,
+      referenciaTipo: event.referenciaTipo,
+      descripcion: event.descripcion,
+      lineas,
+      ordenTrabajoId: event.ordenTrabajoId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    console.warn(
+      `[accounting-bus] Error en emitFromTransaction para ${event.modulo}/` +
+      `${event.tipoEvento} (${event.referenciaTipo}:${event.referenciaId}): ${message}`,
+    );
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+export { resolveMapping } from "./mapping.service.js";
+export { ensureDefaultMappings } from "./mapping.service.js";
+

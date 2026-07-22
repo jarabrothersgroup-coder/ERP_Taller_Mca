@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   FileText,
   Download,
@@ -8,6 +10,8 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
+  Activity,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -185,6 +189,54 @@ const columns: Column<AccountRecord>[] = [
   },
 ];
 
+/* ── Sub-navigation tabs ────────────────────── */
+
+const CONTABILIDAD_SUB_PAGES = [
+  {
+    href: "/dashboard/contabilidad",
+    label: "Plan de Cuentas",
+    icon: BookOpen,
+  },
+  {
+    href: "/dashboard/contabilidad/integracion",
+    label: "Integración",
+    icon: Activity,
+  },
+];
+
+function PageTabs() {
+  const pathname = usePathname();
+
+  return (
+    <div className="flex items-center gap-1 border-b border-border mb-6">
+      {CONTABILIDAD_SUB_PAGES.map((page) => {
+        const isActive = pathname === page.href;
+        return (
+          <Link
+            key={page.href}
+            href={page.href}
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-150 relative",
+              isActive
+                ? "text-foreground bg-background border-x border-t border-border"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            <page.icon className="h-4 w-4" aria-hidden="true" />
+            <span>{page.label}</span>
+            {isActive && (
+              <span
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500 rounded-full"
+                aria-hidden="true"
+              />
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Main Page ──────────────────────────────── */
 
 export default function ContabilidadPage() {
@@ -213,6 +265,8 @@ export default function ContabilidadPage() {
         </div>
         <NewAccountDialog />
       </div>
+
+      <PageTabs />
 
       {!loading && <AccountStats accounts={filtered} />}
 

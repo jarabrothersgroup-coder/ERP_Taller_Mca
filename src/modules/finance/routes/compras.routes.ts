@@ -21,6 +21,7 @@ import {
   updateCompra,
   deleteCompra,
 } from "../services/compras.service.js";
+import { comprasConfigurator } from "../services/accounting/compras.configurator.js";
 
 export async function comprasRoutes(app: FastifyInstance): Promise<void> {
   app.post("/finance/compras", async (request, reply) => {
@@ -46,6 +47,24 @@ export async function comprasRoutes(app: FastifyInstance): Promise<void> {
       estadoPago: body.estadoPago as any,
       notas: body.notas as string | undefined,
       detalles: body.detalles as any[],
+    });
+
+    // ── Accounting integration ─────────────────────
+    // Non-blocking: error contable no revierte la compra
+    comprasConfigurator.onCompraCreada({
+      tenantSlug,
+      compraId: compra.id,
+      numeroFactura: compra.numeroFactura,
+      proveedorNombre: compra.proveedorNombre,
+      fecha: compra.fecha instanceof Date
+        ? compra.fecha.toISOString()
+        : String(compra.fecha),
+      total: compra.total,
+      estadoPago: compra.estadoPago,
+    }).catch((err: Error) => {
+      console.warn(
+        `[compras-routes] Error contable al crear compra ${compra.numeroFactura}: ${err.message}`,
+      );
     });
 
     return reply.status(201).send(compra);
@@ -92,6 +111,33 @@ export async function comprasRoutes(app: FastifyInstance): Promise<void> {
     const body = request.body as Record<string, unknown>;
     try {
       const updated = await updateCompra(tenantSlug, id, body as any);
+
+      // ── Accounting integration ─────────────────────
+      const nuevoEstado = body.estadoPago as string | undefined;
+      if (nuevoEstado === "PAGADO" || nuevoEstado === "PARCIAL") {
+        comprasConfigurator.onCompraPagada({
+          tenantSlug,
+          compraId: id,
+          numeroFactura: updated.numeroFactura,
+          total: updated.total,
+        }).catch((err: Error) => {
+          console.warn(
+            `[compras-routes] Error contable al pagar compra ${id}: ${err.message}`,
+          );
+        });
+      } else if (nuevoEstado === "ANULADA") {
+        comprasConfigurator.onCompraAnulada({
+          tenantSlug,
+          compraId: id,
+          numeroFactura: updated.numeroFactura,
+          total: updated.total,
+        }).catch((err: Error) => {
+          console.warn(
+            `[compras-routes] Error contable al anular compra ${id}: ${err.message}`,
+          );
+        });
+      }
+
       return reply.send(updated);
     } catch (err: any) {
       return reply.status(404).send({ error: err.message });
@@ -106,6 +152,22 @@ export async function comprasRoutes(app: FastifyInstance): Promise<void> {
 
     const { id } = request.params as { id: string };
     try {
+      const compra = await getCompra(tenantSlug, id);
+
+      // ── Accounting integration (before delete) ─────
+      if (compra.estadoPago !== "ANULADA") {
+        comprasConfigurator.onCompraAnulada({
+          tenantSlug,
+          compraId: id,
+          numeroFactura: compra.numeroFactura,
+          total: compra.total,
+        }).catch((err: Error) => {
+          console.warn(
+            `[compras-routes] Error contable al anular compra ${id}: ${err.message}`,
+          );
+        });
+      }
+
       const result = await deleteCompra(tenantSlug, id);
       return reply.send(result);
     } catch (err: any) {

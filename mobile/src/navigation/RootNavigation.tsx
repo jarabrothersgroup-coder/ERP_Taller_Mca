@@ -19,6 +19,8 @@ import ClientDetailScreen from "../screens/ClientDetailScreen";
 import VehiclesScreen from "../screens/VehiclesScreen";
 import VehicleDetailScreen from "../screens/VehicleDetailScreen";
 import AppointmentsScreen from "../screens/AppointmentsScreen";
+import AccountingScreen from "../screens/AccountingScreen";
+import RG90ExportScreen from "../screens/RG90ExportScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -62,6 +64,8 @@ const tabs = [
   { name: "Clients", component: ClientsStack, icon: "people" as const },
   { name: "Vehicles", component: VehiclesStack, icon: "car" as const },
   { name: "Appointments", component: AppointmentsScreen, icon: "calendar" as const },
+  { name: "Accounting", component: AccountingScreen, icon: "calculator" as const },
+  { name: "RG90", component: RG90ExportScreen, icon: "document-text" as const },
 ];
 
 export default function RootNavigation() {
@@ -111,6 +115,8 @@ function getTabTitle(name: string): string {
     case "Clients": return "Clientes";
     case "Vehicles": return "Vehículos";
     case "Appointments": return "Agenda";
+    case "Accounting": return "Contabilidad";
+    case "RG90": return "RG 90";
     default: return name;
   }
 }

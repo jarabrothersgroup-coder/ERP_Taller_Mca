@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
-import { useDashboard, useWorkOrders } from "../hooks/use-data";
+import { useDashboard, useWorkOrders, useBalanceGeneral, useEstadoResultados } from "../hooks/use-data";
 
 function StatCard({
   label,
@@ -39,6 +39,17 @@ export default function DashboardScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = React.useState(false);
   const { data: stats, isLoading, refetch: refetchStats } = useDashboard();
   const { data: orders = [], refetch: refetchOrders } = useWorkOrders();
+  const [selectedMonth, setSelectedMonth] = React.useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Financial metrics queries
+  const { data: balanceGeneral, isLoading: isLoadingBalance } = useBalanceGeneral(selectedMonth + '-01');
+  const { data: estadoResultados, isLoading: isLoadingEstadoResultados } = useEstadoResultados(
+    parseInt(selectedMonth.split('-')[0]),
+    parseInt(selectedMonth.split('-')[1])
+  );
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -46,7 +57,77 @@ export default function DashboardScreen({ navigation }: any) {
     setRefreshing(false);
   }, [refetchStats, refetchOrders]);
 
+  const formatCurrency = (amount: number) => {
+    return `₲ ${amount.toLocaleString("es-PY")}`;
+  };
+
+  const getMonthYearOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push({
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+        label: date.toLocaleDateString("es-PY", { month: "long", year: "numeric" }),
+      });
+    }
+    return options;
+  };
+
   const recentOrders = orders.slice(0, 5);
+
+  // Financial metrics calculations
+  const totalAssets = balanceGeneral?.totalActivo || 0;
+  const totalLiabilities = balanceGeneral?.totalPasivoPatrimonio || 0;
+  const netWorth = totalAssets - totalLiabilities;
+  const totalRevenue = estadoResultados?.ingresos?.total || 0;
+  const totalExpenses = estadoResultados?.gastos?.total || 0;
+  const netProfit = totalRevenue - totalExpenses;
+
+  // Calculate financial ratios
+  const calculateProfitMargin = () => {
+    if (totalRevenue === 0) return 0;
+    return (netProfit / totalRevenue) * 100;
+  };
+
+  const calculateAssetTurnover = () => {
+    if (totalAssets === 0) return 0;
+    return totalRevenue / totalAssets;
+  };
+
+  const calculateLiabilityRatio = () => {
+    if (totalLiabilities === 0) return 0;
+    return totalLiabilities / totalAssets;
+  };
+
+  const profitMargin = calculateProfitMargin();
+  const assetTurnover = calculateAssetTurnover();
+  const liabilityRatio = calculateLiabilityRatio();
+
+  // Add additional financial metrics cards
+  const financialMetrics = [
+    {
+      label: "Margen Beneficio",
+      value: `${profitMargin.toFixed(1)}%`,
+      icon: "stats-chart",
+      color: profitMargin >= 10 ? colors.success : profitMargin >= 5 ? colors.warning : colors.error,
+      trend: profitMargin >= 10 ? "up" : profitMargin >= 5 ? "stable" : "down",
+    },
+    {
+      label: "Rotación Activos",
+      value: assetTurnover.toFixed(2),
+      icon: "repeat",
+      color: assetTurnover >= 1.5 ? colors.success : assetTurnover >= 1.0 ? colors.info : colors.warning,
+      trend: assetTurnover >= 1.5 ? "up" : "stable",
+    },
+    {
+      label: "Ratio Pasivos",
+      value: liabilityRatio.toFixed(2),
+      icon: "warning",
+      color: liabilityRatio <= 0.5 ? colors.success : liabilityRatio <= 0.8 ? colors.warning : colors.error,
+      trend: liabilityRatio <= 0.5 ? "down" : "stable",
+    },
+  ];
 
   return (
     <ScrollView
@@ -64,6 +145,70 @@ export default function DashboardScreen({ navigation }: any) {
           <Ionicons name="person" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
+
+      {/* Month Selector */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Período Contable</Text>
+        <View style={styles.monthSelector}>
+          {getMonthYearOptions().map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[styles.monthChip, selectedMonth === option.value && styles.monthChipActive]}
+              onPress={() => setSelectedMonth(option.value)}
+            >
+              <Text style={[styles.monthChipText, selectedMonth === option.value && styles.monthChipTextActive]}>
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Financial Metrics Cards */}
+      {(isLoadingBalance || isLoadingEstadoResultados) ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Cargando datos financieros...</Text>
+        </View>
+      ) : (
+        <View style={styles.financialGrid}>
+          {/* Balance General Cards */}
+          <View style={styles.financialCard}>
+            <View style={[styles.financialCardHeader, { backgroundColor: colors.success + "20" }]}>
+              <Ionicons name="trending-up" size={24} color={colors.success} />
+              <Text style={styles.financialCardTitle}>Total Activos</Text>
+            </View>
+            <Text style={styles.financialCardValue}>{formatCurrency(totalAssets)}</Text>
+            <Text style={styles.financialCardLabel}>Estado Financiero</Text>
+          </View>
+
+          <View style={styles.financialCard}>
+            <View style={[styles.financialCardHeader, { backgroundColor: colors.error + "20" }]}>
+              <Ionicons name="document-text" size={24} color={colors.error} />
+              <Text style={styles.financialCardTitle}>Patrimonio</Text>
+            </View>
+            <Text style={styles.financialCardValue}>{formatCurrency(netWorth)}</Text>
+            <Text style={styles.financialCardLabel}>Neto</Text>
+          </View>
+
+          <View style={styles.financialCard}>
+            <View style={[styles.financialCardHeader, { backgroundColor: colors.info + "20" }]}>
+              <Ionicons name="cash" size={24} color={colors.info} />
+              <Text style={styles.financialCardTitle}>Ingresos</Text>
+            </View>
+            <Text style={styles.financialCardValue}>{formatCurrency(totalRevenue)}</Text>
+            <Text style={styles.financialCardLabel}>Del Período</Text>
+          </View>
+
+          <View style={styles.financialCard}>
+            <View style={[styles.financialCardHeader, { backgroundColor: "#8b5cf6" + "20" }]}>
+              <Ionicons name="trending-down" size={24} color="#8b5cf6" />
+              <Text style={styles.financialCardTitle}>Gastos</Text>
+            </View>
+            <Text style={styles.financialCardValue}>{formatCurrency(totalExpenses)}</Text>
+            <Text style={styles.financialCardLabel}>Total</Text>
+          </View>
+        </View>
+      )}
 
       {/* Stats */}
       {stats && (
@@ -259,4 +404,79 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   statusText: { fontSize: fontSize.xs, fontWeight: "600" },
+  // Financial metrics styles
+  monthSelector: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  monthChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  monthChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  monthChipText: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  monthChipTextActive: {
+    color: colors.textInverse,
+  },
+  loadingContainer: {
+    padding: spacing.xl,
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    fontStyle: "italic",
+  },
+  financialGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  financialCard: {
+    width: "48%",
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  financialCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  financialCardTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.text,
+    marginLeft: spacing.sm,
+  },
+  financialCardValue: {
+    fontSize: fontSize.lg,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  financialCardLabel: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+  },
 });

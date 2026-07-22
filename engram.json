@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 78 IN PROGRESS — Mobile App (React Native) + AI",
-    "next_sprint": "Sprint 79 — AI Features (Predictive, Copilot)",
+    "current_sprint": "Sprint 80 IN PROGRESS — Accounting Configurators & Integration Dashboard",
+    "next_sprint": "Sprint 81 — AI Features (Predictive, Copilot)",
     "sprint_77_progress": {
       "goal": "White-label branding + custom domain / subdomain tenant resolution",
       "duration": "1 week",
@@ -155,6 +155,133 @@
       ],
       "files_created": ["src/modules/mobile/routes/mobile.routes.ts", "src/modules/mobile/plugin.ts", "mobile/src/notifications/push.ts", "tests/sprint78.test.ts"],
       "files_modified": ["src/shared/database/schema/index.ts", "src/app.ts", "mobile/src/api/client.ts", "mobile/src/screens/LoginScreen.tsx", "mobile/src/auth/AuthContext.tsx", "mobile/package.json"]
+    },
+    "sprint_80_progress": {
+      "goal": "Accounting Configurators & Integration Dashboard — 3 nuevos configuradores modulares + auto-reversal + React dashboard",
+      "duration": "1.5 weeks",
+      "priority": "HIGH",
+      "completed_date": "2026-07-21",
+      "tasks": [
+        {
+          "id": "S80-1",
+          "name": "InventarioConfigurator",
+          "description": "Nuevo configurador para INVENTARIO con handlers onEntradaStock, onSalidaStock, onAjusteStock, onTransferenciaStock. Mappings para ENTRADA (1.1.3.01→5.1.1.01), SALIDA (5.1.1.01→1.1.3.01), AJUSTE positivo/negativo, TRANSFERENCIA. Reemplaza llamadas directas a emit() en stock.service.ts",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/inventario.configurator.ts"]
+        },
+        {
+          "id": "S80-2",
+          "name": "WorkshopConfigurator (reconocimiento de ingresos)",
+          "description": "Nuevo configurador para WORKSHOP con handlers onOTCompletada, onOTCancelada. Reconocimiento de ingresos multi-línea al pasar OT a 'Listo' (Debe: CLIENTES, Haber: INGRESO_MO). Integrado en orden.service.ts",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/workshop.configurator.ts", "src/modules/workshop/services/orden.service.ts"]
+        },
+        {
+          "id": "S80-3",
+          "name": "AutoReversalService",
+          "description": "Servicio de reversión automática de asientos: intercambia Debe↔Haber, marca original como ANULADO, genera audit trail. Métodos autoReversal(), hasReversal(), getAsientosByReferencia(). Endpoint POST /finance/contabilidad/reversar",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/services/accounting/auto-reversal.service.ts", "src/modules/finance/routes/accounting.ts"]
+        },
+        {
+          "id": "S80-4",
+          "name": "centroCostoId propagation through all configurators",
+          "description": "Agregado centroCostoId + ordenTrabajoId como params opcionales a todos los handlers existentes: ComprasConfigurator, SifenConfigurator, TesoreriaConfigurator, NominaConfigurator. Propagado a TransactionEvent + líneas en emitFromTransaction",
+          "status": "COMPLETED",
+          "files": [
+            "src/modules/finance/services/accounting/accounting-bus.service.ts",
+            "src/modules/finance/services/accounting/compras.configurator.ts",
+            "src/modules/finance/services/accounting/sifen.configurator.ts",
+            "src/modules/finance/services/accounting/tesoreria.configurator.ts",
+            "src/modules/finance/services/accounting/nomina.configurator.ts"
+          ]
+        },
+        {
+          "id": "S80-5",
+          "name": "Auto-configure service + onboarding integration",
+          "description": "auto-configure.service.ts — seeds 6 configuradores (COMPRAS, SIFEN, TESORERIA, NOMINA, INVENTARIO, WORKSHOP) + 22 mappings contables. Idempotente (ON CONFLICT DO NOTHING). Integrado en POST /api/onboarding/setup (creación de tenant)",
+          "status": "COMPLETED",
+          "files": [
+            "src/modules/finance/services/accounting/auto-configure.service.ts",
+            "src/modules/tenants/routes/onboarding.ts",
+            "src/modules/finance/services/index.ts"
+          ]
+        },
+        {
+          "id": "S80-6",
+          "name": "Migration 0008 — RLS for accounting config tables",
+          "description": "Migration 0008: RLS policies (SELECT/INSERT/UPDATE/DELETE) para configurador_modulo y cuenta_mapping con tenant isolation via app.current_tenant",
+          "status": "COMPLETED",
+          "files": ["src/shared/database/migrations/0008_contabilidad_rls.sql"]
+        },
+        {
+          "id": "S80-7",
+          "name": "Fix integration dashboard endpoints",
+          "description": "Bugfix: listModulosActivos() devolvía string[] pero el handler esperaba objetos. Creado listModulosActivosDetalle(). Corregido asientos iteration (asientos.items) y nombres de campo en health check (cuentaDebeId/cuentaHaberId). Endpoints: GET /integracion/resumen, GET /integracion/check/:modulo, GET /audit-log/:entidad/:entidadId",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/routes/accounting.ts"]
+        },
+        {
+          "id": "S80-8",
+          "name": "React integration dashboard (Next.js)",
+          "description": "Nueva página web/src/app/(dashboard)/dashboard/contabilidad/integracion/page.tsx con: 4 tarjetas de resumen, grid de 6 módulos con iconos/estado/contadores, tablas de mappings, asientos generados y auditoría reciente. Auto-refresh cada 30s, estados de carga/error/vacío. Navegación por tabs (Plan de Cuentas ↔ Integración)",
+          "status": "COMPLETED",
+          "files": [
+            "web/src/app/(dashboard)/dashboard/contabilidad/integracion/page.tsx",
+            "web/src/app/(dashboard)/dashboard/contabilidad/page.tsx",
+            "web/src/lib/api.ts"
+          ]
+        },
+        {
+          "id": "S80-9",
+          "name": "Frontend vanilla JS 'Integración' tab",
+          "description": "Nueva pestaña 'Integración' en CONTABILIDAD_TABS del frontend vanilla (contabilidad.js). Muestra dashboard de estado de configuradores con módulos, mappings, asientos automáticos y auditoría reciente",
+          "status": "COMPLETED",
+          "files": ["src/shared/public/js/contabilidad.js"]
+        },
+        {
+          "id": "S80-10",
+          "name": "Monthly closure cron endpoint",
+          "description": "POST /finance/contabilidad/cron/cierre-mensual — dispara AccountingClosureService.executeMonthlyClosure(), sigue el patrón POST /scheduling/cron/reminders",
+          "status": "COMPLETED",
+          "files": ["src/modules/finance/routes/accounting.ts"]
+        }
+      ],
+      "success_criteria": [
+        "6 configuradores modulares operativos (COMPRAS, SIFEN, TESORERIA, NOMINA, INVENTARIO, WORKSHOP)",
+        "Auto-reversal con audit trail funciona",
+        "centroCostoId propagado a través de todos los configuradores",
+        "Auto-configure se ejecuta en onboarding de nuevos tenants",
+        "Migration 0008 RLS compila",
+        "19 tests sprint90-accounting pasan",
+        "React dashboard en /dashboard/contabilidad/integracion compila",
+        "Frontend vanilla 'Integración' tab funcional"
+      ],
+      "files_created": [
+        "src/modules/finance/services/accounting/inventario.configurator.ts",
+        "src/modules/finance/services/accounting/workshop.configurator.ts",
+        "src/modules/finance/services/accounting/auto-reversal.service.ts",
+        "src/modules/finance/services/accounting/auto-configure.service.ts",
+        "src/shared/database/migrations/0008_contabilidad_rls.sql",
+        "web/src/app/(dashboard)/dashboard/contabilidad/integracion/page.tsx",
+        "tests/sprint90-accounting.test.ts"
+      ],
+      "files_modified": [
+        "src/modules/finance/services/accounting/accounting-bus.service.ts",
+        "src/modules/finance/services/accounting/compras.configurator.ts",
+        "src/modules/finance/services/accounting/sifen.configurator.ts",
+        "src/modules/finance/services/accounting/tesoreria.configurator.ts",
+        "src/modules/finance/services/accounting/nomina.configurator.ts",
+        "src/modules/finance/services/accounting/mapping.service.ts",
+        "src/modules/finance/services/index.ts",
+        "src/modules/finance/routes/accounting.ts",
+        "src/modules/tenants/routes/onboarding.ts",
+        "src/modules/workshop/services/orden.service.ts",
+        "src/modules/inventory/services/stock.service.ts",
+        "src/shared/public/js/contabilidad.js",
+        "web/src/app/(dashboard)/dashboard/contabilidad/page.tsx",
+        "web/src/lib/api.ts"
+      ]
     },
     "sprint_69_completed": {
       "goal": "Multi-tenant SaaS foundation: Billing integration, API documentation, and email transactional",

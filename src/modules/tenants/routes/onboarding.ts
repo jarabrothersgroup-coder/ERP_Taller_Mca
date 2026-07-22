@@ -2,12 +2,14 @@
  * Onboarding Routes — Create new tenant with initial configuration.
  *
  * POST /api/onboarding/setup — Create tenant with business info
+ *   Also auto-configures accounting modules (configuradores + mappings).
  */
 
 import type { FastifyInstance } from "fastify";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenantConfig, librosObligatorios } from "../schema/index.js";
 import { clasificarMIC, determinarRegimenIRE, activarLibrosObligatorios } from "../services/tenant-classifier.service.js";
+import { autoConfigureAccounting } from "../../finance/services/accounting/auto-configure.service.js";
 import { eq } from "drizzle-orm";
 
 interface OnboardingBody {
@@ -97,6 +99,9 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
+    // Auto-configure accounting modules (idempotent: safe to call multiple times)
+    const accountingConfig = await autoConfigureAccounting();
+
     return reply.status(201).send({
       success: true,
       tenant: {
@@ -105,6 +110,10 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
         razonSocial: config.razonSocial,
         clasificacionMic: config.clasificacionMic,
         regimenIre: config.regimenIre,
+      },
+      accounting: {
+        configuradoresRegistrados: accountingConfig.configuradores,
+        mappingsCreados: accountingConfig.mappings,
       },
     });
   });

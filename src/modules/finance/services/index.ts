@@ -75,6 +75,53 @@ export {
   getReservaLegalSaldo,
 } from "./accounting/legal-reserve.service.js";
 
+// ─── Sprint 7/8: Mapping Service + Configuradores ──
+export {
+  resolveMapping,
+  createMapping,
+  updateMapping,
+  deleteMapping,
+  listMappings,
+  ensureDefaultMappings,
+  registerModulo,
+  listModulosActivos,
+  listModulosActivosDetalle,
+} from "./accounting/mapping.service.js";
+export type {
+  ResolveMappingInput,
+  DefaultMappingDef,
+} from "./accounting/mapping.service.js";
+
+export {
+  comprasConfigurator,
+} from "./accounting/compras.configurator.js";
+
+export {
+  sifenConfigurator,
+} from "./accounting/sifen.configurator.js";
+
+export {
+  tesoreriaConfigurator,
+} from "./accounting/tesoreria.configurator.js";
+
+export {
+  nominaConfigurator,
+} from "./accounting/nomina.configurator.js";
+
+export {
+  inventarioConfigurator,
+} from "./accounting/inventario.configurator.js";
+
+export {
+  workshopConfigurator,
+} from "./accounting/workshop.configurator.js";
+
+export {
+  autoReversal,
+  hasReversal,
+  getAsientosByReferencia,
+} from "./accounting/auto-reversal.service.js";
+
 // ─── Sprint 5: Libros Contables Electrónicos ──
 export {
   generarLibroDiario,
@@ -109,6 +156,7 @@ export {
 // ─── Sprint 6: Accounting Bus + Financial Statements ──
 export {
   emit,
+  emitFromTransaction,
   resolveAccount,
 } from "./accounting/accounting-bus.service.js";
 export type {
@@ -116,6 +164,7 @@ export type {
   AccountingEventType,
   BusAccountingLine,
   AccountingEventResult,
+  TransactionEvent,
 } from "./accounting/accounting-bus.service.js";
 
 export {
@@ -219,3 +268,10 @@ export type {
 
 export { registerPayment } from "./treasury/payment.service.js";
 export type { RegisterPaymentInput, RegisterPaymentResult } from "./treasury/payment.service.js";
+
+// ─── Monthly Closure ──
+export { AccountingClosureService } from "./accounting-closure.service.js";
+export type { ClosureResult } from "./accounting-closure.service.js";
+
+// ─── Auto-Configure (Tenant Onboarding) ──
+export { autoConfigureAccounting } from "./accounting/auto-configure.service.js";

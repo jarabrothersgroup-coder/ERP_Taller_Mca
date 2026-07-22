@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AutomotiveOS ERP
+Comment=ERP Cloud para talleres automotrices
+Exec=xdg-open http://192.168.18.104:3001
+Icon=automotiveos
+Terminal=false
+Categories=Office;
+StartupWMClass=AutomotiveOS
+Keywords=erp;taller;automotriz;facturacion;
