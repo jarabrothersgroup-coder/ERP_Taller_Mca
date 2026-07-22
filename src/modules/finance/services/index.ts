@@ -317,3 +317,11 @@ export type { ClosureResult } from "./accounting-closure.service.js";
 
 // ─── Auto-Configure (Tenant Onboarding) ──
 export { autoConfigureAccounting } from "./accounting/auto-configure.service.js";
+
+// ─── Sprint 84: Nota de Crédito SIFEN ──
+export { emitirNotaCredito } from "./sifen/nota-credito.service.js";
+export type { NotaCreditoInput, NotaCreditoResult } from "./sifen/nota-credito.service.js";
+
+// ─── Sprint 85: Online Payments ──
+export { generatePaymentLink, processPaymentWebhook } from "./treasury/online-payment.service.js";
+export type { PaymentLinkInput, PaymentLinkResult } from "./treasury/online-payment.service.js";

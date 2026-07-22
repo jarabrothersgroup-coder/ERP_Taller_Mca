@@ -1,53 +1,68 @@
+/**
+ * Migration 0010 — Multi-almacén.
+ *
+ * Executes the 0010_almacenes.sql migration against the database.
+ * Uses the existing PostgreSQL connection pattern from apply-migration.ts.
+ *
+ * Run: npx tsx scripts/apply-0010.ts
+ *
+ * @module scripts/apply-0010
+ */
+
 import { getDb, closeDb } from "../src/shared/database/connection.js";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-async function run() {
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const filename = "0010_almacenes.sql";
+
+async function applyMigration() {
   const sql = getDb();
-  const filename = "0010_liquidaciones_idu.sql";
 
-  const [existing] = await sql`SELECT id FROM public.migrations WHERE filename = ${filename}`;
+  // Check if already applied
+  const [existing] = await sql`
+    SELECT id FROM public.migrations WHERE filename = ${filename}
+  `;
   if (existing) {
     console.log(`Migration ${filename} already applied.`);
     await closeDb();
     return;
   }
 
-  await sql.unsafe(`
-    CREATE TABLE IF NOT EXISTS "liquidaciones_idu" (
-      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      "periodo_fiscal_id" uuid NOT NULL REFERENCES "periodos_fiscales"("id") ON DELETE CASCADE,
-      "liquidacion_ire_id" uuid REFERENCES "liquidaciones_ire"("id") ON DELETE SET NULL,
+  const filePath = join(__dirname, "../src/shared/database/migrations", filename);
+  const content = readFileSync(filePath, "utf-8");
 
-      "renta_neta_base" numeric(14,2) DEFAULT '0' NOT NULL,
-      "impuesto_ire_pagado" numeric(14,2) DEFAULT '0' NOT NULL,
-      "reserva_legal_base" numeric(14,2) DEFAULT '0' NOT NULL,
+  // Split by semicolon and execute each statement
+  const statements = content
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !s.startsWith("--"));
 
-      "utilidad_distribuible" numeric(14,2) DEFAULT '0' NOT NULL,
-      "porcentaje_distribuido" numeric(5,4) DEFAULT '1.0000' NOT NULL,
-      "utilidad_efectiva" numeric(14,2) DEFAULT '0' NOT NULL,
+  for (const stmt of statements) {
+    if (!stmt) continue;
+    try {
+      await sql.unsafe(stmt + ";");
+      console.log(`  [OK] Executed: ${stmt.slice(0, 60)}...`);
+    } catch (err: any) {
+      // Column/table already exists is OK for idempotency
+      if (err.message?.includes("already exists")) {
+        console.log(`  [SKIP] ${err.message.slice(0, 60)}`);
+      } else {
+        throw err;
+      }
+    }
+  }
 
-      "impuesto_idu" numeric(14,2) DEFAULT '0' NOT NULL,
-      "retenciones_idu" numeric(14,2) DEFAULT '0' NOT NULL,
-      "saldo_pagar_idu" numeric(14,2) DEFAULT '0' NOT NULL,
-      "saldo_favor_idu" numeric(14,2) DEFAULT '0' NOT NULL,
-
-      "alertas" text,
-      "tenant_slug" text NOT NULL,
-      "created_at" timestamptz DEFAULT now() NOT NULL,
-      "updated_at" timestamptz DEFAULT now() NOT NULL
-    )
-  `);
-  console.log("  [OK] liquidaciones_idu table created");
-
-  await sql.unsafe(`CREATE INDEX IF NOT EXISTS liq_idu_periodo_idx ON liquidaciones_idu (periodo_fiscal_id)`);
-  await sql.unsafe(`CREATE INDEX IF NOT EXISTS liq_idu_tenant_idx ON liquidaciones_idu (tenant_slug)`);
-  console.log("  [OK] indexes created");
-
-  await sql`INSERT INTO public.migrations (filename) VALUES (${filename})`;
-  console.log(`\nMigration ${filename} applied successfully.`);
+  // Record migration
+  await sql`
+    INSERT INTO public.migrations (filename) VALUES (${filename})
+  `;
+  console.log(`\n✅ Migration ${filename} applied successfully.`);
   await closeDb();
 }
 
-run().catch((e) => {
+applyMigration().catch((e) => {
   console.error("Migration failed:", e);
   process.exit(1);
 });

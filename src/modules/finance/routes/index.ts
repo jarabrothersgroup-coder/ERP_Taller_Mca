@@ -9,6 +9,7 @@ import { paymentRoutes } from "./payment.routes.js";
 import { budgetRoutes } from "./budget.routes.js";
 import { comprasRoutes } from "./compras.routes.js";
 import { donacionesRoutes } from "./donaciones.routes.js";
+import { onlinePaymentRoutes } from "./online-payment.routes.js";
 
 export async function financeRoutes(app: FastifyInstance): Promise<void> {
   await app.register(invoiceRoutes);
@@ -21,4 +22,5 @@ export async function financeRoutes(app: FastifyInstance): Promise<void> {
   await app.register(budgetRoutes);
   await app.register(comprasRoutes);
   await app.register(donacionesRoutes);
+  await app.register(onlinePaymentRoutes);
 }
