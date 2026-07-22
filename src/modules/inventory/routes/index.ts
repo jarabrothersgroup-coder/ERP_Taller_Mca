@@ -19,6 +19,7 @@ import { initialLoadRoutes } from "./initial-load.js";
 import { autoPORoutes } from "./auto-po.routes.js";
 import { tecdocRoutes } from "./tecdoc.routes.js";
 import { batchInventoryRoutes } from "./batch-inventory.routes.js";
+import { almacenRoutes } from "./almacenes.js";
 
 /**
  * Registers all inventory routes on the given Fastify instance.
@@ -37,4 +38,5 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   await app.register(autoPORoutes);
   await app.register(tecdocRoutes);
   await app.register(batchInventoryRoutes);
+  await app.register(almacenRoutes);
 }

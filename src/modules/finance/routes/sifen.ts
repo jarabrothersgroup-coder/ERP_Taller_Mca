@@ -41,6 +41,7 @@ import { eq, count } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
 import { sifenSyncLog } from "../schema/fiscal-docs.js";
+import { emitirNotaCredito } from "../services/sifen/nota-credito.service.js";
 import type { EmitirDTERequest, ConsultaDTEQuery, SIFENSoapResponse } from "../types.js";
 
 // C-03 FIX: Paraguay timezone helper for SIFEN timestamps
@@ -500,6 +501,37 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         ...result,
         timestamp: new Date().toISOString(),
       });
+    },
+  );
+
+  // ── POST /finance/sifen/nota-credito — Emit electronic credit note ──
+  app.post<{ Body: { cdcOriginal: string; motivo: string; ordenTrabajoId?: string; items?: any[]; monto?: number } }>(
+    "/finance/sifen/nota-credito",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["cdcOriginal", "motivo"],
+          properties: {
+            cdcOriginal: { type: "string", minLength: 44, maxLength: 44 },
+            motivo: { type: "string", maxLength: 500 },
+            ordenTrabajoId: { type: "string", nullable: true },
+            monto: { type: "number", nullable: true },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const result = await emitirNotaCredito({
+        ...request.body,
+        tenantSlug: request.tenantSlug,
+      });
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return reply.status(201).send(result);
     },
   );
 

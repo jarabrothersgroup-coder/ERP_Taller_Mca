@@ -99,6 +99,9 @@ export type {
   NewInitialInventoryLoad,
 } from "./initial-inventory-loads.js";
 
+export { almacenes } from "./almacenes.js";
+export type { Almacen, NewAlmacen } from "./almacenes.js";
+
 // ─── Relations ────────────────────────────────
 export {
   herramientasRelations,
