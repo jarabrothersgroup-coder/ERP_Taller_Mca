@@ -20,6 +20,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { api, BACKEND_URL } from "../api/client";
 
 interface PhotoEntry {
   uri: string;
@@ -85,21 +86,39 @@ export default function DVICameraScreen({ route, navigation }: any) {
   }, []);
 
   const handleSave = React.useCallback(async () => {
-    Alert.alert(
-      "Guardar Inspección",
-      `Se guardarán ${capturedPhotos.length} fotos para la OT #${ordenId?.slice(0, 8) ?? "—"}.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Guardar",
-          onPress: async () => {
-            // In a real app, upload photos to backend
-            Alert.alert("Éxito", `Inspección DVI guardada con ${capturedPhotos.length} fotos.`);
-            navigation.goBack();
-          },
-        },
-      ],
-    );
+    if (!ordenId) {
+      Alert.alert("Error", "No se ha especificado una orden de trabajo.");
+      return;
+    }
+    try {
+      const result = await api.createDVIInspection({
+        ordenTrabajoId: ordenId,
+        notas: `Inspección DVI con ${capturedPhotos.length} fotos.`,
+      });
+      // Upload each photo individually if DVI was created
+      for (const photo of capturedPhotos) {
+        try {
+          const formData = new FormData();
+          formData.append("photo", {
+            uri: photo.uri,
+            type: "image/jpeg",
+            name: `dvi_${result.id}_${Date.now()}.jpg`,
+          } as any);
+          formData.append("label", photo.label);
+          await fetch(`${BACKEND_URL}/dvi/${result.id}/photos`, {
+            method: "POST",
+            body: formData,
+            headers: { "X-Tenant-Slug": "demo" },
+          });
+        } catch (uploadErr) {
+          console.warn("[DVI] Photo upload failed:", uploadErr);
+        }
+      }
+      Alert.alert("Éxito", `Inspección DVI guardada con ${capturedPhotos.length} fotos.`);
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "No se pudo guardar la inspección.");
+    }
   }, [capturedPhotos, ordenId, navigation]);
 
   if (!permission) {
