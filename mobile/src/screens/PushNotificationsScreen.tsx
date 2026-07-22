@@ -2,7 +2,7 @@
  * Push Notification & OT Assignment Screen — S78-7
  *
  * Handles incoming push notifications and displays OT assignments.
- * Connected to real backend API via api.listNotifications().
+ * Uses WebSocket for real-time updates + 30s polling fallback.
  *
  * @module mobile/screens/PushNotificationsScreen
  */
@@ -21,6 +21,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { api } from "../api/client";
 import { useWorkOrders } from "../hooks/use-data";
+import { useNotificationWS, type WSNotification } from "../hooks/use-notification-ws";
+import { getSession } from "../auth/session";
 
 interface NotificationItem {
   id: string;
@@ -50,24 +52,61 @@ function getPriorityIcon(priority: string): string {
   }
 }
 
+function mapWSNotification(wsn: WSNotification): NotificationItem {
+  return {
+    id: wsn.id,
+    title: wsn.titulo,
+    body: wsn.mensaje,
+    data: wsn.entityId ? { ordenId: wsn.entityId } : undefined,
+    read: false,
+    createdAt: new Date().toISOString(),
+    priority: (wsn.priority as any) ?? "normal",
+  };
+}
+
+function mapAPINotification(n: any): NotificationItem {
+  return {
+    id: n.id,
+    title: n.titulo ?? n.title ?? "",
+    body: n.mensaje ?? n.body ?? "",
+    data: n.data ? (typeof n.data === "string" ? JSON.parse(n.data) : n.data) : undefined,
+    read: n.leido ?? n.read ?? false,
+    createdAt: n.createdAt ?? n.created_at ?? new Date().toISOString(),
+    priority: n.prioridad ?? n.priority ?? "normal",
+  };
+}
+
 export default function PushNotificationsScreen({ navigation }: any) {
   const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
   const [pushEnabled, setPushEnabled] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(true);
   const { data: assignedOTs = [] } = useWorkOrders({ status: "pending" });
 
+  // Read tenant slug from session for WebSocket connection
+  const [tenantSlug, setTenantSlug] = React.useState("demo");
+  React.useEffect(() => {
+    (async () => {
+      const session = await getSession();
+      if (session?.slug) setTenantSlug(session.slug);
+    })();
+  }, []);
+
+  // Stable callback for WS notifications — wrapped in useCallback to avoid reconnects
+  const handleWSNotification = React.useCallback((wsn: WSNotification) => {
+    const item = mapWSNotification(wsn);
+    setNotifications((prev) => [item, ...prev]);
+  }, []);
+
+  // WebSocket connection for real-time notifications
+  const { connected } = useNotificationWS({
+    tenantSlug,
+    onNotification: handleWSNotification,
+  });
+
   const fetchNotifications = React.useCallback(async () => {
     try {
       const data = await api.listNotifications();
-      const mapped: NotificationItem[] = (data ?? []).map((n: any) => ({
-        id: n.id,
-        title: n.titulo ?? n.title ?? "",
-        body: n.mensaje ?? n.body ?? "",
-        data: n.data ? (typeof n.data === "string" ? JSON.parse(n.data) : n.data) : undefined,
-        read: n.leido ?? n.read ?? false,
-        createdAt: n.createdAt ?? n.created_at ?? new Date().toISOString(),
-        priority: n.prioridad ?? n.priority ?? "normal",
-      }));
+      const mapped: NotificationItem[] = (data ?? []).map(mapAPINotification);
       setNotifications(mapped);
     } catch (err) {
       console.warn("[PushNotifications] Failed to fetch notifications:", err);
@@ -76,7 +115,7 @@ export default function PushNotificationsScreen({ navigation }: any) {
     }
   }, []);
 
-  // Fetch notifications on mount, then poll every 30s for real-time updates
+  // Fetch on mount + poll every 30s as WS fallback
   React.useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
@@ -123,9 +162,17 @@ export default function PushNotificationsScreen({ navigation }: any) {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>Notificaciones</Text>
-          <Text style={styles.headerSub}>
-            {isLoading ? "Cargando..." : unreadCount > 0 ? `${unreadCount} sin leer` : "Todo leído"}
-          </Text>
+          <View style={styles.headerSubRow}>
+            <Text style={styles.headerSub}>
+              {isLoading ? "Cargando..." : unreadCount > 0 ? `${unreadCount} sin leer` : "Todo leído"}
+            </Text>
+            {connected && (
+              <View style={styles.wsBadge}>
+                <View style={styles.wsDot} />
+                <Text style={styles.wsText}>Tiempo real</Text>
+              </View>
+            )}
+          </View>
         </View>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
@@ -134,11 +181,17 @@ export default function PushNotificationsScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* Push Toggle */}
+      {/* Connection Status + Push Toggle */}
       <View style={styles.toggleRow}>
         <View style={styles.toggleInfo}>
-          <Ionicons name="notifications" size={20} color={colors.primary} />
-          <Text style={styles.toggleLabel}>Notificaciones Push</Text>
+          <Ionicons
+            name={connected ? "wifi" : "wifi-outline"}
+            size={20}
+            color={connected ? colors.success : colors.textMuted}
+          />
+          <Text style={styles.toggleLabel}>
+            {connected ? "Conectado en tiempo real" : "Usando polling (30s)"}
+          </Text>
         </View>
         <Switch
           value={pushEnabled}
@@ -239,7 +292,11 @@ const styles = StyleSheet.create({
   backBtn: { padding: spacing.sm },
   headerInfo: { flex: 1, marginLeft: spacing.md },
   headerTitle: { fontSize: fontSize.lg, fontWeight: "600", color: colors.text },
-  headerSub: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  headerSubRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 },
+  headerSub: { fontSize: fontSize.xs, color: colors.textSecondary },
+  wsBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.success + "20", paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.sm },
+  wsDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  wsText: { fontSize: 9, color: colors.success, fontWeight: "600" },
   markAllBtn: { padding: spacing.sm },
   markAllText: { fontSize: fontSize.sm, color: colors.primary, fontWeight: "500" },
   toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border },

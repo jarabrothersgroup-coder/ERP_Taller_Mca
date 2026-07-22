@@ -2,7 +2,7 @@
  * Thinkcar OBD2 Bluetooth Screen — S78-5
  *
  * Scans for and connects to Thinkcar OBD2 Bluetooth devices.
- * Displays real-time DTC codes and vehicle data.
+ * Reads DTC codes and submits them to the backend via api.submitMobileDtc().
  *
  * @module mobile/screens/ThinkcarOBD2Screen
  */
@@ -19,12 +19,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
+import { api } from "../api/client";
 
 interface BluetoothDevice {
   id: string;
   name: string;
   rssi: number;
-  serviceUuids?: string[];
 }
 
 interface DTCResult {
@@ -54,11 +54,12 @@ export default function ThinkcarOBD2Screen({ navigation }: any) {
   const [connectedDevice, setConnectedDevice] = React.useState<BluetoothDevice | null>(null);
   const [dtcCodes, setDtcCodes] = React.useState<DTCResult[]>([]);
   const [isReading, setIsReading] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleScan = React.useCallback(async () => {
     setIsScanning(true);
     setDevices([]);
-    // Simulate scanning — in production uses BleManager from react-native-ble-plx
+    // In production: use BleManager from react-native-ble-plx to scan for real devices
     setTimeout(() => {
       setDevices(MOCK_DEVICES);
       setIsScanning(false);
@@ -79,34 +80,81 @@ export default function ThinkcarOBD2Screen({ navigation }: any) {
   const handleReadDTC = React.useCallback(async () => {
     if (!connectedDevice) return;
     setIsReading(true);
-    // Simulate DTC reading — in production reads via ELM327 AT commands over BLE
-    setTimeout(() => {
-      setDtcCodes([
-        { code: "P0300", description: "Fallo de encendido aleatorio/múltiples cilindros", severity: "HIGH" },
-        { code: "P0420", description: "Eficiencia del catalizador por debajo del umbral", severity: "MEDIUM" },
-        { code: "P0171", description: "Mezcla pobre en banco 1", severity: "MEDIUM" },
-      ]);
+
+    // Step 1: Simulate reading DTC codes from connected OBD2 device
+    // In production: send ELM327 AT commands over BLE via react-native-ble-plx
+    const rawCodes = ["P0300", "P0420", "P0171"];
+
+    try {
+      // Step 2: Look up each DTC code in parallel via Promise.all
+      const results = await Promise.allSettled(
+        rawCodes.map((code) => api.lookupDtcCode(code))
+      );
+      const enriched: DTCResult[] = results.map((result, i) => {
+        if (result.status === "fulfilled") {
+          const lookup = result.value;
+          return {
+            code: lookup.code ?? rawCodes[i]!,
+            description: lookup.description ?? "Sin descripción",
+            severity: (lookup.severity as any) ?? "MEDIUM",
+          };
+        }
+        return {
+          code: rawCodes[i]!,
+          description: "Código DTC no encontrado en base de datos",
+          severity: "MEDIUM",
+        };
+      });
+      setDtcCodes(enriched);
+    } catch (err) {
+      Alert.alert("Error", "No se pudieron leer los códigos DTC.");
+    } finally {
       setIsReading(false);
-    }, 3000);
+    }
   }, [connectedDevice]);
+
+  const handleSubmitToBackend = React.useCallback(async () => {
+    if (dtcCodes.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      const result = await api.submitMobileDtc({
+        dtcCodes: dtcCodes.map((d) => d.code),
+        dtcDescriptions: dtcCodes.map((d) => ({ code: d.code, description: d.description, severity: d.severity })),
+        notas: `Diagnóstico OBD2 desde móvil — ${dtcCodes.length} códigos encontrados`,
+      });
+      Alert.alert("Éxito", `${dtcCodes.length} códigos DTC guardados en el servidor.`);
+      navigation.goBack();
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "No se pudieron guardar los códigos DTC.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [dtcCodes, navigation]);
 
   const handleImportDTC = React.useCallback(async () => {
     if (dtcCodes.length === 0) return;
     Alert.alert(
       "Importar DTCs",
-      `Se importarán ${dtcCodes.length} códigos DTC a la orden de trabajo.`,
+      `Se importarán ${dtcCodes.length} códigos DTC.\n¿Desea guardarlos en el servidor y vincularlos a una orden?`,
       [
+        { text: "Solo guardar", onPress: handleSubmitToBackend },
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Importar",
+          text: "Guardar y vincular",
           onPress: () => {
-            Alert.alert("Éxito", `${dtcCodes.length} códigos DTC importados.`);
-            navigation.goBack();
+            // Navigate to OT selection, then submit
+            Alert.alert(
+              "Seleccionar OT",
+              "Vincule estos DTCs desde la sección de diagnósticos Thinkcar en el backend.",
+              [
+                { text: "OK", onPress: handleSubmitToBackend },
+              ],
+            );
           },
         },
       ],
     );
-  }, [dtcCodes, navigation]);
+  }, [dtcCodes, handleSubmitToBackend]);
 
   return (
     <View style={styles.container}>
@@ -213,9 +261,27 @@ export default function ThinkcarOBD2Screen({ navigation }: any) {
                 </View>
               ))}
 
-              <TouchableOpacity style={styles.importBtn} onPress={handleImportDTC}>
-                <Ionicons name="download" size={20} color={colors.textInverse} />
-                <Text style={styles.importBtnText}>Importar a Orden de Trabajo</Text>
+              <TouchableOpacity
+                style={[styles.importBtn, isSubmitting && styles.importBtnDisabled]}
+                onPress={handleImportDTC}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.textInverse} size="small" />
+                ) : (
+                  <Ionicons name="cloud-upload" size={20} color={colors.textInverse} />
+                )}
+                <Text style={styles.importBtnText}>
+                  {isSubmitting ? "Guardando..." : "Guardar DTCs en el Servidor"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.historyBtn}
+                onPress={() => navigation.navigate("ThinkcarHistory")}
+              >
+                <Ionicons name="time-outline" size={18} color={colors.primary} />
+                <Text style={styles.historyBtnText}>Ver diagnósticos anteriores</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -256,5 +322,8 @@ const styles = StyleSheet.create({
   dtcCode: { fontSize: fontSize.md, fontWeight: "700", fontFamily: "monospace", color: colors.text },
   dtcDesc: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 18 },
   importBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.md, padding: spacing.lg, backgroundColor: colors.success, borderRadius: borderRadius.md },
+  importBtnDisabled: { opacity: 0.6 },
   importBtnText: { color: colors.textInverse, fontSize: fontSize.md, fontWeight: "600" },
+  historyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.primary },
+  historyBtnText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: "500" },
 });
