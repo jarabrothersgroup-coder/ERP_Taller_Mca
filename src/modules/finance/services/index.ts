@@ -144,6 +144,14 @@ export {
 } from "./accounting/credit-debit-note.service.js";
 
 export {
+  generarNotasFinancieras,
+} from "./accounting/financial-notes.service.js";
+export type {
+  FinancialNotesReport,
+  FinancialNote,
+} from "./accounting/financial-notes.service.js";
+
+export {
   generarLibroMayor,
 } from "./accounting/libro-mayor.service.js";
 

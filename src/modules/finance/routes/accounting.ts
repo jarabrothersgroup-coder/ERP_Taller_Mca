@@ -112,6 +112,8 @@ import {
   generarLibroVentasIVA,
   // GAP-01: Pre-transaction validator
   validarPreTransaccion,
+  // GAP-03: Financial Notes
+  generarNotasFinancieras,
   // GAP-02: Credit/Debit notes
   generarNotaCreditoDebito,
 } from "../services/index.js";
@@ -1297,6 +1299,25 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       const mes = parseInt(request.params.mes, 10);
       const acumulado = request.query.acumulado === "true";
       const result = await getEquityStatement(anho, mes, acumulado);
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // GAP-03: Notas a los Estados Financieros
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/notas-financieras/:anho/:mes — Financial Notes ──
+  app.get<{
+    Params: { anho: string; mes: string };
+    Querystring: { acumulado?: string };
+  }>(
+    "/finance/contabilidad/notas-financieras/:anho/:mes",
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const acumulado = request.query.acumulado === "true";
+      const result = await generarNotasFinancieras(anho, mes, acumulado);
       return reply.send(result);
     },
   );
