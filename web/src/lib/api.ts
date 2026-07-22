@@ -651,6 +651,16 @@ export const api = {
     return request<EstadoResultados>(`/finance/contabilidad/estado-resultados/${anho}/${mes}${qs}`);
   },
 
+  getCashFlowStatement: (anho: number, mes: number, acumulado?: boolean) => {
+    const qs = acumulado ? "?acumulado=true" : "";
+    return request<CashFlowStatement>(`/finance/contabilidad/flujo-efectivo/${anho}/${mes}${qs}`);
+  },
+
+  getEquityStatement: (anho: number, mes: number, acumulado?: boolean) => {
+    const qs = acumulado ? "?acumulado=true" : "";
+    return request<EquityStatement>(`/finance/contabilidad/evolucion-patrimonio/${anho}/${mes}${qs}`);
+  },
+
   /* ── Finance: Presupuestos ─────────────────── */
 
   listPresupuestos: () => request<Presupuesto[]>("/finance/presupuestos"),
@@ -1487,6 +1497,65 @@ export interface ModuloHealth {
   mappings: ModuloHealthMapping[];
   salud: string;
 }
+
+/* ── Cash Flow Statement Types ─────────────── */
+
+export interface CashFlowLine {
+  concepto: string;
+  monto: number;
+  cuentaCodigo?: string;
+  cuentaNombre?: string;
+}
+
+export interface CashFlowSection {
+  titulo: string;
+  lineas: CashFlowLine[];
+  total: number;
+}
+
+export interface CashFlowStatement {
+  periodo: { anho: number; mes: number };
+  tipo: "MENSUAL" | "ACUMULADO";
+  operativas: CashFlowSection;
+  inversion: CashFlowSection;
+  financiamiento: CashFlowSection;
+  variacionNeta: number;
+  saldoInicial: number;
+  saldoFinal: number;
+  verificado: boolean;
+}
+
+/* ── Equity Statement Types ─────────────────── */
+
+export interface EquityLine {
+  concepto: string;
+  cuentaCodigo: string;
+  saldoInicial: number;
+  movimientos: { incrementos: number; decrementos: number };
+  cambioNeto: number;
+  saldoFinal: number;
+}
+
+export interface EquityAccountGroup {
+  tipoLabel: string;
+  lineas: EquityLine[];
+  totalInicial: number;
+  totalFinal: number;
+}
+
+export interface EquityStatement {
+  periodo: { anho: number; mes: number };
+  tipo: "MENSUAL" | "ACUMULADO";
+  capital: EquityAccountGroup;
+  reservas: EquityAccountGroup;
+  resultados: EquityAccountGroup;
+  totalPatrimonioInicial: number;
+  totalPatrimonioFinal: number;
+  variacionPeriodo: number;
+  resultadoEjercicio: number;
+}
+
+/* ── Backup Types ──────────────────────────── */
 
 export interface BackupJob {
   id: string;

@@ -12,6 +12,8 @@ import {
   TrendingDown,
   Activity,
   BookOpen,
+  BarChart3,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -201,6 +203,16 @@ const CONTABILIDAD_SUB_PAGES = [
     href: "/dashboard/contabilidad/integracion",
     label: "Integración",
     icon: Activity,
+  },
+  {
+    href: "/dashboard/contabilidad/flujo-efectivo",
+    label: "Flujo Efectivo",
+    icon: BarChart3,
+  },
+  {
+    href: "/dashboard/contabilidad/evolucion-patrimonio",
+    label: "Patrimonio",
+    icon: Landmark,
   },
 ];
 

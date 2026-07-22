@@ -97,6 +97,8 @@ import {
   // Sprint 6
   getBalanceGeneral,
   getEstadoResultados,
+  getCashFlowStatement,
+  getEquityStatement,
   // Sprint 7/8: Mapping + Configuradores
   listModulosActivosDetalle,
   listMappings,
@@ -105,6 +107,13 @@ import {
   hasReversal,
   // Monthly Closure
   AccountingClosureService,
+  // GAP-05: Libros IVA
+  generarLibroComprasIVA,
+  generarLibroVentasIVA,
+  // GAP-01: Pre-transaction validator
+  validarPreTransaccion,
+  // GAP-02: Credit/Debit notes
+  generarNotaCreditoDebito,
 } from "../services/index.js";
 import type {
   CreateCuentaRequest,
@@ -1259,6 +1268,40 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ════════════════════════════════════════════════
+  // GAP-03: Estado de Flujo de Efectivo y Evolución del Patrimonio
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/flujo-efectivo/:anho/:mes — Cash Flow Statement ──
+  app.get<{
+    Params: { anho: string; mes: string };
+    Querystring: { acumulado?: string };
+  }>(
+    "/finance/contabilidad/flujo-efectivo/:anho/:mes",
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const acumulado = request.query.acumulado === "true";
+      const result = await getCashFlowStatement(anho, mes, acumulado);
+      return reply.send(result);
+    },
+  );
+
+  // ── GET /finance/contabilidad/evolucion-patrimonio/:anho/:mes — Equity Statement ──
+  app.get<{
+    Params: { anho: string; mes: string };
+    Querystring: { acumulado?: string };
+  }>(
+    "/finance/contabilidad/evolucion-patrimonio/:anho/:mes",
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const acumulado = request.query.acumulado === "true";
+      const result = await getEquityStatement(anho, mes, acumulado);
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
   // Sprint 7/8: Mappings, Configuradores, Integración
   // ════════════════════════════════════════════════
 
@@ -1453,6 +1496,118 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       }).catch(() => {/* silent */});
 
       return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // GAP-05: Libros de Compras y Ventas IVA
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/libro-compras-iva/:anho/:mes?formato=JSON|CSV ──
+  app.get<{
+    Params: { anho: string; mes: string };
+    Querystring: { formato?: string };
+  }>(
+    "/finance/contabilidad/libro-compras-iva/:anho/:mes",
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const formato = (request.query.formato?.toUpperCase() ?? "JSON") as "JSON" | "CSV";
+      const result = await generarLibroComprasIVA(anho, mes, formato);
+      return reply.send(result);
+    },
+  );
+
+  // ── GET /finance/contabilidad/libro-ventas-iva/:anho/:mes?formato=JSON|CSV ──
+  app.get<{
+    Params: { anho: string; mes: string };
+    Querystring: { formato?: string };
+  }>(
+    "/finance/contabilidad/libro-ventas-iva/:anho/:mes",
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const formato = (request.query.formato?.toUpperCase() ?? "JSON") as "JSON" | "CSV";
+      const result = await generarLibroVentasIVA(anho, mes, formato);
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // GAP-01: Validador Pre-Transacción
+  // ════════════════════════════════════════════════
+
+  // ── POST /finance/contabilidad/validar — Pre-transaction validation ──
+  app.post<{ Body: {
+    modulo: string;
+    tipoEvento: string;
+    subTipo?: string;
+    monto: number;
+    centroCostoId?: string;
+    centrosCostoRequeridos?: string[];
+  } }>(
+    "/finance/contabilidad/validar",
+    async (request, reply) => {
+      const tenantSlug = (request as any).tenantSlug;
+      const { modulo, tipoEvento, subTipo, monto, centroCostoId, centrosCostoRequeridos } = request.body;
+
+      const result = await validarPreTransaccion({
+        modulo,
+        tipoEvento,
+        subTipo: subTipo ?? null,
+        monto,
+        tenantSlug,
+        centroCostoId: centroCostoId ?? null,
+        centrosCostoRequeridos,
+      });
+
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // GAP-02: Notas de Crédito y Débito Automáticas
+  // ════════════════════════════════════════════════
+
+  // ── POST /finance/contabilidad/nota-credito-debito — Generate credit/debit note ──
+  app.post<{ Body: {
+    facturaOriginalId: string;
+    tipo: "CREDITO" | "DEBITO";
+    motivo: string;
+    monto?: number;
+    reversalAsientoId?: string;
+  } }>(
+    "/finance/contabilidad/nota-credito-debito",
+    async (request, reply) => {
+      const tenantSlug = (request as any).tenantSlug;
+      const { facturaOriginalId, tipo, motivo, monto, reversalAsientoId } = request.body;
+
+      if (!facturaOriginalId || !tipo || !motivo) {
+        return reply.status(400).send({
+          error: "Se requieren facturaOriginalId, tipo y motivo",
+        });
+      }
+
+      if (!["CREDITO", "DEBITO"].includes(tipo)) {
+        return reply.status(400).send({
+          error: "tipo debe ser CREDITO o DEBITO",
+        });
+      }
+
+      const result = await generarNotaCreditoDebito({
+        tenantSlug,
+        facturaOriginalId,
+        tipo,
+        motivo,
+        monto,
+        reversalAsientoId,
+      });
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return reply.status(201).send(result);
     },
   );
 }
