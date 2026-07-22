@@ -21,6 +21,10 @@ import VehicleDetailScreen from "../screens/VehicleDetailScreen";
 import AppointmentsScreen from "../screens/AppointmentsScreen";
 import AccountingScreen from "../screens/AccountingScreen";
 import RG90ExportScreen from "../screens/RG90ExportScreen";
+import DVICameraScreen from "../screens/DVICameraScreen";
+import ThinkcarOBD2Screen from "../screens/ThinkcarOBD2Screen";
+import BarcodeScannerScreen from "../screens/BarcodeScannerScreen";
+import PushNotificationsScreen from "../screens/PushNotificationsScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -64,6 +68,10 @@ const tabs = [
   { name: "Clients", component: ClientsStack, icon: "people" as const },
   { name: "Vehicles", component: VehiclesStack, icon: "car" as const },
   { name: "Appointments", component: AppointmentsScreen, icon: "calendar" as const },
+  { name: "DVI", component: DVICameraScreen, icon: "camera" as const },
+  { name: "OBD2", component: ThinkcarOBD2Screen, icon: "bluetooth" as const },
+  { name: "Scanner", component: BarcodeScannerScreen, icon: "barcode" as const },
+  { name: "Notifications", component: PushNotificationsScreen, icon: "notifications" as const },
   { name: "Accounting", component: AccountingScreen, icon: "calculator" as const },
   { name: "RG90", component: RG90ExportScreen, icon: "document-text" as const },
 ];
@@ -115,7 +123,11 @@ function getTabTitle(name: string): string {
     case "Clients": return "Clientes";
     case "Vehicles": return "Vehículos";
     case "Appointments": return "Agenda";
-    case "Accounting": return "Contabilidad";
+    case "DVI": return "DVI";
+    case "OBD2": return "OBD2";
+    case "Scanner": return "Escáner";
+    case "Notifications": return "Notif.";
+    case "Accounting": return "Contab.";
     case "RG90": return "RG 90";
     default: return name;
   }
