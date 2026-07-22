@@ -311,4 +311,29 @@ export const api = {
 
   listPushTokens: () =>
     request<{ tokens: Array<{ id: string; deviceId: string; platform: string; profileEmail: string | null; createdAt: string }> }>("/mobile/push-tokens"),
+
+  // ── DVI Inspection (Sprint 82) ──────────────
+  listDVIInspections: (params?: { vehicleId?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.vehicleId) qs.set("vehicleId", params.vehicleId);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<DVIInspection[]>(`/dvi${query ? `?${query}` : ""}`);
+  },
+
+  createDVIInspection: (data: { ordenTrabajoId: string; fotos?: string[]; notas?: string }) =>
+    request<DVIInspection>("/dvi", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // ── Barcode / Stock (Sprint 82) ─────────────
+  lookupByBarcode: (barcode: string) =>
+    request<{ repuesto: any }>(`/inventory/repuestos/barcode/${encodeURIComponent(barcode)}`),
+
+  recordStockMovement: (data: { repuestoId: string; tipo: "ENTRADA" | "SALIDA"; cantidad: number; notas?: string }) =>
+    request<{ success: boolean }>("/inventory/stock/movement", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
