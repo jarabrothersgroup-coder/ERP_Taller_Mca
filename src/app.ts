@@ -129,11 +129,11 @@ async function buildApp() {
   // Sets app.current_tenant session variable for Row Level Security
   // Must run AFTER resolveTenant (needs request.tenantSlug)
   const { rlsTenantContext } = await import("./shared/middleware/rls.js");
-  // Note: rlsTenantContext is added as a preHandler in plugins that need it
-  // rather than globally, because not all requests have a tenant context
-  // (login, health check are public routes)
-  app.decorate("rlsTenantContext", rlsTenantContext);
-  app.log.info("RLS tenant context middleware available (preHandler)");
+  // Register globally as preHandler — runs AFTER onRequest hooks (resolveTenant)
+  // in each plugin, so request.tenantSlug is already set when this executes.
+  // rlsTenantContext skips gracefully when tenantSlug is missing (public routes).
+  app.addHook("preHandler", rlsTenantContext);
+  app.log.info("RLS tenant context registered globally (preHandler)");
 
   // ─── Per-Request Tenant Context (multi-tenant RLS isolation) ──
   // Reserves a dedicated connection + sets app.current_tenant per request when

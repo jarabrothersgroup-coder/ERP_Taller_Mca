@@ -507,14 +507,113 @@ async function seed(): Promise<void> {
     }
   }
 
+  // ── 10. Accounting Module Registrations ───────────────────────
+  // Register which modules have accounting configurators active.
+  const modulosConfig = [
+    { modulo: "COMPRAS", nombre: "Compras y Proveedores", descripcion: "Facturas de compra, pagos a proveedores, notas de crédito", version: "1.0.0" },
+    { modulo: "SIFEN", nombre: "Facturación Electrónica (SIFEN)", descripcion: "DTE, facturas electrónicas, notas de crédito/débito", version: "1.0.0" },
+    { modulo: "TESORERIA", nombre: "Tesorería (Caja y Bancos)", descripcion: "Movimientos de caja/bancos, cobros, pagos, conciliaciones", version: "1.0.0" },
+  ];
+
+  for (const mod of modulosConfig) {
+    await sql`
+      INSERT INTO public.configurador_modulo (id, modulo, nombre, descripcion, activo, version, created_at, updated_at)
+      VALUES (gen_random_uuid(), ${mod.modulo}, ${mod.nombre}, ${mod.descripcion}, true, ${mod.version}, now(), now())
+      ON CONFLICT (modulo) DO NOTHING
+    `;
+    console.log(`   [OK] Configurador módulo: ${mod.modulo}`);
+  }
+
+  // ── 11. Default Accounting Mappings ────────────────────────────
+  // Maps business events to chart-of-accounts entries (cuenta_mapping).
+  // Resolve all account codes to UUIDs for the mapping inserts.
+  //
+  // Resolve helper: loads account UUID by codigo from plan_cuentas
+  async function resolveCuentaId(codigo: string): Promise<string | null> {
+    const [row] = await sql`
+      SELECT id FROM public.plan_cuentas WHERE codigo = ${codigo} AND activo = true
+    `;
+    return row?.id ?? null;
+  }
+
+  // ── 11a. COMPRAS Default Mappings ──
+  const comprasMappings = [
+    { tipoEvento: "CREADA", subTipo: "CREDITO", codigoDebe: "5.1.1.01", codigoHaber: "2.1.1.01", descripcion: "Compra a crédito — costo vs proveedor" },
+    { tipoEvento: "CREADA", subTipo: "CONTADO", codigoDebe: "5.1.1.01", codigoHaber: "1.1.1.01", descripcion: "Compra al contado — costo vs caja" },
+    { tipoEvento: "PAGADA", subTipo: null,         codigoDebe: "2.1.1.01", codigoHaber: "1.1.1.01", descripcion: "Pago a proveedor — cancela cuenta por pagar" },
+    { tipoEvento: "ANULADA", subTipo: null,         codigoDebe: "2.1.1.01", codigoHaber: "5.1.1.01", descripcion: "Anulación de compra — reversión" },
+  ];
+
+  for (const map of comprasMappings) {
+    const debeId = await resolveCuentaId(map.codigoDebe);
+    const haberId = await resolveCuentaId(map.codigoHaber);
+    if (!debeId || !haberId) {
+      console.warn(`   [SKIP] COMPRAS/${map.tipoEvento}${map.subTipo ? "/" + map.subTipo : ""} — cuentas no encontradas`);
+      continue;
+    }
+    await sql`
+      INSERT INTO public.cuenta_mapping (id, tenant_slug, modulo, tipo_evento, sub_tipo, cuenta_debe_id, cuenta_haber_id, descripcion, activo, prioridad, created_at, updated_at)
+      VALUES (gen_random_uuid(), NULL, 'COMPRAS', ${map.tipoEvento}, ${map.subTipo}, ${debeId}, ${haberId}, ${map.descripcion}, true, 0, now(), now())
+      ON CONFLICT DO NOTHING
+    `;
+    console.log(`   [OK] Mapping COMPRAS/${map.tipoEvento}${map.subTipo ? "/" + map.subTipo : ""}`);
+  }
+
+  // ── 11b. SIFEN Default Mappings ──
+  const sifenMappings = [
+    { tipoEvento: "EMITIDA", subTipo: "GRAVADA", codigoDebe: "1.1.2.01", codigoHaber: "4.1.1.01", descripcion: "Factura gravada — cliente vs ingreso" },
+    { tipoEvento: "EMITIDA", subTipo: "EXENTA",  codigoDebe: "1.1.2.01", codigoHaber: "4.1.1.01", descripcion: "Factura exenta — cliente vs ingreso" },
+    { tipoEvento: "ANULADA", subTipo: null,        codigoDebe: "4.1.1.01", codigoHaber: "1.1.2.01", descripcion: "Anulación de factura — reversión" },
+  ];
+
+  for (const map of sifenMappings) {
+    const debeId = await resolveCuentaId(map.codigoDebe);
+    const haberId = await resolveCuentaId(map.codigoHaber);
+    if (!debeId || !haberId) {
+      console.warn(`   [SKIP] SIFEN/${map.tipoEvento}${map.subTipo ? "/" + map.subTipo : ""} — cuentas no encontradas`);
+      continue;
+    }
+    await sql`
+      INSERT INTO public.cuenta_mapping (id, tenant_slug, modulo, tipo_evento, sub_tipo, cuenta_debe_id, cuenta_haber_id, descripcion, activo, prioridad, created_at, updated_at)
+      VALUES (gen_random_uuid(), NULL, 'SIFEN', ${map.tipoEvento}, ${map.subTipo}, ${debeId}, ${haberId}, ${map.descripcion}, true, 0, now(), now())
+      ON CONFLICT DO NOTHING
+    `;
+    console.log(`   [OK] Mapping SIFEN/${map.tipoEvento}${map.subTipo ? "/" + map.subTipo : ""}`);
+  }
+
+  // ── 11c. TESORERIA Default Mappings ──
+  const tesoreriaMappings = [
+    { tipoEvento: "MOVIMIENTO_INGRESO", subTipo: null, codigoDebe: "1.1.1.01", codigoHaber: "1.1.2.01", descripcion: "Ingreso de caja — efectivo recibido" },
+    { tipoEvento: "MOVIMIENTO_EGRESO",  subTipo: null, codigoDebe: "6.1.1.03", codigoHaber: "1.1.1.01", descripcion: "Egreso de caja — pago realizado" },
+    { tipoEvento: "PAGO_PROVEEDOR",     subTipo: null, codigoDebe: "2.1.1.01", codigoHaber: "1.1.1.03", descripcion: "Pago a proveedor — débito bancario" },
+    { tipoEvento: "COBRO_CLIENTE",      subTipo: null, codigoDebe: "1.1.1.03", codigoHaber: "1.1.2.01", descripcion: "Cobro de cliente — acreditación bancaria" },
+    { tipoEvento: "TRANSFERENCIA",      subTipo: null, codigoDebe: "1.1.1.03", codigoHaber: "1.1.1.03", descripcion: "Transferencia entre cuentas bancarias" },
+  ];
+
+  for (const map of tesoreriaMappings) {
+    const debeId = await resolveCuentaId(map.codigoDebe);
+    const haberId = await resolveCuentaId(map.codigoHaber);
+    if (!debeId || !haberId) {
+      console.warn(`   [SKIP] TESORERIA/${map.tipoEvento} — cuentas no encontradas`);
+      continue;
+    }
+    await sql`
+      INSERT INTO public.cuenta_mapping (id, tenant_slug, modulo, tipo_evento, sub_tipo, cuenta_debe_id, cuenta_haber_id, descripcion, activo, prioridad, created_at, updated_at)
+      VALUES (gen_random_uuid(), NULL, 'TESORERIA', ${map.tipoEvento}, ${map.subTipo}, ${debeId}, ${haberId}, ${map.descripcion}, true, 0, now(), now())
+      ON CONFLICT DO NOTHING
+    `;
+    console.log(`   [OK] Mapping TESORERIA/${map.tipoEvento}`);
+  }
+
   // ── Summary ────────────────────────────────────────────────────
   console.log(`\nSeed summary:`);
-  console.log(`   Profiles:        ${mechanics.length}`);
-  console.log(`   Clients:         ${clientData.length}`);
-  console.log(`   Vehicles:        ${vehicleData.length}`);
-  console.log(`   Work orders:     ${otData.length}`);
-  console.log(`   Inventory items: ${inventoryData.length}`);
-  console.log(`   Tool checkouts:  1`);
+  console.log(`   Profiles:             ${mechanics.length}`);
+  console.log(`   Clients:              ${clientData.length}`);
+  console.log(`   Vehicles:             ${vehicleData.length}`);
+  console.log(`   Work orders:          ${otData.length}`);
+  console.log(`   Inventory items:      ${inventoryData.length}`);
+  console.log(`   Tool checkouts:       1`);
+  console.log(`   Accounting mappings:  ${comprasMappings.length + sifenMappings.length + tesoreriaMappings.length}`);
   console.log(`\nReady. Use header: X-Tenant-Slug: ${TENANT_SLUG}`);
 }
 

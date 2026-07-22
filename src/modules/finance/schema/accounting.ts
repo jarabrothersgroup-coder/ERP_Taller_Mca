@@ -266,6 +266,130 @@ export const asientosDetalle = pgTable(
   }),
 );
 
+/**
+ * Cuenta Mapping — Mapeo de transacciones → cuentas contables.
+ *
+ * Define qué cuenta de Débito y qué cuenta de Haber usar para cada
+ * tipo de evento de negocio. Es el "plan de cuentas dinámico" que
+ * permite que el motor contable (AccountingBus + Configuradores)
+ * genere asientos automáticos sin necesidad de intervención manual.
+ *
+ * Multi-tenant:
+ *   - tenantSlug = NULL → regla global (default)
+ *   - tenantSlug = valor → override específico del taller
+ *   - Resolución: primero tenant-specific, luego global
+ */
+export const cuentaMapping = pgTable(
+  "cuenta_mapping",
+  {
+    /** Primary key */
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /**
+     * Tenant slug (NULL = global default).
+     * Se resuelve primero el específico del tenant, luego el global.
+     */
+    tenantSlug: text("tenant_slug"),
+
+    /** Módulo de origen (e.g. "COMPRAS", "SIFEN", "WORKSHOP") */
+    modulo: text("modulo").notNull(),
+
+    /** Tipo de evento (e.g. "CREADA", "PAGADA", "ANULADA") */
+    tipoEvento: text("tipo_evento").notNull(),
+
+    /** Subtipo opcional (e.g. "CONTADO", "CREDITO", "EXENTA", "GRAVADA") */
+    subTipo: text("sub_tipo"),
+
+    /** Cuenta de Débito (aumenta en activos/gastos) */
+    cuentaDebeId: uuid("cuenta_debe_id")
+      .notNull()
+      .references(() => planCuentas.id, { onDelete: "restrict" }),
+
+    /** Cuenta de Haber (aumenta en pasivos/ingresos/patrimonio) */
+    cuentaHaberId: uuid("cuenta_haber_id")
+      .notNull()
+      .references(() => planCuentas.id, { onDelete: "restrict" }),
+
+    /** Descripción del mapping */
+    descripcion: text("descripcion"),
+
+    /** Mapping activo */
+    activo: boolean("activo").notNull().default(true),
+
+    /** Prioridad (mayor número = mayor prioridad) */
+    prioridad: integer("prioridad").notNull().default(0),
+
+    // ─── Timestamps ─────────────────────────────
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    /** Index on modulo + tipo_evento — bus lookup */
+    modTipoIdx: index("cuenta_mapping_mod_tipo_idx").on(
+      table.modulo,
+      table.tipoEvento,
+    ),
+    /** Index on modulo + tipo_evento + sub_tipo — specific lookup */
+    fullIdx: index("cuenta_mapping_full_idx").on(
+      table.modulo,
+      table.tipoEvento,
+      table.subTipo,
+    ),
+    /** Index on tenant_slug — tenant-scoped queries */
+    tenantIdx: index("cuenta_mapping_tenant_idx").on(table.tenantSlug),
+  }),
+);
+
+/**
+ * Configurador por Módulo — Registro de configuradores activos.
+ *
+ * Cada módulo del sistema (COMPRAS, SIFEN, WORKSHOP, TESORERIA, etc.)
+ * registra su configurador aquí para que el motor contable sepa qué
+ * módulos están integrados y en qué versión.
+ *
+ * Esto permite:
+ *   - Saber qué módulos están activos sin escanear handlers
+ *   - Versionar la configuración contable por módulo
+ *   - Desactivar la contabilidad de un módulo sin tocar código
+ */
+export const configuradorModulo = pgTable(
+  "configurador_modulo",
+  {
+    /** Primary key */
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /** Módulo (e.g. "COMPRAS", "SIFEN", "WORKSHOP") — único */
+    modulo: text("modulo").notNull().unique(),
+
+    /** Nombre descriptivo */
+    nombre: text("nombre").notNull(),
+
+    /** Descripción del módulo */
+    descripcion: text("descripcion"),
+
+    /** Configurador activo */
+    activo: boolean("activo").notNull().default(true),
+
+    /** Versión del schema de mapping */
+    version: text("version"),
+
+    // ─── Timestamps ─────────────────────────────
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    activoIdx: index("configurador_modulo_activo_idx").on(table.activo),
+  }),
+);
+
 // ─── Types ────────────────────────────────────
 
 export type PlanCuenta = typeof planCuentas.$inferSelect;
@@ -276,3 +400,9 @@ export type NewAsientoContable = typeof asientosContables.$inferInsert;
 
 export type AsientoDetalle = typeof asientosDetalle.$inferSelect;
 export type NewAsientoDetalle = typeof asientosDetalle.$inferInsert;
+
+export type CuentaMapping = typeof cuentaMapping.$inferSelect;
+export type NewCuentaMapping = typeof cuentaMapping.$inferInsert;
+
+export type ConfiguradorModulo = typeof configuradorModulo.$inferSelect;
+export type NewConfiguradorModulo = typeof configuradorModulo.$inferInsert;

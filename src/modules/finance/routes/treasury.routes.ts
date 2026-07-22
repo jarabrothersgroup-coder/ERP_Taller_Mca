@@ -46,6 +46,7 @@ import {
   proyectarFlujoCaja,
   pagarFacturaProveedor,
 } from "../services/treasury/treasury.service.js";
+import { tesoreriaConfigurator } from "../services/accounting/tesoreria.configurator.js";
 
 export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
   // ─── Cuentas Bancarias ─────────────────────
@@ -108,6 +109,28 @@ export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
       tenantSlug,
       fecha: data.fecha ? new Date(data.fecha as string) : new Date(),
     } as any);
+
+    // ── Accounting integration ─────────────────────
+    const tipoMov = String(data.tipoMovimiento ?? "INGRESO");
+    const montoNum = parseFloat(String(data.monto ?? "0"));
+
+    if (montoNum > 0) {
+      const handler = tipoMov === "INGRESO"
+        ? tesoreriaConfigurator.onMovimientoIngreso
+        : tesoreriaConfigurator.onMovimientoEgreso;
+
+      handler({
+        tenantSlug,
+        movimientoId: movimiento.id,
+        concepto: String(data.concepto ?? "Movimiento de tesorería"),
+        monto: montoNum,
+        fecha: data.fecha ? new Date(data.fecha as string) : new Date(),
+      }).catch((err: Error) => {
+        console.warn(
+          `[treasury-routes] Error contable al registrar movimiento ${movimiento.id}: ${err.message}`,
+        );
+      });
+    }
 
     return reply.status(201).send(movimiento);
   });
@@ -337,6 +360,22 @@ export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
         concepto: body.concepto,
         tenantSlug,
       });
+
+      // ── Accounting integration ─────────────────────
+      if (result.success !== false) {
+        tesoreriaConfigurator.onPagoProveedor({
+          tenantSlug,
+          facturaProvId: id,
+          proveedorNombre: "Proveedor",
+          monto: body.monto,
+          medioPago: body.medioPago,
+        }).catch((err: Error) => {
+          console.warn(
+            `[treasury-routes] Error contable al pagar factura proveedor ${id}: ${err.message}`,
+          );
+        });
+      }
+
       return reply.send(result);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Error desconocido";

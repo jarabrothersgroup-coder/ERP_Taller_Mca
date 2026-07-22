@@ -160,6 +160,7 @@ function contabHandleAction(e) {
     case 'cargar-audit': auditPage = 0; cargarAuditoria(); break;
     case 'audit-prev': if (auditPage > 0) { auditPage--; cargarAuditoria(); } break;
     case 'audit-next': auditPage++; cargarAuditoria(); break;
+    case 'refresh-integracion': cargarIntegracion(); break;
   }
 }
 
@@ -182,6 +183,7 @@ function showContabTab(tab) {
   else if (tab === 'libros') renderContabLibros(content);
   else if (tab === 'impuestos') renderContabImpuestos(content);
   else if (tab === 'auditoria') renderContabAuditoria(content);
+  else if (tab === 'integracion') renderContabIntegracion(content);
 }
 
 // ─── Plan de Cuentas ──────────────────────
@@ -1327,7 +1329,137 @@ async function guardarNuevoAsiento() {
 let auditPage = 0;
 const auditPageSize = 50;
 
-async function renderContabAuditoria(container) {
+async // ─── Integración (Configuradores Contables) ──
+
+async function renderContabIntegracion(container) {
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-gray-400">Estado de integración contable por módulo</p>
+      <button data-action="refresh-integracion" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium transition">⟳ Actualizar</button>
+    </div>
+    <div id="integracion-result">
+      <div class="text-center py-8 text-gray-500">Cargando...</div>
+    </div>`;
+  await cargarIntegracion();
+}
+
+async function cargarIntegracion() {
+  const resultDiv = document.querySelector('#integracion-result');
+  if (!resultDiv) return;
+  resultDiv.innerHTML = contLoading('Consultando estado de integración...');
+  try {
+    const data = await api('/finance/contabilidad/integracion/resumen');
+
+    const fmt = (n) => (n || 0).toLocaleString('es-PY');
+    const statusBadge = (ok) => ok
+      ? '<span class="text-green-400 text-sm font-medium">✓ Activo</span>'
+      : '<span class="text-red-400 text-sm font-medium">✗ Inactivo</span>';
+
+    resultDiv.innerHTML = `
+      <div class="space-y-6">
+        <!-- Summary Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4 text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Módulos Registrados</p>
+            <p class="text-2xl font-bold text-blue-400 mt-1">${data.modulosRegistrados || 0}</p>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4 text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Mappings Definidos</p>
+            <p class="text-2xl font-bold text-green-400 mt-1">${data.totalMappings || 0}</p>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4 text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Asientos Automáticos</p>
+            <p class="text-2xl font-bold text-purple-400 mt-1">${fmt(data.totalAsientosAutomaticos)}</p>
+          </div>
+          <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-4 text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Auditoría Reciente</p>
+            <p class="text-2xl font-bold text-yellow-400 mt-1">${Array.isArray(data.auditReciente) ? data.auditReciente.length : 0}</p>
+          </div>
+        </div>
+
+        <!-- Module Cards -->
+        <h4 class="text-sm font-semibold text-gray-300">Configuradores por Módulo</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${(data.modulos || []).map(m => `
+            <div class="bg-gray-800/40 rounded-xl border border-gray-700 p-4 hover:border-blue-700/50 transition">
+              <div class="flex items-center justify-between mb-3">
+                <h5 class="font-semibold text-sm">${esc(m.nombre || m.codigo)}</h5>
+                ${statusBadge(m.activo !== false)}
+              </div>
+              <div class="space-y-2 text-xs text-gray-400">
+                <div class="flex justify-between">
+                  <span>Código</span>
+                  <span class="font-mono text-gray-300">${esc(m.codigo)}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Mappings</span>
+                  <span class="font-semibold text-blue-300">${m.mappings || 0}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Versión</span>
+                  <span class="font-mono text-gray-300">${esc(m.version || '—')}</span>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Mappings by Module -->
+        <h4 class="text-sm font-semibold text-gray-300">Mappings por Módulo</h4>
+        ${contTable(
+          [
+            { label: 'Módulo' },
+            { label: 'Cantidad', align: 'right' },
+            { label: 'Estado' },
+          ],
+          Object.entries(data.mappingsPorModulo || {}).map(([mod, count]) => `
+            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+              <td class="px-4 py-2.5 font-medium text-sm">${esc(mod)}</td>
+              <td class="px-4 py-2.5 text-right font-mono text-sm">${count}</td>
+              <td class="px-4 py-2.5">${count > 0
+                ? '<span class="text-green-400 text-xs font-medium">✓ Configurado</span>'
+                : '<span class="text-yellow-400 text-xs font-medium">⚠ Pendiente</span>'}</td>
+            </tr>`).join('')
+        )}
+
+        <!-- Asientos Automáticos by Module -->
+        <h4 class="text-sm font-semibold text-gray-300">Asientos Generados por Módulo</h4>
+        ${contTable(
+          [
+            { label: 'Módulo' },
+            { label: 'Asientos Automáticos', align: 'right' },
+          ],
+          Object.entries(data.asientosPorModulo || {}).map(([mod, count]) => `
+            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+              <td class="px-4 py-2.5 font-medium text-sm">${esc(mod)}</td>
+              <td class="px-4 py-2.5 text-right font-mono text-sm">${fmt(count)}</td>
+            </tr>`).join('')
+        )}
+
+        <!-- Recent Audit Trail -->
+        <h4 class="text-sm font-semibold text-gray-300">Auditoría Reciente</h4>
+        ${contTable(
+          [
+            { label: 'Fecha' },
+            { label: 'Acción' },
+            { label: 'Entidad' },
+            { label: 'Usuario' },
+          ],
+          (Array.isArray(data.auditReciente) ? data.auditReciente : []).slice(0, 10).map(a => `
+            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+              <td class="px-4 py-2.5 text-xs">${a.createdAt ? new Date(a.createdAt).toLocaleDateString('es-PY') : '—'}</td>
+              <td class="px-4 py-2.5 text-xs">${esc(a.accion || a.action || '')}</td>
+              <td class="px-4 py-2.5 text-xs text-gray-400">${esc(a.entidad || a.entity || '')}</td>
+              <td class="px-4 py-2.5 text-xs text-gray-400">${esc(a.usuario || a.user || a.usuarioEmail || '')}</td>
+            </tr>`).join('')
+        )}
+      </div>`;
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="text-center py-8 text-red-400">Error al cargar estado de integración: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderContabAuditoria(container) {
   container.innerHTML = `
     <div class="flex flex-wrap items-center gap-3 mb-4">
       <select id="audit-entidad" class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" aria-label="Filtrar por entidad">

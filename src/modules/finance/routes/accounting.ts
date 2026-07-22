@@ -97,6 +97,14 @@ import {
   // Sprint 6
   getBalanceGeneral,
   getEstadoResultados,
+  // Sprint 7/8: Mapping + Configuradores
+  listModulosActivosDetalle,
+  listMappings,
+  // Auto-reversal
+  autoReversal,
+  hasReversal,
+  // Monthly Closure
+  AccountingClosureService,
 } from "../services/index.js";
 import type {
   CreateCuentaRequest,
@@ -116,7 +124,6 @@ import type {
   RefundirRequest,
   ReservaLegalRequest,
 } from "../types.js";
-
 /**
  * Registers accounting routes on the Fastify instance.
  *
@@ -1247,6 +1254,204 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       const mes = parseInt(request.params.mes, 10);
       const acumulado = request.query.acumulado === "true";
       const result = await getEstadoResultados(anho, mes, acumulado);
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // Sprint 7/8: Mappings, Configuradores, Integración
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/mappings — List mappings by module ──
+  app.get<{
+    Querystring: { modulo?: string; tipoEvento?: string };
+  }>(
+    "/finance/contabilidad/mappings",
+    async (request, reply) => {
+      const result = await listMappings(request.query.modulo);
+      return reply.send(result);
+    },
+  );
+
+  // ── GET /finance/contabilidad/integracion/resumen — Integration dashboard ──
+  app.get(
+    "/finance/contabilidad/integracion/resumen",
+    async (request, reply) => {
+      // 1. Get modules with full details
+      const modulos = await listModulosActivosDetalle();
+
+      // 2. Get all mappings grouped by module
+      const mappings = await listMappings();
+      const mappingsPorModulo: Record<string, number> = {};
+      for (const m of mappings) {
+        mappingsPorModulo[m.modulo] = (mappingsPorModulo[m.modulo] ?? 0) + 1;
+      }
+
+      // 3. Count auto-generated journal entries by module
+      const asientos = await listAsientos({
+        page: 1,
+        limit: 1000,
+      });
+      const asientosPorModulo: Record<string, number> = {};
+      let totalAutomaticos = 0;
+      for (const a of (asientos.items ?? [])) {
+        const mod = (a.moduloOrigen as string) ?? "MANUAL";
+        asientosPorModulo[mod] = (asientosPorModulo[mod] ?? 0) + 1;
+        if (mod !== "MANUAL") totalAutomaticos++;
+      }
+
+      // 4. Count recent audit entries
+      const audit = await queryAuditLog({
+        tenantSlug: request.tenantSlug,
+        limit: 5,
+      });
+
+      return reply.send({
+        modulosRegistrados: modulos.length,
+        modulos: modulos.map((m) => ({
+          codigo: m.modulo,
+          nombre: m.nombre,
+          activo: m.activo,
+          mappings: mappingsPorModulo[m.modulo] ?? 0,
+          version: m.version,
+        })),
+        totalMappings: mappings.length,
+        mappingsPorModulo,
+        totalAsientosAutomaticos: totalAutomaticos,
+        asientosPorModulo,
+        auditReciente: audit,
+      });
+    },
+  );
+
+  // ── GET /finance/contabilidad/integracion/check/:modulo — Module health check ──
+  app.get<{ Params: { modulo: string } }>(
+    "/finance/contabilidad/integracion/check/:modulo",
+    async (request, reply) => {
+      const modulo = request.params.modulo.toUpperCase();
+      const mappings = await listMappings(modulo);
+
+      // Check if module is registered
+      const modulos = await listModulosActivosDetalle();
+      const registro = modulos.find((m) => m.modulo === modulo);
+
+      return reply.send({
+        modulo,
+        registrado: !!registro,
+        configuracion: registro ?? null,
+        mappingsDefinidos: mappings.length,
+        mappings: mappings.map((m) => ({
+          tipoEvento: m.tipoEvento,
+          cuentaDebeId: m.cuentaDebeId,
+          cuentaHaberId: m.cuentaHaberId,
+          descripcion: m.descripcion,
+          activo: m.activo,
+        })),
+        salud: mappings.length > 0 && !!registro ? "OK" : "INCOMPLETO",
+      });
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // Audit trail links — entity-specific lookup
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/audit-log/:entidad/:entidadId — Entity audit trail ──
+  app.get<{
+    Params: { entidad: string; entidadId: string };
+    Querystring: { limit?: string };
+  }>(
+    "/finance/contabilidad/audit-log/:entidad/:entidadId",
+    async (request, reply) => {
+      const result = await queryAuditLog({
+        tenantSlug: request.tenantSlug,
+        entidad: request.params.entidad,
+        entidadId: request.params.entidadId,
+        limit: request.query.limit ? parseInt(request.query.limit, 10) : 20,
+      });
+      return reply.send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // Sprint 9: Auto-Reversal & Monthly Closure Cron
+  // ════════════════════════════════════════════════
+
+  // ── POST /finance/contabilidad/reversar — Auto-reverse journal entries ──
+  app.post<{ Body: { referenciaId: string; referenciaTipo: string; motivo: string } }>(
+    "/finance/contabilidad/reversar",
+    async (request, reply) => {
+      const { referenciaId, referenciaTipo, motivo } = request.body;
+
+      if (!referenciaId || !referenciaTipo || !motivo) {
+        return reply.status(400).send({
+          error: "Se requieren referenciaId, referenciaTipo y motivo",
+        });
+      }
+
+      // Check if already reversed
+      const yaReversado = await hasReversal(referenciaTipo, referenciaId);
+      if (yaReversado) {
+        return reply.status(409).send({
+          error: "Esta transacción ya tiene un asiento de reversión",
+          referenciaId,
+          referenciaTipo,
+        });
+      }
+
+      const result = await autoReversal({
+        tenantSlug: request.tenantSlug,
+        referenciaId,
+        referenciaTipo,
+        motivo,
+      });
+
+      if (!result.success) {
+        return reply.status(404).send(result);
+      }
+
+      // Audit: reversión automática
+      await logAudit({
+        tenantSlug: request.tenantSlug,
+        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        ip: request.ip,
+        accion: "CREATE",
+        entidad: "asientos_contables",
+        entidadId: result.reversalAsientoId ?? "",
+        descripcion: `[REVERSIÓN] ${motivo} — asiento original #${result.originalAsientoId}`,
+      }).catch(() => {/* silent */});
+
+      return reply.send(result);
+    },
+  );
+
+  // ── POST /finance/contabilidad/cron/cierre-mensual — Monthly closure cron ──
+  app.post<{ Body: { anho: number; mes: number } }>(
+    "/finance/contabilidad/cron/cierre-mensual",
+    async (request, reply) => {
+      const { anho, mes } = request.body;
+
+      if (!anho || !mes) {
+        return reply.status(400).send({ error: "Se requieren anho y mes" });
+      }
+
+      const result = await AccountingClosureService.executeMonthlyClosure(
+        request.tenantSlug,
+        anho,
+        mes,
+      );
+
+      // Audit: cierre mensual
+      await logAudit({
+        tenantSlug: request.tenantSlug,
+        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        ip: request.ip,
+        accion: "CERRAR",
+        entidad: "cierre_contable",
+        entidadId: result.asientoId,
+        descripcion: `Cierre contable mensual ${result.periodo} — total consolidado: ₲${result.totalConsolidado.toLocaleString("es-PY")}`,
+      }).catch(() => {/* silent */});
+
       return reply.send(result);
     },
   );

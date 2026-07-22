@@ -6,6 +6,7 @@ import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
+import { workshopConfigurator } from "../../finance/services/index.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
 
@@ -342,6 +343,50 @@ export async function updateOrdenStatus(
         err instanceof Error ? err.message : err,
       );
     });
+
+    // ── Revenue recognition via WorkshopConfigurator ──
+    (async () => {
+      try {
+        const [orden] = await db()
+          .select({
+            clientId: ordenesTrabajo.clientId,
+            totalCost: ordenesTrabajo.totalCost,
+          })
+          .from(ordenesTrabajo)
+          .where(and(
+            eq(ordenesTrabajo.id, ordenId),
+            eq(ordenesTrabajo.tenantSlug, tenantSlug),
+          ))
+          .limit(1);
+
+        if (!orden) return;
+
+        const [client] = await db()
+          .select({ name: clients.name })
+          .from(clients)
+          .where(eq(clients.id, orden.clientId))
+          .limit(1);
+
+        const total = Number(orden.totalCost ?? 0);
+
+        if (total > 0) {
+          await workshopConfigurator.onOTCompletada({
+            tenantSlug,
+            ordenId,
+            clienteNombre: client?.name ?? "Cliente",
+            totalManoObra: total, // Simplified: assumes total = MO for now
+            totalRepuestos: 0,
+            totalServicios: 0,
+            centroCostoId: undefined,
+          });
+        }
+      } catch (err) {
+        console.warn(
+          `[orden] Error generando asiento contable para OT completada ${ordenId}:`,
+          err instanceof Error ? err.message : err,
+        );
+      }
+    })();
   }
 
   // ── Send completion notification email when OT is ready ──

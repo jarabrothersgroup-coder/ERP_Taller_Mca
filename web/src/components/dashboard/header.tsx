@@ -98,17 +98,9 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* User Avatar + Name */}
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer transition-colors group relative">
-          {user?.imageUrl ? (
-            <img
-              src={user.imageUrl}
-              alt={displayName}
-              className="h-7 w-7 rounded-full object-cover shadow-sm"
-            />
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-primary-foreground text-xs font-bold shadow-sm">
-              {initials}
-            </div>
-          )}
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-primary-foreground text-xs font-bold shadow-sm">
+            {initials}
+          </div>
           <div className="hidden sm:flex flex-col">
             <span className="text-xs font-medium">{displayName}</span>
             <span className="text-[10px] text-muted-foreground capitalize">

@@ -953,6 +953,14 @@ export const api = {
     return request<SearchResult[]>(`/api/v1/search?${qs.toString()}`);
   },
 
+  /* ── Accounting Integration Dashboard ──────── */
+
+  getIntegracionDashboard: () =>
+    request<IntegracionDashboard>("/finance/contabilidad/integracion/resumen"),
+
+  getModuleHealth: (modulo: string) =>
+    request<ModuloHealth>(`/finance/contabilidad/integracion/check/${modulo}`),
+
   /* ── Health ────────────────────────────────── */
 
   getHealth: () => request<HealthStatus>("/health"),
@@ -1426,6 +1434,58 @@ export interface MarketingCampaign {
   aperturas: number;
   conversiones: number;
   createdAt: string;
+}
+
+/* ── Accounting Integration Dashboard Types ── */
+
+export interface IntegracionDashboardModulo {
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  mappings: number;
+  version: string;
+}
+
+export interface IntegracionDashboard {
+  modulosRegistrados: number;
+  modulos: IntegracionDashboardModulo[];
+  totalMappings: number;
+  mappingsPorModulo: Record<string, number>;
+  totalAsientosAutomaticos: number;
+  asientosPorModulo: Record<string, number>;
+  auditReciente: Array<{
+    id?: string;
+    createdAt?: string;
+    accion?: string;
+    action?: string;
+    entidad?: string;
+    entity?: string;
+    usuario?: string;
+    user?: string;
+    usuarioEmail?: string;
+  }>;
+}
+
+export interface ModuloHealthMapping {
+  tipoEvento: string;
+  debe: string;
+  haber: string;
+  descripcion: string;
+  activo: boolean;
+}
+
+export interface ModuloHealth {
+  modulo: string;
+  registrado: boolean;
+  configuracion: {
+    nombre: string;
+    descripcion: string;
+    activo: boolean;
+    version: string;
+  } | null;
+  mappingsDefinidos: number;
+  mappings: ModuloHealthMapping[];
+  salud: string;
 }
 
 export interface BackupJob {

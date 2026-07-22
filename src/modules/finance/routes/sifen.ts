@@ -36,6 +36,7 @@ import {
   getSyncLog,
 } from "../services/sifen/sifen-db.service.js";
 import { parseMoneyToCentavos, centavosToString } from "../services/accounting/capa3-formatters.js";
+import { sifenConfigurator } from "../services/accounting/sifen.configurator.js";
 import { eq, count } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
@@ -278,7 +279,35 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         }
       }
 
-      // ── 9. Respond ──
+      // ── 9. Accounting integration ─────────────────────
+      // Non-blocking: error contable no revierte la factura
+      if (xmlFirmado && resultadoSifen?.cdc) {
+        const totalNum = data.items.reduce(
+          (s, i) => s + parseFloat(i.subtotal),
+          0,
+        );
+        const totalIvaNum = data.items
+          .filter((i) => i.iva > 0)
+          .reduce((s, i) => s + parseFloat(i.ivaMonto ?? "0"), 0);
+
+        sifenConfigurator.onDTEEmitida({
+          tenantSlug: request.tenantSlug,
+          documentoId: documento.id,
+          dteTipo: data.dteTipo,
+          serie: data.serie,
+          numero: data.numero,
+          clienteNombre: cliente.name,
+          total: totalNum,
+          totalIva: totalIvaNum,
+          condicionVenta: data.condicionVenta,
+        }).catch((err: Error) => {
+          console.warn(
+            `[sifen-routes] Error contable al emitir DTE ${data.serie}-${data.numero}: ${err.message}`,
+          );
+        });
+      }
+
+      // ── 10. Respond ──
       const docFinal = await getFiscalDocumentoById(documento.id);
 
       return reply.status(201).send({

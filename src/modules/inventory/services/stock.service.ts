@@ -22,7 +22,6 @@ import {
   repuestos,
   stockMovements,
   reorderAlerts,
-  inventoryAccountsMap,
 } from "../schema/index.js";
 import { eq, and, or, sql, desc, count } from "drizzle-orm";
 import {
@@ -31,7 +30,7 @@ import {
   ConflictError,
 } from "../../../shared/errors/app-error.js";
 import { recalcularPPP } from "./costing.service.js";
-import { emit } from "../../finance/services/index.js";
+import { inventarioConfigurator } from "../../finance/services/index.js";
 import type {
   CreateRepuestoRequest,
   UpdateRepuestoRequest,
@@ -375,52 +374,22 @@ export async function salidaStock(
   // ── 4. Stock already reduced atomically in step 2 ──
   const stockAnterior = Number(updated.stockActual) + Number(cantidad);
 
-  // ── 5. Look up accounts for journal entry ──
+  // ── 5. Generate accounting entry via InventarioConfigurator ──
   let asientoId: string | null = null;
-  try {
-    const accountsMap = await db()
-      .select()
-      .from(inventoryAccountsMap)
-      .where(
-        and(
-          eq(inventoryAccountsMap.categoria, updated.categoria ?? "*"),
-          eq(inventoryAccountsMap.tenantSlug, tenantSlug),
-        ),
-      )
-      .limit(1);
-
-    if (accountsMap.length > 0 && costoTotalSalida > 0) {
-      const result = await emit({
-        tenantSlug,
-        tipo: "CONSUMO_STOCK",
-        fecha: new Date(),
-        referenciaId: repuestoId,
-        referenciaTipo: "movimiento_stock",
-        descripcion: `Salida de stock: ${updated.descripcion} x${cantidad} (PPP: ${ppVigente})`,
-        ordenTrabajoId: ordenTrabajoId ?? null,
-        lineas: [
-          {
-            cuentaId: accountsMap[0]!.cuentaGastoId,
-            debe: costoTotalSalida,
-            centroCostoId: centroCostoId ?? null,
-            ordenTrabajoId: ordenTrabajoId ?? null,
-          },
-          {
-            cuentaId: accountsMap[0]!.cuentaInventarioId,
-            haber: costoTotalSalida,
-          },
-        ],
-      });
-      if (result.success) {
-        asientoId = result.asientoId!;
-      }
+  if (costoTotalSalida > 0) {
+    const result = await inventarioConfigurator.onSalidaStock({
+      tenantSlug,
+      movimientoId: repuestoId,
+      repuestoDescripcion: updated.descripcion,
+      cantidad,
+      costoTotal: costoTotalSalida,
+      ordenTrabajoId: ordenTrabajoId ?? undefined,
+      centroCostoId: centroCostoId ?? undefined,
+      motivo: motivo ?? "uso en OT",
+    });
+    if (result.success && result.asientoId) {
+      asientoId = result.asientoId;
     }
-  } catch {
-    // Journal entry failure should not block stock movement.
-    // Log and continue — accounting can be reconciled later.
-    console.warn(
-      `[stock] No se generó asiento contable para salida ${repuestoId}: sin mapping contable`,
-    );
   }
 
   // ── 6. Persist stock movement ──
@@ -551,88 +520,28 @@ export async function ingresoStock(
 
     if (!updated) throw new NotFoundError(`Repuesto ${id} no encontrado`);
 
-    // Try to generate journal entry
+    const costoUnitarioActual = costoUnitario!; // Non-null: verified > 0 above
+
+    // Try to generate journal entry via InventarioConfigurator
     let asientoId: string | null = null;
-    try {
-      const accountsMap = await db()
-        .select()
-        .from(inventoryAccountsMap)
-        .where(
-          and(
-          eq(inventoryAccountsMap.categoria, updated.categoria ?? "*"),
-            eq(inventoryAccountsMap.tenantSlug, tenantSlug),
-          ),
-        )
-        .limit(1);
-
-      if (accountsMap.length > 0) {
-        const result = await emit({
-          tenantSlug,
-          tipo: "COMPRA",
-          fecha: new Date(),
-          referenciaId: id,
-          referenciaTipo: "movimiento_stock",
-          descripcion: `Entrada de stock: ${repuesto.descripcion} x${cantidad} (costo: ${costoUnitario})`,
-          lineas: [
-            {
-              cuentaId: accountsMap[0]!.cuentaInventarioId,
-              debe: costoUnitario * cantidad,
-            },
-            {
-              cuentaId: accountsMap[0]!.cuentaProveedorId ??
-                accountsMap[0]!.cuentaGastoId,
-              haber: costoUnitario * cantidad,
-            },
-          ],
-        });
-        if (result.success) {
-          asientoId = result.asientoId!;
-        }
-
-        // Update the movement with the asiento ID
-        const [movimiento] = await db()
-          .insert(stockMovements)
-          .values({
-            repuestoId: id,
-            tipo: "ENTRADA",
-            cantidad,
-            stockAnterior,
-            stockPosterior: updated.stockActual,
-            costoUnitario: String(costoUnitario),
-            costoTotal: String(costoUnitario * cantidad),
-            asientoId,
-            motivo,
-            observaciones: observaciones ?? null,
-            tenantSlug,
-          })
-          .returning();
-
-        return {
-          repuesto: {
-            id: updated.id,
-            codigo: updated.codigo,
-            descripcion: updated.descripcion,
-            stockActual: updated.stockActual,
-            stockAnterior,
-          },
-          movimiento: {
-            id: movimiento.id,
-            tipo: "entrada",
-            cantidad,
-            motivo,
-            ordenTrabajoId: null,
-            costoUnitario,
-          },
-        };
+    const costoTotalEntrada = costoUnitarioActual * cantidad;
+    if (costoTotalEntrada > 0) {
+      const result = await inventarioConfigurator.onEntradaStock({
+        tenantSlug,
+        movimientoId: id,
+        repuestoDescripcion: repuesto.descripcion,
+        cantidad,
+        costoTotal: costoTotalEntrada,
+        tipoEntrada: "COMPRA",
+        proveedorNombre: "",
+      });
+      if (result.success && result.asientoId) {
+        asientoId = result.asientoId;
       }
-    } catch {
-      console.warn(
-        `[stock] No se generó asiento contable para ingreso ${id}: sin mapping contable`,
-      );
     }
 
-    // Return without asiento
-    const [movimientoNoAcct] = await db()
+    // Update the movement with the asiento ID
+    const [movimiento] = await db()
       .insert(stockMovements)
       .values({
         repuestoId: id,
@@ -640,8 +549,9 @@ export async function ingresoStock(
         cantidad,
         stockAnterior,
         stockPosterior: updated.stockActual,
-        costoUnitario: String(costoUnitario),
-        costoTotal: String(costoUnitario * cantidad),
+        costoUnitario: String(costoUnitarioActual),
+        costoTotal: String(costoTotalEntrada),
+        asientoId,
         motivo,
         observaciones: observaciones ?? null,
         tenantSlug,
@@ -657,12 +567,12 @@ export async function ingresoStock(
         stockAnterior,
       },
       movimiento: {
-        id: movimientoNoAcct.id,
+        id: movimiento.id,
         tipo: "entrada",
         cantidad,
         motivo,
         ordenTrabajoId: null,
-        costoUnitario,
+        costoUnitario: costoUnitarioActual,
       },
     };
   }

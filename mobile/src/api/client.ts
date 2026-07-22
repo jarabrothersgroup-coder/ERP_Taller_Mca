@@ -115,6 +115,91 @@ export interface Appointment {
   createdAt: string;
 }
 
+/* ── Accounting Types ─────────────────────────── */
+
+export interface BalanceCuenta {
+  cuentaId: string;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  nivel: number;
+  saldoInicial: number;
+  totalDebe: number;
+  totalHaber: number;
+  saldoActual: number;
+  cuentaPadreId: string | null;
+}
+
+export interface BalanceGrupo {
+  codigo: string;
+  nombre: string;
+  nivel: number;
+  saldo: number;
+  subcuentas: BalanceCuenta[];
+}
+
+export interface BalanceSeccion {
+  tipo: string;
+  label: string;
+  total: number;
+  grupos: BalanceGrupo[];
+  cuentasDirectas: BalanceCuenta[];
+}
+
+export interface BalanceGeneral {
+  fecha: string;
+  activo: BalanceSeccion;
+  pasivo: BalanceSeccion;
+  patrimonio: BalanceSeccion;
+  totalActivo: number;
+  totalPasivoPatrimonio: number;
+  diferencia: number;
+  balanceado: boolean;
+}
+
+export interface PnLCuenta {
+  cuentaId: string;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  nivel: number;
+  totalDebe: number;
+  totalHaber: number;
+  saldo: number;
+}
+
+export interface PnLGrupo {
+  codigo: string;
+  nombre: string;
+  saldo: number;
+  cuentas: PnLCuenta[];
+}
+
+export interface PnLSeccion {
+  total: number;
+  grupos: PnLGrupo[];
+  cuentas: PnLCuenta[];
+}
+
+export interface EstadoResultados {
+  periodo: { anho: number; mes: number };
+  tipo: "MENSUAL" | "ACUMULADO";
+  ingresos: PnLSeccion;
+  costos: PnLSeccion;
+  gastos: PnLSeccion;
+  utilidadBruta: number;
+  utilidadNeta: number;
+}
+
+export interface RG90Report {
+  periodo: { anho: number; mes: number };
+  totalRegistros: number;
+  totalVentas?: string;
+  formato: "JSON" | "TXT" | "CSV";
+  entries: Record<string, any>[];
+  contenido?: string;
+}
+
 /* ── API Methods ────────────────────────────── */
 
 export interface LoginResult {
@@ -137,6 +222,23 @@ export const api = {
 
   // Dashboard
   getDashboard: () => request<DashboardStats>("/intelligence/dashboard"),
+
+  // Accounting Reports
+  getBalanceGeneral: (fecha: string) => request<BalanceGeneral>(`/finance/contabilidad/balance-general/${fecha}`),
+  getEstadoResultados: (anho: number, mes: number, acumulado?: boolean) => {
+    const params = new URLSearchParams();
+    if (acumulado !== undefined) params.set("acumulado", String(acumulado));
+    const query = params.toString();
+    const base = `/finance/contabilidad/estado-resultados/${anho}/${mes}`;
+    return request<EstadoResultados>(query ? `${base}?${query}` : base);
+  },
+  getRG90Report: (tipo: "VENTAS" | "COMPRAS" | "RETENCIONES", anho: number, mes: number, formato?: "JSON" | "TXT" | "CSV") => {
+    const params = new URLSearchParams();
+    if (formato) params.set("formato", formato);
+    const query = params.toString();
+    const base = `/finance/rg90/${tipo.toLowerCase()}/${anho}/${mes}`;
+    return request<RG90Report>(query ? `${base}?${query}` : base);
+  },
 
   // Work Orders
   listWorkOrders: (params?: { status?: string; limit?: number }) => {

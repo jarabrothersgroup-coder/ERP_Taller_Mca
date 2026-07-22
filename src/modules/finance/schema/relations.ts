@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
 import { fiscalDocumentos, fiscalDocumentoDetalles, sifenSyncLog } from "./fiscal-docs.js";
-import { planCuentas, asientosContables, asientosDetalle } from "./accounting.js";
+import { planCuentas, asientosContables, asientosDetalle, cuentaMapping, configuradorModulo } from "./accounting.js";
 import { mechanicProfiles } from "./mechanic-profiles.js";
 import { staffProfiles } from "./staff-profiles.js";
 import { commissionRecords } from "./commission-records.js";
@@ -58,3 +58,16 @@ export const commissionRecordsRelations = relations(commissionRecords, ({ one })
     references: [mechanicProfiles.id],
   }),
 }));
+
+export const cuentaMappingRelations = relations(cuentaMapping, ({ one }) => ({
+  cuentaDebe: one(planCuentas, {
+    fields: [cuentaMapping.cuentaDebeId],
+    references: [planCuentas.id],
+  }),
+  cuentaHaber: one(planCuentas, {
+    fields: [cuentaMapping.cuentaHaberId],
+    references: [planCuentas.id],
+  }),
+}));
+
+export const configuradorModuloRelations = relations(configuradorModulo, () => ({}));
