@@ -18,6 +18,10 @@ import {
   Users,
   Settings,
   Wrench,
+  FileSpreadsheet,
+  Warehouse,
+  CreditCard,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -583,6 +587,123 @@ export default function IntegracionPage() {
           />
         </CardContent>
       </Card>
+
+      {/* ── Sprint 84-85: Nuevas Features ──────────── */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold tracking-tight mb-2">Nuevas Features — Sprint 84-85</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Módulos implementados recientemente con integración contable automática
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Nota de Crédito SIFEN */}
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-green-500/30 group">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2.5 border bg-red-500/10 text-red-500 border-red-500/20 transition-transform group-hover:scale-110">
+                    <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Nota de Crédito SIFEN</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">P0-1</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Completo
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                NC electrónica con validación DTE original, firma digital X.509, envío DNIT y
+                asiento contable de reversión automático.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Multi-almacén */}
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-blue-500/30 group">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2.5 border bg-cyan-500/10 text-cyan-500 border-cyan-500/20 transition-transform group-hover:scale-110">
+                    <Warehouse className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Multi-almacén</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">P0-3</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Migration 0010
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Gestión multi-almacén con transferencias atómicas, tabla
+                transferencias_almacen, índices compuestos y trigger contable.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Pagos Online */}
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-purple-500/30 group">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2.5 border bg-purple-500/10 text-purple-500 border-purple-500/20 transition-transform group-hover:scale-110">
+                    <CreditCard className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Pagos Online</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">P1-5</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Stripe + PagosPy
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Payment links Stripe + PagosPy con webhook público (sin auth) y
+                registro automático de pagos en tesorería.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Asignación Inteligente */}
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 group">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg p-2.5 border bg-orange-500/10 text-orange-500 border-orange-500/20 transition-transform group-hover:scale-110">
+                    <UserCheck className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Asignación Mecánicos</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">P1-4</CardDescription>
+                  </div>
+                </div>
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Scoring
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Algoritmo de asignación por carga laboral, certificaciones HV y eficiencia
+                histórica con endpoint REST.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
