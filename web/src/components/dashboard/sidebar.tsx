@@ -42,6 +42,7 @@ import {
   Brain,
   Warehouse,
   Search,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Principal",
     items: [
-      { label: "Panel de Control", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Hub de Operaciones", href: "/dashboard/hub", icon: Zap, badge: "Nuevo" },
+      { label: "Panel de Control", href: "/dashboard/ejecutivo", icon: LayoutDashboard },
       { label: "Taller", href: "/dashboard/taller", icon: Wrench },
       { label: "Recepción", href: "/dashboard/recepcion", icon: ClipboardCheck },
       { label: "Servicios", href: "/dashboard/servicios", icon: Wrench },
