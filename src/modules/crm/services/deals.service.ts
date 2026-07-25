@@ -6,9 +6,35 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { crmDeals, crmPipelineStages } from "../schema/deals.js";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, gte } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+
+// C-10: In-memory nonce map — prevents duplicate deal creation within same day.
+// Key format: `tenantSlug:titulo_lowercase:YYYY-MM-DD`
+// TTL: auto-cleaned after 24h via daily key rotation
+const dealNonces = new Map<string, number>();
+
+/**
+ * Generate a daily nonce key for deduplication.
+ * @returns Key in format `tenantSlug:titulo:YYYY-MM-DD`
+ */
+function dailyDealNonceKey(tenantSlug: string, titulo: string): string {
+  const today = new Date().toISOString().split("T")[0];
+  return `${tenantSlug}:${titulo.toLowerCase().trim()}:${today}`;
+}
+
+/**
+ * Clean stale nonce entries older than 24h to prevent memory leak.
+ */
+function cleanStaleNonces(): void {
+  const yesterday = Date.now() - 24 * 60 * 60 * 1000;
+  for (const [key, timestamp] of dealNonces) {
+    if (timestamp < yesterday) {
+      dealNonces.delete(key);
+    }
+  }
+}
 
 // ─── Pipeline Stages ──
 
@@ -95,14 +121,65 @@ export async function createDeal(data: {
   if (!data.titulo?.trim()) throw new ValidationError("El título es obligatorio");
   if (!data.stageId) throw new ValidationError("El stage es obligatorio");
 
+  // ── C-10: Check in-memory nonce for idempotency ──
+  // Auto-generated from tenant + titulo + date to prevent duplicate deal creation
+  // within the same calendar day without requiring client-side nonce.
+  const nonceKey = dailyDealNonceKey(tenantSlug, data.titulo);
+  const now = Date.now();
+
+  if (dealNonces.has(nonceKey)) {
+    // Nonce exists — possible duplicate submission within the same day
+    // Query DB to find existing deal and return it gracefully
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const [existingDeal] = await db()
+      .select()
+      .from(crmDeals)
+      .where(
+        and(
+          eq(crmDeals.tenantSlug, tenantSlug),
+          eq(crmDeals.titulo, data.titulo.trim()),
+          gte(crmDeals.createdAt, todayStart),
+        ),
+      )
+      .limit(1);
+    if (existingDeal) {
+      return existingDeal;
+    }
+  }
+
+  const { titulo, descripcion, clienteNombre, clienteEmail, clientePhone,
+          vehiculoChapa, vehiculoMarca, vehiculoModelo, stageId,
+          valorEstimado, probabilidad, fuente, responsable } = data;
+
   const [row] = await db()
     .insert(crmDeals)
     .values({
-      ...data,
-      valorEstimado: data.valorEstimado?.toString(),
+      titulo: titulo.trim(),
+      descripcion,
+      clienteNombre,
+      clienteEmail,
+      clientePhone,
+      vehiculoChapa,
+      vehiculoMarca,
+      vehiculoModelo,
+      stageId,
+      valorEstimado: valorEstimado?.toString(),
+      probabilidad,
+      fuente,
+      responsable,
       tenantSlug,
     })
     .returning();
+
+  // C-10: Set nonce AFTER successful insert to avoid false positives
+  dealNonces.set(nonceKey, now);
+
+  // Periodic cleanup of stale nonces (every 100 creates)
+  if (dealNonces.size > 1000) {
+    cleanStaleNonces();
+  }
+
   return row;
 }
 
