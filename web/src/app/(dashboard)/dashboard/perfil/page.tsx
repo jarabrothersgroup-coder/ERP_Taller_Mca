@@ -68,7 +68,8 @@ export default function ProfilePage() {
     if (!loading && !user) {
       router.push("/sign-in");
     }
-  }, [loading, user, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user]);
 
   if (loading) return <ProfileSkeleton />;
   if (!user) return <ProfileSkeleton />;

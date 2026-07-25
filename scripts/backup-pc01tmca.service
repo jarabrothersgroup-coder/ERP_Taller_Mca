@@ -1,0 +1,7 @@
+[Unit]
+Description=ERP Taller MCA - Backup PC01Tmca (Frontend)
+Documentation=https://github.com/jarabrothersgroup-coder/ERP_Taller_Mca
+
+[Service]
+Type=oneshot
+ExecStart=/home/jarabro/backups/backup-pc01tmca.sh

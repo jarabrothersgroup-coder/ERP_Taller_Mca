@@ -254,3 +254,15 @@ export type {
   IngresoChecklist,
   NewIngresoChecklist,
 } from "./ingreso-checklist.js";
+
+// ─── Migration 0012: Cycle Counts ────────────
+export {
+  cycleCounts,
+  cycleCountItems,
+} from "../../../modules/inventory/schema/cycle-counts.js";
+export type {
+  CycleCount,
+  NewCycleCount,
+  CycleCountItem,
+  NewCycleCountItem,
+} from "../../../modules/inventory/schema/cycle-counts.js";
