@@ -29,9 +29,16 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 const MAX_CACHE_SIZE = 500;
 
+// ─── Cache stampede prevention (C-07) ────────
+// In-flight promise map: when a cache miss triggers recomputation,
+// subsequent concurrent requests for the same key wait for the
+// in-flight promise instead of triggering their own recomputation.
+const inFlightPromises = new Map<string, Promise<void>>();
+
 // ─── Hit/miss tracking for observability ──
 let cacheHits = 0;
 let cacheMisses = 0;
+let stampedePrevented = 0;
 
 // ─── Helpers ────────────────────────────────────
 
@@ -121,11 +128,53 @@ export function createCacheMiddleware(ttlMs: number = 60_000) {
       return;
     }
 
+    // Cache stampede prevention (C-07):
+    // If another request is already computing this key, wait for it
+    const inFlight = inFlightPromises.get(cacheKey);
+    if (inFlight) {
+      stampedePrevented++;
+      await inFlight;
+      // After the in-flight request completes, try cache again
+      const retryEntry = cache.get(cacheKey);
+      if (retryEntry && Date.now() < retryEntry.expiry) {
+        cacheHits++;
+        retryEntry.lastAccessed = Date.now();
+        reply.code(retryEntry.statusCode).header("content-type", retryEntry.contentType);
+        reply.send(retryEntry.data);
+        return;
+      }
+    }
+
     // Cache miss — intercept response to cache it
     cacheMisses++;
+
+    // Create in-flight promise to prevent stampede
+    let resolveInFlight: (() => void) | null = null;
+    const IN_FLIGHT_TIMEOUT_MS = 30_000; // 30s max wait to prevent hanging
+    const inFlightPromise = new Promise<void>((resolve) => {
+      resolveInFlight = resolve;
+      // Safety timeout: resolve automatically after 30s to prevent
+      // hanging if the handler crashes without calling reply.send
+      setTimeout(() => {
+        if (resolveInFlight) {
+          resolveInFlight();
+          inFlightPromises.delete(cacheKey);
+          resolveInFlight = null;
+        }
+      }, IN_FLIGHT_TIMEOUT_MS);
+    });
+    inFlightPromises.set(cacheKey, inFlightPromise);
+
     const originalSend = reply.send.bind(reply);
 
     reply.send = function (data: unknown) {
+      // Resolve in-flight promise so waiting requests can proceed
+      if (resolveInFlight) {
+        resolveInFlight();
+        inFlightPromises.delete(cacheKey);
+        resolveInFlight = null;
+      }
+
       // Only cache successful responses
       if (reply.statusCode >= 200 && reply.statusCode < 300 && typeof data === "string") {
         evictOldest();
@@ -153,7 +202,7 @@ export function clearCache(): void {
 /**
  * Returns cache statistics.
  */
-export function getCacheStats(): { size: number; maxSize: number; hits: number; misses: number; hitRate: number } {
+export function getCacheStats(): { size: number; maxSize: number; hits: number; misses: number; hitRate: number; stampedePrevented: number } {
   const total = cacheHits + cacheMisses;
   const hitRate = total > 0 ? cacheHits / total : 0;
   return {
@@ -162,5 +211,6 @@ export function getCacheStats(): { size: number; maxSize: number; hits: number; 
     hits: cacheHits,
     misses: cacheMisses,
     hitRate: Number(hitRate.toFixed(4)),
+    stampedePrevented,
   };
 }

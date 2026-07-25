@@ -31,6 +31,7 @@ import {
   getClientSummary,
   getClientVehicles,
   getClientOrders,
+  getClientOrderById,
   getClientInvoices,
   submitFeedback,
   checkAvailability,
@@ -136,6 +137,43 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     const session = (request as any).portalSession;
     const invoices = await getClientInvoices(session.tenantSlug, session.clientId);
     reply.send(invoices);
+  });
+
+  // ── POST /portal/invoices/:id/pay — Generate payment link ──
+  app.post("/portal/invoices/:id/pay", { preHandler: [requirePortalSession] }, async (request, reply) => {
+    const session = (request as any).portalSession;
+    const { id } = request.params as { id: string };
+    const { provider } = (request.body || {}) as { provider?: string };
+
+    try {
+      const { generatePaymentLink } = await import(
+        "../../finance/services/treasury/online-payment.service.js"
+      );
+
+      const baseUrl = process.env["APP_URL"] || "http://localhost:3000";
+      const result = await generatePaymentLink(
+        {
+          facturaId: id,
+          provider: (provider === "PAGOS_PY" ? "PAGOS_PY" : "STRIPE") as "STRIPE" | "PAGOS_PY",
+          successUrl: `${baseUrl}/portal/facturas?payment=success`,
+          cancelUrl: `${baseUrl}/portal/facturas?payment=cancelled`,
+        },
+        session.tenantSlug,
+      );
+
+      reply.send(result);
+    } catch (err: any) {
+      reply.status(400).send({ error: err?.message || "Error al generar link de pago" });
+    }
+  });
+
+  // ── GET /portal/orders/:id — Single order detail ──
+  app.get("/portal/orders/:id", { preHandler: [requirePortalSession] }, async (request, reply) => {
+    const session = (request as any).portalSession;
+    const { id } = request.params as { id: string };
+    const order = await getClientOrderById(session.tenantSlug, session.clientId, id);
+    if (!order) return reply.status(404).send({ error: "Orden no encontrada" });
+    reply.send(order);
   });
 
   // ── POST /portal/feedback — Submit feedback ──

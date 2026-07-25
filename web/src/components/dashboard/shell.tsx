@@ -5,6 +5,57 @@ import { useAuth } from "@/components/providers/session-provider";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { setTenantSlug } from "@/lib/data-service";
+import { useOnlineStatus, type ConnectionStatus } from "@/hooks/use-online-status";
+import { cn } from "@/lib/utils";
+import { Wifi, WifiOff, AlertTriangle } from "lucide-react";
+
+/* ── Connection Status Indicator ─────────── */
+
+const STATUS_CONFIG: Record<ConnectionStatus, { label: string; color: string; bg: string; icon: React.ElementType }> = {
+  online: { label: "Conectado", color: "text-emerald-600", bg: "bg-emerald-500", icon: Wifi },
+  offline: { label: "Sin conexión", color: "text-red-600", bg: "bg-red-500", icon: WifiOff },
+  checking: { label: "Verificando…", color: "text-amber-600", bg: "bg-amber-500", icon: AlertTriangle },
+};
+
+function ConnectionIndicator() {
+  const status = useOnlineStatus();
+  const config = STATUS_CONFIG[status];
+  const Icon = config.icon;
+
+  // Only show when offline or briefly after reconnection
+  const [visible, setVisible] = React.useState(status !== "online");
+
+  React.useEffect(() => {
+    if (status !== "online") {
+      setVisible(true);
+    } else {
+      // Show "back online" for 3 seconds then hide
+      const t = setTimeout(() => setVisible(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [status]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={cn(
+        "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg text-sm font-medium transition-all duration-300",
+        status === "online"
+          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+          : status === "offline"
+            ? "bg-red-50 text-red-700 border border-red-200"
+            : "bg-amber-50 text-amber-700 border border-amber-200",
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <div className={cn("h-2 w-2 rounded-full animate-pulse", config.bg)} />
+      <Icon className="h-4 w-4" />
+      <span>{config.label}</span>
+    </div>
+  );
+}
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -61,6 +112,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Connection status indicator */}
+      <ConnectionIndicator />
     </div>
   );
 }

@@ -116,6 +116,22 @@ export interface Appointment {
   createdAt: string;
 }
 
+/* ── DVI Types ─────────────────────────────── */
+
+export interface DVIInspection {
+  id: string;
+  ordenTrabajoId: string;
+  healthScore: number;
+  condicionGeneral: string;
+  observaciones: string | null;
+  inspector: string | null;
+  compartidoWhatsApp: boolean;
+  compartidoAt: string | null;
+  healthScoreUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /* ── Accounting Types ─────────────────────────── */
 
 export interface BalanceCuenta {

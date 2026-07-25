@@ -30,6 +30,14 @@ export type { Ingreso, NewIngreso } from "./ingresos.js";
 export { trabajosTerceros, estadoTerceroEnum } from "./trabajos-terceros.js";
 export type { TrabajoTercero, NewTrabajoTercero, EstadoTercero } from "./trabajos-terceros.js";
 
+// ─── Proveedores ──────────────────────────────
+export { proveedores } from "./proveedores.js";
+export type { Proveedor, NewProveedor } from "./proveedores.js";
+
+// ─── Estado Historial ─────────────────────────
+export { ordenEstadoHistorial } from "./orden-estado-historial.js";
+export type { OrdenEstadoHistorial, NewOrdenEstadoHistorial } from "./orden-estado-historial.js";
+
 export { serviciosCatalogo } from "./servicios-catalogo.js";
 export type { ServicioCatalogo, NewServicioCatalogo } from "./servicios-catalogo.js";
 

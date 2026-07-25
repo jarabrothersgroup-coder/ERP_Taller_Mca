@@ -20,12 +20,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { centrosCosto } from "./cost-centers.js";
+import { clients } from "../../../shared/database/schema/clients.js";
+import { vehiculos } from "../../workshop/schema/vehiculos.js";
 
 /**
  * Presupuesto — encabezado por período.
  *
  * Estados: borrador → aprobado → cerrado
  * Solo presupuestos "aprobados" se usan para comparativas.
+ * Migration 0012 agrega campos para flujo Presupuesto→OT (P1.3).
  */
 export const presupuestos = pgTable(
   "presupuestos",
@@ -41,6 +44,28 @@ export const presupuestos = pgTable(
 
     /** Estado: borrador | aprobado | cerrado */
     estado: text("estado").notNull().default("borrador"),
+
+    // ─── P1.3: Flujo de aprobación ───────────
+    /** Cliente asociado (FK → clients) */
+    clienteId: uuid("cliente_id").references(() => clients.id, { onDelete: "set null" }),
+
+    /** Vehículo asociado (FK → vehiculos) */
+    vehicleId: uuid("vehicle_id").references(() => vehiculos.id, { onDelete: "set null" }),
+
+    /** Fecha de envío al cliente */
+    fechaEnvio: timestamp("fecha_envio", { withTimezone: true }),
+
+    /** Fecha de aprobación */
+    fechaAprobacion: timestamp("fecha_aprobacion", { withTimezone: true }),
+
+    /** OT generada al aprobarse (FK → ordenes_trabajo) */
+    ordenTrabajoId: uuid("orden_trabajo_id"),
+
+    /** Método de aprobación: PORTAL | WHATSAPP | PRESENCIAL */
+    metodoAprobacion: text("metodo_aprobacion"),
+
+    /** Total estimado del presupuesto */
+    totalEstimado: numeric("total_estimado", { precision: 14, scale: 2 }),
 
     /** Tenant slug for multi-tenant isolation */
     tenantSlug: text("tenant_slug").notNull(),

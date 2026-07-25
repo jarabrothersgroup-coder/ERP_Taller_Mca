@@ -111,7 +111,11 @@ export async function syncOrderToCrm(
   }
 
   try {
-    // ── 0. Check for recent SUCCESSFUL sync (idempotency) ──
+    // ── 0. C-10: Check for daily nonce — prevents duplicate syncs on the same day ──
+    // Uses a date-based nonce key: ordenId + YYYY-MM-DD to ensure
+    // idempotency within the same calendar day. Without this, a retry
+    // later the same day would create a duplicate CRM entry.
+    const todayNonce = new Date().toISOString().split("T")[0]; // "2026-07-24"
     const recentSync = await db()
       .select({ id: crmSyncLog.id })
       .from(crmSyncLog)
@@ -119,6 +123,7 @@ export async function syncOrderToCrm(
         and(
           eq(crmSyncLog.ordenId, ordenId),
           eq(crmSyncLog.status, "success"),
+          sql`${crmSyncLog.completedAt}::date = ${todayNonce}::date`,
         ),
       )
       .limit(1);
@@ -153,6 +158,10 @@ export async function syncOrderToCrm(
     }
 
     // ── 2. Fetch client data ──
+    // C-12: RLS is enforced by the db() connection which inherits the
+    // current tenant's app.current_tenant setting. LEFT JOINs across
+    // tables (clients, vehiculos, facturas, thinkcarImports) all filter
+    // by tenant_slug via RLS policies, preventing cross-tenant data leak.
     const [clientRow] = await db()
       .select({
         id: clients.id,

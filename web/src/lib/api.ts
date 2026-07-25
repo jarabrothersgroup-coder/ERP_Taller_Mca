@@ -361,7 +361,9 @@ export const api = {
     vehicleId: string;
     clienteId?: string;
     description?: string;
+    descripcionTrabajo?: string;
     kilometraje?: number;
+    crearOrden?: boolean;
   }) =>
     request<Ingreso>("/workshop/ingresos", {
       method: "POST",
@@ -617,6 +619,60 @@ export const api = {
   getFlujoCaja: () =>
     request<FlujoCaja>("/finance/treasury/flujo-caja"),
 
+  /* ── Finance: Conciliación Bancaria ─────────── */
+
+  startConciliacion: (body: {
+    cuentaId: string;
+    saldoBancario: number;
+    fechaConciliacion: string;
+    observaciones?: string;
+  }) =>
+    request<ConciliacionRecord>("/finance/treasury/conciliacion", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  cerrarConciliacion: (id: string, body: { saldoFinal: number }) =>
+    request<ConciliacionRecord>(`/finance/treasury/conciliacion/${id}/cerrar`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listConciliaciones: (cuentaId: string) =>
+    request<ConciliacionRecord[]>(`/finance/treasury/conciliacion/${cuentaId}`),
+
+  /* ── Nómina / Payroll ────────────────────── */
+
+  listMechanicProfiles: () =>
+    request<MechanicProfileRecord[]>("/workshop/mechanic-profiles"),
+
+  createMechanicProfile: (body: {
+    profileId: string;
+    category: string;
+    baseSalary: number;
+    commissionRate: number;
+  }) =>
+    request<MechanicProfileRecord>("/workshop/mechanic-profiles", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateMechanicProfile: (id: string, body: Partial<{
+    category: string;
+    baseSalary: number;
+    commissionRate: number;
+  }>) =>
+    request<MechanicProfileRecord>(`/workshop/mechanic-profiles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  listPayrollHistory: () =>
+    request<PayrollSummaryRecord[]>("/api/v1/finance/payroll/history"),
+
+  listCommissions: (month: number, year: number) =>
+    request<CommissionRecordEntry[]>(`/api/v1/finance/payroll/commissions?month=${month}&year=${year}`),
+
   /* ── Finance: Accounting ───────────────────── */
 
   listCuentasContables: () =>
@@ -670,10 +726,26 @@ export const api = {
 
   listPresupuestos: () => request<Presupuesto[]>("/finance/presupuestos"),
 
+  getPresupuesto: (id: string) => request<Presupuesto>(`/finance/presupuestos/${id}`),
+
+  aprobarPresupuesto: (id: string, body: { accion: "APROBAR" | "RECHAZAR"; metodoAprobacion?: "PORTAL" | "WHATSAPP" | "PRESENCIAL" }) =>
+    request<{ success: boolean; presupuestoId: string; ordenTrabajoId?: string; estado: string; message: string }>(
+      `/finance/presupuestos/${id}/aprobar`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
   getPresupuestoComparativa: (id: string) =>
     request<PresupuestoComparativa>(`/finance/presupuestos/${id}/comparativa`),
 
   getPresupuestoAlertas: () => request<PresupuestoAlerta[]>("/finance/presupuestos/alertas"),
+
+  /* ── Finance: Portal Payments ────────────── */
+
+  createPortalPaymentLink: (facturaId: string, provider: "STRIPE" | "PAGOS_PY" = "STRIPE") =>
+    request<{ facturaId: string; provider: string; paymentUrl: string }>(
+      `/portal/invoices/${facturaId}/pay`,
+      { method: "POST", body: JSON.stringify({ provider }) },
+    ),
 
   /* ── Finance: Nómina ───────────────────────── */
 
@@ -918,15 +990,37 @@ export const api = {
 
   /* ── Analytics ─────────────────────────────── */
 
-  getAnalyticsKpis: () => request<AnalyticsKpis>("/analytics/kpis"),
+  getAnalyticsKpis: (from?: string, to?: string) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const q = qs.toString();
+    return request<KpisResponse>(`/analytics/kpis${q ? `?${q}` : ""}`);
+  },
 
-  getAnalyticsTrends: (type: "revenue" | "ots") =>
-    request<AnalyticsTrend[]>(`/analytics/trends/${type}`),
+  getAnalyticsTrends: (type: "revenue" | "ots", from?: string, to?: string) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const q = qs.toString();
+    return request<{ trend: AnalyticsTrend[]; range: { from: string; to: string } }>(`/analytics/trends/${type}${q ? `?${q}` : ""}`);
+  },
 
-  getAnalyticsDistribution: () =>
-    request<AnalyticsDistribution[]>("/analytics/distribution"),
+  getAnalyticsDistribution: (from?: string, to?: string) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const q = qs.toString();
+    return request<{ distribution: AnalyticsDistribution[]; range: { from: string; to: string } }>(`/analytics/distribution${q ? `?${q}` : ""}`);
+  },
 
-  getTopMechanics: () => request<TopMechanic[]>("/analytics/mechanics"),
+  getTopMechanics: (from?: string, to?: string) => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const q = qs.toString();
+    return request<{ mechanics: TopMechanic[]; range: { from: string; to: string } }>(`/analytics/mechanics${q ? `?${q}` : ""}`);
+  },
 
   /* ── Notifications ─────────────────────────── */
 
@@ -1155,6 +1249,19 @@ export interface FlujoCaja {
   alertaSobregiro: boolean;
 }
 
+export interface ConciliacionRecord {
+  id: string;
+  cuentaId: string;
+  saldoBancario: number;
+  saldoLibros: number | null;
+  diferencia: number | null;
+  estado: string;
+  fechaConciliacion: string;
+  saldoFinal: number | null;
+  observaciones: string | null;
+  createdAt: string;
+}
+
 export interface CuentaContable {
   id: string;
   codigo: string;
@@ -1352,11 +1459,28 @@ export interface HealthModules {
   nodeVersion: string;
 }
 
+/** KPI metric with current/previous/change values for the ejecutivo dashboard */
+export interface KpiMetric {
+  current: number;
+  previous: number;
+  change: number;
+}
+
+/** Response shape for getAnalyticsKpis — used by the Ejecutivo dashboard */
+export interface KpisResponse {
+  revenue: KpiMetric;
+  orderCount: KpiMetric;
+  avgOrderValue: KpiMetric;
+  completionRate: KpiMetric;
+  range: { from: string; to: string };
+}
+
 export interface AnalyticsKpis {
-  revenue: { current: number; previous: number; change: number };
-  orderCount: { current: number; previous: number; change: number };
-  avgOrderValue: { current: number; previous: number; change: number };
-  completionRate: { current: number; previous: number; change: number };
+  label: string;
+  value: number;
+  unit: string;
+  change?: number;
+  trend?: "up" | "down" | "flat";
 }
 
 export interface AnalyticsTrend {
@@ -1371,16 +1495,23 @@ export interface AnalyticsDistribution {
 }
 
 export interface TopMechanic {
-  id: string;
   name: string;
-  orderCount: number;
-  avgRating: number;
+  otCount: number;
+  revenue: number;
 }
 
 export interface Presupuesto {
   id: string;
   periodo: string;
+  descripcion: string | null;
   estado: string;
+  clienteId: string | null;
+  vehicleId: string | null;
+  fechaEnvio: string | null;
+  fechaAprobacion: string | null;
+  ordenTrabajoId: string | null;
+  metodoAprobacion: string | null;
+  totalEstimado: string | null;
   montoPresupuestado: string;
   montoReal: string;
   tenantSlug: string;
@@ -1592,4 +1723,42 @@ export interface SecurityHWStatus {
   fingerprint: string | null;
   usbTokens: number;
   lastValidation: string | null;
+}
+
+/* ── Nómina / Payroll Types ──────────────────── */
+
+export interface MechanicProfileRecord {
+  id: string;
+  profileId: string;
+  category: string;
+  baseSalary: number;
+  commissionRate: string;
+  createdAt: string;
+  nombre: string | null;
+}
+
+export interface PayrollSummaryRecord {
+  id: string;
+  month: number;
+  year: number;
+  fixedExpensesTotal: number;
+  payrollBaseTotal: number;
+  netLaborRevenue: number;
+  breakevenThreshold: number;
+  breakevenHit: boolean;
+  breakevenPercentage: string;
+  createdAt: string;
+}
+
+export interface CommissionRecordEntry {
+  id: string;
+  tenantId: string;
+  month: number;
+  year: number;
+  mechanicProfileId: string;
+  ordenTrabajoId: string | null;
+  laborAmount: string;
+  commissionAmount: string;
+  status: string;
+  createdAt: string;
 }

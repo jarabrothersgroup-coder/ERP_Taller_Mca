@@ -2,6 +2,11 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden } from "../services/orden.service.js";
 import { previewStockConsumption } from "../../inventory/services/ot-stock-consumer.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
+import { generateOtPdf, isPdfAvailable } from "../../../shared/services/pdf-report.service.js";
+import { db } from "../../../shared/database/drizzle.js";
+import { ordenesTrabajo, vehiculos, ordenServicios, ordenRepuestos } from "../schema/index.js";
+import { clients } from "../../../shared/database/schema/clients.js";
+import { eq, and } from "drizzle-orm";
 
 interface OrdenParams {
   id: string;
@@ -259,6 +264,82 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
       const { status } = request.body;
       const result = await updateOrdenStatus(id, status, request.tenantSlug);
       return reply.send(result);
+    },
+  );
+
+  // ── GET /workshop/ordenes/:id/pdf — OT PDF ──
+  app.get<{ Params: OrdenParams }>(
+    "/workshop/ordenes/:id/pdf",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: OrdenParams }>, reply: FastifyReply) => {
+      if (!isPdfAvailable()) {
+        return reply.status(503).send({ error: "PDF generation unavailable — Chromium not installed" });
+      }
+
+      const { id } = request.params;
+      const tenantSlug = request.tenantSlug;
+
+      // Fetch OT
+      const [ot] = await db()
+        .select()
+        .from(ordenesTrabajo)
+        .where(and(eq(ordenesTrabajo.id, id), eq(ordenesTrabajo.tenantSlug, tenantSlug)))
+        .limit(1);
+      if (!ot) return reply.status(404).send({ error: "OT no encontrada" });
+
+      // Fetch client
+      const [cliente] = await db()
+        .select()
+        .from(clients)
+        .where(eq(clients.id, ot.clientId))
+        .limit(1);
+
+      // Fetch vehicle
+      const [vehiculo] = await db()
+        .select()
+        .from(vehiculos)
+        .where(eq(vehiculos.id, ot.vehicleId))
+        .limit(1);
+
+      // Fetch services + parts
+      const [servicios, repuestos] = await Promise.all([
+        db().select().from(ordenServicios).where(eq(ordenServicios.ordenTrabajoId, id)),
+        db().select().from(ordenRepuestos).where(eq(ordenRepuestos.ordenTrabajoId, id)),
+      ]);
+
+      const items = [
+        ...servicios.map((s) => ({
+          tipo: "servicio",
+          nombre: s.servicioNombre,
+          cantidad: s.cantidad,
+          precioUnitario: Number(s.precioUnitario),
+          subtotal: Number(s.subtotal),
+        })),
+        ...repuestos.map((r) => ({
+          tipo: "repuesto",
+          nombre: r.repuestoNombre,
+          codigo: r.codigo,
+          cantidad: r.cantidad,
+          precioUnitario: Number(r.precioUnitario),
+          subtotal: Number(r.subtotal),
+        })),
+      ];
+
+      const pdf = await generateOtPdf(ot, items, cliente, vehiculo);
+      const date = new Date().toISOString().slice(0, 10);
+
+      return reply
+        .header("Content-Type", "application/pdf")
+        .header("Content-Disposition", `attachment; filename="OT-${id.slice(0, 8)}-${date}.pdf"`)
+        .send(pdf);
     },
   );
 }

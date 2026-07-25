@@ -4,7 +4,7 @@
  * @module client-portal/services/portal.service
  */
 
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { vehiculos } from "../../workshop/schema/vehiculos.js";
@@ -96,6 +96,63 @@ export async function getClientOrders(
 }
 
 /**
+ * Get a single work order by ID, verifying it belongs to the client.
+ */
+export async function getClientOrderById(
+  tenantSlug: string,
+  clientId: string,
+  orderId: string,
+) {
+  const [order] = await db()
+    .select({
+      id: ordenesTrabajo.id,
+      vehicleId: ordenesTrabajo.vehicleId,
+      clientId: ordenesTrabajo.clientId,
+      description: ordenesTrabajo.description,
+      status: ordenesTrabajo.status,
+      hvAlert: ordenesTrabajo.hvAlert,
+      hvLockoutSigned: ordenesTrabajo.hvLockoutSigned,
+      dtcCodes: ordenesTrabajo.dtcCodes,
+      totalCost: ordenesTrabajo.totalCost,
+      createdAt: ordenesTrabajo.createdAt,
+      updatedAt: ordenesTrabajo.updatedAt,
+      vehiculo: sql<string>`COALESCE(${vehiculos.brand} || ' ' || ${vehiculos.model}, NULL)`,
+      plate: vehiculos.plate,
+      cliente: clients.name,
+    })
+    .from(ordenesTrabajo)
+    .leftJoin(vehiculos, eq(ordenesTrabajo.vehicleId, vehiculos.id))
+    .leftJoin(clients, eq(ordenesTrabajo.clientId, clients.id))
+    .where(
+      and(
+        eq(ordenesTrabajo.id, orderId),
+        eq(ordenesTrabajo.clientId, clientId),
+        eq(ordenesTrabajo.tenantSlug, tenantSlug),
+      ),
+    )
+    .limit(1);
+
+  if (!order) return null;
+
+  return {
+    id: order.id,
+    vehicleId: order.vehicleId,
+    clientId: order.clientId,
+    description: order.description,
+    status: order.status,
+    hvAlert: order.hvAlert,
+    hvLockoutSigned: order.hvLockoutSigned,
+    dtcCodes: order.dtcCodes,
+    totalCost: order.totalCost,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+    vehiculo: order.vehiculo,
+    plate: order.plate,
+    cliente: order.cliente,
+  };
+}
+
+/**
  * Get client's invoices.
  */
 export async function getClientInvoices(tenantSlug: string, clientId: string) {
@@ -184,6 +241,7 @@ export async function checkAvailability(
 /**
  * Book an appointment (client self-service).
  * Delegates to the scheduling module's createAgendamiento.
+ * Sends WhatsApp + email confirmation after booking.
  */
 export async function bookAppointment(params: {
   tenantSlug: string;
@@ -198,7 +256,7 @@ export async function bookAppointment(params: {
     "../../scheduling/services/agendamiento.service.js"
   );
 
-  return createAgendamiento(
+  const result = await createAgendamiento(
     {
       clienteNombre: params.clientId, // Will be resolved by service
       clientePhone: params.phone,
@@ -213,4 +271,66 @@ export async function bookAppointment(params: {
     params.tenantSlug,
     "portal",
   );
+
+  // ── Send confirmation notifications (non-blocking) ──
+  const agendamientoId = result.id;
+  const tenantSlug = params.tenantSlug;
+
+  // WhatsApp confirmation
+  const { sendConfirmationMessage } = await import(
+    "../../scheduling/jobs/reminder.cron.js"
+  ).catch(() => ({ sendConfirmationMessage: async () => false }));
+
+  sendConfirmationMessage(agendamientoId, tenantSlug).catch((err: any) => {
+    console.warn(
+      `[portal] Error enviando confirmación WhatsApp appointment ${agendamientoId}:`,
+      err instanceof Error ? err.message : err,
+    );
+  });
+
+  // Email confirmation
+  const { smartSend } = await import(
+    "../../email/services/email.service.js"
+  ).catch(() => ({ smartSend: async () => {} }));
+
+  const { serviceReminderTemplate } = await import(
+    "../../email/templates/index.js"
+  ).catch(() => ({ serviceReminderTemplate: () => "" }));
+
+  // Resolve client email
+  try {
+    const [client] = await db()
+      .select({ email: clients.email, name: clients.name })
+      .from(clients)
+      .where(eq(clients.id, params.clientId))
+      .limit(1);
+
+    if (client?.email) {
+      const html = serviceReminderTemplate({
+        cliente: client.name || "Cliente",
+        vehiculo: params.vehicleId,
+        tipoServicio: "Mantenimiento Rápido",
+        fecha: params.date,
+        hora: params.time,
+      });
+
+      smartSend({
+        to: client.email,
+        subject: `✅ Cita Agendada — ${params.date} a las ${params.time}`,
+        html,
+        entityType: "appointment_confirmation",
+        entityId: agendamientoId,
+        tenantSlug,
+      }).catch((err: any) => {
+        console.warn(
+          `[portal] Error enviando email confirmación appointment ${agendamientoId}:`,
+          err instanceof Error ? err.message : err,
+        );
+      });
+    }
+  } catch {
+    // Client lookup failed — email confirmation skipped
+  }
+
+  return result;
 }

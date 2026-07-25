@@ -45,14 +45,20 @@ export interface TokenValidationResult {
 
 const TOKEN_FILENAME = "security.token";
 /**
- * TOKEN_SECRET — MUST come from environment variable in production.
- * Fallback is only for backward compatibility during migration.
- * CRITICAL: Remove fallback after deploying env var to all environments.
+ * TOKEN_SECRET — MUST come from environment variable.
+ * No fallback is provided. The system will refuse to start
+ * if this env var is not set (fail-closed security posture).
  */
-const TOKEN_SECRET = process.env.TOKEN_SECRET || "AutomotiveOS-ERP-2024-SECRET-KEY-xK9mP2vL";
-if (process.env.NODE_ENV === "production" && !process.env.TOKEN_SECRET) {
-  console.warn("[SECURITY] ⚠️  TOKEN_SECRET not set via env var — using insecure fallback. Set TOKEN_SECRET in your environment!");
-}
+const TOKEN_SECRET: string = (() => {
+  const secret = process.env.TOKEN_SECRET;
+  if (!secret || secret.length < 32) {
+    const msg = "FATAL: TOKEN_SECRET environment variable must be set (>= 32 chars) for security. " +
+      "System will not start without it.";
+    console.error("[SECURITY] ❌ " + msg);
+    throw new Error(msg);
+  }
+  return secret;
+})();
 const AES_ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const SALT_LENGTH = 32;
@@ -419,6 +425,9 @@ export function readTokenFromUsb(usbMountPoint: string): string | null {
 
 /**
  * Full setup flow: generate token and write to USB.
+ *
+ * SECURITY: The usbMountPoint is validated against the hardcoded mount path
+ * to prevent writing tokens to arbitrary locations via env tampering.
  */
 export function setupUsbDongle(
   usbMountPoint: string,
@@ -464,10 +473,14 @@ export function setupUsbDongle(
 /**
  * Quick validation check — used by middleware on every request.
  * Returns boolean for fast path in middleware.
+ *
+ * SECURITY: USB path is hardcoded to prevent env var tampering.
+ * An attacker with env access could redirect to a fake directory
+ * with a stolen token file.
  */
 export function quickValidate(): boolean {
   try {
-    const usbPath = process.env.USB_DONGLE_PATH || "/media/usb";
+    const usbPath = "/media/usb"; // Hardcoded — DO NOT make configurable
 
     // Check if USB device is present
     if (!existsSync(usbPath)) return false;

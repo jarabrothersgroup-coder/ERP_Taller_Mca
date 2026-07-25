@@ -16,9 +16,10 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { vehiculos, ingresos, ordenesTrabajo } from "../schema/index.js";
+import { ingresoChecklist } from "../../../shared/database/schema/index.js";
 import { eq, sql, and } from "drizzle-orm";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
-import type { CreateIngresoRequest, CreateIngresoResponse } from "../types.js";
+import type { CreateIngresoRequest, CreateIngresoResponse, RecepcionChecklist } from "../types.js";
 
 /**
  * Registers a vehicle check-in (ingreso).
@@ -34,6 +35,112 @@ import type { CreateIngresoRequest, CreateIngresoResponse } from "../types.js";
  * @throws {NotFoundError} If the vehicle is not found
  * @throws {ValidationError} If input validation fails
  */
+
+/**
+ * Guarda el checklist de recepción asociado a un ingreso.
+ * Crea o reemplaza el checklist existente.
+ */
+export async function guardarChecklist(
+  ingresoId: string,
+  checklist: RecepcionChecklist,
+  tenantSlug?: string,
+): Promise<{ id: string }> {
+  const dbInstance = db();
+
+  // Verificar que el ingreso existe
+  const [ingreso] = await dbInstance
+    .select({ id: ingresos.id })
+    .from(ingresos)
+    .where(eq(ingresos.id, ingresoId))
+    .limit(1);
+
+  if (!ingreso) {
+    throw new NotFoundError(`Ingreso ${ingresoId} no encontrado`);
+  }
+
+  const [result] = await dbInstance
+    .insert(ingresoChecklist)
+    .values({
+      ingresoId,
+      panels: JSON.stringify(checklist.panels),
+      neumaticos: JSON.stringify(checklist.neumaticos),
+      nivelCombustibleExacto: String(checklist.nivelCombustibleExacto),
+      kilometrajeFoto: checklist.kilometrajeFoto,
+      accesorios: JSON.stringify(checklist.accesorios),
+      observacionesCliente: checklist.observacionesCliente ?? null,
+      firmaCliente: checklist.firmaCliente ?? null,
+      firmaClienteNombre: checklist.firmaClienteNombre ?? null,
+      firmaClienteTimestamp: checklist.firmaCliente ? new Date() : null,
+      clienteConforme: !!checklist.firmaCliente,
+      tenantSlug: tenantSlug ?? "default",
+    })
+    .onConflictDoUpdate({
+      target: ingresoChecklist.ingresoId,
+      set: {
+        panels: JSON.stringify(checklist.panels),
+        neumaticos: JSON.stringify(checklist.neumaticos),
+        nivelCombustibleExacto: String(checklist.nivelCombustibleExacto),
+        kilometrajeFoto: checklist.kilometrajeFoto,
+        accesorios: JSON.stringify(checklist.accesorios),
+        observacionesCliente: checklist.observacionesCliente ?? null,
+        firmaCliente: checklist.firmaCliente ?? null,
+        firmaClienteNombre: checklist.firmaClienteNombre ?? null,
+        firmaClienteTimestamp: checklist.firmaCliente ? new Date() : null,
+        clienteConforme: !!checklist.firmaCliente,
+        updatedAt: new Date(),
+      },
+    })
+    .returning({ id: ingresoChecklist.id });
+
+  return { id: result.id };
+}
+
+/**
+ * Obtiene el checklist de un ingreso.
+ */
+export async function getChecklist(
+  ingresoId: string,
+): Promise<RecepcionChecklist | null> {
+  const [row] = await db()
+    .select()
+    .from(ingresoChecklist)
+    .where(eq(ingresoChecklist.ingresoId, ingresoId))
+    .limit(1);
+
+  if (!row) return null;
+
+  return {
+    panels: row.panels as RecepcionChecklist["panels"],
+    neumaticos: row.neumaticos as RecepcionChecklist["neumaticos"],
+    nivelCombustibleExacto: Number(row.nivelCombustibleExacto),
+    kilometrajeFoto: row.kilometrajeFoto,
+    accesorios: row.accesorios as RecepcionChecklist["accesorios"],
+    observacionesCliente: row.observacionesCliente ?? undefined,
+    firmaCliente: row.firmaCliente ?? undefined,
+    firmaClienteNombre: row.firmaClienteNombre ?? undefined,
+  };
+}
+
+/**
+ * Guarda la firma de retiro en un vehículo.
+ */
+export async function guardarFirmaRetiro(
+  ingresoId: string,
+  firma: string,
+  nombre: string,
+): Promise<{ success: boolean }> {
+  await db()
+    .update(ingresoChecklist)
+    .set({
+      firmaRetiro: firma,
+      firmaRetiroNombre: nombre,
+      firmaRetiroTimestamp: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(ingresoChecklist.ingresoId, ingresoId));
+
+  return { success: true };
+}
 export async function createIngreso(
   data: CreateIngresoRequest,
   tenantSlug?: string,

@@ -1,16 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ProfileAvatarCard } from "@/components/dashboard/profile/profile-avatar-card";
+import { SessionProvider } from "@/components/providers/session-provider";
+import * as React from "react";
 
-// Mock Clerk hooks
-vi.mock("@clerk/nextjs", () => ({
-  useAuth: () => ({
-    signOut: vi.fn(),
+// Mock next/navigation for SessionProvider
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    prefetch: vi.fn(),
   }),
-  useUser: () => ({
-    user: null,
-    isLoaded: true,
-  }),
+  usePathname: () => "/dashboard",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const mockUser = {
@@ -26,30 +29,33 @@ const roleInfo = {
   bgColor: "bg-orange-500/10",
 };
 
+function renderWithSession(ui: React.ReactElement) {
+  return render(<SessionProvider>{ui}</SessionProvider>);
+}
+
 describe("ProfileAvatarCard", () => {
   it("renders user name", () => {
-    render(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
+    renderWithSession(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
     expect(screen.getByText("Juan Ángel Jara")).toBeInTheDocument();
   });
 
   it("renders user email", () => {
-    render(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
+    renderWithSession(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
     expect(screen.getByText("jaraju01@gmail.com")).toBeInTheDocument();
   });
 
   it("renders role badge", () => {
-    render(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
+    renderWithSession(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
     expect(screen.getByText("Administrador")).toBeInTheDocument();
   });
 
   it("renders initials in avatar", () => {
-    render(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
-    // "Juan Ángel Jara" → split → ["Juan","Ángel","Jara"] → first letters → "JÁJ" → slice(0,2) → "JÁ"
+    renderWithSession(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
     expect(screen.getByText("JÁ")).toBeInTheDocument();
   });
 
   it("renders sign out button", () => {
-    render(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
+    renderWithSession(<ProfileAvatarCard user={mockUser} roleInfo={roleInfo} />);
     expect(screen.getByText("Cerrar sesión")).toBeInTheDocument();
   });
 });

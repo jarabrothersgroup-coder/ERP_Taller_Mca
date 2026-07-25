@@ -19,7 +19,7 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { trabajosTerceros, ordenesTrabajo } from "../schema/index.js";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import type { CreateTrabajoTerceroRequest, CreateTrabajoTerceroResponse } from "../types.js";
 
@@ -126,4 +126,67 @@ export async function listTrabajosTercerosByOrden(
     fechaFin: t.fechaFin?.toISOString() ?? null,
     createdAt: t.createdAt.toISOString(),
   }));
+}
+
+/**
+ * Updates the status of a third-party work item.
+ *
+ * @param ordenTrabajoId - UUID of the parent work order
+ * @param trabajoId - UUID of the trabajo tercero to update
+ * @param nuevoEstado - New status (Pendiente | En_Proceso | Completado)
+ * @returns The updated record
+ * @throws {NotFoundError} If not found
+ * @throws {ValidationError} If invalid status
+ */
+export async function updateTrabajoTerceroStatus(
+  ordenTrabajoId: string,
+  trabajoId: string,
+  nuevoEstado: string,
+): Promise<{
+  id: string;
+  estado: string;
+  proveedor: string;
+  descripcion: string;
+  costo: string;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}> {
+  const validStatuses = ["Pendiente", "En_Proceso", "Completado"];
+  if (!validStatuses.includes(nuevoEstado)) {
+    throw new ValidationError(`Estado inválido: ${nuevoEstado}. Valores válidos: ${validStatuses.join(", ")}`);
+  }
+
+  const updateData: Record<string, unknown> = {
+    estado: nuevoEstado,
+    updatedAt: new Date(),
+  };
+
+  // Auto-set fechaFin when marking as Completado
+  if (nuevoEstado === "Completado") {
+    updateData.fechaFin = new Date();
+  }
+
+  const [updated] = await db()
+    .update(trabajosTerceros)
+    .set(updateData)
+    .where(
+      and(eq(trabajosTerceros.id, trabajoId), eq(trabajosTerceros.ordenTrabajoId, ordenTrabajoId)),
+    )
+    .returning();
+
+  if (!updated) {
+    throw new NotFoundError(
+      `Trabajo tercero ${trabajoId} no encontrado en orden ${ordenTrabajoId}`,
+    );
+  }
+
+  return {
+    id: updated.id,
+    estado: updated.estado,
+    proveedor: updated.proveedor,
+    descripcion: updated.descripcion,
+    costo: updated.costo.toString(),
+    fechaInicio: updated.fechaInicio?.toISOString() ?? null,
+    fechaFin: updated.fechaFin?.toISOString() ?? null,
+  };
 }

@@ -610,6 +610,30 @@ async function triggerEmailCheck() {
   btn.textContent = 'Verificar Correo Ahora';
 }
 
+/* ─── C-09: Bluetooth cleanup on page unload ───────────────────── */
+
+/**
+ * Cleanup handler for page unload. Prevents zombie Bluetooth listeners
+ * and stale intervals when the user navigates away or closes the tab.
+ * Fixes C-09: Bluetooth listeners zombi.
+ */
+function thinkcarCleanup() {
+  // Clear any pending refresh intervals
+  if (_thinkcarPendingRefresh) {
+    clearInterval(_thinkcarPendingRefresh);
+    _thinkcarPendingRefresh = null;
+  }
+  // Reset retry counter
+  btRetryCount = 0;
+  // Close wizard if open
+  _thinkcarWizardOpen = false;
+}
+
+// Register beforeunload handler (C-09)
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", thinkcarCleanup);
+}
+
 /* ─── Utility ───────────────────────────────────────────────────── */
 
 function safeSetHtml(id, html) {

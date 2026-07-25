@@ -78,6 +78,156 @@ export interface CreateTrabajoTerceroResponse {
   };
 }
 
+// ─── Checklist de Recepción (P1.1) ─────────
+
+export interface PanelState {
+  estado: "BUENO" | "RAYADO" | "ABOLLADO" | "ROTO" | "ABOLLADO_RAYADO";
+  fotoUrl?: string;
+  observaciones?: string;
+}
+
+export interface RecepcionChecklist {
+  panels: {
+    capot: PanelState;
+    paragolpesDel: PanelState;
+    paragolpesTras: PanelState;
+    puertaDelIzq: PanelState;
+    puertaDelDer: PanelState;
+    puertaTrasIzq: PanelState;
+    puertaTrasDer: PanelState;
+    maletero: PanelState;
+    techo: PanelState;
+    espejoIzq: PanelState;
+    espejoDer: PanelState;
+  };
+  neumaticos: {
+    delIzq: string;
+    delDer: string;
+    trasIzq: string;
+    trasDer: string;
+    repuesto: string;
+  };
+  nivelCombustibleExacto: number;  // 0.0 - 1.0
+  kilometrajeFoto: boolean;
+  accesorios: {
+    gato: boolean;
+    triangulos: boolean;
+    extintor: boolean;
+    ruedaRepuesto: boolean;
+    herramientas: boolean;
+    manual: boolean;
+    radioCodigo?: string;
+    otros: string[];
+  };
+  observacionesCliente?: string;
+  firmaCliente?: string;  // Base64
+  firmaClienteNombre?: string;
+}
+
+export interface FirmaRetiro {
+  firma: string;  // Base64
+  nombre: string;
+}
+
+// ─── Orden Detail (P1.2) ────────────────────
+
+export interface OrdenDetailResponse {
+  id: string;
+  vehicleId: string;
+  clientId: string;
+  description: string | null;
+  diagnosis: string | null;
+  status: string;
+  hvAlert: boolean;
+  hvLockoutSigned: boolean;
+  dtcCodes: string[] | null;
+  totalCost: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // Joined fields
+  vehiculo: string | null;
+  plate: string | null;
+  cliente: string | null;
+  clienteEmail: string | null;
+  clientePhone: string | null;
+  // Servicios + repuestos + terceros
+  servicios: OrdenServicioItem[];
+  repuestos: OrdenRepuestoItem[];
+  trabajosTerceros: TrabajoTerceroItem[];
+  // Checklist + firma
+  checklist: RecepcionChecklist | null;
+  firmaRetiro: string | null;
+  firmaRetiroNombre: string | null;
+  // DVI asociado
+  dviInspections: DVIItem[];
+  // Timeline
+  timeline: TimelineEntry[];
+}
+
+export interface OrdenServicioItem {
+  id: string;
+  servicioId: string;
+  servicioNombre: string;
+  cantidad: number;
+  precioUnitario: string;
+  subtotal: string;
+  duracionEstimada: number | null;
+  duracionReal: number | null;
+  tecnicoId: string | null;
+}
+
+export interface OrdenRepuestoItem {
+  id: string;
+  repuestoId: string | null;
+  repuestoNombre: string;
+  codigo: string | null;
+  cantidad: number;
+  precioUnitario: string;
+  subtotal: string;
+}
+
+export interface TrabajoTerceroItem {
+  id: string;
+  proveedor: string;
+  descripcion: string;
+  costo: string;
+  estado: string;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+}
+
+export interface DVIItem {
+  id: string;
+  estado: string;
+  fechaCreacion: string;
+  healthScore: number | null;
+}
+
+export interface TimelineEntry {
+  fecha: string;
+  estado: string;
+  usuario: string;
+  descripcion: string;
+}
+
+// ─── Presupuesto → OT (P1.3) ────────────────
+
+export interface PresupuestoAprobacion {
+  presupuestoId: string;
+  accion: "APROBAR" | "RECHAZAR";
+  metodoAprobacion: "PORTAL" | "WHATSAPP" | "PRESENCIAL";
+  firmaCliente?: string;
+  notas?: string;
+}
+
+export interface PresupuestoAprobadoResponse {
+  success: boolean;
+  presupuestoId: string;
+  ordenTrabajoId?: string;
+  estado: string;
+  message: string;
+}
+
 // ─── Error response ───────────────────────────
 
 export interface ApiError {

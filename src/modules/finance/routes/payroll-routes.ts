@@ -9,8 +9,8 @@ import {
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 import { emit, resolveAccount } from "../services/index.js";
 import { AccountingBusCodes } from "./accounting-bus-codes.js";
-import { asientosContables } from "../schema/index.js";
-import { eq, and, sql } from "drizzle-orm";
+import { asientosContables, commissionRecords, payrollSummary } from "../schema/index.js";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 export async function payrollRoutes(app: FastifyInstance): Promise<void> {
   app.post("/api/v1/finance/payroll/calculate", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -110,5 +110,42 @@ export async function payrollRoutes(app: FastifyInstance): Promise<void> {
       ok: true,
       ...progress,
     });
+  });
+
+  /**
+   * GET /api/v1/finance/payroll/history
+   * List payroll summaries ordered by year DESC, month DESC.
+   */
+  app.get("/api/v1/finance/payroll/history", async (_request, reply) => {
+    const rows = await db()
+      .select()
+      .from(payrollSummary)
+      .orderBy(desc(payrollSummary.year), desc(payrollSummary.month))
+      .limit(24);
+
+    return reply.send(rows);
+  });
+
+  /**
+   * GET /api/v1/finance/payroll/commissions?month=X&year=Y
+   * List commission records for a specific period.
+   */
+  app.get("/api/v1/finance/payroll/commissions", async (request, reply) => {
+    const { month, year } = request.query as { month?: string; year?: string };
+    const targetMonth = Number(month) || new Date().getMonth() + 1;
+    const targetYear = Number(year) || new Date().getFullYear();
+
+    const rows = await db()
+      .select()
+      .from(commissionRecords)
+      .where(
+        and(
+          eq(commissionRecords.month, targetMonth),
+          eq(commissionRecords.year, targetYear),
+        ),
+      )
+      .orderBy(desc(commissionRecords.laborAmount));
+
+    return reply.send(rows);
   });
 }

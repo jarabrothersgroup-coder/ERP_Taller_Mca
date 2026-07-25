@@ -325,3 +325,38 @@ export type { NotaCreditoInput, NotaCreditoResult } from "./sifen/nota-credito.s
 // ─── Sprint 85: Online Payments ──
 export { generatePaymentLink, processPaymentWebhook } from "./treasury/online-payment.service.js";
 export type { PaymentLinkInput, PaymentLinkResult } from "./treasury/online-payment.service.js";
+
+// ─── Sprint 86: Contingencia SIFEN ──
+export {
+  guardarEnContingencia,
+  reenviarContingencia,
+  reenviarContingenciaGlobal,
+  getContingenciaStatus,
+  checkSifenAvailability,
+  limpiarContingenciaVieja,
+} from "./sifen/contingencia.service.js";
+export type {
+  ContingenciaEntry,
+  ContingenciaResult,
+  ContingenciaStatus,
+} from "./sifen/contingencia.service.js";
+
+// ─── Sprint 86: Consolidación Multi-tenant ──
+export {
+  createTenantGroup,
+  addTenantGroupMember,
+  removeTenantGroupMember,
+  listTenantGroups,
+  listTenantGroupMembers,
+  deactivateTenantGroup,
+  getConsolidatedBalance,
+  getConsolidatedPnL,
+} from "./accounting/consolidated-report.service.js";
+export type {
+  ConsolidatedBalance,
+  ConsolidatedPnL,
+  TenantBalance,
+  TenantPnL,
+  TenantGroup,
+  TenantGroupMember,
+} from "./accounting/consolidated-report.service.js";

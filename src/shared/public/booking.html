@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agendar Turno — AutomotiveOS Workshop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .step-active { background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; }
+    .step-done { background: #16a34a; color: white; }
+    .step-pending { background: #1f2937; color: #6b7280; border: 1px solid #374151; }
+    .time-btn { transition: all 0.15s ease; }
+    .time-btn:hover:not(:disabled) { background: #2563eb; color: white; border-color: #3b82f6; }
+    .time-btn.selected { background: #2563eb; color: white; border-color: #3b82f6; }
+    .time-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .service-card { transition: all 0.15s ease; cursor: pointer; }
+    .service-card:hover { border-color: #3b82f6; background: rgba(37, 99, 235, 0.08); }
+    .service-card.selected { border-color: #2563eb; background: rgba(37, 99, 235, 0.12); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3); }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen">
+  <!-- Header -->
+  <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold">AutomotiveOS Workshop</h1>
+          <p class="text-xs text-gray-500">Agendá tu turno en línea — 24/7</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Progress Steps -->
+  <div class="max-w-2xl mx-auto px-4 pt-6 pb-2">
+    <div class="flex items-center justify-between mb-2" id="steps-bar">
+      <div class="flex items-center gap-2 text-sm" id="step-label-1">
+        <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-active" id="step-dot-1">1</span>
+        <span class="hidden sm:inline font-medium">Servicio</span>
+      </div>
+      <div class="flex-1 h-px bg-gray-800 mx-2"></div>
+      <div class="flex items-center gap-2 text-sm" id="step-label-2">
+        <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending" id="step-dot-2">2</span>
+        <span class="hidden sm:inline">Fecha y Hora</span>
+      </div>
+      <div class="flex-1 h-px bg-gray-800 mx-2"></div>
+      <div class="flex items-center gap-2 text-sm" id="step-label-3">
+        <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending" id="step-dot-3">3</span>
+        <span class="hidden sm:inline">Tus Datos</span>
+      </div>
+      <div class="flex-1 h-px bg-gray-800 mx-2"></div>
+      <div class="flex items-center gap-2 text-sm" id="step-label-4">
+        <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold step-pending" id="step-dot-4">4</span>
+        <span class="hidden sm:inline">Confirmar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="max-w-2xl mx-auto px-4 py-6">
+    <!-- Step 1: Service Selection -->
+    <section id="page-1" class="fade-in">
+      <h2 class="text-xl font-bold mb-1">¿Qué servicio necesitás?</h2>
+      <p class="text-sm text-gray-500 mb-6">Elegí el tipo de servicio para tu vehículo</p>
+      <div class="grid gap-3" id="service-grid">
+        <div class="service-card bg-gray-900 border border-gray-800 rounded-xl p-4" data-servicio="RAPIDO" onclick="selectService(this)">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-2xl">🚗</div>
+            <div class="flex-1">
+              <p class="font-semibold">Mantenimiento Rápido</p>
+              <p class="text-xs text-gray-500">Aceite, filtros, frenos, líquidos</p>
+            </div>
+            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-lg">~30 min</span>
+          </div>
+        </div>
+        <div class="service-card bg-gray-900 border border-gray-800 rounded-xl p-4" data-servicio="PESADO" onclick="selectService(this)">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-2xl">🔧</div>
+            <div class="flex-1">
+              <p class="font-semibold">Reparación General</p>
+              <p class="text-xs text-gray-500">Motor, suspensión, eléctrico, transmisión</p>
+            </div>
+            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-lg">~1-2 hs</span>
+          </div>
+        </div>
+        <div class="service-card bg-gray-900 border border-gray-800 rounded-xl p-4" data-servicio="DIAGNOSTICO" onclick="selectService(this)">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center text-2xl">🔬</div>
+            <div class="flex-1">
+              <p class="font-semibold">Diagnóstico Completo</p>
+              <p class="text-xs text-gray-500">DVI + escaneo OBD2 + informe</p>
+            </div>
+            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-lg">~45 min</span>
+          </div>
+        </div>
+        <div class="service-card bg-gray-900 border border-gray-800 rounded-xl p-4" data-servicio="OTRO" onclick="selectService(this)">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-2xl">🏷️</div>
+            <div class="flex-1">
+              <p class="font-semibold">Otro servicio</p>
+              <p class="text-xs text-gray-500">Especificá en los siguientes pasos</p>
+            </div>
+            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-lg">Variable</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Date & Time -->
+    <section id="page-2" class="hidden fade-in">
+      <h2 class="text-xl font-bold mb-1">¿Cuándo querés venir?</h2>
+      <p class="text-sm text-gray-500 mb-4">Elegí un día y horario disponible</p>
+      <div class="mb-4">
+        <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Fecha</label>
+        <input type="date" id="booking-date" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+      </div>
+      <label class="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Horarios disponibles</label>
+      <div id="time-slots" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
+      <p class="text-xs text-gray-600 mt-3 text-center">Horarios en gris ya pasaron o no están disponibles</p>
+    </section>
+
+    <!-- Step 3: Client Info -->
+    <section id="page-3" class="hidden fade-in">
+      <h2 class="text-xl font-bold mb-1">Tus datos</h2>
+      <p class="text-sm text-gray-500 mb-6">Completá tu información para el turno</p>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Nombre completo *</label>
+          <input type="text" id="client-name" placeholder="Juan Pérez" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition" required>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Teléfono *</label>
+          <input type="tel" id="client-phone" placeholder="0981 123456" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition" required>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Email (opcional)</label>
+          <input type="email" id="client-email" placeholder="correo@ejemplo.com" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Patente / Matrícula (opcional)</label>
+          <input type="text" id="client-plate" placeholder="ABC 1234" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Notas adicionales (opcional)</label>
+          <textarea id="client-notes" rows="3" placeholder="Describí el problema o lo que necesitás..." class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition resize-none"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Confirmation -->
+    <section id="page-4" class="hidden fade-in">
+      <div id="confirm-content">
+        <h2 class="text-xl font-bold mb-1">Revisá tu turno</h2>
+        <p class="text-sm text-gray-500 mb-6">Verificá que todo esté correcto antes de confirmar</p>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6 space-y-3" id="summary-card">
+          <!-- filled by JS -->
+        </div>
+        <button id="btn-confirm" onclick="submitBooking()" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+          Confirmar Turno
+        </button>
+      </div>
+      <div id="success-content" class="hidden text-center py-8">
+        <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h2 class="text-xl font-bold mb-2">¡Turno agendado!</h2>
+        <p class="text-sm text-gray-500 mb-6">Te esperamos en la fecha y horario seleccionado</p>
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6 text-left" id="success-details"></div>
+        <a id="gcal-link" href="#" target="_blank" class="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 mb-4">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          Agregar a Google Calendar
+        </a>
+        <button onclick="resetBooking()" class="block mx-auto text-sm text-gray-500 hover:text-white transition">Agendar otro turno</button>
+      </div>
+    </section>
+
+    <!-- Navigation Buttons -->
+    <div class="flex justify-between mt-8" id="nav-buttons">
+      <button id="btn-back" onclick="goStep(currentStep - 1)" class="hidden px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium transition">← Atrás</button>
+      <div class="flex-1"></div>
+      <button id="btn-next" onclick="goStep(currentStep + 1)" class="hidden px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">Siguiente →</button>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 mt-12 py-6 text-center text-xs text-gray-600">
+    Powered by <span class="text-gray-400 font-medium">AutomotiveOS</span> · Consultas: <a href="tel:+595" class="text-blue-400 hover:text-blue-300">+595 XXX XXX</a>
+  </footer>
+
+  <script>
+    // ─── State ────────────────────────────────────────
+    let currentStep = 1;
+    const booking = { servicio: null, fecha: null, hora: null, nombre: null, telefono: null, email: null, patente: null, notas: null };
+
+    // ─── Helpers ──────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const SERVICE_LABELS = { RAPIDO: 'Mantenimiento Rápido', PESADO: 'Reparación General', DIAGNOSTICO: 'Diagnóstico Completo', OTRO: 'Otro servicio' };
+
+    // ─── Step Navigation ──────────────────────────────
+    function goStep(n) {
+      if (n < 1 || n > 4) return;
+      // Validate before advancing
+      if (n > currentStep) {
+        if (currentStep === 1 && !booking.servicio) { showToast('Elegí un servicio', 'error'); return; }
+        if (currentStep === 2 && (!booking.fecha || !booking.hora)) { showToast('Elegí fecha y hora', 'error'); return; }
+        if (currentStep === 3) {
+          booking.nombre = $('client-name').value.trim();
+          booking.telefono = $('client-phone').value.trim();
+          booking.email = $('client-email').value.trim();
+          booking.patente = $('client-plate').value.trim();
+          booking.notas = $('client-notes').value.trim();
+          if (!booking.nombre) { showToast('Ingresá tu nombre', 'error'); return; }
+          if (!booking.telefono) { showToast('Ingresá tu teléfono', 'error'); return; }
+        }
+      }
+      currentStep = n;
+      renderStep();
+    }
+
+    function renderStep() {
+      // Hide all pages
+      for (let i = 1; i <= 4; i++) $(`page-${i}`).classList.add('hidden');
+      $(`page-${currentStep}`).classList.remove('hidden');
+
+      // Update step dots
+      for (let i = 1; i <= 4; i++) {
+        const dot = $(`step-dot-${i}`);
+        dot.className = 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ' +
+          (i < currentStep ? 'step-done' : i === currentStep ? 'step-active' : 'step-pending');
+        if (i < currentStep) dot.innerHTML = '✓'; else dot.innerHTML = i;
+      }
+
+      // Nav buttons
+      $('btn-back').classList.toggle('hidden', currentStep === 1);
+      $('btn-next').classList.toggle('hidden', currentStep === 4);
+      $('nav-buttons').classList.toggle('hidden', currentStep === 4 || currentStep === 5);
+
+      // Populate step 2 if needed
+      if (currentStep === 2) initDatePicker();
+      // Populate step 4 summary
+      if (currentStep === 4) renderSummary();
+    }
+
+    // ─── Step 1: Service Selection ────────────────────
+    function selectService(el) {
+      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      booking.servicio = el.dataset.servicio;
+    }
+
+    // ─── Step 2: Date & Time ──────────────────────────
+    function initDatePicker() {
+      const dateInput = $('booking-date');
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      dateInput.min = `${yyyy}-${mm}-${dd}`;
+      if (!booking.fecha) {
+        dateInput.value = `${yyyy}-${mm}-${dd}`;
+        booking.fecha = dateInput.value;
+      } else {
+        dateInput.value = booking.fecha;
+      }
+      dateInput.addEventListener('change', () => {
+        booking.fecha = dateInput.value;
+        booking.hora = null;
+        renderTimeSlots();
+      });
+      renderTimeSlots();
+    }
+
+    function renderTimeSlots() {
+      const container = $('time-slots');
+      const now = new Date();
+      const isToday = booking.fecha === new Date().toISOString().split('T')[0];
+      const slots = [];
+      for (let h = 8; h < 17; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          let disabled = false;
+          if (isToday) {
+            const slotDate = new Date(booking.fecha + 'T' + time + ':00');
+            disabled = slotDate <= now;
+          }
+          slots.push({ time, disabled });
+        }
+      }
+      container.innerHTML = slots.map(s => {
+        const sel = booking.hora === s.time ? ' selected' : '';
+        return `<button class="time-btn bg-gray-900 border border-gray-800 rounded-lg py-2.5 text-sm font-medium${sel}" ${s.disabled ? 'disabled' : ''} onclick="selectTime('${s.time}')">${s.time}</button>`;
+      }).join('');
+    }
+
+    function selectTime(time) {
+      booking.hora = time;
+      renderTimeSlots();
+    }
+
+    // ─── Step 4: Summary ─────────────────────────────
+    function renderSummary() {
+      const fechaFmt = booking.fecha ? new Date(booking.fecha + 'T12:00:00').toLocaleDateString('es-PY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+      $('summary-card').innerHTML = `
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Servicio</span><span class="font-medium">${SERVICE_LABELS[booking.servicio] || '—'}</span></div>
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Fecha</span><span class="font-medium">${fechaFmt}</span></div>
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Hora</span><span class="font-medium">${booking.hora || '—'}</span></div>
+        <hr class="border-gray-800">
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Nombre</span><span class="font-medium">${esc(booking.nombre)}</span></div>
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Teléfono</span><span class="font-medium">${esc(booking.telefono)}</span></div>
+        ${booking.email ? `<div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Email</span><span class="font-medium">${esc(booking.email)}</span></div>` : ''}
+        ${booking.patente ? `<div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Patente</span><span class="font-medium">${esc(booking.patente)}</span></div>` : ''}
+        ${booking.notas ? `<div><span class="text-gray-500 text-sm">Notas</span><p class="text-sm mt-1">${esc(booking.notas)}</p></div>` : ''}`;
+    }
+
+    // ─── Submit ───────────────────────────────────────
+    async function submitBooking() {
+      const btn = $('btn-confirm');
+      btn.disabled = true;
+      btn.textContent = 'Agendando...';
+
+      try {
+        const resp = await fetch('/scheduling/appointments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serviceType: booking.servicio,
+            date: booking.fecha,
+            time: booking.hora,
+            clientName: booking.nombre,
+            clientPhone: booking.telefono,
+            clientEmail: booking.email || undefined,
+            plate: booking.patente || undefined,
+            notes: booking.notas || undefined
+          })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.message || 'No se pudo agendar el turno');
+        }
+
+        const result = await resp.json();
+        showSuccess(result);
+      } catch (e) {
+        showToast(e.message || 'Error al agendar. Intentá de nuevo.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Confirmar Turno';
+      }
+    }
+
+    function showSuccess(result) {
+      $('confirm-content').classList.add('hidden');
+      $('success-content').classList.remove('hidden');
+      $('nav-buttons').classList.add('hidden');
+
+      const fechaFmt = new Date(booking.fecha + 'T12:00:00').toLocaleDateString('es-PY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      $('success-details').innerHTML = `
+        <div class="flex justify-between items-center mb-2"><span class="text-gray-500 text-sm">Servicio</span><span class="font-medium">${SERVICE_LABELS[booking.servicio]}</span></div>
+        <div class="flex justify-between items-center mb-2"><span class="text-gray-500 text-sm">Fecha</span><span class="font-medium">${fechaFmt}</span></div>
+        <div class="flex justify-between items-center"><span class="text-gray-500 text-sm">Hora</span><span class="font-medium text-blue-400">${booking.hora}</span></div>`;
+
+      // Google Calendar link
+      const startDt = booking.fecha.replace(/-/g, '') + 'T' + booking.hora.replace(':', '') + '00';
+      const endH = parseInt(booking.hora.split(':')[0]) + 1;
+      const endDt = booking.fecha.replace(/-/g, '') + 'T' + String(endH).padStart(2, '0') + booking.hora.split(':')[1] + '00';
+      const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Turno en ' + SERVICE_LABELS[booking.servicio])}&dates=${startDt}/${endDt}&details=${encodeURIComponent('Turno agendado via AutomotiveOS')}`;
+      $('gcal-link').href = gcalUrl;
+    }
+
+    // ─── Reset ────────────────────────────────────────
+    function resetBooking() {
+      Object.assign(booking, { servicio: null, fecha: null, hora: null, nombre: null, telefono: null, email: null, patente: null, notas: null });
+      document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+      $('client-name').value = '';
+      $('client-phone').value = '';
+      $('client-email').value = '';
+      $('client-plate').value = '';
+      $('client-notes').value = '';
+      $('confirm-content').classList.remove('hidden');
+      $('success-content').classList.add('hidden');
+      $('btn-confirm').disabled = false;
+      $('btn-confirm').textContent = 'Confirmar Turno';
+      currentStep = 1;
+      renderStep();
+    }
+
+    // ─── Utils ────────────────────────────────────────
+    function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    function showToast(msg, type) {
+      const t = document.createElement('div');
+      t.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium shadow-lg transition-all ${type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+    }
+
+    // Init
+    renderStep();
+  </script>
+</body>
+</html>

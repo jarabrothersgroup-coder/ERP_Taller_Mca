@@ -324,6 +324,7 @@ function navigate(view) {
     tesoreria: ['Tesorería', 'CxC, CxP, Cuentas y Flujo de Caja'],
     presupuestos: ['Presupuestos', 'Control de gestión: real vs presupuestado'],
     inventario: ['Inventario', 'Gestión de repuestos y herramientas'],
+    compras: ['Compras', 'Facturas de compra y proveedores'],
     whatsapp: ['WhatsApp', 'Conexión y envío de mensajes'],
     dvi: ['DVI', 'Inspección Digital de Vehículos'],
     calendario: ['Calendario', 'Turnos y agendamiento'],
@@ -335,6 +336,22 @@ function navigate(view) {
     'backup-restore': ['Backup & Restore', 'Copias de seguridad y restauración'],
     'security-hw': ['Seguridad Hardware', 'USB Dongle, Kill Switch y Fingerprinting'],
     'crm': ['CRM', 'Client Relationship Management'],
+    'executive-dashboard': ['Dashboard Ejecutivo', 'KPIs consolidados del taller'],
+    'servicios-catalog': ['Catálogo Servicios', 'Gestión de servicios y pricing'],
+    'herramientas': ['Herramientas', 'Préstamos, mantenimiento y depreciación'],
+    'flat-rate': ['Flat Rate', 'Eficiencia de mecánicos y rentabilidad'],
+    'asignacion-inteligente': ['Asignación Inteligente', 'Asignación automática de mecánicos'],
+    'predictive-ml': ['Predictive ML', 'Mantenimiento predictivo con machine learning'],
+    'multi-almacen': ['Multi-Almacén', 'Gestión de almacenes y transferencias'],
+    'pagos-online': ['Pagos Online', 'Links de pago Stripe y PagosPy'],
+    'email-config': ['Email Automático', 'Configuración de envío de facturas'],
+    'whatsapp-ot-config': ['WhatsApp OT Config', 'Notificaciones automáticas por estado'],
+    'dvi-comparison': ['DVI Comparación', 'Fotos before/after de inspecciones'],
+    'tecdoc-search': ['TecDoc', 'Búsqueda de partes por VIN o marca'],
+    'dtc-assistant': ['AI DTC Assistant', 'Asistente de diagnóstico de códigos'],
+    'metabase-embed': ['Metabase', 'Dashboards embebidos de analytics'],
+    'multi-tenant': ['Multi-Tenant', 'Consolidación de sucursales'],
+    'google-reviews': ['Google Reviews + Loyalty', 'Reseñas y programa de fidelización'],
   };
   const [t, st] = titles[view] || ['', ''];
   dom.viewTitle.textContent = t;
@@ -362,6 +379,7 @@ function renderView(view) {
     else if (view === 'presupuestos') renderBudget(c);
     else if (view === 'servicios') renderServicios(c);
     else if (view === 'inventario') renderInventario(c);
+    else if (view === 'compras') renderCompras(c);
     else if (view === 'nomina') renderPayroll(c);
     else if (view === 'whatsapp') renderWhatsAppView(c);
     else if (view === 'dvi') renderDVI(c);
@@ -373,6 +391,22 @@ function renderView(view) {
     else if (view === 'label-printing') { c.innerHTML = '<div id="label-printing-view"></div>'; if (typeof initLabelPrinting === 'function') initLabelPrinting(); }
     else if (view === 'backup-restore') { c.innerHTML = '<div id="backup-view"></div>'; if (typeof initBackupRestore === 'function') initBackupRestore(); }
     else if (view === 'security-hw') { c.innerHTML = '<div id="security-hw-view"></div>'; if (typeof initSecurityHw === 'function') initSecurityHw(); }
+    else if (view === 'executive-dashboard') renderExecutiveDashboard(c);
+    else if (view === 'servicios-catalog') renderServiciosCatalog(c);
+    else if (view === 'herramientas') renderHerramientas(c);
+    else if (view === 'flat-rate') renderFlatRate(c);
+    else if (view === 'asignacion-inteligente') renderAsignacionInteligente(c);
+    else if (view === 'predictive-ml') renderPredictiveML(c);
+    else if (view === 'multi-almacen') renderMultiAlmacen(c);
+    else if (view === 'pagos-online') renderPagosOnline(c);
+    else if (view === 'email-config') renderEmailConfig(c);
+    else if (view === 'whatsapp-ot-config') renderWhatsAppConfig(c);
+    else if (view === 'dvi-comparison') renderDVIComparison(c);
+    else if (view === 'tecdoc-search') renderTecDoc(c);
+    else if (view === 'dtc-assistant') renderDTCAssistant(c);
+    else if (view === 'metabase-embed') renderMetabaseDashboard(c);
+    else if (view === 'multi-tenant') renderMultiTenant(c);
+    else if (view === 'google-reviews') renderGoogleReviews(c);
     else if (view === 'crm') renderCRM(c);
   };
   window.PerfMonitor?.timeView(view, render);
@@ -409,6 +443,7 @@ const VIEW_ROLES = {
   tesoreria: 'manager',
   presupuestos: 'manager',
   inventario: 'manager',
+  compras: 'manager',
   nomina: 'admin',
   whatsapp: 'manager',
   dvi: 'mechanic',
@@ -416,6 +451,22 @@ const VIEW_ROLES = {
   marketing: 'admin',
   fleet: 'admin',
   crm: 'manager',
+  'executive-dashboard': 'admin',
+  'servicios-catalog': 'manager',
+  herramientas: 'manager',
+  'flat-rate': 'manager',
+  'asignacion-inteligente': 'manager',
+  'predictive-ml': 'manager',
+  'multi-almacen': 'manager',
+  'pagos-online': 'manager',
+  'email-config': 'admin',
+  'whatsapp-ot-config': 'admin',
+  'dvi-comparison': 'mechanic',
+  'tecdoc-search': 'manager',
+  'dtc-assistant': 'mechanic',
+  'metabase-embed': 'admin',
+  'multi-tenant': 'admin',
+  'google-reviews': 'admin',
 };
 
 function canAccessView(view) {
@@ -1016,7 +1067,18 @@ document.addEventListener('submit', async (e) => {
           descripcionTrabajo: desc,
         },
       });
-      if (msgEl) { msgEl.textContent = '✅ Ingreso registrado correctamente'; msgEl.className = 'text-sm text-center text-green-400'; }
+      if (msgEl) {
+        msgEl.innerHTML = '✅ Ingreso registrado correctamente';
+        msgEl.className = 'text-sm text-center text-green-400';
+      }
+      // Try to get the ingreso ID from the response and offer checklist link
+      try {
+        const lastIngreso = await api('/workshop/ingresos?vehicleId=' + vehiculoId);
+        if (lastIngreso && lastIngreso.length && msgEl) {
+          const ingresoId = lastIngreso[0].id;
+          msgEl.innerHTML = `✅ Ingreso registrado correctamente — <a href="#" onclick="event.preventDefault(); renderRecepcionChecklist(document.getElementById('view-content'), '${ingresoId}')" class="underline font-semibold hover:text-green-300">Llenar Checklist de Recepción</a>`;
+        }
+      } catch { /* ignore — optional link */ }
       document.querySelector('#ingreso-form')?.reset();
       // Reload dropdowns
       loadIngresoForm();
