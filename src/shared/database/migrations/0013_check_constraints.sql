@@ -66,13 +66,8 @@ BEGIN
       CHECK (ruc IS NULL OR ruc ~ '^[0-9]{6,8}-[0-9]$');
   END IF;
 
-  -- vehiculos: valid engine type
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehiculos' AND column_name='engine_type') INTO col_exists;
-  IF col_exists THEN
-    ALTER TABLE vehiculos DROP CONSTRAINT IF EXISTS vehiculos_engine_check;
-    ALTER TABLE vehiculos ADD CONSTRAINT vehiculos_engine_check
-      CHECK (engine_type IS NULL OR engine_type IN ('combustion', 'hybrid', 'electric', 'NAFTA', 'DIESEL', 'ELECTRICO', 'HIBRIDO', 'GNV', 'ETANOL'));
-  END IF;
+  -- vehiculos: engine_type is already validated by enum tipo_motor — skip CHECK
+  RAISE NOTICE 'vehiculos.engine_type uses enum tipo_motor — validation is built-in, skipping CHECK constraint';
 
   -- =============================================================
   -- 3. Inventory tables — Quantity and price integrity
