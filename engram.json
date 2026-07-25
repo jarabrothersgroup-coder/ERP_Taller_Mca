@@ -144,14 +144,14 @@
     },
     "deployment": {
       "date": "2026-07-25",
-      "commit": "abc30cc",
+      "commit": "1f12bcf",
       "pcserver": {
         "ip": "192.168.18.104",
         "tailscale_ip": "100.104.144.92",
         "repo_path": "/data/ERP_Taller_Mca",
         "backup_path": "/data/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
         "services": ["erp-taller.service (Fastify :3000)", "nginx (:80)", "dirsrv@erp-taller (389)", "postgresql (5432)"],
-        "db_migrations": "14/14 applied (drizzle-kit migrate)",
+        "db_migrations": "15/15 applied (0012_cycle_counts.sql)",
         "status": "ACTIVE"
       },
       "pc01tmca": {
@@ -160,7 +160,7 @@
         "web_path": "/home/jarabro/Proyectos/ERP_Taller_Mca/web",
         "backup_path": "/home/jarabro/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
         "services": ["next-server (:3000)", "dirsrv@erp-taller (389)"],
-        "nextjs_build": "SUCCESS (compiled, all pages)",
+        "nextjs_build": "SUCCESS (Sprint 94 — cycle counts, CRM @dnd-kit, recharts)",
         "status": "ACTIVE"
       }
     },
