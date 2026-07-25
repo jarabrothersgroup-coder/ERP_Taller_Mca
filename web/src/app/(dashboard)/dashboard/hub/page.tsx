@@ -1,25 +1,43 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Zap } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { LayoutDashboard, Zap, Filter } from "lucide-react";
 import { HubSidebar } from "@/components/hub/hub-sidebar";
 import { OTDetailPanel } from "@/components/hub/ot-detail-panel";
 import { QuickCreateModal } from "@/components/hub/quick-create-modal";
 import type { KanbanOT } from "@/components/hub/types";
 
+/* ── Technician type ───────────────────────── */
+interface Technician {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 export default function OperationsHubPage() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
   const [selectedOT, setSelectedOT] = React.useState<KanbanOT | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [mobilePanel, setMobilePanel] = React.useState<"list" | "detail">("list");
+  const [tecnicoFilter, setTecnicoFilter] = React.useState<string>("");
 
-  const { data: ordenes = [], isLoading, refetch } = useQuery<KanbanOT[]>({
+  // Fetch technicians for filter
+  const { data: tecnicos = [] } = useQuery<Technician[]>({
+    queryKey: ["hub-tecnicos"],
+    queryFn: () => api.request<Technician[]>("/workshop/tecnicos?limit=50"),
+  });
+
+  // Fetch active orders
+  const { data: allOrdenes = [], isLoading, refetch } = useQuery<KanbanOT[]>({
     queryKey: ["hub-active-orders"],
     queryFn: async () => {
       const [ots, allVehicles, allClients] = await Promise.all([
@@ -38,6 +56,27 @@ export default function OperationsHubPage() {
     refetchInterval: 30_000,
   });
 
+  // Filter by technician
+  const ordenes = React.useMemo(() => {
+    if (!tecnicoFilter) return allOrdenes;
+    return allOrdenes.filter(ot => {
+      const assignedTo = (ot as any).assignedTo || (ot as any).tecnicoId || "";
+      return assignedTo === tecnicoFilter;
+    });
+  }, [allOrdenes, tecnicoFilter]);
+
+  // Status change mutation (drag & drop)
+  const changeStatus = useMutation({
+    mutationFn: ({ ordenId, newStatus }: { ordenId: string; newStatus: string }) =>
+      api.updateWorkOrderStatus(ordenId, newStatus),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hub-active-orders"] });
+      qc.invalidateQueries({ queryKey: ["hub-orden-detail"] });
+      toast.success("Estado de OT actualizado");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const stats = React.useMemo(() => ({
     total: ordenes.length,
     enProceso: ordenes.filter(o => o.status === "En_Proceso").length,
@@ -48,6 +87,10 @@ export default function OperationsHubPage() {
   const handleSelectOT = (ot: KanbanOT) => {
     setSelectedOT(ot);
     setMobilePanel("detail");
+  };
+
+  const handleStatusChange = (ordenId: string, newStatus: string) => {
+    changeStatus.mutate({ ordenId, newStatus });
   };
 
   return (
@@ -74,6 +117,31 @@ export default function OperationsHubPage() {
         </div>
       </div>
 
+      {/* Technician filter bar */}
+      <div className="flex items-center gap-2 shrink-0">
+        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground mr-1">Filtrar por técnico:</span>
+        <select
+          value={tecnicoFilter}
+          onChange={e => setTecnicoFilter(e.target.value)}
+          className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option value="">Todos los técnicos</option>
+          {tecnicos.map((t: Technician) => (
+            <option key={t.id} value={t.id}>{t.nombre}</option>
+          ))}
+        </select>
+        {tecnicoFilter && (
+          <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setTecnicoFilter("")}>
+            Limpiar
+          </Button>
+        )}
+        <div className="flex-1" />
+        <span className="text-xs text-muted-foreground">
+          {ordenes.length} de {allOrdenes.length} órdenes
+        </span>
+      </div>
+
       <div className="flex-1 flex gap-4 min-h-0">
         <div className={cn("flex flex-col w-full lg:w-80 xl:w-96 shrink-0 overflow-y-auto", mobilePanel === "detail" && "hidden lg:flex")}>
           <Card className="flex-1 border-0 shadow-sm bg-card">
@@ -82,13 +150,13 @@ export default function OperationsHubPage() {
                 <span>Órdenes Activas</span>
                 <Badge variant="outline" className="text-[10px]">{stats.total} total</Badge>
               </CardTitle>
-              <CardDescription className="text-[10px]">Seleccioná una OT para ver sus detalles y acciones</CardDescription>
+              <CardDescription className="text-[10px]">Arrastrá OTs entre estados o seleccioná para ver detalles</CardDescription>
             </CardHeader>
             <CardContent className="px-3 pb-3">
               {isLoading ? (
                 <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16" />)}</div>
               ) : (
-                <HubSidebar ordenes={ordenes} selectedId={selectedOT?.id || null} onSelect={handleSelectOT} />
+                <HubSidebar ordenes={ordenes} selectedId={selectedOT?.id || null} onSelect={handleSelectOT} onStatusChange={handleStatusChange} />
               )}
             </CardContent>
           </Card>
