@@ -5,21 +5,30 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Plus,
-  Download,
   Phone,
   Mail,
   Car,
   DollarSign,
   GitBranch,
   Loader2,
-  GripVertical,
-  ChevronRight,
-  ChevronLeft,
   Trash2,
   Pencil,
   Trophy,
-  XCircle,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,6 +198,39 @@ export default function CRMPage() {
     setDialogOpen(true);
   }
 
+  // ── @dnd-kit Sensors ──
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  );
+
+  const [activeDealId, setActiveDealId] = React.useState<string | null>(null);
+
+  const handleDragStart = React.useCallback((event: DragStartEvent) => {
+    setActiveDealId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      setActiveDealId(null);
+      const { active, over } = event;
+      if (!over || !active) return;
+
+      // over.id is the stage ID the card was dropped on
+      const dealId = String(active.id);
+      const targetStageId = String(over.id);
+
+      // Find the current stage of this deal
+      const deal = deals.find((d) => d.id === dealId);
+      if (!deal || deal.stageId === targetStageId) return;
+
+      moveMut.mutate({ dealId, stageId: targetStageId });
+    },
+    [deals, moveMut],
+  );
+
+  const activeDeal = activeDealId ? deals.find((d) => d.id === activeDealId) : null;
+
   // ── Group deals by stage ──
   const sortedStages = React.useMemo(
     () => [...stages].sort((a, b) => a.orden - b.orden),
@@ -318,57 +360,78 @@ export default function CRMPage() {
           </Button>
         </Card>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {sortedStages.map((stage) => {
-            const stageDeals = filteredByStage[stage.id] || [];
-            const stageValor = stageDeals.reduce((s, d) => s + (Number(d.valorEstimado) || 0), 0);
-            return (
-              <div
-                key={stage.id}
-                className="flex-shrink-0 w-72 flex flex-col rounded-lg border bg-muted/30"
-              >
-                {/* Column header */}
-                <div className="flex items-center justify-between p-3 border-b">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stage.color }} />
-                    <h3 className="font-semibold text-sm">{stage.nombre}</h3>
-                    <Badge variant="secondary" className="text-[10px] font-mono">
-                      {stageDeals.length}
-                    </Badge>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {sortedStages.map((stage) => {
+              const stageDeals = filteredByStage[stage.id] || [];
+              const stageValor = stageDeals.reduce((s, d) => s + (Number(d.valorEstimado) || 0), 0);
+              return (
+                <div
+                  key={stage.id}
+                  className="flex-shrink-0 w-72 flex flex-col rounded-lg border bg-muted/30"
+                >
+                  {/* Column header */}
+                  <div className="flex items-center justify-between p-3 border-b">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stage.color }} />
+                      <h3 className="font-semibold text-sm">{stage.nombre}</h3>
+                      <Badge variant="secondary" className="text-[10px] font-mono">
+                        {stageDeals.length}
+                      </Badge>
+                    </div>
+                    {stageValor > 0 && (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        ₲ {(stageValor / 1_000_000).toFixed(1)}M
+                      </span>
+                    )}
                   </div>
-                  {stageValor > 0 && (
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      ₲ {(stageValor / 1_000_000).toFixed(1)}M
-                    </span>
-                  )}
-                </div>
 
-                {/* Cards */}
-                <div className="flex-1 p-2 space-y-2 min-h-[120px]">
-                  {stageDeals.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-6">
-                      Sin deals
-                    </p>
-                  ) : (
-                    stageDeals.map((deal) => (
-                      <DealCard
-                        key={deal.id}
-                        deal={deal}
-                        stage={stage}
-                        allStages={sortedStages}
-                        onMove={(newStageId) => moveMut.mutate({ dealId: deal.id, stageId: newStageId })}
-                        onEdit={() => openEdit(deal)}
-                        onDelete={() => {
-                          if (confirm(`¿Eliminar deal "${deal.titulo}"?`)) deleteMut.mutate(deal.id);
-                        }}
-                      />
-                    ))
-                  )}
+                  {/* Drop Zone */}
+                  <DroppableColumn stageId={stage.id}>
+
+                    {stageDeals.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-6">
+                        Arrastre un deal aquí
+                      </p>
+                    ) : (
+                      stageDeals.map((deal) => (
+                        <DealCard
+                          key={deal.id}
+                          deal={deal}
+                          stage={stage}
+                          onEdit={() => openEdit(deal)}
+                          onDelete={() => {
+                            if (confirm(`¿Eliminar deal "${deal.titulo}"?`)) deleteMut.mutate(deal.id);
+                          }}
+                        />
+                      ))
+                    )}
+                  </DroppableColumn>
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {activeDeal ? (
+              <div className="rounded-md border bg-card p-3 shadow-xl rotate-3 opacity-90 space-y-2 w-64">
+                <h4 className="font-medium text-sm">{activeDeal.titulo}</h4>
+                {activeDeal.clienteNombre && (
+                  <p className="text-xs text-muted-foreground">{activeDeal.clienteNombre}</p>
+                )}
+                {activeDeal.valorEstimado && Number(activeDeal.valorEstimado) > 0 && (
+                  <p className="text-xs font-medium">₲ {(Number(activeDeal.valorEstimado) / 1_000_000).toFixed(1)}M</p>
+                )}
               </div>
-            );
-          })}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* ── Create / Edit Dialog ── */}
@@ -468,31 +531,57 @@ export default function CRMPage() {
 
 /* ── Deal Card Component ────────────────────── */
 
+function DroppableColumn({ stageId, children }: { stageId: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stageId });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex-1 p-2 space-y-2 min-h-[120px] transition-all duration-150 rounded-md",
+        isOver && "bg-accent/50 ring-2 ring-primary/30 scale-[1.01]",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 function DealCard({
   deal,
   stage,
-  allStages,
-  onMove,
   onEdit,
   onDelete,
 }: {
   deal: CrmDeal;
   stage: PipelineStage;
-  allStages: PipelineStage[];
-  onMove: (stageId: string) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const sortedStages = [...allStages].sort((a, b) => a.orden - b.orden);
-  const currentIdx = sortedStages.findIndex((s) => s.id === stage.id);
-  const canMoveLeft = currentIdx > 0;
-  const canMoveRight = currentIdx < sortedStages.length - 1;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: deal.id,
+    data: { stageId: stage.id },
+  });
+
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 999 : 'auto' as any,
+  };
 
   return (
-    <div className="rounded-md border bg-card p-3 space-y-2 group hover:shadow-sm transition-shadow">
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className="rounded-md border bg-card p-3 space-y-2 group hover:shadow-sm transition-shadow cursor-grab active:cursor-grabbing"
+    >
       <div className="flex items-start justify-between gap-2">
-        <h4 className="font-medium text-sm leading-tight flex-1">{deal.titulo}</h4>
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+          <h4 className="font-medium text-sm leading-tight truncate">{deal.titulo}</h4>
+        </div>
+        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onEdit}>
             <Pencil className="h-3 w-3" />
           </Button>
@@ -522,28 +611,9 @@ function DealCard({
         ) : (
           <span />
         )}
-        <div className="flex gap-0.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            disabled={!canMoveLeft}
-            onClick={() => canMoveLeft && onMove(sortedStages[currentIdx - 1].id)}
-            title="Mover a etapa anterior"
-          >
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            disabled={!canMoveRight}
-            onClick={() => canMoveRight && onMove(sortedStages[currentIdx + 1].id)}
-            title="Mover a etapa siguiente"
-          >
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-        </div>
+        {deal.probabilidad !== null && deal.probabilidad !== undefined && (
+          <span className="text-[10px] font-mono text-muted-foreground">{deal.probabilidad}%</span>
+        )}
       </div>
     </div>
   );
