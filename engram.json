@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 93 COMPLETED — Full Deployment to pcserver + PC01Tmca",
-    "next_sprint": "Sprint 94 — Production hardening, monitoring, backup automation",
+    "current_sprint": "Sprint 94 COMPLETED — Cycle count, CRM @dnd-kit DnD, recharts dashboard, migration 0012",
+    "next_sprint": "Sprint 95 — PC01Tmca deploy, production monitoring, gap closure",
     "sprint_91_tier2": {
       "goal": "Tier 2 Gap Closure — G-06 Pricing→Presupuesto, G-07 rh_service_hours seed, G-08 WhatsApp Recepción, G-09 Reorder Cron, G-10 OT PDF, G-11 Stock Adjustment Approval",
       "duration": "1 day",
