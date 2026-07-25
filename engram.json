@@ -43,10 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 95 COMPLETED — All chaos audit items C-05→C-12 closed, Grafana monitoring active, PC01Tmca backup timer enabled",
-    "next_sprint": "Sprint 96 — ALL C-ITEMS CLOSED 🎉
-    New focus: Financial dashboards (Grafana PostgreSQL), Performance optimization,
-    E2E Playwright test suite execution, Mobile app enhancements, Documentation refresh",
+    "current_sprint": "Sprint 96 COMPLETED — Financial Grafana dashboard (11 panels), Migration 0014 performance indexes, E2E Playwright suite 13 specs",
+    "next_sprint": "Sprint 97 — E2E test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification",
     "sprint_94_completed": {
       "goal": "Sprint 94 — Cycle count module, CRM @dnd-kit DnD, recharts dashboard, migration 0012, PC01Tmca deploy, backup automation",
       "duration": "1 day",

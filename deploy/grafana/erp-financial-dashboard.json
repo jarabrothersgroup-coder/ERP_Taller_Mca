@@ -1,0 +1,287 @@
+{
+  "dashboard": {
+    "uid": "erp-financial-pcserver",
+    "title": "AutomotiveOS — Dashboard Financiero",
+    "tags": ["erp", "automotive-os", "finanzas"],
+    "timezone": "America/Asuncion",
+    "schemaVersion": 36,
+    "version": 0,
+    "refresh": "5m",
+    "time": { "from": "now-30d", "to": "now" },
+    "timepicker": {},
+    "panels": [
+      {
+        "id": 1,
+        "title": "Ingresos vs Gastos (Mensual)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "custom": { "lineInterpolation": "smooth", "showPoints": "auto" }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "calcs": ["sum", "mean"], "displayMode": "table", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "targets": [
+          {
+            "format": "table",
+            "group": [],
+            "metricColumn": "none",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  date_trunc('month', f.created_at)::date AS \"periodo\",\n  'Ingresos (Facturas)' AS \"tipo\",\n  SUM(COALESCE(f.total::numeric, 0)) AS \"monto\"\nFROM facturas f\nWHERE f.created_at >= '2025-01-01'\n  AND f.estado_pago != 'ANULADA'\nGROUP BY date_trunc('month', f.created_at)\nUNION ALL\nSELECT\n  date_trunc('month', mt.fecha)::date AS \"periodo\",\n  CASE WHEN mt.tipo = 'EGRESO' THEN 'Gastos (Tesorería)' ELSE 'Ingresos (Tesorería)' END AS \"tipo\",\n  SUM(mt.monto::numeric) AS \"monto\"\nFROM movimientos_tesoreria mt\nWHERE mt.fecha >= '2025-01-01'\n  AND mt.tipo IN ('INGRESO', 'EGRESO')\nGROUP BY date_trunc('month', mt.fecha), mt.tipo\nORDER BY 1, 2;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Estado de Resultados",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "color": { "mode": "thresholds" },
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0 }] }
+          }
+        },
+        "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["sum"], "fields": "/^resultado$/" }, "textMode": "auto" },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "WITH ingresos AS (\n  SELECT COALESCE(SUM(total::numeric), 0) AS total\n  FROM facturas\n  WHERE created_at >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')\n    AND estado_pago != 'ANULADA'\n),\ngastos AS (\n  SELECT COALESCE(SUM(monto::numeric), 0) AS total\n  FROM movimientos_tesoreria\n  WHERE fecha >= date_trunc('month', CURRENT_DATE - INTERVAL '1 month')\n    AND tipo = 'EGRESO'\n)\nSELECT\n  'Ingresos' AS concepto,\n  (SELECT total FROM ingresos) AS monto\nUNION ALL\nSELECT 'Gastos', (SELECT total FROM gastos)\nUNION ALL\nSELECT 'Resultado', (SELECT total FROM ingresos) - (SELECT total FROM gastos);",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Cuentas por Cobrar (Saldo Pendiente)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "color": { "mode": "thresholds" },
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5000000 }, { "color": "red", "value": 10000000 }] }
+          }
+        },
+        "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": { "calcs": ["sum"] }, "textMode": "auto" },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT COALESCE(SUM(saldo_pendiente::numeric), 0) AS \"cuentas_por_cobrar\"\nFROM facturas\nWHERE estado_pago IN ('PENDIENTE', 'PARCIAL')\n  AND sifen_status != 'RECHAZADO';",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Cuentas por Pagar (Proveedores)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "color": { "mode": "thresholds" },
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 3000000 }, { "color": "red", "value": 8000000 }] }
+          }
+        },
+        "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": { "calcs": ["sum"] }, "textMode": "auto" },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT COALESCE(SUM(saldo_pendiente::numeric), 0) AS \"cuentas_por_pagar\"\nFROM facturas_proveedor\nWHERE estado_pago IN ('PENDIENTE', 'PARCIAL');",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Estado de Facturas",
+        "type": "piechart",
+        "gridPos": { "h": 7, "w": 6, "x": 12, "y": 4 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": { "unit": "none" },
+          "overrides": []
+        },
+        "options": {
+          "displayLabels": ["name", "percent", "value"],
+          "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+          "pieType": "pie",
+          "reduceOptions": { "calcs": ["count"], "fields": "/^count/" },
+          "tooltip": { "mode": "single", "sort": "none" }
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT estado_pago, COUNT(*)::int AS count\nFROM facturas\nGROUP BY estado_pago\nORDER BY count DESC;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Facturación Últimos 12 Meses",
+        "type": "bargauge",
+        "gridPos": { "h": 7, "w": 6, "x": 18, "y": 4 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "min": 0,
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+            "custom": { "orientation": "horizontal", "displayMode": "gradient" }
+          }
+        },
+        "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "minVizHeight": 10, "minVizWidth": 0 },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  to_char(date_trunc('month', created_at), 'YYYY-MM') AS mes,\n  SUM(total::numeric) AS total_facturado\nFROM facturas\nWHERE created_at >= CURRENT_DATE - INTERVAL '12 months'\n  AND estado_pago != 'ANULADA'\nGROUP BY date_trunc('month', created_at)\nORDER BY 1;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Saldo Bancario por Cuenta",
+        "type": "table",
+        "gridPos": { "h": 7, "w": 8, "x": 0, "y": 12 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "custom": { "align": "right" }
+          },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Cuenta" }, "properties": [{ "id": "custom.align", "value": "left" }] },
+            { "matcher": { "id": "byName", "options": "Tipo" }, "properties": [{ "id": "custom.align", "value": "left" }] }
+          ]
+        },
+        "options": { "footer": { "countRows": false, "enablePagination": false, "fields": "/saldo_actual/", "reducer": ["sum"] }, "sortBy": [{ "desc": true, "displayName": "Saldo Actual" }] },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  cb.nombre AS \"Cuenta\",\n  CASE\n    WHEN cb.tipo = 'CAJA_FISICA' THEN 'Caja Física'\n    WHEN cb.tipo = 'CTA_CTE' THEN 'Cta. Cte.'\n    WHEN cb.tipo = 'CAJA_AHORRO' THEN 'Caja Ahorro'\n    WHEN cb.tipo = 'BILLETERA_DIGITAL' THEN 'Billetera Digital'\n    ELSE cb.tipo\n  END AS \"Tipo\",\n  cb.moneda AS \"Moneda\",\n  cb.saldo_actual::numeric AS \"Saldo Actual\",\n  cb.banco AS \"Banco\"\nFROM cuentas_bancarias cb\nWHERE cb.activo = true\nORDER BY cb.saldo_actual::numeric DESC;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Movimientos de Tesorería (Últimos 30d)",
+        "type": "timeseries",
+        "gridPos": { "h": 7, "w": 8, "x": 8, "y": 12 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "custom": { "lineInterpolation": "smooth", "showPoints": "auto" },
+            "color": { "mode": "palette-classic" }
+          }
+        },
+        "options": {
+          "legend": { "calcs": ["sum", "mean"], "displayMode": "table", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  date_trunc('day', mt.fecha)::date AS fecha,\n  CASE\n    WHEN mt.tipo = 'INGRESO' THEN 'Ingresos'\n    WHEN mt.tipo = 'EGRESO' THEN 'Egresos'\n    WHEN mt.tipo = 'TRANSFERENCIA' THEN 'Transferencias'\n    ELSE mt.tipo\n  END AS tipo,\n  SUM(mt.monto::numeric) AS monto\nFROM movimientos_tesoreria mt\nWHERE mt.fecha >= CURRENT_DATE - INTERVAL '30 days'\nGROUP BY date_trunc('day', mt.fecha), mt.tipo\nORDER BY 1, 2;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Métodos de Pago",
+        "type": "piechart",
+        "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": { "unit": "currencyPYG" },
+          "overrides": []
+        },
+        "options": {
+          "displayLabels": ["name", "percent", "value"],
+          "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+          "pieType": "pie",
+          "reduceOptions": { "calcs": ["sum"] },
+          "tooltip": { "mode": "single", "sort": "none" }
+        },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  CASE\n    WHEN medio_pago = 'EFECTIVO' THEN 'Efectivo'\n    WHEN medio_pago = 'TRANSFERENCIA' THEN 'Transferencia'\n    WHEN medio_pago = 'CHEQUE' THEN 'Cheque'\n    WHEN medio_pago = 'TARJETA_DEBITO' THEN 'Tarjeta Débito'\n    WHEN medio_pago = 'TARJETA_CREDITO' THEN 'Tarjeta Crédito'\n    ELSE medio_pago\n  END AS medio_pago,\n  SUM(monto::numeric) AS total\nFROM movimientos_tesoreria\nWHERE fecha >= CURRENT_DATE - INTERVAL '6 months'\nGROUP BY medio_pago\nORDER BY total DESC;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Facturas Vencidas",
+        "type": "table",
+        "gridPos": { "h": 7, "w": 12, "x": 0, "y": 19 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": { "unit": "currencyPYG", "custom": { "align": "right" } },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Cliente" }, "properties": [{ "id": "custom.align", "value": "left" }] }
+          ]
+        },
+        "options": { "footer": { "countRows": true, "enablePagination": true, "fields": "/total|saldo/", "reducer": ["sum"] }, "sortBy": [{ "desc": true, "displayName": "Días Vencido" }] },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  f.numero_factura_manual AS \"Factura\",\n  f.total::numeric AS \"Total\",\n  f.saldo_pendiente::numeric AS \"Saldo Pendiente\",\n  to_char(f.fecha_vencimiento::date, 'DD/MM/YYYY') AS \"Vencimiento\",\n  (CURRENT_DATE - f.fecha_vencimiento::date)::int AS \"Días Vencido\"\nFROM facturas f\nWHERE f.estado_pago IN ('PENDIENTE', 'PARCIAL')\n  AND f.fecha_vencimiento < CURRENT_DATE\nORDER BY f.fecha_vencimiento ASC;",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Plan de Cuentas — Saldos por Tipo",
+        "type": "bargauge",
+        "gridPos": { "h": 7, "w": 12, "x": 12, "y": 19 },
+        "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyPYG",
+            "min": 0,
+            "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+            "custom": { "orientation": "horizontal", "displayMode": "gradient" }
+          }
+        },
+        "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  CASE\n    WHEN pc.tipo = 'ACTIVO' THEN 'Activos'\n    WHEN pc.tipo = 'PASIVO' THEN 'Pasivos'\n    WHEN pc.tipo = 'PATRIMONIO' THEN 'Patrimonio'\n    WHEN pc.tipo = 'INGRESO' THEN 'Ingresos'\n    WHEN pc.tipo = 'GASTO' THEN 'Gastos'\n    WHEN pc.tipo = 'COSTO' THEN 'Costos'\n    ELSE pc.tipo\n  END AS tipo_cuenta,\n  COALESCE(SUM(ad.haber::numeric) - SUM(ad.debe::numeric), 0) AS saldo\nFROM plan_cuentas pc\nLEFT JOIN asientos_detalle ad ON ad.cuenta_id = pc.id\nLEFT JOIN asientos_contables ac ON ac.id = ad.asiento_id AND ac.estado = 'CONTABILIZADO'\nGROUP BY pc.tipo\nORDER BY 2 DESC;",
+            "refId": "A"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
