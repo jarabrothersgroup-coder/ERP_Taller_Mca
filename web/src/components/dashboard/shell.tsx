@@ -62,10 +62,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  // Sync tenant slug from Clerk org to data-service
+  // Sync tenant slug from auth session to data-service
   React.useEffect(() => {
-    // For now, use default tenant until Clerk Organizations are configured
-    setTenantSlug("demo");
+    if (user?.tenantSlug) {
+      setTenantSlug(user.tenantSlug);
+    }
   }, [user]);
 
   return (

@@ -72,6 +72,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Órdenes Compra", href: "/dashboard/inventario/ordenes-compra", icon: ShoppingCart },
       { label: "Herramientas", href: "/dashboard/inventario/herramientas", icon: Wrench },
       { label: "Almacenes", href: "/dashboard/inventario/almacenes", icon: Warehouse },
+      { label: "Conteo Cíclico", href: "/dashboard/inventario/conteo", icon: ClipboardCheck },
       { label: "TecDoc", href: "/dashboard/inventario/tecdoc", icon: Search },
       { label: "Proveedores", href: "/dashboard/taller/proveedores", icon: Truck },
     ],
@@ -87,7 +88,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Facturación", href: "/dashboard/facturacion", icon: DollarSign },
       { label: "SIFEN", href: "/dashboard/finance/sifen", icon: FileText },
-      { label: "Nota Crédito", href: "/dashboard/finance/sifen", icon: Receipt },
+      { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt },
       { label: "Contabilidad", href: "/dashboard/contabilidad", icon: Landmark },
       { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign },
       { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },

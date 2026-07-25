@@ -65,15 +65,15 @@ export interface UIMappedInvoice {
  *   2. Stored from session (set by UI components)
  *   3. Fallback to "demo"
  */
-let _cachedTenantSlug: string | undefined;
+import { getTenantSlug as getApiTenantSlug, setTenantSlug as setApiTenantSlug } from "@/lib/api";
 
 /** Store the tenant slug from the user's session for use in API calls */
 export function setTenantSlug(slug: string): void {
-  _cachedTenantSlug = slug;
+  setApiTenantSlug(slug);
 }
 
 function getTenantSlug(override?: string): string {
-  return override ?? _cachedTenantSlug ?? "demo";
+  return override ?? getApiTenantSlug();
 }
 
 /* ── Fetch with fallback ────────────────────── */
@@ -96,15 +96,16 @@ const ENABLE_MOCKS = process.env["NEXT_PUBLIC_ENABLE_MOCKS"] === "true";
  * @param timeoutMs - Timeout in ms (default 4000)
  */
 async function fetchOrMock<T>(
-  apiCall: (tenantSlug: string) => Promise<T>,
+  apiCall: (tenantSlug: string, authToken?: string) => Promise<T>,
   mockData: () => T,
   timeoutMs = 4000,
   tenantSlug?: string,
 ): Promise<{ data: T; source: "api" | "mock" }> {
   try {
     const slug = getTenantSlug(tenantSlug);
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") ?? undefined : undefined;
     const result = await Promise.race([
-      apiCall(slug),
+      apiCall(slug, token),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Timeout")), timeoutMs),
       ),
@@ -289,9 +290,9 @@ export async function fetchAccounts(
   tenantSlug?: string,
 ): Promise<UIMappedAccount[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/finance/contabilidad/cuentas", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -347,9 +348,9 @@ export async function fetchVehicles(
   tenantSlug?: string,
 ): Promise<UIMappedVehicle[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/workshop/vehiculos", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -400,9 +401,9 @@ export async function fetchBankAccounts(
   tenantSlug?: string,
 ): Promise<UIMappedBankAccount[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/finance/treasury/cuentas", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -448,9 +449,9 @@ export async function fetchMovements(
   tenantSlug?: string,
 ): Promise<UIMappedMovement[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/finance/treasury/movimientos", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -496,9 +497,9 @@ export async function fetchAnalyticsDashboard(
   tenantSlug?: string,
 ): Promise<UIMappedAnalyticsData> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/workshop/analytics/dashboard", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown> = await res.json();
@@ -540,9 +541,9 @@ export async function fetchUsers(
   tenantSlug?: string,
 ): Promise<UIMappedUser[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/api/profiles", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -596,9 +597,9 @@ export async function fetchAppointments(
   tenantSlug?: string,
 ): Promise<UIMappedAppointment[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/scheduling/appointments", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -646,9 +647,9 @@ export async function fetchConfigSettings(
   tenantSlug?: string,
 ): Promise<UIMappedConfigSettings> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/api/config/settings", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown> = await res.json();
@@ -698,9 +699,9 @@ export async function fetchWhatsAppMessages(
   tenantSlug?: string,
 ): Promise<UIMappedWhatsAppMessage[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/whatsapp/log", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -751,9 +752,9 @@ export async function fetchFleets(
   tenantSlug?: string,
 ): Promise<UIMappedFleet[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/fleet", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -801,9 +802,9 @@ export async function fetchAuditLog(
   tenantSlug?: string,
 ): Promise<UIMappedAuditEntry[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/audit/log", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -829,9 +830,9 @@ export async function fetchClients(
   tenantSlug?: string,
 ): Promise<UIMappedClient[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/workshop/clientes", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -858,9 +859,9 @@ export async function fetchWorkOrders(
   tenantSlug?: string,
 ): Promise<UIMappedWorkOrder[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/workshop/ordenes", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();
@@ -887,9 +888,9 @@ export async function fetchInventoryItems(
   tenantSlug?: string,
 ): Promise<UIMappedInventoryItem[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/inventory/repuestos?limit=100", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -917,9 +918,9 @@ export async function fetchInvoices(
   tenantSlug?: string,
 ): Promise<UIMappedInvoice[]> {
   const { data, source } = await fetchOrMock(
-    async (slug) => {
+    async (slug, token) => {
       const res = await fetch("/finance/invoices", {
-        headers: { "X-Tenant-Slug": slug },
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: Record<string, unknown>[] = await res.json();

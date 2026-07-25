@@ -67,7 +67,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       setUser(authUser);
       // Set cookie for middleware auth check
-      document.cookie = `auth_token=${data.token}; path=/; max-age=${8 * 60 * 60}`;
+      document.cookie = `auth_token=${data.token}; path=/; max-age=${8 * 60 * 60}; SameSite=Lax`;
       return {};
     } catch {
       return { error: "Error de conexión" };
@@ -77,7 +77,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    document.cookie = "auth_token=; path=/; max-age=0";
+    document.cookie = "auth_token=; path=/; max-age=0; SameSite=Lax";
     setToken(null);
     setUser(null);
     router.push("/sign-in");

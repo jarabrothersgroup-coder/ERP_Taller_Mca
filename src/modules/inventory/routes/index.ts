@@ -22,6 +22,7 @@ import { batchInventoryRoutes } from "./batch-inventory.routes.js";
 import { almacenRoutes } from "./almacenes.js";
 import { inventoryReportRoutes } from "./inventory-reports.routes.js";
 import { stockAdjustmentApprovalRoutes } from "./stock-adjustment-approval.routes.js";
+import { cycleCountRoutes } from "./cycle-count.routes.js";
 
 /**
  * Registers all inventory routes on the given Fastify instance.
@@ -45,4 +46,6 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   await app.register(inventoryReportRoutes);
   // G-11: Aprobación de ajustes de stock
   await app.register(stockAdjustmentApprovalRoutes);
+  // G-06: Conteo cíclico de inventario
+  await app.register(cycleCountRoutes);
 }

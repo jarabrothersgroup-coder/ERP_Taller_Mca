@@ -25,7 +25,7 @@ export function getDb(): postgres.Sql {
       idle_timeout: 30,            // Close idle connections after 30s
       connect_timeout: 10,         // Fail fast if DB is unreachable
       prepare: false,              // Disable prepared statements (serverless friendly)
-      on_error: "stop",            // C-06: Stop on error (ON_ERROR_STOP) — prevents split-brain sync
+
       ssl: env.DATABASE_URL.includes("sslmode=disable")
         ? false
         : process.env.NODE_ENV === "production"

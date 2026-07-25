@@ -1,0 +1,11 @@
+[Unit]
+Description=ERP Taller MCA - Timer backup diario PC01Tmca (04:00)
+Documentation=https://github.com/jarabrothersgroup-coder/ERP_Taller_Mca
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+Unit=backup-pc01tmca.service
+
+[Install]
+WantedBy=timers.target

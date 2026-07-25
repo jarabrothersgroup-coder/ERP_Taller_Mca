@@ -84,14 +84,8 @@ export function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         <LocaleSwitcher />
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground">
           <Bell className="h-4 w-4" />
-          <Badge
-            variant="destructive"
-            className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[9px]"
-          >
-            3
-          </Badge>
         </Button>
 
         <Separator orientation="vertical" className="h-6" />

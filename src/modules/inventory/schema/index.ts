@@ -102,6 +102,14 @@ export type {
 export { almacenes } from "./almacenes.js";
 export type { Almacen, NewAlmacen } from "./almacenes.js";
 
+export { cycleCounts, cycleCountItems } from "./cycle-counts.js";
+export type {
+  CycleCount,
+  NewCycleCount,
+  CycleCountItem,
+  NewCycleCountItem,
+} from "./cycle-counts.js";
+
 // ─── Relations ────────────────────────────────
 export {
   herramientasRelations,
