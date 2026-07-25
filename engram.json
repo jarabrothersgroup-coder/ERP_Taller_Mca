@@ -43,8 +43,61 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 94 COMPLETED — Cycle count, CRM @dnd-kit DnD, recharts dashboard, migration 0012",
-    "next_sprint": "Sprint 95 — PC01Tmca deploy, production monitoring, gap closure",
+    "current_sprint": "Sprint 94 COMPLETED — Full deploy PCSERVER + PC01Tmca, backup automation, 1757 tests passing",
+    "next_sprint": "Sprint 95 — Production monitoring (Prometheus/Grafana), migrate DB CHECK constraints (C-05), ON_ERROR_STOP (C-06), performance optimization",
+    "sprint_94_completed": {
+      "goal": "Sprint 94 — Cycle count module, CRM @dnd-kit DnD, recharts dashboard, migration 0012, PC01Tmca deploy, backup automation",
+      "duration": "1 day",
+      "priority": "HIGH",
+      "completed_date": "2026-07-25",
+      "tasks": [
+        {
+          "id": "S94-1",
+          "name": "Cycle count module (schema, service, routes, frontend, tests)",
+          "status": "COMPLETED",
+          "description": "Migration 0012 creates cycle_counts + cycle_count_items tables; service with create, complete, list, getItems, addItem; routes; frontend page at /dashboard/inventario/conteo; 17 sprint94 tests",
+          "files_created": ["src/shared/database/migrations/0012_cycle_counts.sql", "tests/sprint94.test.ts", "web/src/app/(dashboard)/dashboard/inventario/conteo/page.tsx", "web/src/types/dnd-kit.d.ts"]
+        },
+        {
+          "id": "S94-2",
+          "name": "CRM drag-and-drop Kanban (@dnd-kit)",
+          "status": "COMPLETED",
+          "description": "Replaced ChevronLeft/ChevronRight navigation with DndContext + useDraggable/useDroppable + DragOverlay visual feedback",
+          "files_modified": ["web/src/app/(dashboard)/dashboard/crm/page.tsx"]
+        },
+        {
+          "id": "S94-3",
+          "name": "Ejecutivo dashboard recharts enhancements",
+          "status": "COMPLETED",
+          "description": "Added recharts dependency, enhanced ejecutivo dashboard with charts",
+          "files_modified": ["web/src/app/(dashboard)/dashboard/ejecutivo/page.tsx"]
+        },
+        {
+          "id": "S94-4",
+          "name": "Migration 0012 applied on PCSERVER",
+          "status": "COMPLETED",
+          "description": "cycle_counts + cycle_count_items tables created on production DB",
+          "db_executed": true
+        },
+        {
+          "id": "S94-5",
+          "name": "PC01Tmca deploy — git pull, npm install, npm run build",
+          "status": "COMPLETED",
+          "description": "PC01Tmca updated to commit eb25d3f with Sprint 94 changes, @dnd-kit packages installed, frontend build successful"
+        },
+        {
+          "id": "S94-6",
+          "name": "Backup automation — PC01Tmca systemd timer",
+          "status": "COMPLETED",
+          "description": "Installed backup-pc01tmca.service + backup-pc01tmca.timer in systemd, enabled and running (daily at 04:00)"
+        }
+      ],
+      "results": {
+        "root_tests": "1757/1757 pass (79 files)",
+        "web_typescript": "0 errors",
+        "npm_packages_added": ["@dnd-kit/core@6.3.1", "@dnd-kit/sortable@10.0.0", "@dnd-kit/utilities@3.2.2", "recharts"]
+      }
+    },
     "sprint_91_tier2": {
       "goal": "Tier 2 Gap Closure — G-06 Pricing→Presupuesto, G-07 rh_service_hours seed, G-08 WhatsApp Recepción, G-09 Reorder Cron, G-10 OT PDF, G-11 Stock Adjustment Approval",
       "duration": "1 day",
