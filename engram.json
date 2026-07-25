@@ -43,8 +43,75 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 96 COMPLETED — Financial Grafana dashboard (11 panels), Migration 0014 performance indexes, E2E Playwright suite 13 specs",
-    "next_sprint": "Sprint 97 — E2E test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification",
+    "current_sprint": "Sprint 96 FULL COMPLETED — Hub de Operaciones (Kanban, OT detail, quick create, inline repuestos/terceros, WhatsApp consolidado, CobroActions) + refactored to 4 components + 29 tests (render + integration) + deployed to PCSERVER + PC01Tmca",
+    "next_sprint": "Sprint 97 — E2E Playwright test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
+    "sprint_96_completed": {
+      "goal": "Sprint 96 — Hub de Operaciones (Operations Hub) + refactoring + 29 tests + deploy",
+      "duration": "1 day",
+      "priority": "HIGH",
+      "completed_date": "2026-07-25",
+      "tasks": [
+        {
+          "id": "S96-1",
+          "name": "Hub de Operaciones — página principal (~700 líneas)",
+          "status": "COMPLETED",
+          "description": "Panel Kanban con OTs agrupadas por estado (Presupuestado→Aprobado→En_Proceso→Control_Calidad→Listo), filtros por estado, panel de detalle derecho con info cliente/vehículo/costos, progreso, y botones de acción rápida",
+          "features": [
+            "QuickCreateModal — Wizard 3 pasos: Cliente → Vehículo → OT con búsqueda de existentes",
+            "Formulario inline de repuestos (POST a /workshop/ordenes/:id/repuestos)",
+            "Formulario inline de trabajos terceros (POST a /workshop/ordenes/:id/trabajos-terceros)",
+            "CobroActions — busca cuentas bancarias, registra cobro en tesorería",
+            "Botón Facturar — emite factura y muestra CDC",
+            "Botón Enviar a Cliente — WhatsApp consolidado con OT + link",
+            "Botón DVI/Fotos — link a recepción",
+            "Progress stepper visual",
+            "Auto-refresh cada 30s",
+            "Responsive mobile"
+          ]
+        },
+        {
+          "id": "S96-2",
+          "name": "Refactor Hub en 4 componentes separados",
+          "status": "COMPLETED",
+          "description": "Extraído de page.tsx (~700L → ~50L) a componentes modulares:",
+          "files_created": [
+            "web/src/components/hub/types.ts — interfaces compartidas, STATUS_FLOW, helpers",
+            "web/src/components/hub/hub-sidebar.tsx — HubSidebar (Kanban list grouped by status)",
+            "web/src/components/hub/ot-detail-panel.tsx — OTDetailPanel + CobroActions",
+            "web/src/components/hub/quick-create-modal.tsx — QuickCreateModal (3-step wizard)"
+          ]
+        },
+        {
+          "id": "S96-3",
+          "name": "Sidebar — Hub link + Panel de Control → ejecutivo",
+          "status": "COMPLETED",
+          "description": "Hub de Operaciones como primer ítem del menú Principal con badge 'Nuevo', Panel de Control redirigido a /dashboard/ejecutivo",
+          "files_modified": ["web/src/components/dashboard/sidebar.tsx"]
+        },
+        {
+          "id": "S96-4",
+          "name": "Tests — render + integration (29 tests)",
+          "status": "COMPLETED",
+          "description": "15 tests de integración API + 8 tests de render (React Testing Library) + 6 tests estructurales",
+          "files_created": [
+            "web/tests/components/operations-hub.test.tsx",
+            "web/tests/components/hub-render.test.tsx"
+          ]
+        },
+        {
+          "id": "S96-5",
+          "name": "Deploy a PCSERVER y PC01Tmca",
+          "status": "COMPLETED",
+          "description": "Git push → PCSERVER git pull → PC01Tmca git pull + npm install + next build (success)",
+          "servers": ["PCSERVER (100.104.144.92): git reset --hard origin/main ✅", "PC01Tmca (100.66.187.39): next build success ✅"]
+        }
+      ],
+      "results": {
+        "web_typescript": "0 errors",
+        "web_tests": "29/29 pass (2 hub test files)",
+        "commit": "ac22e23"
+      }
+    },
     "sprint_94_completed": {
       "goal": "Sprint 94 — Cycle count module, CRM @dnd-kit DnD, recharts dashboard, migration 0012, PC01Tmca deploy, backup automation",
       "duration": "1 day",
@@ -197,7 +264,7 @@
     },
     "deployment": {
       "date": "2026-07-25",
-      "commit": "1f12bcf",
+      "commit": "ac22e23",
       "pcserver": {
         "ip": "192.168.18.104",
         "tailscale_ip": "100.104.144.92",
@@ -213,7 +280,7 @@
         "web_path": "/home/jarabro/Proyectos/ERP_Taller_Mca/web",
         "backup_path": "/home/jarabro/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
         "services": ["next-server (:3000)", "dirsrv@erp-taller (389)"],
-        "nextjs_build": "SUCCESS (Sprint 94 — cycle counts, CRM @dnd-kit, recharts)",
+        "nextjs_build": "SUCCESS (Sprint 96 — Hub de Operaciones refactored to 4 components)",
         "status": "ACTIVE"
       }
     },
