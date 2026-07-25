@@ -48,25 +48,15 @@ BEGIN
       CHECK (total_haber >= 0);
   END IF;
 
-  -- plan_cuentas: tipo must be valid
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='plan_cuentas' AND column_name='tipo') INTO col_exists;
-  IF col_exists THEN
-    ALTER TABLE plan_cuentas DROP CONSTRAINT IF EXISTS plan_cuentas_tipo_check;
-    ALTER TABLE plan_cuentas ADD CONSTRAINT plan_cuentas_tipo_check
-      CHECK (tipo IN ('ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'GASTO', 'COSTO', 'ORDEN'));
-  END IF;
+  -- plan_cuentas: tipo is already validated by enum tipo_cuenta_contable — skip CHECK
+  RAISE NOTICE 'plan_cuentas.tipo uses enum tipo_cuenta_contable — validation is built-in, skipping CHECK constraint';
 
   -- =============================================================
   -- 2. Workshop tables — Status enums and data integrity
   -- =============================================================
 
-  -- ordenes_trabajo: valid status values
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ordenes_trabajo' AND column_name='status') INTO col_exists;
-  IF col_exists THEN
-    ALTER TABLE ordenes_trabajo DROP CONSTRAINT IF EXISTS ordenes_status_check;
-    ALTER TABLE ordenes_trabajo ADD CONSTRAINT ordenes_status_check
-      CHECK (status IN ('PRESUPUESTADO', 'APROBADO', 'EN_PROCESO', 'CONTROL_CALIDAD', 'LISTO', 'FINALIZADO_RETIRADO', 'CANCELADO', 'RECHAZADO'));
-  END IF;
+  -- ordenes_trabajo: status is already validated by enum estado_orden — skip CHECK
+  RAISE NOTICE 'ordenes_trabajo.status uses enum estado_orden — validation is built-in, skipping CHECK constraint';
 
   -- clients: valid RUC/document format (column: ruc)
   SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='ruc') INTO col_exists;
@@ -148,13 +138,8 @@ BEGIN
   -- 4. Scheduling — Appointment validation
   -- =============================================================
 
-  -- agendamientos: valid status values
-  SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agendamientos' AND column_name='estado') INTO col_exists;
-  IF col_exists THEN
-    ALTER TABLE agendamientos DROP CONSTRAINT IF EXISTS agendamientos_estado_check;
-    ALTER TABLE agendamientos ADD CONSTRAINT agendamientos_estado_check
-      CHECK (estado IN ('RESERVADO', 'CONFIRMADO', 'PROCESADO_EN_ERP', 'AUSENTE', 'CANCELADO'));
-  END IF;
+  -- agendamientos: estado is already validated by enum agendamiento_estado — skip CHECK
+  RAISE NOTICE 'agendamientos.estado uses enum agendamiento_estado — validation is built-in, skipping CHECK constraint';
 
   -- agendamientos: duration must be positive
   SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agendamientos' AND column_name='duracion_horas') INTO col_exists;
