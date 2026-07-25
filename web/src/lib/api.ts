@@ -187,6 +187,11 @@ async function request<T>(
 /* ── Work Orders (Taller) ───────────────────── */
 
 export const api = {
+  /** Base URL for raw fetch calls (empty — proxied through Next.js rewrites) */
+  getBaseUrl: () => "",
+  /** Current tenant slug (convenience accessor) */
+  getTenantSlug: () => getTenantSlug(),
+
   /** Generic request method for CRM and other endpoints */
   request: <T>(url: string, options?: RequestInit) => request<T>(url, options),
 
