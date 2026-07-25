@@ -23,6 +23,7 @@ import {
   listAgendamientos,
   getAgendamiento,
   transitionState,
+  updateAgendamiento,
   checkIn,
   handleWhatsAppResponse,
   getSchedulingStats,
@@ -175,10 +176,17 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── PATCH /scheduling/appointments/:id — Update state ──
+  // ── PATCH /scheduling/appointments/:id — Update appointment (state, date, or other fields) ──
   app.patch<{
     Params: { id: string };
-    Body: { estado: AgendamientoEstado };
+    Body: {
+      estado?: AgendamientoEstado;
+      fechaTurno?: string;
+      horaTurno?: string;
+      clienteNombre?: string;
+      clientePhone?: string;
+      notas?: string;
+    };
   }>(
     "/scheduling/appointments/:id",
     {
@@ -192,12 +200,16 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
         },
         body: {
           type: "object",
-          required: ["estado"],
           properties: {
             estado: {
               type: "string",
               enum: ["RESERVADO", "CONFIRMADO", "PROCESADO_EN_ERP", "AUSENTE", "CANCELADO"],
             },
+            fechaTurno: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+            horaTurno: { type: "string", pattern: "^\\d{2}:\\d{2}$" },
+            clienteNombre: { type: "string" },
+            clientePhone: { type: "string" },
+            notas: { type: "string" },
           },
         },
       },
@@ -205,25 +217,51 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const tenantSlug = (request as any).tenantSlug as string;
       const { id } = request.params;
-      const { estado } = request.body;
+      const { estado, ...otherFields } = request.body;
 
       try {
-        const result = await transitionState(id, estado, tenantSlug);
+        // If estado is provided, use state machine transition
+        if (estado) {
+          const result = await transitionState(id, estado, tenantSlug);
+          if (!result) {
+            return reply.status(404).send({
+              error: "NotFoundError",
+              message: "Agendamiento no encontrado",
+            });
+          }
+          return reply.send({
+            success: true,
+            id: result.id,
+            estado: result.estado,
+            message: `Estado cambiado a ${estado}`,
+          });
+        }
+
+        // Otherwise, update appointment fields
+        if (Object.keys(otherFields).length === 0) {
+          return reply.status(400).send({
+            error: "ValidationError",
+            message: "Debe enviar al menos un campo para actualizar",
+          });
+        }
+
+        const result = await updateAgendamiento(id, otherFields, tenantSlug);
+
         if (!result) {
           return reply.status(404).send({
             error: "NotFoundError",
             message: "Agendamiento no encontrado",
           });
         }
+
         return reply.send({
           success: true,
           id: result.id,
-          estado: result.estado,
-          message: `Estado cambiado a ${estado}`,
+          message: "Turno actualizado correctamente",
         });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Error cambiando estado";
-        return reply.status(400).send({ error: "StateError", message: msg });
+        const msg = err instanceof Error ? err.message : "Error actualizando turno";
+        return reply.status(400).send({ error: "UpdateError", message: msg });
       }
     },
   );

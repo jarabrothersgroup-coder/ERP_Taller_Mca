@@ -133,34 +133,41 @@ async function main() {
   }
   console.log(`   ✅  Pricing Rules: ${prCount} inserted`);
 
-  // ── 4. RH Service Hours ───────────────────
+  // ── 4. RH Service Hours (all services × vehicle types × complexities) ──
   const existingRH = await db()
-    .select({ servicioId: rhServiceHours.servicioId, vehicleTypeId: rhServiceHours.vehicleTypeId })
+    .select({ servicioId: rhServiceHours.servicioId, vehicleTypeId: rhServiceHours.vehicleTypeId, complejidad: rhServiceHours.complejidad })
     .from(rhServiceHours)
     .where(eq(rhServiceHours.tenantSlug, TENANT_SLUG));
-  const existingRHKeys = new Set(existingRH.map((r) => `${r.servicioId}:${r.vehicleTypeId}`));
+  const existingRHKeys = new Set(existingRH.map((r) => `${r.servicioId}:${r.vehicleTypeId}:${r.complejidad}`));
   let rhCount = 0;
 
-  for (const servCode of kmServices) {
-    const serv = servMap.get(servCode);
-    if (!serv) continue;
-    const horas = ((serv.duracionEstimada || 60) / 60);
+  const complexities: Array<{ name: string; minFactor: number; maxFactor: number; specialist: boolean }> = [
+    { name: "BAJA", minFactor: 0.7, maxFactor: 1.0, specialist: false },
+    { name: "NORMAL", minFactor: 0.85, maxFactor: 1.3, specialist: false },
+    { name: "ALTA", minFactor: 1.0, maxFactor: 1.6, specialist: true },
+  ];
+
+  for (const serv of servRows) {
+    const baseHoras = ((serv.duracionEstimada || 60) / 60);
     for (const vtName of pricingVehicleTypes) {
       const vtId = vtMap.get(vtName);
       if (!vtId) continue;
-      const key = `${serv.id}:${vtId}`;
-      if (existingRHKeys.has(key)) continue;
-      await db().insert(rhServiceHours).values({
-        servicioId: serv.id,
-        vehicleTypeId: vtId,
-        complejidad: "NORMAL",
-        horasEstimadas: String(horas),
-        horasMinimas: String(Math.round(horas * 0.8 * 100) / 100),
-        horasMaximas: String(Math.round(horas * 1.3 * 100) / 100),
-        requiereEspecialista: false,
-        tenantSlug: TENANT_SLUG,
-      });
-      rhCount++;
+      const vtMultiplier = vtName === "AUTOMOVIL" ? 1.0 : 1.15;
+      for (const c of complexities) {
+        const key = `${serv.id}:${vtId}:${c.name}`;
+        if (existingRHKeys.has(key)) continue;
+        await db().insert(rhServiceHours).values({
+          servicioId: serv.id,
+          vehicleTypeId: vtId,
+          complejidad: c.name,
+          horasEstimadas: String(Math.round(baseHoras * vtMultiplier * 100) / 100),
+          horasMinimas: String(Math.round(baseHoras * vtMultiplier * c.minFactor * 100) / 100),
+          horasMaximas: String(Math.round(baseHoras * vtMultiplier * c.maxFactor * 100) / 100),
+          requiereEspecialista: c.specialist,
+          tenantSlug: TENANT_SLUG,
+        });
+        rhCount++;
+      }
     }
   }
   console.log(`   ✅  RH Service Hours: ${rhCount} inserted`);

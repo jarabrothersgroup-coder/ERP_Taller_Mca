@@ -4,9 +4,16 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CreditCard, Receipt, DollarSign, ArrowRight } from "lucide-react";
+import { CreditCard, Receipt, DollarSign, ArrowRight, FileText } from "lucide-react";
 
 const modules = [
+  {
+    href: "/dashboard/finance/sifen",
+    title: "SIFEN",
+    description: "Facturación electrónica, contingencia y notas de crédito",
+    icon: FileText,
+    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  },
   {
     href: "/dashboard/finance/pagos-online",
     title: "Pagos Online",

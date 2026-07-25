@@ -33,6 +33,11 @@ import {
   getAllAlertas,
 } from "../services/budget/budget.service.js";
 
+import { convertPresupuestoToOT } from "../../workshop/services/orden.service.js";
+import { db } from "../../../shared/database/drizzle.js";
+import { eq } from "drizzle-orm";
+import { presupuestos } from "../schema/budget.js";
+
 export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // ─── Listar presupuestos ────────────────────────
   app.get("/finance/presupuestos", async (request, reply) => {
@@ -76,8 +81,8 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       estado?: "borrador" | "aprobado" | "cerrado";
     };
 
-    const updated = await updatePresupuesto(id, tenantSlug, body);
-    return reply.send(updated);
+    const _updated = await updatePresupuesto(id, tenantSlug, body);
+    return reply.send(_updated);
   });
 
   // ─── Eliminar presupuesto ───────────────────────
@@ -151,4 +156,66 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
     const alertas = await getAllAlertas(tenantSlug);
     return reply.send(alertas);
   });
+
+  // ════════════════════════════════════════════════
+  // P1.3: Presupuesto → OT automático
+  // ════════════════════════════════════════════════
+
+  // ── POST /finance/presupuestos/:id/aprobar — Approve and convert to OT ──
+  app.post<{ Params: { id: string }; Body: { accion?: string; metodoAprobacion?: string } }>(
+    "/finance/presupuestos/:id/aprobar",
+    {
+      schema: {
+        params: { type: "object", required: ["id"], properties: { id: { type: "string", format: "uuid" } } },
+        body: {
+          type: "object",
+          properties: {
+            accion: { type: "string", enum: ["APROBAR", "RECHAZAR"] },
+            metodoAprobacion: { type: "string", enum: ["PORTAL", "WHATSAPP", "PRESENCIAL"] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const tenantSlug = (request as any).tenantSlug as string;
+      const { id } = request.params as { id: string };
+      const { accion, metodoAprobacion } = request.body as { accion?: string; metodoAprobacion?: string };
+
+      if (accion === "RECHAZAR") {
+        // Marcar como rechazado
+        const { updatePresupuesto: updatePresupuestoService } = await import("../services/budget/budget.service.js");
+        const resultRechazo = await updatePresupuestoService(id, tenantSlug, { estado: "cerrado" });
+        return reply.send({
+          success: true,
+          presupuestoId: id,
+          estado: "RECHAZADO",
+          message: `Presupuesto #${resultRechazo.id?.slice(0, 8) ?? id.slice(0, 8)} rechazado`,
+          resultado: resultRechazo,
+        });
+      }
+
+      // Si no hay acción específica o es APROBAR, convertir a OT
+      if (!accion || accion === "APROBAR") {
+        const result = await convertPresupuestoToOT(id, tenantSlug);
+
+        // Actualizar método de aprobación si se especificó
+        if (metodoAprobacion) {
+          await db()
+            .update(presupuestos)
+            .set({ metodoAprobacion })
+            .where(eq(presupuestos.id, id));
+        }
+
+        return reply.status(201).send({
+          success: true,
+          presupuestoId: id,
+          ordenTrabajoId: result.ordenTrabajo.id,
+          estado: result.ordenTrabajo.status,
+          message: `OT #${result.ordenTrabajo.id.slice(0, 8)} creada desde presupuesto`,
+        });
+      }
+
+      return reply.status(400).send({ error: `Acción inválida: ${accion}` });
+    },
+  );
 }

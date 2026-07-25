@@ -17,6 +17,7 @@ const API_CACHE = "autoos-api-v1";
 
 const STATIC_ASSETS = [
   "/dashboard",
+  "/booking",
   "/assets/icons/icon-192x192.png",
   "/assets/icons/icon-512x512.png",
   "/shared/styles.css",

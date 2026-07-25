@@ -12,7 +12,7 @@ import type { UIMappedBankAccount, UIMappedMovement } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
-export type Tab = "cuentas" | "movimientos" | "cxc";
+export type Tab = "cuentas" | "movimientos" | "cxc" | "conciliacion";
 
 export interface CUentaRecord extends UIMappedBankAccount {
   // Extended with UI-only fields

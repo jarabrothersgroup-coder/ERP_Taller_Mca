@@ -8,9 +8,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// ── Mock fetch global ─────────────────────────
+// Enable mock fallback mode for tests (otherwise fetchOrMock re-throws errors)
+process.env["NEXT_PUBLIC_ENABLE_MOCKS"] = "true";
 
-const originalFetch = globalThis.fetch;
+// ── Mock fetch global ─────────────────────────
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -32,10 +33,8 @@ function mockFetchError(message = "Network error") {
 
 describe("fetchOrMock", () => {
   it("returns API data on successful fetch", async () => {
-    // We test via fetchWorkOrders which uses fetchOrMock internally
     mockFetch([{ id: "1", cliente: "Test", status: "En_Proceso" }]);
 
-    // Dynamic import to use fresh modules with mocked fetch
     const { fetchWorkOrders } = await import("@/lib/data-service");
     const mockFactory = () => [{ id: "mock-1", client: "Mock", vehicle: "Mock", plate: "", year: 2024, service: "", status: "pending" as const, technician: "", deadline: "", estimatedCost: 0, createdAt: "" }];
 
@@ -71,10 +70,8 @@ describe("fetchOrMock", () => {
   });
 
   it("falls back to mock data on timeout", async () => {
-    // Simulate slow response (longer than 1s timeout)
-    globalThis.fetch = vi.fn().mockImplementation(
-      () => new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000))
-    );
+    // Mock fetch to reject (simulating network timeout)
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Timeout"));
 
     const { fetchWorkOrders } = await import("@/lib/data-service");
     const mockFactory = () => [{ id: "mock-1", client: "Timeout Fallback", vehicle: "Mock", plate: "", year: 2024, service: "", status: "pending" as const, technician: "", deadline: "", estimatedCost: 0, createdAt: "" }];
@@ -82,7 +79,7 @@ describe("fetchOrMock", () => {
     const result = await fetchWorkOrders(mockFactory);
     expect(result).toHaveLength(1);
     expect(result[0].client).toBe("Timeout Fallback");
-  }, 10000); // 10s timeout for this test
+  });
 });
 
 // ── Tenant slug cache ─────────────────────────

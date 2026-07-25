@@ -50,6 +50,7 @@ import type {
   MarketingCampaign,
   BackupJob,
   SecurityHWStatus,
+  AnalyticsKpis,
 } from "@/lib/api";
 
 /* ── Query Keys ─────────────────────────────── */
@@ -197,6 +198,74 @@ export function useAnalytics() {
       mesActual: "",
     })),
   });
+}
+
+/** Live analytics from backend /analytics/* endpoints */
+export function useWorkshopAnalytics(from?: string, to?: string) {
+  const kpis = useQuery({
+    queryKey: ["analytics-kpis", from, to],
+    queryFn: () => api.getAnalyticsKpis(from, to),
+  });
+  const revenueTrend = useQuery({
+    queryKey: ["analytics-revenue-trend", from, to],
+    queryFn: () => api.getAnalyticsTrends("revenue", from, to),
+  });
+  const otTrend = useQuery({
+    queryKey: ["analytics-ot-trend", from, to],
+    queryFn: () => api.getAnalyticsTrends("ots", from, to),
+  });
+  const distribution = useQuery({
+    queryKey: ["analytics-distribution", from, to],
+    queryFn: () => api.getAnalyticsDistribution(from, to),
+  });
+  const mechanics = useQuery({
+    queryKey: ["analytics-mechanics", from, to],
+    queryFn: () => api.getTopMechanics(from, to),
+  });
+
+  // Convert KpisResponse → AnalyticsKpis[] array format
+  const kpisArray: AnalyticsKpis[] = kpis.data
+    ? [
+        {
+          label: "Ingresos",
+          value: kpis.data.revenue.current,
+          unit: "Gs.",
+          change: Math.round(kpis.data.revenue.change),
+          trend: kpis.data.revenue.change > 0 ? "up" : kpis.data.revenue.change < 0 ? "down" : "flat",
+        },
+        {
+          label: "Órdenes de Trabajo",
+          value: kpis.data.orderCount.current,
+          unit: "unidades",
+          change: Math.round(kpis.data.orderCount.change),
+          trend: kpis.data.orderCount.change > 0 ? "up" : kpis.data.orderCount.change < 0 ? "down" : "flat",
+        },
+        {
+          label: "Ticket Promedio",
+          value: kpis.data.avgOrderValue.current,
+          unit: "Gs.",
+          change: Math.round(kpis.data.avgOrderValue.change),
+          trend: kpis.data.avgOrderValue.change > 0 ? "up" : kpis.data.avgOrderValue.change < 0 ? "down" : "flat",
+        },
+        {
+          label: "Tasa de Finalización",
+          value: kpis.data.completionRate.current,
+          unit: "%",
+          change: Math.round(kpis.data.completionRate.change),
+          trend: kpis.data.completionRate.change > 0 ? "up" : kpis.data.completionRate.change < 0 ? "down" : "flat",
+        },
+      ]
+    : [];
+
+  return {
+    kpis: kpisArray,
+    revenueTrend: revenueTrend.data?.trend ?? [],
+    otTrend: otTrend.data?.trend ?? [],
+    distribution: distribution.data?.distribution ?? [],
+    mechanics: mechanics.data?.mechanics ?? [],
+    isLoading: kpis.isLoading || revenueTrend.isLoading || otTrend.isLoading,
+    range: kpis.data?.range,
+  };
 }
 
 /* ── Users/Profiles Hooks ───────────────────── */

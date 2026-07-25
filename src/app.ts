@@ -353,6 +353,11 @@ async function buildApp() {
     (await import("./modules/finance/plugin.js")).default,
   );
 
+  // ─── G-20: Financial WebSocket (real-time dashboard) ──
+  await app.register(
+    (await import("./modules/finance/routes/financial-ws.js")).financialWsRoute,
+  );
+
   // ─── WhatsApp Integration Module ──────────────
   // Evolution API gateway for WhatsApp messaging.
   // QR pairing, message templates per order state, PDF attachments.

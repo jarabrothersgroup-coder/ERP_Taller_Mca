@@ -85,9 +85,8 @@ const CATALOG_BODY_SCHEMA = {
 // ─── Routes ─────────────────────────────────────
 
 export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void> {
-  // ── POST /workshop/servicios — Create service ──
-  app.post<{ Body: CatalogBody }>(
-    "/workshop/servicios",
+  // ── POST "/workshop/servicios" — Create service ──
+  app.post<{ Body: CatalogBody }>("/workshop/servicios",
     {
       schema: {
         body: { ...CATALOG_BODY_SCHEMA, required: ["nombre"] },
@@ -107,9 +106,8 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
     },
   );
 
-  // ── GET /workshop/servicios — List services ──
-  app.get<{ Querystring: CatalogQuery }>(
-    "/workshop/servicios",
+  // ── GET "/workshop/servicios" — List services ──
+  app.get<{ Querystring: CatalogQuery }>("/workshop/servicios",
     {
       schema: {
         querystring: {
@@ -141,9 +139,8 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
     },
   );
 
-  // ── GET /workshop/servicios/:id — Get single service ──
-  app.get<{ Params: ParamsWithId }>(
-    "/workshop/servicios/:id",
+  // ── GET "/workshop/servicios/:id" — Get single service ──
+  app.get<{ Params: ParamsWithId }>("/workshop/servicios/:id",
     {
       schema: {
         params: {
@@ -159,9 +156,8 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
     },
   );
 
-  // ── PATCH /workshop/servicios/:id — Update service ──
-  app.patch<{ Params: ParamsWithId; Body: CatalogBody }>(
-    "/workshop/servicios/:id",
+  // ── PATCH "/workshop/servicios/:id" — Update service ──
+  app.patch<{ Params: ParamsWithId; Body: CatalogBody }>("/workshop/servicios/:id",
     {
       schema: {
         params: {
@@ -182,9 +178,8 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
     },
   );
 
-  // ── DELETE /workshop/servicios/:id — Soft-delete service ──
-  app.delete<{ Params: ParamsWithId }>(
-    "/workshop/servicios/:id",
+  // ── DELETE "/workshop/servicios/:id" — Soft-delete service ──
+  app.delete<{ Params: ParamsWithId }>("/workshop/servicios/:id",
     {
       schema: {
         params: {

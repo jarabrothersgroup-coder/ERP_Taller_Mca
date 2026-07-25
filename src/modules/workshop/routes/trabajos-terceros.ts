@@ -16,6 +16,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   createTrabajoTercero,
   listTrabajosTercerosByOrden,
+  updateTrabajoTerceroStatus,
 } from "../services/trabajo-tercero.service.js";
 
 /**
@@ -27,6 +28,21 @@ interface TrabajoTerceroBody {
   costo: number | string;
   fechaInicio?: string;
   fechaFin?: string;
+}
+
+/**
+ * Request body for PATCH /workshop/ordenes/:ordenId/trabajos-terceros/:trabajoId
+ */
+interface UpdateTrabajoTerceroBody {
+  estado: string;
+}
+
+/**
+ * Route params for nested resource
+ */
+interface TrabajoTerceroParams {
+  ordenId: string;
+  trabajoId: string;
 }
 
 /**
@@ -135,6 +151,52 @@ export async function trabajosTercerosRoutes(app: FastifyInstance): Promise<void
     ) => {
       const { id } = request.params;
       const result = await listTrabajosTercerosByOrden(id);
+      return reply.send(result);
+    },
+  );
+
+  // ── PATCH /workshop/ordenes/:ordenId/trabajos-terceros/:trabajoId ──
+  app.patch<{ Params: TrabajoTerceroParams; Body: UpdateTrabajoTerceroBody }>(
+    "/workshop/ordenes/:ordenId/trabajos-terceros/:trabajoId",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["ordenId", "trabajoId"],
+          properties: {
+            ordenId: { type: "string", format: "uuid" },
+            trabajoId: { type: "string", format: "uuid" },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["estado"],
+          properties: {
+            estado: { type: "string", enum: ["Pendiente", "En_Proceso", "Completado"] },
+          },
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              estado: { type: "string" },
+              proveedor: { type: "string" },
+              descripcion: { type: "string" },
+              costo: { type: "string" },
+              fechaInicio: { type: "string", nullable: true },
+              fechaFin: { type: "string", nullable: true },
+            },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Params: TrabajoTerceroParams; Body: UpdateTrabajoTerceroBody }>,
+      reply: FastifyReply,
+    ) => {
+      const { ordenId, trabajoId } = request.params;
+      const result = await updateTrabajoTerceroStatus(ordenId, trabajoId, request.body.estado);
       return reply.send(result);
     },
   );

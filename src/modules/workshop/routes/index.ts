@@ -25,6 +25,14 @@ import { predictiveMaintenanceRoutes } from "./predictive-maintenance.routes.js"
 import { notificationPushRoutes } from "./notification-push.routes.js";
 import { notificationSseRoutes } from "./notification-sse.routes.js";
 import { mechanicAssignmentRoutes } from "./mechanic-assignment.routes.js";
+import { predictiveMlRoutes } from "./predictive-ml.routes.js";
+import { mechanicProfilesRoutes } from "./mechanic-profiles.routes.js";
+import { ordenEstadoHistorialRoutes } from "./orden-estado-historial.routes.js";
+import { ingresoPhotosRoutes } from "./ingreso-photos.routes.js";
+import { ingresoQRRoutes } from "./ingreso-qr.routes.js";
+import { pricingSuggestRoutes } from "./pricing-suggest.routes.js";
+import { proveedoresRoutes } from "./proveedores.routes.js";
+import { trabajoTerceroAdjuntosRoutes } from "./trabajo-tercero-adjuntos.routes.js";
 
 /**
  * Registers all workshop routes on the given Fastify instance.
@@ -60,6 +68,9 @@ import { mechanicAssignmentRoutes } from "./mechanic-assignment.routes.js";
  *   - /workshop/analytics/top-servicios       (GET)
  *   - /workshop/analytics/top-clientes        (GET)
  *   - /workshop/analytics/productividad       (GET)
+ *   - /workshop/predictions/ml/:vehiculoId    (GET) — ML-based prediction
+ *   - /workshop/predictions/ml                (GET) — All high-risk predictions
+ *   - /workshop/predictions/ml/training-data  (GET) — ML training statistics
  *
  * @param app - Fastify instance
  */
@@ -81,4 +92,20 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(notificationPushRoutes);
   await app.register(notificationSseRoutes);
   await app.register(mechanicAssignmentRoutes);
+  // Sprint 86: ML-based predictive maintenance
+  await app.register(predictiveMlRoutes);
+  // Nómina: perfiles de mecánicos CRUD
+  await app.register(mechanicProfilesRoutes);
+  // G-02: Historial de estados de OT
+  await app.register(ordenEstadoHistorialRoutes);
+  // G-01: Fotos de recepción
+  await app.register(ingresoPhotosRoutes);
+  // G-03: QR de recepción
+  await app.register(ingresoQRRoutes);
+  // G-06: Pricing suggest (precio + horas estimadas)
+  await app.register(pricingSuggestRoutes);
+  // G-16: Catálogo de proveedores
+  await app.register(proveedoresRoutes);
+  // G-17: Adjuntos en trabajos terceros
+  await app.register(trabajoTerceroAdjuntosRoutes);
 }

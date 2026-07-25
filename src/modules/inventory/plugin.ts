@@ -27,6 +27,7 @@
 import type { FastifyInstance } from "fastify";
 import { resolveTenant } from "../../shared/middleware/tenant-resolver.js";
 import { inventoryRoutes } from "./routes/index.js";
+import { startReorderCheckCron } from "./jobs/reorder-check.cron.js";
 
 /**
  * Fastify plugin that bootstraps the Inventory module.
@@ -47,6 +48,9 @@ async function inventoryPlugin(app: FastifyInstance): Promise<void> {
 
   // ── Register inventory routes ──
   await app.register(inventoryRoutes);
+
+  // ── G-09: Start reorder check cron ──
+  startReorderCheckCron();
 
   app.log.info("Inventory module registered");
 }

@@ -13,7 +13,8 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createIngreso, listIngresosByVehicle } from "../services/ingreso.service.js";
+import { createIngreso, listIngresosByVehicle, guardarChecklist, getChecklist, guardarFirmaRetiro } from "../services/ingreso.service.js";
+import type { RecepcionChecklist } from "../types.js";
 
 /**
  * Request body schema for POST /workshop/ingresos
@@ -142,6 +143,78 @@ export async function ingresosRoutes(app: FastifyInstance): Promise<void> {
         });
       }
       const result = await listIngresosByVehicle(vehicleId);
+      return reply.send(result);
+    },
+  );
+
+  // ── P1.1: Checklist routes ───────────────────
+
+  // ── POST /workshop/ingresos/:id/checklist — Save checklist ──
+  app.post<{ Params: { id: string }; Body: RecepcionChecklist }>(
+    "/workshop/ingresos/:id/checklist",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        body: {
+          type: "object",
+          required: ["panels", "neumaticos", "accesorios"],
+          properties: {
+            panels: { type: "object" },
+            neumaticos: { type: "object" },
+            nivelCombustibleExacto: { type: "number", minimum: 0, maximum: 1 },
+            kilometrajeFoto: { type: "boolean" },
+            accesorios: { type: "object" },
+            observacionesCliente: { type: "string" },
+            firmaCliente: { type: "string" },
+            firmaClienteNombre: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: RecepcionChecklist }>, reply: FastifyReply) => {
+      const result = await guardarChecklist(request.params.id, request.body, request.tenantSlug);
+      return reply.status(201).send(result);
+    },
+  );
+
+  // ── GET /workshop/ingresos/:id/checklist — Get checklist ──
+  app.get<{ Params: { id: string } }>(
+    "/workshop/ingresos/:id/checklist",
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const result = await getChecklist(request.params.id);
+      if (!result) {
+        return reply.status(404).send({ error: "Checklist no encontrado" });
+      }
+      return reply.send(result);
+    },
+  );
+
+  // ── POST /workshop/ingresos/:id/firma-retiro — Save signature ──
+  app.post<{ Params: { id: string }; Body: { firma: string; nombre: string } }>(
+    "/workshop/ingresos/:id/firma-retiro",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        body: {
+          type: "object",
+          required: ["firma", "nombre"],
+          properties: {
+            firma: { type: "string" },
+            nombre: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { firma: string; nombre: string } }>, reply: FastifyReply) => {
+      const result = await guardarFirmaRetiro(request.params.id, request.body.firma, request.body.nombre);
       return reply.send(result);
     },
   );

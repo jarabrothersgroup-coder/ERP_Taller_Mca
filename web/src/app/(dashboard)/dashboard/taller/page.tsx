@@ -12,7 +12,8 @@ import { columns } from "./columns";
 import { WorkshopStats } from "./stats";
 import { NewOrderDialog } from "./new-order-dialog";
 import { EditOrderDialog } from "./edit-order-dialog";
-import type { WorkOrder } from "./types";
+import { WorkshopCard } from "./workshop-card";
+import type { WorkOrder, OrderStatus } from "./types";
 
 /* ── Main Page ──────────────────────────────── */
 
@@ -105,35 +106,62 @@ export default function WorkshopPage() {
         </div>
       )}
 
-      {/* ── Data Table ───────────────────────── */}
-      <DataTable<WorkOrder>
-        columns={columns}
-        data={filtered as unknown as WorkOrder[]}
-        rowKey="id"
-        loading={loading}
-        emptyMessage={
-          search || statusFilter
-            ? "No se encontraron órdenes con esos filtros"
-            : "No hay órdenes de trabajo. Cree su primera orden para comenzar."
-        }
-        paginate
-        pageSize={10}
-        sortable
-        searchPlaceholder="Buscar OT, cliente, vehículo o matrícula…"
-        searchValue={search}
-        onSearchChange={setSearch}
-        className="shadow-sm"
-        stickyHeader
-        onRowClick={handleRowClick}
-        actions={
-          <>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              Exportar
-            </Button>
-          </>
-        }
-      />
+      {/* ── Desktop: Data Table / Mobile: Cards ──── */}
+      <div className="hidden md:block">
+        <DataTable<WorkOrder>
+          columns={columns}
+          data={filtered as unknown as WorkOrder[]}
+          rowKey="id"
+          loading={loading}
+          emptyMessage={
+            search || statusFilter
+              ? "No se encontraron órdenes con esos filtros"
+              : "No hay órdenes de trabajo. Cree su primera orden para comenzar."
+          }
+          paginate
+          pageSize={10}
+          sortable
+          searchPlaceholder="Buscar OT, cliente, vehículo o matrícula…"
+          searchValue={search}
+          onSearchChange={setSearch}
+          className="shadow-sm"
+          stickyHeader
+          onRowClick={handleRowClick}
+          actions={
+            <>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                Exportar
+              </Button>
+            </>
+          }
+        />
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground py-8">
+            {search || statusFilter
+              ? "No se encontraron órdenes con esos filtros"
+              : "No hay órdenes de trabajo"}
+          </p>
+        ) : (
+          filtered.map((order) => (
+            <WorkshopCard
+              key={order.id}
+              order={order}
+              onClick={handleRowClick}
+            />
+          ))
+        )}
+      </div>
 
       {/* ── Edit Dialog ────────────────────── */}
       <EditOrderDialog

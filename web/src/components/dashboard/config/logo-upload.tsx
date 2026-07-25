@@ -4,6 +4,7 @@ import * as React from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export function LogoUpload({
   currentLogo,
@@ -17,11 +18,12 @@ export function LogoUpload({
   const [preview, setPreview] = React.useState<string | null>(currentLogo);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = React.useState(false);
+  const { toast } = useToast();
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert("La imagen no puede superar los 5MB");
+      toast.error("La imagen no puede superar los 5MB");
       return;
     }
     const reader = new FileReader();

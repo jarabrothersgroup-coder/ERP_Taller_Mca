@@ -260,7 +260,7 @@ describe("Sprint 46 — Portal Routes", () => {
     expect(typeof mod.portalRoutes).toBe("function");
   });
 
-  it("portalRoutes registers 12 routes", async () => {
+  it("portalRoutes registers 14 routes", async () => {
     const registeredRoutes: string[] = [];
     const mockRoute = (method: string) => ({
       post: () => { registeredRoutes.push(method + ':post'); return { post: mockRoute(method + '.post').post, get: () => ({ get: () => ({}), post: () => ({}) }) }; },
@@ -275,8 +275,8 @@ describe("Sprint 46 — Portal Routes", () => {
     const { portalRoutes } = await import("../../src/modules/client-portal/routes/portal.routes.js");
     await portalRoutes(app);
 
-    // 12 routes expected
-    expect(app.post.mock.calls.length + app.get.mock.calls.length).toBe(12);
+    // 14 routes expected (4 auth + 10 data)
+    expect(app.post.mock.calls.length + app.get.mock.calls.length).toBe(14);
   });
 });
 

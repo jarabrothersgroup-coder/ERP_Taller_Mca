@@ -11,6 +11,9 @@
  *   GET  /finance/sifen/documentos/:id — Get fiscal document detail
  *   GET  /finance/sifen/sync-log      — View SIFEN sync log
  *   GET  /finance/sifen/health        — Test SIFEN connection
+ *   POST /finance/sifen/contingencia/guardar   — Save DTE to contingency queue
+ *   POST /finance/sifen/contingencia/reenviar  — Retry contingency queue
+ *   GET  /finance/sifen/contingencia/status    — Check contingency status
  *
  * All routes require `X-Tenant-Slug` header (resolved by tenant-resolver).
  *
@@ -42,6 +45,12 @@ import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
 import { sifenSyncLog } from "../schema/fiscal-docs.js";
 import { emitirNotaCredito } from "../services/sifen/nota-credito.service.js";
+import {
+  guardarEnContingencia,
+  reenviarContingencia,
+  getContingenciaStatus,
+  checkSifenAvailability,
+} from "../services/index.js";
 import type { EmitirDTERequest, ConsultaDTEQuery, SIFENSoapResponse } from "../types.js";
 
 // C-03 FIX: Paraguay timezone helper for SIFEN timestamps
@@ -600,6 +609,69 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         rechazados: results.filter((r) => r.resultado.codigoResultado === "RECHAZADO").length,
         errores: errorCount,
         resultados: results,
+        consultadoEn: new Date().toISOString(),
+      });
+    },
+  );
+
+  // ── POST /finance/sifen/contingencia/guardar — Save DTE to contingency queue ──
+  app.post<{ Body: { documentoId: string; xmlOriginal: string; xmlFirmado?: string; dteTipo: string; totalDocumento: string; cdcOriginal?: string } }>(
+    "/finance/sifen/contingencia/guardar",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["documentoId", "xmlOriginal", "dteTipo", "totalDocumento"],
+          properties: {
+            documentoId: { type: "string", format: "uuid" },
+            xmlOriginal: { type: "string" },
+            xmlFirmado: { type: "string" },
+            dteTipo: { type: "string" },
+            totalDocumento: { type: "string" },
+            cdcOriginal: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body;
+      const result = await guardarEnContingencia({
+        ...body,
+        tenantSlug: request.tenantSlug,
+        serieOriginal: "CON",
+        numeroOriginal: "0000000",
+      });
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return reply.status(201).send(result);
+    },
+  );
+
+  // ── POST /finance/sifen/contingencia/reenviar — Retry contingency queue ──
+  app.post(
+    "/finance/sifen/contingencia/reenviar",
+    async (request, reply) => {
+      const result = await reenviarContingencia(request.tenantSlug);
+      return reply.send({
+        ok: true,
+        ...result,
+        reenviadoEn: new Date().toISOString(),
+      });
+    },
+  );
+
+  // ── GET /finance/sifen/contingencia/status — Check contingency status ──
+  app.get(
+    "/finance/sifen/contingencia/status",
+    async (request, reply) => {
+      const status = await getContingenciaStatus(request.tenantSlug);
+      const disponible = await checkSifenAvailability();
+      return reply.send({
+        sifenDisponible: disponible,
+        ...status,
         consultadoEn: new Date().toISOString(),
       });
     },

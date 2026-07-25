@@ -245,3 +245,12 @@ export type {
   MobilePushToken,
   NewMobilePushToken,
 } from "../../../modules/mobile/schema/index.js";
+
+// ─── Migration 0012: Ingreso Checklist ───────
+export {
+  ingresoChecklist,
+} from "./ingreso-checklist.js";
+export type {
+  IngresoChecklist,
+  NewIngresoChecklist,
+} from "./ingreso-checklist.js";

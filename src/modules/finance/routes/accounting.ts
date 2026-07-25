@@ -116,6 +116,15 @@ import {
   generarNotasFinancieras,
   // GAP-02: Credit/Debit notes
   generarNotaCreditoDebito,
+  // Sprint 86: Consolidated Reports + Tenant Groups
+  createTenantGroup,
+  addTenantGroupMember,
+  removeTenantGroupMember,
+  listTenantGroups,
+  listTenantGroupMembers,
+  deactivateTenantGroup,
+  getConsolidatedBalance,
+  getConsolidatedPnL,
 } from "../services/index.js";
 import type {
   CreateCuentaRequest,
@@ -1629,6 +1638,184 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.status(201).send(result);
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // Sprint 86: Gestión de Grupos de Tenants
+  // ════════════════════════════════════════════════
+
+  // ── POST /finance/contabilidad/grupos — Create tenant group ──
+  app.post<{ Body: { name: string; description?: string } }>(
+    "/finance/contabilidad/grupos",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string", maxLength: 200 },
+            description: { type: "string" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const tenantSlug = (request as any).tenantSlug;
+      if (!tenantSlug) {
+        return reply.status(400).send({ error: "X-Tenant-Slug header requerido" });
+      }
+      const group = await createTenantGroup({
+        name: request.body.name,
+        description: request.body.description,
+        ownerTenantSlug: tenantSlug,
+      });
+      return reply.status(201).send(group);
+    },
+  );
+
+  // ── GET /finance/contabilidad/grupos — List tenant groups ──
+  app.get(
+    "/finance/contabilidad/grupos",
+    async (request, reply) => {
+      const tenantSlug = (request as any).tenantSlug;
+      const groups = await listTenantGroups(tenantSlug);
+      return reply.send(groups);
+    },
+  );
+
+  // ── GET /finance/contabilidad/grupos/:id/miembros — List members ──
+  app.get<{ Params: { id: string } }>(
+    "/finance/contabilidad/grupos/:id/miembros",
+    async (request, reply) => {
+      const members = await listTenantGroupMembers(request.params.id);
+      return reply.send(members);
+    },
+  );
+
+  // ── POST /finance/contabilidad/grupos/:id/miembros — Add member ──
+  app.post<{ Params: { id: string }; Body: { tenantSlug: string; roleInGroup?: string } }>(
+    "/finance/contabilidad/grupos/:id/miembros",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["tenantSlug"],
+          properties: {
+            tenantSlug: { type: "string" },
+            roleInGroup: { type: "string", enum: ["OWNER", "ADMIN", "MEMBER", "VIEWER"] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const member = await addTenantGroupMember({
+        groupId: request.params.id,
+        tenantSlug: request.body.tenantSlug,
+        roleInGroup: (request.body.roleInGroup as any) ?? "MEMBER",
+      });
+      if (!member) {
+        return reply.status(404).send({ error: "Grupo no encontrado o inactivo" });
+      }
+      return reply.status(201).send(member);
+    },
+  );
+
+  // ── DELETE /finance/contabilidad/grupos/:id/miembros/:tenantSlug — Remove member ──
+  app.delete<{ Params: { id: string; tenantSlug: string } }>(
+    "/finance/contabilidad/grupos/:id/miembros/:tenantSlug",
+    async (request, reply) => {
+      const removed = await removeTenantGroupMember(
+        request.params.id,
+        request.params.tenantSlug,
+      );
+      if (!removed) {
+        return reply.status(404).send({ error: "Miembro no encontrado" });
+      }
+      return reply.status(204).send();
+    },
+  );
+
+  // ── DELETE /finance/contabilidad/grupos/:id — Deactivate group ──
+  app.delete<{ Params: { id: string } }>(
+    "/finance/contabilidad/grupos/:id",
+    async (request, reply) => {
+      const deactivated = await deactivateTenantGroup(request.params.id);
+      if (!deactivated) {
+        return reply.status(404).send({ error: "Grupo no encontrado" });
+      }
+      return reply.status(204).send();
+    },
+  );
+
+  // ════════════════════════════════════════════════
+  // Sprint 86: Reportes Consolidados Multi-tenant
+  // ════════════════════════════════════════════════
+
+  // ── GET /finance/contabilidad/consolidado/balance/:groupId/:anho/:mes — Consolidated Balance ──
+  app.get<{ Params: { groupId: string; anho: string; mes: string } }>(
+    "/finance/contabilidad/consolidado/balance/:groupId/:anho/:mes",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["groupId", "anho", "mes"],
+          properties: {
+            groupId: { type: "string" },
+            anho: { type: "string", description: "Año fiscal" },
+            mes: { type: "string", description: "Mes (1-12)" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const balance = await getConsolidatedBalance(
+        request.params.groupId,
+        anho,
+        mes,
+      );
+      return reply.send(balance);
+    },
+  );
+
+  // ── GET /finance/contabilidad/consolidado/pnl/:groupId/:anho/:mes — Consolidated P&L ──
+  app.get<{
+    Params: { groupId: string; anho: string; mes: string };
+    Querystring: { acumulado?: string };
+  }>(
+    "/finance/contabilidad/consolidado/pnl/:groupId/:anho/:mes",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["groupId", "anho", "mes"],
+          properties: {
+            groupId: { type: "string" },
+            anho: { type: "string", description: "Año fiscal" },
+            mes: { type: "string", description: "Mes (1-12)" },
+          },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            acumulado: { type: "string", description: "true = acumulado desde enero" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const anho = parseInt(request.params.anho, 10);
+      const mes = parseInt(request.params.mes, 10);
+      const acumulado = request.query.acumulado === "true";
+      const pnl = await getConsolidatedPnL(
+        request.params.groupId,
+        anho,
+        mes,
+        acumulado,
+      );
+      return reply.send(pnl);
     },
   );
 }

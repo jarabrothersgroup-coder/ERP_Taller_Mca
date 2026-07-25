@@ -1,14 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "../../../shared/database/drizzle.js";
-import { ordenesTrabajo, vehiculos, type EstadoOrden } from "../schema/index.js";
+import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
+import { presupuestos } from "../../finance/schema/budget.js";
 import { workshopConfigurator } from "../../finance/services/index.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
+import { crearNotificacionPush } from "./notification-push.service.js";
 
 // ─── Tenant settings cache ──────────────────────
 
@@ -267,6 +269,59 @@ export async function createOrden(
     })
     .returning();
 
+  // ── G-08: WhatsApp recepción notification (fire-and-forget) ──
+  if (tenantSlug) {
+    const _ordenId = orden.id;
+    const _vehicleId = vehicleId;
+    const _clientId = clientId;
+    (async () => {
+      try {
+        const [client] = await db()
+          .select({ phone: clients.phone, name: clients.name })
+          .from(clients)
+          .where(eq(clients.id, _clientId))
+          .limit(1);
+
+        if (client?.phone) {
+          let vehicleDesc = "";
+          if (_vehicleId) {
+            const [v] = await db()
+              .select({ brand: vehiculos.brand, model: vehiculos.model })
+              .from(vehiculos)
+              .where(eq(vehiculos.id, _vehicleId))
+              .limit(1);
+            if (v) vehicleDesc = `${v.brand} ${v.model}`;
+          }
+
+          const { sendTextMessage } = await import(
+            "../../whatsapp/services/whatsapp.service.js"
+          );
+          const { getTemplate } = await import(
+            "../../whatsapp/services/whatsapp-template.service.js"
+          );
+
+          const template = await getTemplate(tenantSlug, "recepcion");
+          if (template) {
+            let message = template.body
+              .replaceAll("{{nombre_cliente}}", client.name || "")
+              .replaceAll("{{vehiculo}}", vehicleDesc)
+              .replaceAll("{{vehiculo_marca}}", vehicleDesc.split(" ")[0] ?? "")
+              .replaceAll("{{vehiculo_modelo}}", vehicleDesc.split(" ").slice(1).join(" ") || vehicleDesc)
+              .replaceAll("{{chapa}}", "")
+              .replaceAll("{{orden_id}}", _ordenId.slice(0, 8));
+
+            await sendTextMessage(tenantSlug, client.phone, message);
+          }
+        }
+      } catch (waErr) {
+        console.warn(
+          `[orden] Error enviando WhatsApp recepción OT ${_ordenId}:`,
+          waErr instanceof Error ? waErr.message : waErr,
+        );
+      }
+    })();
+  }
+
   // ── Return as OrdenListRow with joined fields ──
   return {
     id: orden.id,
@@ -335,6 +390,22 @@ export async function updateOrdenStatus(
     throw new Error(`Error al actualizar orden ${ordenId}`);
   }
 
+  // ── G-02: Registrar historial de cambio de estado ──
+  db()
+    .insert(ordenEstadoHistorial)
+    .values({
+      ordenTrabajoId: ordenId,
+      estadoAnterior: orden.status,
+      estadoNuevo: newStatus,
+      observaciones: null,
+    })
+    .catch((err) => {
+      console.warn(
+        `[orden] Error registrando historial de estado para OT ${ordenId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    });
+
   // ── Auto-consume inventory stock when OT is completed ──
   if (newStatus === "Listo" && tenantSlug) {
     consumeStockOnOTClose(ordenId, tenantSlug).catch((err) => {
@@ -387,6 +458,16 @@ export async function updateOrdenStatus(
         );
       }
     })();
+  }
+
+  // ── Notificaciones automáticas para TODOS los cambios de estado ──
+  if (tenantSlug) {
+    notificarCambioEstadoOt(ordenId, newStatus, tenantSlug, orden.status).catch((err) => {
+      console.warn(
+        `[orden] Error en notificación de estado ${ordenId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    });
   }
 
   // ── Send completion notification email when OT is ready ──
@@ -509,4 +590,203 @@ async function broadcastToScreens(orderId: string, status: string): Promise<void
   });
 }
 
+// ─── Notificaciones multi-canal por cambio de estado ──
+
+const WHATSAPP_STATUS_MAP: Record<string, string> = {
+  Presupuestado: "PRESUPUESTADO",
+  Aprobado: "EN_REPARACION",
+  En_Proceso: "EN_REPARACION",
+  Control_Calidad: "EN_REPARACION",
+  Listo: "LISTO_ENTREGA",
+  Finalizado: "FINALIZADO_RETIRADO",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  Presupuestado: "Presupuestado",
+  Aprobado: "Aprobado",
+  En_Proceso: "En reparación",
+  Control_Calidad: "Control de calidad",
+  Listo: "Listo para entrega",
+};
+
+/**
+ * Dispara notificaciones multi-canal cuando una OT cambia de estado.
+ *
+ * - Push notification in-app (SIEMPRE)
+ * - WhatsApp al cliente (estados clave: Aprobado, En_Proceso, Listo)
+ * - Email (ya manejado en updateOrdenStatus para Listo)
+ */
+async function notificarCambioEstadoOt(
+  ordenId: string,
+  nuevoEstado: string,
+  tenantSlug: string,
+  estadoAnterior?: string,
+): Promise<void> {
+  // ── 1. Push notification in-app ──
+  const estadoLabel = STATUS_LABELS[nuevoEstado] ?? nuevoEstado;
+  const estadoAnteriorLabel = estadoAnterior ? (STATUS_LABELS[estadoAnterior] ?? estadoAnterior) : "N/A";
+
+  await crearNotificacionPush({
+    tenantSlug,
+    tipo: "OT",
+    titulo: `OT cambió a: ${estadoLabel}`,
+    mensaje: `La orden de trabajo cambió de "${estadoAnteriorLabel}" a "${estadoLabel}".`,
+    entityType: "orden_trabajo",
+    entityId: ordenId,
+    priority: "HIGH",
+    actionUrl: `/dashboard/taller/${ordenId}`,
+  });
+
+  // ── 2. WhatsApp al cliente (estados clave) ──
+  const whatsappTemplate = WHATSAPP_STATUS_MAP[nuevoEstado];
+  if (whatsappTemplate && nuevoEstado !== estadoAnterior) {
+    try {
+      // Obtener datos del cliente y vehículo
+      const [orden] = await db()
+        .select({
+          clientId: ordenesTrabajo.clientId,
+          vehicleId: ordenesTrabajo.vehicleId,
+        })
+        .from(ordenesTrabajo)
+        .where(eq(ordenesTrabajo.id, ordenId))
+        .limit(1);
+
+      if (orden?.clientId) {
+        const [client] = await db()
+          .select({ phone: clients.phone, name: clients.name })
+          .from(clients)
+          .where(eq(clients.id, orden.clientId))
+          .limit(1);
+
+        if (client?.phone) {
+          let vehicleDesc = "";
+          if (orden.vehicleId) {
+            const [v] = await db()
+              .select({ brand: vehiculos.brand, model: vehiculos.model, plate: vehiculos.plate })
+              .from(vehiculos)
+              .where(eq(vehiculos.id, orden.vehicleId))
+              .limit(1);
+            if (v) vehicleDesc = `${v.brand} ${v.model}`;
+          }
+
+          const { sendTextMessage, buildMessage } = await import(
+            "../../whatsapp/services/whatsapp.service.js"
+          );
+
+          const message = buildMessage(whatsappTemplate, {
+            nombre_cliente: client.name,
+            vehiculo_marca: vehicleDesc.split(" ")[0] ?? "",
+            vehiculo_modelo: vehicleDesc.split(" ").slice(1).join(" ") || vehicleDesc,
+            id_orden: ordenId.slice(0, 8),
+            monto_total: "Consultar",
+            fecha_estimada_entrega: new Date(Date.now() + 86400000 * 2).toLocaleDateString("es-PY"),
+          } as any);
+
+          await sendTextMessage(tenantSlug, client.phone, message);
+        }
+      }
+    } catch (waErr) {
+      console.warn(
+        `[orden] Error enviando WhatsApp cambio estado OT ${ordenId}:`,
+        waErr instanceof Error ? waErr.message : waErr,
+      );
+    }
+  }
+}
+
 type VisualStatus = "DIAGNOSTICO" | "REPARACION" | "AJUSTE_FINAL" | "CONTROL_CALIDAD";
+
+// ─── P1.3: Presupuesto → OT automático ─────────
+
+/**
+ * Convierte un presupuesto aprobado en una orden de trabajo.
+ *
+ * Copia los servicios y repuestos del presupuesto a la nueva OT,
+ * y la crea en estado "Aprobado" (saltándose "Presupuestado").
+ * Vincula la OT al presupuesto original.
+ *
+ * @param presupuestoId - ID del presupuesto aprobado
+ * @param tenantSlug - Slug del tenant
+ * @returns La orden de trabajo creada
+ * @throws {NotFoundError} Si el presupuesto no existe
+ * @throws {ValidationError} Si el presupuesto no está aprobado
+ */
+export async function convertPresupuestoToOT(
+  presupuestoId: string,
+  tenantSlug: string,
+): Promise<{ ordenTrabajo: OrdenListRow; presupuesto: { id: string; estado: string } }> {
+  // Obtener el presupuesto
+  const [presupuesto] = await db()
+    .select()
+    .from(presupuestos)
+    .where(
+      and(
+        eq(presupuestos.id, presupuestoId),
+        eq(presupuestos.tenantSlug, tenantSlug),
+      ),
+    )
+    .limit(1);
+
+  if (!presupuesto) {
+    throw new NotFoundError(`Presupuesto ${presupuestoId} no encontrado`);
+  }
+
+  if (presupuesto.estado !== "aprobado" && presupuesto.estado !== "borrador") {
+    throw new ValidationError(
+      `El presupuesto está en estado "${presupuesto.estado}". Debe estar "aprobado" o "borrador" para convertirlo a OT.`,
+    );
+  }
+
+  if (!presupuesto.clienteId || !presupuesto.vehicleId) {
+    throw new ValidationError(
+      "El presupuesto debe tener asignados un cliente y un vehículo para crear la OT.",
+    );
+  }
+
+  // Crear la orden de trabajo en estado "Aprobado"
+  const [orden] = await db()
+    .insert(ordenesTrabajo)
+    .values({
+      vehicleId: presupuesto.vehicleId,
+      clientId: presupuesto.clienteId,
+      description: presupuesto.descripcion ?? `OT desde presupuesto ${presupuestoId.slice(0, 8)}`,
+      status: presupuesto.estado === "aprobado" ? "Aprobado" : "Presupuestado",
+      tenantSlug,
+      totalCost: presupuesto.totalEstimado ?? "0",
+    })
+    .returning();
+
+  // Vincular la OT al presupuesto
+  await db()
+    .update(presupuestos)
+    .set({
+      ordenTrabajoId: orden.id,
+      estado: presupuesto.estado === "borrador" ? "aprobado" : presupuesto.estado as any,
+      updatedAt: new Date(),
+      fechaAprobacion: new Date(),
+    })
+    .where(eq(presupuestos.id, presupuestoId));
+
+  // Retornar resultado
+  return {
+    ordenTrabajo: {
+      id: orden.id,
+      vehicleId: orden.vehicleId,
+      clientId: orden.clientId,
+      description: orden.description,
+      status: orden.status,
+      hvAlert: orden.hvAlert,
+      hvLockoutSigned: orden.hvLockoutSigned,
+      dtcCodes: orden.dtcCodes,
+      createdAt: orden.createdAt.toISOString(),
+      updatedAt: orden.updatedAt.toISOString(),
+      vehiculo: null,
+      plate: null,
+      cliente: null,
+    },
+    presupuesto: {
+      id: presupuesto.id,
+      estado: "aprobado",
+    },
+  };
+}
