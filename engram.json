@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 92 COMPLETED — G-15 Fleet Billing, G-19 Marketing Sequences, G-20 Financial WebSocket",
-    "next_sprint": "Sprint 93 — Tier 4 verification or deployment",
+    "current_sprint": "Sprint 93 COMPLETED — Full Deployment to pcserver + PC01Tmca",
+    "next_sprint": "Sprint 94 — Production hardening, monitoring, backup automation",
     "sprint_91_tier2": {
       "goal": "Tier 2 Gap Closure — G-06 Pricing→Presupuesto, G-07 rh_service_hours seed, G-08 WhatsApp Recepción, G-09 Reorder Cron, G-10 OT PDF, G-11 Stock Adjustment Approval",
       "duration": "1 day",
@@ -134,13 +134,36 @@
     },
     "tier4_status": {
       "goal": "Tier 4 Gap Closure — G-18 Mobile App, G-19 Marketing Automation, G-20 Real-time Financial Dashboard",
-      "status": "IN PROGRESS",
+      "status": "COMPLETED",
+      "completed_date": "2026-07-25",
       "gaps": [
         { "id": "G-18", "name": "Mobile App React Native", "status": "COMPLETED", "note": "22 screens, 11 tabs, auth, API client 386L, offline-first. Fixed 2 TS errors (DVIInspection type + createAsyncStoragePersister import)." },
         { "id": "G-19", "name": "Automatización marketing (secuencias)", "status": "COMPLETED", "note": "marketing_sequences schema + sequence service + routes + cron + plugin updated" },
         { "id": "G-20", "name": "Dashboard financiero avanzado (RT)", "status": "COMPLETED", "note": "financial-ws.ts WebSocket route + financial-realtime service + useFinancialWebSocket hook + ejecutivo page RT toggle" }
       ]
     },
+    "deployment": {
+      "date": "2026-07-25",
+      "commit": "abc30cc",
+      "pcserver": {
+        "ip": "192.168.18.104",
+        "tailscale_ip": "100.104.144.92",
+        "repo_path": "/data/ERP_Taller_Mca",
+        "backup_path": "/data/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
+        "services": ["erp-taller.service (Fastify :3000)", "nginx (:80)", "dirsrv@erp-taller (389)", "postgresql (5432)"],
+        "db_migrations": "14/14 applied (drizzle-kit migrate)",
+        "status": "ACTIVE"
+      },
+      "pc01tmca": {
+        "ip": "100.66.187.39",
+        "repo_path": "/home/jarabro/Proyectos/ERP_Taller_Mca",
+        "web_path": "/home/jarabro/Proyectos/ERP_Taller_Mca/web",
+        "backup_path": "/home/jarabro/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
+        "services": ["next-server (:3000)", "dirsrv@erp-taller (389)"],
+        "nextjs_build": "SUCCESS (compiled, all pages)",
+        "status": "ACTIVE"
+      }
+    }
     "sprint_90_tier1": {
       "goal": "Tier 1 Gap Closure — G-01 Reception Photos, G-03 QR Code, G-04 Inventory Reports",
       "duration": "1 day",
