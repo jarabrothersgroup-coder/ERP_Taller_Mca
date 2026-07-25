@@ -121,12 +121,12 @@ BEGIN
       CHECK (total_oc IS NULL OR total_oc >= 0);
   END IF;
 
-  -- purchase_orders: valid estado
+  -- purchase_orders: valid estado (includes actual + future values)
   SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='purchase_orders' AND column_name='estado') INTO col_exists;
   IF col_exists THEN
     ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_estado_check;
     ALTER TABLE purchase_orders ADD CONSTRAINT purchase_orders_estado_check
-      CHECK (estado IN ('BORRADOR', 'PENDIENTE', 'APROBADA', 'ENVIADA', 'RECIBIDA_PARCIAL', 'RECIBIDA', 'CANCELADA'));
+      CHECK (estado IN ('BORRADOR', 'PENDIENTE', 'APROBADA', 'ENVIADA', 'RECIBIDA_PARCIAL', 'RECIBIDA', 'COMPLETADA', 'CANCELADA'));
   END IF;
 
   -- =============================================================
