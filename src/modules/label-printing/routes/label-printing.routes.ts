@@ -16,7 +16,10 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../../../shared/database/drizzle.js";
 import { repuestos } from "../../inventory/schema/repuestos.js";
 import { herramientas } from "../../inventory/schema/herramientas.js";
-import { eq } from "drizzle-orm";
+import { facturas, facturaDetalles } from "../../finance/schema/index.js";
+import { ordenesTrabajo } from "../../workshop/schema/index.js";
+import { clients } from "../../../shared/database/schema/clients.js";
+import { eq, and } from "drizzle-orm";
 import {
   generateLabelPayload,
   validateLabelData,
@@ -196,7 +199,7 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
           type: "object",
           required: ["tipo", "data"],
           properties: {
-            tipo: { type: "string", enum: ["REPUESTO", "HERRAMIENTA"] },
+            tipo: { type: "string", enum: ["REPUESTO", "HERRAMIENTA", "FACTURA"] },
             protocolo: { type: "string" },
             data: { type: "object" },
           },
@@ -205,11 +208,133 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request: FastifyRequest<{ Body: GenerateBody }>, reply: FastifyReply) => {
       const { tipo, data } = request.body;
-      const widthMm = tipo === "HERRAMIENTA" ? 60 : 50;
-      const heightMm = tipo === "HERRAMIENTA" ? 40 : 30;
+      const widthMm = tipo === "HERRAMIENTA" ? 60 : tipo === "FACTURA" ? 80 : 50;
+      const heightMm = tipo === "HERRAMIENTA" ? 40 : tipo === "FACTURA" ? 200 : 30;
 
       const html = generateHtmlPreview(tipo, data, widthMm, heightMm);
       return reply.send({ html, widthMm, heightMm });
+    },
+  );
+
+  // ── GET /label-printing/factura/:id — Generate ESC/POS receipt for invoice ──
+  app.get<{ Params: { id: string }; Querystring: { protocolo?: string; copias?: number } }>(
+    "/label-printing/factura/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            protocolo: { type: "string", enum: ["ESCPOS", "ZPL", "TSPL"] },
+            copias: { type: "integer", minimum: 1, maximum: 99 },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: { id: string }; Querystring: { protocolo?: string; copias?: number } }>, reply: FastifyReply) => {
+      const tenant = request.tenantSlug;
+      const { id } = request.params;
+
+      // Fetch factura
+      const [factura] = await db()
+        .select()
+        .from(facturas)
+        .where(and(eq(facturas.id, id), eq(facturas.tenantSlug, tenant)))
+        .limit(1);
+
+      if (!factura) {
+        return reply.status(404).send({ error: "Factura no encontrada" });
+      }
+
+      // Fetch line items
+      const items = await db()
+        .select()
+        .from(facturaDetalles)
+        .where(eq(facturaDetalles.facturaId, id))
+        .orderBy(facturaDetalles.numeroLinea);
+
+      // Fetch client from OT
+      let clienteNombre = "";
+      let clienteRuc = "";
+      let clienteDireccion = "";
+      if (factura.ordenId) {
+        const [ot] = await db()
+          .select({ clientId: ordenesTrabajo.clientId })
+          .from(ordenesTrabajo)
+          .where(eq(ordenesTrabajo.id, factura.ordenId))
+          .limit(1);
+        if (ot?.clientId) {
+          const [client] = await db()
+            .select()
+            .from(clients)
+            .where(eq(clients.id, ot.clientId))
+            .limit(1);
+          if (client) {
+            clienteNombre = client.name || "";
+            clienteRuc = (client as any).ruc || "";
+            clienteDireccion = (client as any).direccion || "";
+          }
+        }
+      }
+
+      const protocolo = request.query.protocolo || "ESCPOS";
+      const copias = request.query.copias || 1;
+
+      // Build line items for ESC/POS
+      const lineItemsData = items.map((it) => ({
+        desc: it.descripcion || "",
+        cant: Number(it.cantidad ?? 1),
+        precio: Number(it.precioUnitario ?? 0),
+        total: Number(it.subtotal ?? 0),
+      }));
+
+      const totalNum = Number(factura.total ?? 0);
+      const ivaRate = 0.10;
+      const base = Math.round((totalNum / (1 + ivaRate)) * 100) / 100;
+      const iva = Math.round((totalNum - base) * 100) / 100;
+
+      const labelData: LabelData = {
+        numeroFactura: factura.numeroFacturaManual || factura.id.slice(0, 12),
+        tipoFactura: factura.tipo,
+        fechaEmision: factura.createdAt ? new Date(factura.createdAt).toLocaleDateString("es-PY") : "",
+        clienteNombre,
+        clienteRuc,
+        clienteDireccion,
+        subtotal: `Gs. ${base.toLocaleString("es-PY")}`,
+        ivaMonto: `Gs. ${iva.toLocaleString("es-PY")}`,
+        total: `Gs. ${totalNum.toLocaleString("es-PY")}`,
+        cdc: factura.sifenCdc || "",
+        lineItems: JSON.stringify(lineItemsData),
+        empresaNombre: "AUTOMOTIVEOS",
+        empresaRuc: "RUC: 800XXXX-X",
+        empresaDireccion: "Coronel Oviedo, Paraguay",
+        empresaTelefono: "Tel: +595 21 123 4567",
+      };
+
+      const validation = validateLabelData("FACTURA", labelData);
+      if (!validation.valid) {
+        return reply.status(400).send({ error: "Datos incompletos", details: validation.errors });
+      }
+
+      const payload = generateLabelPayload("FACTURA", protocolo, labelData);
+      return reply.send({
+        payload: payload.raw,
+        protocol: payload.protocol,
+        estimatedWidthMm: payload.estimatedWidthMm,
+        estimatedHeightMm: payload.estimatedHeightMm,
+        copias,
+        factura: {
+          id: factura.id,
+          numero: labelData.numeroFactura,
+          tipo: factura.tipo,
+          total: totalNum,
+          cliente: clienteNombre,
+        },
+      });
     },
   );
 }

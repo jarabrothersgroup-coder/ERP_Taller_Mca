@@ -338,12 +338,195 @@ export function generateHerramientaTSPL(data: LabelData): string {
   return cmd;
 }
 
+// ─── FACTURA (Invoice Receipt) — ESC/POS 80mm ──
+
+/**
+ * Generate ESC/POS receipt for a factura (invoice) on 80mm thermal paper.
+ *
+ * Layout (80mm ≈ 640 dots at 203 DPI):
+ * ┌────────────────────────────────────────────┐
+ * │         AUTOMOTIVEOS — TALLER              │  Company header
+ * │    RUC: 800XXXX-X  Coronel Oviedo          │
+ * │────────────────────────────────────────────│
+ * │  FACTURA N°: 001-001-0001234               │  Invoice number
+ * │  Fecha: 25/07/2026  Tipo: MANUAL           │
+ * │────────────────────────────────────────────│
+ * │  Cliente: Juan Pérez                       │  Client info
+ * │  RUC: 1234567-8                            │
+ * │────────────────────────────────────────────│
+ * │  2x Cambio de aceite      Gs. 900.000      │  Line items
+ * │  1x Filtro de aceite      Gs. 150.000      │
+ * │────────────────────────────────────────────│
+ * │  Subtotal:                Gs. 1.050.000    │
+ * │  IVA 10%:                   Gs. 95.455     │
+ * │  ─────────────────────────────────         │
+ * │  TOTAL:                   Gs. 1.050.000    │
+ * │────────────────────────────────────────────│
+ * │  ||||||||||||||||||||||||||||||||||||||     │  Barcode/QR
+ * │  CDC: 00000000000000...                    │
+ * │  Gracias por su preferencia                │
+ * └────────────────────────────────────────────┘
+ */
+export function generateFacturaESCPOS(data: LabelData): string {
+  let cmd = ESCPOS_INIT;
+
+  // ── Company header ──
+  cmd += ESCPOS_ALIGN_CENTER + ESCPOS_BOLD_ON;
+  cmd += escposText(String(data.empresaNombre || "AUTOMOTIVEOS"), { align: "CENTER", bold: true, maxChars: 32 });
+  cmd += ESCPOS_BOLD_OFF;
+  cmd += escposText(String(data.empresaRuc || ""), { align: "CENTER", small: true, maxChars: 32 });
+  cmd += escposText(String(data.empresaDireccion || ""), { align: "CENTER", small: true, maxChars: 32 });
+  cmd += escposText(String(data.empresaTelefono || ""), { align: "CENTER", small: true, maxChars: 32 });
+
+  // ── Separator ──
+  cmd += ESCPOS_ALIGN_LEFT;
+  cmd += "─".repeat(48) + "\n";
+
+  // ── Invoice header ──
+  cmd += ESCPOS_ALIGN_CENTER + ESCPOS_BOLD_ON;
+  cmd += escposText("FACTURA", { align: "CENTER", bold: true, maxChars: 32 });
+  cmd += ESCPOS_BOLD_OFF;
+  cmd += escposText(`N°: ${data.numeroFactura || ""}`, { align: "CENTER", bold: true, maxChars: 32 });
+
+  cmd += ESCPOS_ALIGN_LEFT;
+  const tipoLabel = data.tipoFactura === "ELECTRONICA" ? "Electrónica" : "Manual";
+  cmd += escposText(`Fecha: ${data.fechaEmision || ""}  Tipo: ${tipoLabel}`, { small: true, maxChars: 48 });
+  if (data.numeroFactura && data.tipoFactura !== "ELECTRONICA") {
+    cmd += escposText(`Timbrado: ${data.timbrado || "N/A"}`, { small: true, maxChars: 48 });
+  }
+
+  // ── Separator ──
+  cmd += "─".repeat(48) + "\n";
+
+  // ── Client info ──
+  cmd += escposText(`Cliente: ${data.clienteNombre || ""}`, { maxChars: 48 });
+  if (data.clienteRuc) {
+    cmd += escposText(`RUC: ${data.clienteRuc}`, { small: true, maxChars: 48 });
+  }
+  if (data.clienteDireccion) {
+    cmd += escposText(`Dir: ${data.clienteDireccion}`, { small: true, maxChars: 48 });
+  }
+
+  // ── Separator ──
+  cmd += "─".repeat(48) + "\n";
+
+  // ── Line items ──
+  const items = String(data.lineItems || "");
+  if (items) {
+    try {
+      const parsed = JSON.parse(items) as Array<{ desc: string; cant: number; precio: number; total: number }>;
+      for (const item of parsed) {
+        const cantStr = String(item.cant || 1).padStart(2, " ");
+        const precioStr = `Gs. ${Number(item.precio || 0).toLocaleString("es-PY")}`.padStart(16, " ");
+        cmd += escposText(`${cantStr}x ${item.desc}`, { maxChars: 30 });
+        cmd += escposText(precioStr, { align: "RIGHT", maxChars: 48 });
+      }
+    } catch {
+      cmd += escposText(items, { maxChars: 48 });
+    }
+  }
+
+  // ── Separator ──
+  cmd += "─".repeat(48) + "\n";
+
+  // ── Totals ──
+  const subtotal = data.subtotal || data.total || "";
+  const iva = data.ivaMonto || "";
+  const total = data.total || "";
+
+  if (subtotal) {
+    cmd += escposText(`Subtotal:     ${String(subtotal).padStart(16, " ")}`, { maxChars: 48 });
+  }
+  if (iva) {
+    cmd += escposText(`IVA 10%:      ${String(iva).padStart(16, " ")}`, { maxChars: 48 });
+  }
+  cmd += ESCPOS_BOLD_ON;
+  cmd += escposText(`TOTAL:        ${String(total).padStart(16, " ")}`, { bold: true, maxChars: 48 });
+  cmd += ESCPOS_BOLD_OFF;
+
+  // ── Separator ──
+  cmd += "═".repeat(48) + "\n";
+
+  // ── CDC (electronic) or Barcode ──
+  if (data.cdc) {
+    cmd += ESCPOS_ALIGN_CENTER;
+    cmd += escposText("CDC:", { align: "CENTER", small: true });
+    cmd += escposText(String(data.cdc), { align: "CENTER", small: true, maxChars: 48 });
+    cmd += "\n";
+    cmd += escposQRCode(`https://sifen.gov.py/consulte?r=${data.cdc}`, 5);
+  } else if (data.numeroFactura) {
+    cmd += ESCPOS_ALIGN_CENTER;
+    cmd += escposBarcode128(String(data.numeroFactura), 50);
+  }
+
+  // ── Footer ──
+  cmd += "\n";
+  cmd += escposText("Gracias por su preferencia", { align: "CENTER", small: true, maxChars: 48 });
+  cmd += escposText("www.automotiveos.com.py", { align: "CENTER", small: true, maxChars: 48 });
+
+  // ── Cut paper ──
+  cmd += "\n\n\n";
+  cmd += ESCPOS_CUT;
+
+  return cmd;
+}
+
+/**
+ * Generate plain text receipt for factura (fallback).
+ */
+function generateFacturaPlainText(data: LabelData): string {
+  const w = 48;
+  const sep = "─".repeat(w);
+  const doubleSep = "═".repeat(w);
+  let txt = "";
+
+  const empNombre = String(data.empresaNombre || "AUTOMOTIVEOS");
+  const empRuc = String(data.empresaRuc || "");
+  const empDir = String(data.empresaDireccion || "");
+  txt += `${" ".repeat(Math.floor((w - empNombre.length) / 2))}${empNombre}\n`;
+  if (empRuc) txt += `${" ".repeat(Math.floor((w - empRuc.length) / 2))}${empRuc}\n`;
+  txt += `${" ".repeat(Math.floor((w - empDir.length) / 2))}${empDir}\n`;
+  txt += sep + "\n";
+  txt += `${" ".repeat(Math.floor((w - 7) / 2))}FACTURA\n`;
+  const numFactura = String(data.numeroFactura || "");
+  txt += `${" ".repeat(Math.floor((w - numFactura.length - 3) / 2))}N°: ${numFactura}\n`;
+  const tipoLabel = data.tipoFactura === "ELECTRONICA" ? "Electrónica" : "Manual";
+  txt += `Fecha: ${data.fechaEmision || ""}  Tipo: ${tipoLabel}\n`;
+  txt += sep + "\n";
+  txt += `Cliente: ${data.clienteNombre || ""}\n`;
+  if (data.clienteRuc) txt += `RUC: ${data.clienteRuc}\n`;
+  txt += sep + "\n";
+
+  const items = String(data.lineItems || "");
+  if (items) {
+    try {
+      const parsed = JSON.parse(items) as Array<{ desc: string; cant: number; precio: number; total: number }>;
+      for (const item of parsed) {
+        txt += `  ${item.cant || 1}x ${item.desc}\n`;
+        txt += `          Gs. ${Number(item.precio || 0).toLocaleString("es-PY")}\n`;
+      }
+    } catch {
+      txt += items + "\n";
+    }
+  }
+
+  txt += sep + "\n";
+  if (data.subtotal) txt += `Subtotal:     ${String(data.subtotal).padStart(16)}\n`;
+  if (data.ivaMonto) txt += `IVA 10%:      ${String(data.ivaMonto).padStart(16)}\n`;
+  txt += doubleSep + "\n";
+  txt += `TOTAL:        ${String(data.total || "").padStart(16)}\n`;
+  txt += doubleSep + "\n";
+  if (data.cdc) txt += `CDC: ${data.cdc}\n`;
+  txt += "\nGracias por su preferencia\n";
+  return txt;
+}
+
 // ─── Main Service ─────────────────────────────
 
 /**
- * Generate a print payload for a label.
+ * Generate a print payload for a label or receipt.
  *
- * @param tipo - Label type ("REPUESTO" or "HERRAMIENTA")
+ * @param tipo - Label type ("REPUESTO", "HERRAMIENTA", or "FACTURA")
  * @param protocolo - Printer protocol ("ESCPOS", "ZPL", or "TSPL")
  * @param data - Label data (fields to render)
  * @param layout - Optional custom layout configuration
@@ -362,26 +545,41 @@ export function generateLabelPayload(
   if (tipo === "HERRAMIENTA") {
     widthMm = 60;
     heightMm = 40;
+  } else if (tipo === "FACTURA") {
+    widthMm = 80;
+    heightMm = 200; // dynamic, receipt-length
   }
 
   switch (protocolo) {
     case "ESCPOS":
-      raw = tipo === "HERRAMIENTA"
-        ? generateHerramientaESCPOS(data)
-        : generateRepuestoESCPOS(data);
+      if (tipo === "FACTURA") {
+        raw = generateFacturaESCPOS(data);
+      } else if (tipo === "HERRAMIENTA") {
+        raw = generateHerramientaESCPOS(data);
+      } else {
+        raw = generateRepuestoESCPOS(data);
+      }
       break;
     case "ZPL":
-      raw = tipo === "HERRAMIENTA"
-        ? generateHerramientaZPL(data)
-        : generateRepuestoZPL(data);
+      if (tipo === "HERRAMIENTA") {
+        raw = generateHerramientaZPL(data);
+      } else {
+        raw = generateRepuestoZPL(data);
+      }
       break;
     case "TSPL":
-      raw = tipo === "HERRAMIENTA"
-        ? generateHerramientaTSPL(data)
-        : generateRepuestoTSPL(data);
+      if (tipo === "HERRAMIENTA") {
+        raw = generateHerramientaTSPL(data);
+      } else {
+        raw = generateRepuestoTSPL(data);
+      }
       break;
     default:
-      raw = generatePlainText(tipo, data);
+      if (tipo === "FACTURA") {
+        raw = generateFacturaPlainText(data);
+      } else {
+        raw = generatePlainText(tipo, data);
+      }
       break;
   }
 
@@ -419,7 +617,13 @@ function generatePlainText(tipo: string, data: LabelData): string {
 export function validateLabelData(tipo: string, data: LabelData): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!data.codigo) errors.push("Código es requerido");
+  if (tipo === "FACTURA") {
+    if (!data.numeroFactura) errors.push("Número de factura es requerido");
+    if (!data.total) errors.push("Total es requerido");
+    if (!data.clienteNombre) errors.push("Nombre del cliente es requerido");
+  } else {
+    if (!data.codigo) errors.push("Código es requerido");
+  }
 
   if (tipo === "REPUESTO") {
     if (!data.descripcion) errors.push("Descripción es requerida para repuestos");
