@@ -16,10 +16,9 @@ import {
 import { repuestos } from "../schema/index.js";
 import { almacenes } from "../schema/index.js";
 import { stockMovements } from "../schema/index.js";
-import { eq, and, asc, desc, isNull, count } from "drizzle-orm";
+import { eq, and, asc, desc, count } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
-import { recalcularPPP } from "./costing.service.js";
 
 // ─── Cycle Count CRUD ─────────────────────────
 
@@ -105,7 +104,7 @@ export async function startCycleCount(
       const allRepuestos = await db()
         .select({ id: repuestos.id, stockActual: repuestos.stockActual })
         .from(repuestos)
-        .where(eq(repuestos.activo, true));
+        .where(and(eq(repuestos.activo, true), eq(repuestos.tenantSlug, tenantSlug)));
 
       if (allRepuestos.length > 0) {
         await db().insert(cycleCountItems).values(
@@ -198,7 +197,7 @@ export async function completeCycleCount(id: string, tenantSlug: string) {
 export async function applyAdjustments(
   id: string,
   tenantSlug: string,
-  options?: { generateAsiento?: boolean },
+  _options?: { generateAsiento?: boolean },
 ) {
   const count = await getCycleCountById(id, tenantSlug);
   if (count.estado !== "COMPLETADO") {

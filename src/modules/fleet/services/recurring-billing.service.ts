@@ -9,6 +9,7 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { sql } from "drizzle-orm";
+import { getDb } from "../../../shared/database/connection.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -102,21 +103,25 @@ export async function updateContract(
   }>,
   tenantSlug: string,
 ): Promise<FleetContractRow | null> {
-  const updates: string[] = [];
-  if (data.nombre !== undefined) updates.push(`nombre = '${data.nombre}'`);
-  if (data.montoMensual !== undefined) updates.push(`monto_mensual = '${data.montoMensual}'`);
-  if (data.cicloFacturacion !== undefined) updates.push(`ciclo_facturacion = '${data.cicloFacturacion}'`);
-  if (data.diaCobro !== undefined) updates.push(`dia_cobro = ${data.diaCobro}`);
-  if (data.descripcion !== undefined) updates.push(`descripcion = '${data.descripcion}'`);
-  updates.push("updated_at = now()");
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
 
-  if (updates.length === 1) return null;
+  if (data.nombre !== undefined) { sets.push(`nombre = $${idx++}`); values.push(data.nombre); }
+  if (data.montoMensual !== undefined) { sets.push(`monto_mensual = $${idx++}`); values.push(data.montoMensual); }
+  if (data.cicloFacturacion !== undefined) { sets.push(`ciclo_facturacion = $${idx++}`); values.push(data.cicloFacturacion); }
+  if (data.diaCobro !== undefined) { sets.push(`dia_cobro = $${idx++}`); values.push(data.diaCobro); }
+  if (data.descripcion !== undefined) { sets.push(`descripcion = $${idx++}`); values.push(data.descripcion); }
+  sets.push("updated_at = now()");
 
-  const rows = await db().execute(sql.raw(`
-    UPDATE fleet_contracts SET ${updates.join(", ")}
-    WHERE id = '${id}' AND tenant_slug = '${tenantSlug}'
+  if (sets.length === 1) return null;
+
+  values.push(id, tenantSlug);
+  const rows = await getDb().unsafe(`
+    UPDATE fleet_contracts SET ${sets.join(", ")}
+    WHERE id = $${idx++} AND tenant_slug = $${idx}
     RETURNING *
-  `));
+  `, values as any[]);
   return (rows[0] as unknown as FleetContractRow) || null;
 }
 
@@ -157,13 +162,13 @@ export async function generateMonthlyInvoices(
   for (const contract of dueContracts as any[]) {
     try {
       const monto = Number(contract.monto_mensual);
-      const dummyOrdenId = "00000000-0000-0000-0000-000000000000";
 
+      // Fleet invoices have no work order — orden_id is NULL (migration 0017)
       const facturaRows = await db().execute(sql`
         INSERT INTO facturas
           (tenant_slug, orden_id, tipo, total, estado_pago, saldo_pendiente, fecha_vencimiento)
         VALUES
-          (${tenantSlug}, ${dummyOrdenId}, 'MANUAL', ${String(monto)}, 'PENDIENTE', ${String(monto)},
+          (${tenantSlug}, NULL, 'MANUAL', ${String(monto)}, 'PENDIENTE', ${String(monto)},
            ${new Date(Date.now() + 30 * 86400000).toISOString()})
         RETURNING id
       `);

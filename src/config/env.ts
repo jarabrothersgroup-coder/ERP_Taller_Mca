@@ -57,6 +57,10 @@ interface EnvConfig {
   /** SIFEN test SOAP endpoint URL (optional override) */
   SIFEN_TEST_URL: string;
 
+  // ─── SET Configuration ─────────────────────
+  /** Whether SET/SIFEN invoicing is enabled (true = production with valid cert) */
+  SET_CONFIG: boolean;
+
   // ─── RAG / OpenAI ──────────────────────────
   /** OpenAI API key for embedding generation (RAG system) */
   OPENAI_API_KEY: string;
@@ -132,6 +136,9 @@ export const env: EnvConfig = {
   SIFEN_USE_TEST: process.env["SIFEN_USE_TEST"] === "true" || true,
   SIFEN_PROD_URL: process.env["SIFEN_PROD_URL"] ?? "https://sifen.dnit.gov.py/sifen-ws",
   SIFEN_TEST_URL: process.env["SIFEN_TEST_URL"] ?? "https://sifen-test.dnit.gov.py/sifen-ws",
+
+  // SET invoicing enabled (requires valid SIFEN cert in production)
+  SET_CONFIG: process.env["SET_CONFIG"] === "true",
 
   // RAG defaults (optional — fallback to ILIKE search)
   OPENAI_API_KEY: process.env["OPENAI_API_KEY"] ?? "",

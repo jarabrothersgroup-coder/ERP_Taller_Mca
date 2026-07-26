@@ -10,6 +10,8 @@
  * @module label-printing/services
  */
 
+import { generateFacturaPCL5e } from "./hp-pcl5e.service.js";
+
 // ─── Types ────────────────────────────────────
 
 export interface LabelField {
@@ -184,7 +186,7 @@ function zplQRCode(data: string, x: number = 10, y: number = 10, moduleSize: num
  * @param bold - Bold text
  */
 function zplText(data: string, x: number = 10, y: number = 10, fontSize: number = 18, bold: boolean = false): string {
-  const fontRef = bold ? "^A0N" : "^A0N";
+  const fontRef = bold ? "^A1N" : "^A0N";
   return `^FO${x},${y}${fontRef},${fontSize},${fontSize}^FD${data}^FS`;
 }
 
@@ -474,7 +476,7 @@ export function generateFacturaESCPOS(data: LabelData): string {
 // ─── HTML Escape Helper ────────────────────────
 
 /** Escape HTML special characters */
-function escHtml(s: string): string {
+export function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
@@ -504,6 +506,19 @@ export interface InvoiceConfig {
   companyActividad?: string;
   printerProtocol?: string;
   printerAddress?: string;
+  // SET compliance
+  timbradoNumero?: string;
+  timbradoVigenciaInicio?: string;
+  timbradoVigenciaFin?: string;
+  condicionVentaDefault?: string;
+  showCondicionVenta?: boolean;
+  showContribuyenteIva?: boolean;
+  showTipoCambio?: boolean;
+  seriePrefix?: string;
+  // HP LaserJet P1150
+  printerModel?: string;
+  cupsPrinterName?: string;
+  paperTray?: string;
 }
 
 /**
@@ -803,13 +818,27 @@ export function generateLabelPayload(
       }
       break;
     case "PDF":
-    case "PCL":
       if (tipo === "FACTURA") {
         raw = generateFacturaPDF(data, invoiceConfig);
       } else {
         raw = generatePlainText(tipo, data);
       }
       break;
+    case "PCL": {
+      // HP LaserJet P1150 PCL5e generation
+      if (tipo === "FACTURA") {
+        try {
+          const elements = dataToSETElements(data, invoiceConfig);
+          raw = generateFacturaPCL5e(elements, invoiceConfig?.paperWidthMm || 216, invoiceConfig?.paperHeightMm || 279);
+        } catch {
+          // Fallback to PDF HTML if PCL generation fails
+          raw = generateFacturaPDF(data, invoiceConfig);
+        }
+      } else {
+        raw = generatePlainText(tipo, data);
+      }
+      break;
+    }
     case "ZPL":
       if (tipo === "HERRAMIENTA") {
         raw = generateHerramientaZPL(data);
@@ -838,6 +867,59 @@ export function generateLabelPayload(
     protocol: protocolo,
     estimatedWidthMm: widthMm,
     estimatedHeightMm: heightMm,
+  };
+}
+
+/**
+ * Convert LabelData to SETInvoiceElements for PCL5e generation.
+ */
+function dataToSETElements(data: LabelData, config?: InvoiceConfig): import("./hp-pcl5e.service.js").SETInvoiceElements {
+  // Parse line items
+  let lineItems: Array<{ desc: string; cant: number; precio: number; total: number }> = [];
+  const items = String(data.lineItems || "");
+  if (items) {
+    try { lineItems = JSON.parse(items); } catch { /* ignore */ }
+  }
+
+  // IVA calculation
+  const totalNum = Number(String(data.total || "0").replace(/[^\d]/g, ""));
+  const ivaRate = 0.10;
+  const base = Math.round(totalNum / (1 + ivaRate));
+  const iva = totalNum - base;
+
+  return {
+    emisor: {
+      nombre: config?.companyNombre || String(data.empresaNombre || "AUTOMOTIVEOS"),
+      ruc: config?.companyRuc || String(data.empresaRuc || ""),
+      direccion: config?.companyDireccion || String(data.empresaDireccion || ""),
+      telefono: config?.companyTelefono || String(data.empresaTelefono || ""),
+      actividadEconomica: config?.companyActividad || "Servicios de reparación vehicular",
+    },
+    timbrado: config?.timbradoNumero ? {
+      numero: config.timbradoNumero,
+      fechaVigencia: `${config.timbradoVigenciaInicio || ""} - ${config.timbradoVigenciaFin || ""}`,
+    } : undefined,
+    factura: {
+      numero: String(data.numeroFactura || ""),
+      fechaEmision: String(data.fechaEmision || ""),
+      tipo: (data.tipoFactura === "ELECTRONICA" ? "ELECTRONICA" : "MANUAL") as "MANUAL" | "ELECTRONICA",
+    },
+    cliente: {
+      nombre: String(data.clienteNombre || ""),
+      ruc: String(data.clienteRuc || ""),
+      direccion: String(data.clienteDireccion || ""),
+    },
+    lineItems: lineItems.map((it) => ({
+      descripcion: it.desc,
+      cantidad: it.cant,
+      precioUnitario: it.precio,
+      iva: 10,
+      subtotal: it.total,
+    })),
+    iva: { exento: 0, gravado5: 0, gravado10: iva, totalIva: iva },
+    totales: { subtotal: base, totalIva: iva, total: totalNum },
+    condicionVenta: (config?.condicionVentaDefault || "CONTADO") as "CONTADO" | "CREDITO",
+    cdc: String(data.cdc || ""),
   };
 }
 

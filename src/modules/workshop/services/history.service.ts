@@ -8,7 +8,7 @@
  */
 
 import { db } from "../../../shared/database/drizzle.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { vehiculos } from "../schema/vehiculos.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { ordenesTrabajo } from "../schema/ordenes-trabajo.js";
@@ -56,26 +56,39 @@ export async function getVehicleHistory(
     .where(eq(ordenesTrabajo.vehicleId, vehicleId))
     .orderBy(desc(ordenesTrabajo.createdAt));
 
-  // Enrich each order with its services and parts
-  const enrichedOrdenes = await Promise.all(
-    ordenes.map(async (ot) => {
-      const [servicios, repuestos] = await Promise.all([
-        db()
-          .select()
-          .from(ordenServicios)
-          .where(eq(ordenServicios.ordenTrabajoId, ot.id)),
-        db()
-          .select()
-          .from(ordenRepuestos)
-          .where(eq(ordenRepuestos.ordenTrabajoId, ot.id)),
-      ]);
-      return { ...ot, servicios, repuestos };
-    }),
-  );
+  // Enrich all orders with services + parts in 2 batch queries instead of 2*N
+  const ordenIds = ordenes.map((ot) => ot.id);
+  if (ordenIds.length > 0) {
+    const [allServicios, allRepuestos] = await Promise.all([
+      db().select().from(ordenServicios).where(inArray(ordenServicios.ordenTrabajoId, ordenIds)),
+      db().select().from(ordenRepuestos).where(inArray(ordenRepuestos.ordenTrabajoId, ordenIds)),
+    ]);
+    const serviciosMap = new Map<string, typeof allServicios>();
+    const repuestosMap = new Map<string, typeof allRepuestos>();
+    for (const s of allServicios) {
+      const key = s.ordenTrabajoId;
+      if (!serviciosMap.has(key)) serviciosMap.set(key, []);
+      serviciosMap.get(key)!.push(s);
+    }
+    for (const r of allRepuestos) {
+      const key = r.ordenTrabajoId;
+      if (!repuestosMap.has(key)) repuestosMap.set(key, []);
+      repuestosMap.get(key)!.push(r);
+    }
+    return {
+      vehicle,
+      ordenes: ordenes.map((ot) => ({
+        ...ot,
+        servicios: serviciosMap.get(ot.id) ?? [],
+        repuestos: repuestosMap.get(ot.id) ?? [],
+      })),
+      totalOrdenes: ordenes.length,
+    };
+  }
 
   return {
     vehicle,
-    ordenes: enrichedOrdenes,
+    ordenes: ordenes.map((ot) => ({ ...ot, servicios: [], repuestos: [] })),
     totalOrdenes: ordenes.length,
   };
 }

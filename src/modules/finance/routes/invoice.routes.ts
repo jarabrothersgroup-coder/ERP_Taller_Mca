@@ -76,6 +76,26 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
+      // ── Validate timbrado vigente (SET compliance) ──
+      if (tipoFacturacion === "ELECTRONICA") {
+        const { invoiceConfig } = await import("../../label-printing/schema/invoice-config.js");
+        const [config] = await db()
+          .select()
+          .from(invoiceConfig)
+          .where(eq(invoiceConfig.tenantSlug, tenant))
+          .limit(1);
+
+        if (config?.timbradoVigenciaFin) {
+          const vigenciaFin = new Date(config.timbradoVigenciaFin);
+          if (vigenciaFin < new Date()) {
+            return reply.code(400).send({
+              success: false,
+              error: `El timbrado ${config.timbradoNumero} venció el ${vigenciaFin.toLocaleDateString("es-PY")}. Actualice el timbrado antes de facturar.`,
+            });
+          }
+        }
+      }
+
       try {
         const resultadoFactura = await db().transaction(async (tx) => {
           // ── 1. Fetch the work order ──────────────
@@ -113,6 +133,26 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
             );
           }
 
+          // Check for duplicate manual invoice number (SET compliance)
+          if (tipoFacturacion === "MANUAL" && numeroFacturaManual) {
+            const [duplicateNumero] = await tx
+              .select({ id: facturas.id })
+              .from(facturas)
+              .where(
+                and(
+                  eq(facturas.numeroFacturaManual, numeroFacturaManual),
+                  eq(facturas.tenantSlug, tenant),
+                ),
+              )
+              .limit(1);
+
+            if (duplicateNumero) {
+              throw new Error(
+                `El número de factura ${numeroFacturaManual} ya fue utilizado. Verifique la numeración.`,
+              );
+            }
+          }
+
           // ── 2. Validate totalCost ────────────
           if (!orden.totalCost || Number(orden.totalCost) <= 0) {
             throw new Error(
@@ -146,10 +186,14 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
             xmlFirmadoResult =
               await signXMLInWorker(xmlPlanoDTE);
             const cdcMatch = xmlFirmadoResult.match(/cdc="([^"]+)"/);
-            cdcGenerado = cdcMatch
-              ? cdcMatch[1]!
-              : "PENDING_HOMOLOGATION";
-            estadoSifen = "APROBADO_DNIT";
+            cdcGenerado = cdcMatch?.[1] ?? null;
+            // Only mark as APROBADO_DNIT if CDC was actually extracted
+            estadoSifen = cdcGenerado ? "APROBADO_DNIT" : "OFFLINE_PENDING";
+            if (!cdcGenerado) {
+              request.log.warn(
+                "[invoice] CDC no extraído del XML firmado — factura queda pendiente de homologación"
+              );
+            }
           } else {
             // Motor B — manual/transitional (pre-printed invoice)
             estadoSifen = "MANUAL_CONVERT_QUEUE";
@@ -448,12 +492,14 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
         .where(eq(facturaDetalles.facturaId, id))
         .orderBy(facturaDetalles.numeroLinea);
 
-      // Fetch work order info
-      const [orden] = await db()
-        .select()
-        .from(ordenesTrabajo)
-        .where(eq(ordenesTrabajo.id, invoice.ordenId))
-        .limit(1);
+      // Fetch work order info (nullable for fleet billing invoices)
+      const [orden] = invoice.ordenId
+        ? await db()
+            .select()
+            .from(ordenesTrabajo)
+            .where(eq(ordenesTrabajo.id, invoice.ordenId))
+            .limit(1)
+        : [undefined];
 
       return reply.send({
         ...invoice,

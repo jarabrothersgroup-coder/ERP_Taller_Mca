@@ -19,7 +19,11 @@
  * @module finance/services/sifen/sifen-crypto.service
  */
 import crypto from "node:crypto";
+import { readFileSync, existsSync } from "node:fs";
 import { Worker } from "node:worker_threads";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import forge from "node-forge";
 import { env } from "../../../../config/env.js";
 import { ValidationError } from "../../../../shared/errors/app-error.js";
 
@@ -27,6 +31,24 @@ import { ValidationError } from "../../../../shared/errors/app-error.js";
 
 /** Default hash algorithm for X.509 certificates */
 const DEFAULT_HASH = "sha256";
+
+// ─── Worker path resolution ────────────────────
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/**
+ * Pick the worker file that exists at runtime.
+ * - Production (compiled .js in dist/): uses .js
+ * - Dev/test (tsx): falls back to .ts
+ */
+function resolveWorkerPath(): string {
+  const jsPath = resolve(__dirname, "sifen-crypto.worker.js");
+  const tsPath = resolve(__dirname, "sifen-crypto.worker.ts");
+  return existsSync(jsPath) ? jsPath : tsPath;
+}
+
+const WORKER_PATH = resolveWorkerPath();
 
 // ─── In-memory certificate cache ───────────────
 
@@ -45,8 +67,8 @@ let certCache: CertCache | null = null;
  * PKCS#12 file. The certificate is cached in memory for the lifetime
  * of the process (or until a configurable TTL).
  *
- * This function is synchronous but lightweight (~50KB parsed). The
- * actual signing work is offloaded to a worker thread.
+ * Uses node-forge to parse PKCS#12 (.p12/.pfx) containers, then
+ * converts to Node.js crypto KeyObject + PEM for signing.
  *
  * @returns The certificate PEM and private key
  * @throws {ValidationError} If the certificate cannot be loaded
@@ -58,6 +80,7 @@ function loadCertificate(): { certPem: string; keyPem: crypto.KeyObject } {
   }
 
   const certPath = env.SIFEN_CERT_PATH;
+  const certPass = env.SIFEN_CERT_PASS ?? "";
 
   if (!certPath) {
     throw new ValidationError(
@@ -66,16 +89,44 @@ function loadCertificate(): { certPem: string; keyPem: crypto.KeyObject } {
   }
 
   try {
+    // Read the PKCS#12 file from disk
+    const p12Buffer = readFileSync(certPath);
 
-    // Node.js crypto doesn't support direct PKCS#12 parsing.
-    // In production, use node-forge or openssl CLI to extract PEM files.
-    // Here we generate a development placeholder.
-    const keyPem = crypto.createPrivateKey({ key: crypto.randomBytes(32), format: "der", type: "pkcs8" });
-    const certPem = `-----BEGIN CERTIFICATE-----\nMIID${crypto.randomBytes(20).toString("base64")}\n-----END CERTIFICATE-----\n`;
+    // Parse with node-forge
+    const p12Asn1 = forge.asn1.fromDer(forge.util.decode64(p12Buffer.toString("base64")));
+    const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, certPass);
 
-    certCache = { certPem, keyPem, loadedAt: Date.now() };
-    return { certPem, keyPem };
+    // node-forge OIDs (not exported in types)
+    const PKCS8_SHROUDED_KEY_OID = "1.2.840.113549.1.12.10.1.2";
+    const CERT_BAG_OID = "1.2.840.113549.1.9.22.1";
+
+    // Extract private key (PKCS#8 PEM)
+    const keyBags = p12.getBags({ bagType: PKCS8_SHROUDED_KEY_OID });
+    const keyBag = keyBags[PKCS8_SHROUDED_KEY_OID]?.[0];
+    if (!keyBag?.key) {
+      throw new ValidationError(
+        "No se pudo extraer la clave privada del certificado .p12",
+      );
+    }
+    const keyPem = forge.pki.privateKeyToPem(keyBag.key);
+
+    // Extract X.509 certificate (PEM)
+    const certBags = p12.getBags({ bagType: CERT_BAG_OID });
+    const certBag = certBags[CERT_BAG_OID]?.[0];
+    if (!certBag?.cert) {
+      throw new ValidationError(
+        "No se pudo extraer el certificado X.509 del archivo .p12",
+      );
+    }
+    const certPem = forge.pki.certificateToPem(certBag.cert);
+
+    // Convert forge PEM to Node.js KeyObject
+    const keyObj = crypto.createPrivateKey({ key: keyPem, format: "pem" });
+
+    certCache = { certPem, keyPem: keyObj, loadedAt: Date.now() };
+    return { certPem, keyPem: keyObj };
   } catch (err) {
+    if (err instanceof ValidationError) throw err;
     const message = err instanceof Error ? err.message : "Unknown error";
     throw new ValidationError(
       `Error al cargar certificado SIFEN: ${message}`,
@@ -212,6 +263,9 @@ function signXMLSync(
  * This is the preferred path for production use as it keeps the
  * main thread free. The worker is spawned, signs, and terminates.
  *
+ * Uses the ESM worker file (sifen-crypto.worker.ts) which handles
+ * real PKCS#12 certificate loading via node-forge.
+ *
  * @param xmlContent - The XML string to sign
  * @returns The signed XML
  */
@@ -224,93 +278,32 @@ export async function signXMLInWorker(xmlContent: string): Promise<string> {
   }
 
   return new Promise<string>((resolve, reject) => {
-    const workerCode = `
-      const { parentPort } = require('worker_threads');
-      const crypto = require('crypto');
-      const fs = require('fs');
+    const isTs = WORKER_PATH.endsWith(".ts");
+    const worker = new Worker(WORKER_PATH, {
+      workerData: { xmlRaw: xmlContent, certPath, certPass: certPass ?? "" },
+      execArgv: isTs ? ["--import", "tsx/esm"] : [],
+    });
 
-      parentPort.on('message', (msg) => {
-        try {
-          const { xml, certPath, certPass } = msg;
-          const p12Buffer = fs.readFileSync(certPath);
-          const key = crypto.createPrivateKey({
-            key: p12Buffer,
-            format: 'der',
-            type: 'pkcs12',
-            passphrase: certPass,
-          });
-
-          // Canonicalize
-          const canonicalXml = xml.replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n').replace(/\\n\\s*\\n/g, '\\n').trim();
-
-          // Digest
-          const digest = crypto.createHash('sha256');
-          digest.update(Buffer.from(canonicalXml, 'utf-8'));
-          const digestValue = digest.digest('base64');
-
-          // SignedInfo
-          const signedInfo = [
-            '<ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">',
-            '  <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>',
-            '  <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>',
-            '  <ds:Reference URI="">',
-            '    <ds:Transforms>',
-            '      <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>',
-            '      <ds:Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>',
-            '    </ds:Transforms>',
-            '    <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>',
-            '    <ds:DigestValue>' + digestValue + '</ds:DigestValue>',
-            '  </ds:Reference>',
-            '</ds:SignedInfo>',
-          ].join('\\n');
-
-          const signer = crypto.createSign('sha256');
-          signer.update(Buffer.from(signedInfo, 'utf-8'));
-          signer.end();
-          const signatureValue = signer.sign(key).toString('base64');
-
-          // KeyInfo
-          const keyInfo = [
-            '  <ds:KeyInfo>',
-            '    <ds:X509Data>',
-            '      <ds:X509Certificate>' + 'PLACEHOLDER_CERT' + '</ds:X509Certificate>',
-            '    </ds:X509Data>',
-            '  </ds:KeyInfo>',
-          ].join('\\n');
-
-          const signatureXml = [
-            '<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">',
-            signedInfo,
-            '  <ds:SignatureValue>' + signatureValue + '</ds:SignatureValue>',
-            keyInfo,
-            '</ds:Signature>',
-          ].join('\\n');
-
-          const signedXml = canonicalXml.replace('</rEnvioDTE>', signatureXml + '\\n</rEnvioDTE>');
-          parentPort.postMessage({ success: true, signedXml });
-        } catch (err) {
-          parentPort.postMessage({ success: false, error: err.message });
-        }
-      });
-    `;
-
-    const worker = new Worker(workerCode, { eval: true });
-
-    worker.on("message", (msg: any) => {
+    worker.on("message", (msg: { success: boolean; xmlSigned?: string; error?: string }) => {
       if (msg.success) {
-        resolve(msg.signedXml);
+        resolve(msg.xmlSigned!);
       } else {
-        reject(new Error(msg.error));
+        reject(new Error(msg.error ?? "Worker SIFEN falló sin mensaje de error"));
       }
-      worker.terminate();
+      void worker.terminate();
     });
 
-    worker.on("error", (err) => {
-      reject(err);
-      worker.terminate();
+    worker.on("error", (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      reject(new Error(`Worker SIFEN error: ${message}`));
+      void worker.terminate();
     });
 
-    worker.postMessage({ xml: xmlContent, certPath, certPass });
+    worker.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker SIFEN terminó con código ${code}`));
+      }
+    });
   });
 }
 
@@ -331,25 +324,25 @@ export function verifySignature(signedXml: string): boolean {
     const signatureValue = Buffer.from(sigMatch[1], "base64");
     const { certPem } = loadCertificate();
 
-    // Reconstruct SignedInfo
-    const digestMatch = signedXml.match(
-      /<ds:DigestValue>([^<]+)<\/ds:DigestValue>/,
+    // Extract the exact SignedInfo block from the XML (preserves original bytes)
+    const signedInfoMatch = signedXml.match(
+      /<ds:SignedInfo[\s\S]*?<\/ds:SignedInfo>/,
     );
-    if (!digestMatch) return false;
+    if (!signedInfoMatch) return false;
+
+    // Canonicalize SignedInfo the same way signXMLSync does for deterministic verification
+    const canonicalSignedInfo = signedInfoMatch[0]
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\n\s*\n/g, "\n")
+      .trim();
 
     // Verify with the public key from the certificate
     const x509 = new crypto.X509Certificate(certPem);
     const publicKey = x509.publicKey;
 
     const verifier = crypto.createVerify(DEFAULT_HASH);
-    // We need the exact SignedInfo that was signed
-    // For simplicity, we reconstruct it from the XML
-    const signedInfoMatch = signedXml.match(
-      /<ds:SignedInfo[\s\S]*?<\/ds:SignedInfo>/,
-    );
-    if (!signedInfoMatch) return false;
-
-    verifier.update(Buffer.from(signedInfoMatch[0], "utf-8"));
+    verifier.update(Buffer.from(canonicalSignedInfo, "utf-8"));
     verifier.end();
 
     return verifier.verify(publicKey, signatureValue);

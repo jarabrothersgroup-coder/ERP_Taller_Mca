@@ -95,8 +95,18 @@ export async function predictMaintenance(
   // Estimate km per month based on visit frequency
   let kmPorMes = 1500; // Default: ~1500 km/month for Paraguay
   if (recentOTs.length >= 2) {
-    // Estimate km per month based on visit frequency
-    kmPorMes = Math.round(1500);
+    // Calculate average interval between visits in days
+    let totalDays = 0;
+    for (let i = 1; i < recentOTs.length; i++) {
+      const prev = new Date(recentOTs[i - 1]!.createdAt);
+      const curr = new Date(recentOTs[i]!.createdAt);
+      totalDays += Math.abs(curr.getTime() - prev.getTime()) / 86400000;
+    }
+    const avgDaysBetweenVisits = totalDays / (recentOTs.length - 1);
+    // Estimate km: assume ~50km per workshop visit on average
+    if (avgDaysBetweenVisits > 0) {
+      kmPorMes = Math.round((30 / avgDaysBetweenVisits) * 50);
+    }
   }
 
   const kmActual = kmPorMes * 12; // Estimate current km
@@ -159,12 +169,15 @@ export async function getAllPredictions(
     .limit(100);
 
   const predictions: VehiclePrediction[] = [];
-  for (const v of vehicles) {
-    try {
-      const pred = await predictMaintenance(v.id, tenantSlug);
-      predictions.push(pred);
-    } catch {
-      // Skip vehicles that can't be predicted
+  // Batch parallel with concurrency limit of 10 to avoid DB connection flood
+  const BATCH = 10;
+  for (let i = 0; i < vehicles.length; i += BATCH) {
+    const batch = vehicles.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((v) => predictMaintenance(v.id, tenantSlug)),
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") predictions.push(r.value);
     }
   }
 

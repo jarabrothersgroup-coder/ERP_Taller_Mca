@@ -191,7 +191,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: CREATE — plan_cuentas
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CREATE",
         entidad: "plan_cuentas",
@@ -315,7 +315,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: CREATE — asientos_contables
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CREATE",
         entidad: "asientos_contables",
@@ -411,7 +411,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: ANULAR — asientos_contables
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "ANULAR",
         entidad: "asientos_contables",
@@ -1024,7 +1024,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: CERRAR
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CERRAR",
         entidad: "tenant_config",
@@ -1105,7 +1105,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CREATE",
         entidad: "centros_costo",
@@ -1486,7 +1486,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: reversión automática
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CREATE",
         entidad: "asientos_contables",
@@ -1517,7 +1517,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       // Audit: cierre mensual
       await logAudit({
         tenantSlug: request.tenantSlug,
-        usuarioId: (request.headers["x-user-email"] as string) ?? "system",
+        usuarioId: request.profile?.email ?? "system",
         ip: request.ip,
         accion: "CERRAR",
         entidad: "cierre_contable",

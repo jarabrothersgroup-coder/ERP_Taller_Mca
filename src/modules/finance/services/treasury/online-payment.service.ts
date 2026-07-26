@@ -138,7 +138,16 @@ async function generatePagosPyLink(
   const apiUrl = process.env["PAGOSPY_API_URL"] ?? "https://api.pasarelapy.com/v1";
 
   if (!apiKey) {
-    // Modo desarrollo: mock
+    // Modo desarrollo: mock con warning
+    if (process.env["NODE_ENV"] === "production") {
+      throw new ValidationError(
+        "PAGOSPY_API_KEY no configurado. Configure la variable de entorno para pagos online en producción."
+      );
+    }
+    console.warn(
+      "[online-payment] ⚠️  MODO DESARROLLO — Link de pago PAGOS_PY simulado. " +
+      "Configure PAGOSPY_API_KEY para pagos reales."
+    );
     return {
       facturaId,
       provider: "PAGOS_PY",

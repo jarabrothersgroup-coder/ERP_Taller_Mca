@@ -88,8 +88,9 @@ describe("resolveProfile", () => {
     expect(req.profile).toBeUndefined();
   });
 
-  it("resolves profile from DB when email header present", async () => {
+  it("resolves profile from DB when email header present (legacy enabled)", async () => {
     vi.clearAllMocks();
+    process.env.ALLOW_X_USER_EMAIL_HEADER = "true";
     const fakeProfile = { id: "p1", email: "mech@test.com", fullName: "Mechanic", role: "mechanic", isActive: true, tenantId: "t1" };
     mockProfileResult(fakeProfile);
 
@@ -101,6 +102,20 @@ describe("resolveProfile", () => {
 
     expect(req.profile).toEqual(fakeProfile);
     expect(mockSelect).toHaveBeenCalled();
+    delete process.env.ALLOW_X_USER_EMAIL_HEADER;
+  });
+
+  it("ignores X-User-Email header when ALLOW_X_USER_EMAIL_HEADER is not set", async () => {
+    vi.clearAllMocks();
+    delete process.env.ALLOW_X_USER_EMAIL_HEADER;
+    const req = makeRequest({
+      headers: { "x-user-email": "mech@test.com" },
+      tenantSlug: "test-tenant",
+    });
+    await resolveProfile(req, makeReply());
+
+    expect(req.profile).toBeUndefined();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 
   it("sets profile to undefined when user not found", async () => {
