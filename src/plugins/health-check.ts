@@ -15,6 +15,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { validateConnection } from "../shared/database/connection.js";
+import { requireAuth } from "../shared/middleware/rbac.js";
 import type { HealthCheckResponse } from "../shared/types/index.js";
 
 const startTime = Date.now();
@@ -120,8 +121,8 @@ async function pingService(
  * @param app - Fastify instance
  */
 export async function healthCheckPlugin(app: FastifyInstance): Promise<void> {
-  // Full health check
-  app.get("/health", async (_request, reply) => {
+   // Full health check — requires authentication
+   app.get("/health", { preHandler: [requireAuth] }, async (_request, reply) => {
     const dbHealthy = await validateConnection();
     const mem = process.memoryUsage();
 
