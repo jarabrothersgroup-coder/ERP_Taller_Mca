@@ -14,31 +14,18 @@ const intlMiddleware = createIntlMiddleware({
   locales: locales as unknown as string[],
   defaultLocale,
   localeDetection: true,
-  localePrefix: "as-needed",
+  // "never" avoids locale prefix in URL — pages keep clean paths.
+  // The locale is detected from the cookie/header and available via getLocale().
+  localePrefix: "never",
 });
 
 const publicRoutes = ["/sign-in", "/sign-up", "/api/auth"];
 
-/**
- * Check if pathname matches a public route, optionally with a locale prefix.
- * This avoids infinite redirect loops when i18n middleware prefixes the URL.
- */
-function isPublicRoute(pathname: string): boolean {
-  // Direct match (no locale prefix)
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return true;
-  }
-  // Locale-prefixed match: /es/sign-in, /en/api/auth/..., etc.
-  return locales.some((locale) =>
-    publicRoutes.some((route) => pathname.startsWith(`/${locale}${route}`)),
-  );
-}
-
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes (including locale-prefixed versions)
-  if (isPublicRoute(pathname)) {
+  // Allow public routes (no locale prefix since localePrefix="never")
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return intlMiddleware(request);
   }
 
