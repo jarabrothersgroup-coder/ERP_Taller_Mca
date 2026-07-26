@@ -43,8 +43,8 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 96 FULL COMPLETED — Hub de Operaciones (Kanban, OT detail, quick create, inline repuestos/terceros, WhatsApp consolidado, CobroActions) + refactored to 4 components + 29 tests (render + integration) + deployed to PCSERVER + PC01Tmca",
-    "next_sprint": "Sprint 97 — E2E Playwright test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
+    "current_sprint": "Sprint 97 — Ejecutivo dashboard overhaul + data-service exports + custom error pages + deployed to PCSERVER + PC01Tmca",
+    "next_sprint": "Sprint 98 — E2E Playwright test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
     "sprint_96_completed": {
       "goal": "Sprint 96 — Hub de Operaciones (Operations Hub) + refactoring + 29 tests + deploy",
       "duration": "1 day",
