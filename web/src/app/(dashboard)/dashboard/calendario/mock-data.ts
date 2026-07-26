@@ -1,6 +1,9 @@
 import type { UIMappedAppointment } from "@/lib/data-service";
 
-export interface AppointmentRecord extends UIMappedAppointment {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface AppointmentRecord extends UIMappedAppointment {
+  // Calendar appointment record UI type (extends UIMappedAppointment)
+}
 
 const clientNames = [
   "María González", "Pedro López", "Juan Pérez", "Lucía Fernández",

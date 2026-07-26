@@ -23,8 +23,9 @@ import type { UIMappedFleet } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface FleetRecord extends UIMappedFleet {
-  // Extended from base type
+  // Extended from base type (extends UIMappedFleet)
 }
 
 /* ── Contract Type Colors ───────────────────── */

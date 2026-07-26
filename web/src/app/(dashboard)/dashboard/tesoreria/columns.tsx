@@ -14,8 +14,9 @@ import type { UIMappedBankAccount, UIMappedMovement } from "@/lib/data-service";
 
 export type Tab = "cuentas" | "movimientos" | "cxc" | "conciliacion";
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CUentaRecord extends UIMappedBankAccount {
-  // Extended with UI-only fields
+  // Extended with UI-only fields (extends UIMappedBankAccount)
 }
 
 export interface MovimientoRecord extends UIMappedMovement {

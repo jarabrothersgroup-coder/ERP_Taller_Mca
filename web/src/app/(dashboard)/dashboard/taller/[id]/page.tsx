@@ -101,7 +101,10 @@ export default function OrdenDetailPage() {
   const params = useParams();
   const router = useRouter();
   const qc = useQueryClient();
-  const id = params.id as string;
+  const id = params?.id as string;
+  if (!id) {
+    return null; // Should never happen on [id] dynamic route
+  }
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = React.useState("resumen");

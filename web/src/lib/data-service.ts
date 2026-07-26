@@ -131,7 +131,7 @@ async function fetchOrMock<T>(
 /**
  * Maps a backend work order (from GET /workshop/ordenes) to the UI shape.
  */
-function mapWorkOrderFromApi(apiOrder: Record<string, unknown>, index: number): UIMappedWorkOrder {
+export function mapWorkOrderFromApi(apiOrder: Record<string, unknown>, index: number): UIMappedWorkOrder {
   const statusMap: Record<string, OrderStatus> = {
     Presupuestado: "budgeted",
     Aprobado: "in_progress",
@@ -168,7 +168,7 @@ function mapWorkOrderFromApi(apiOrder: Record<string, unknown>, index: number): 
 /**
  * Maps a backend inventory item to the UI shape.
  */
-function mapInventoryFromApi(apiItem: Record<string, unknown>): UIMappedInventoryItem {
+export function mapInventoryFromApi(apiItem: Record<string, unknown>): UIMappedInventoryItem {
   const stock = Number(apiItem.stockActual ?? 0);
   const minStock = Number(apiItem.stockMinimo ?? 0);
   const status: UIMappedInventoryItem["status"] =
@@ -202,7 +202,7 @@ const statusMapFR: Record<string, string> = {
 /**
  * Maps a backend invoice to the UI shape.
  */
-function mapInvoiceFromApi(apiInvoice: Record<string, unknown>): UIMappedInvoice {
+export function mapInvoiceFromApi(apiInvoice: Record<string, unknown>): UIMappedInvoice {
   const total = Number(apiInvoice.total ?? 0);
   const sifenStatus = apiInvoice.sifenStatus as string;
   const estado = statusMapFR[sifenStatus] || "PENDIENTE";
@@ -239,7 +239,7 @@ export interface UIMappedClient {
 /**
  * Maps a backend client (from GET /workshop/clientes) to the UI shape.
  */
-function mapClientFromApi(apiClient: Record<string, unknown>): UIMappedClient {
+export function mapClientFromApi(apiClient: Record<string, unknown>): UIMappedClient {
   return {
     id: apiClient.id as string,
     name: apiClient.name as string,
@@ -268,7 +268,7 @@ export interface UIMappedAccount {
 /**
  * Maps a backend accounting account to the UI shape.
  */
-function mapAccountFromApi(apiAccount: Record<string, unknown>): UIMappedAccount {
+export function mapAccountFromApi(apiAccount: Record<string, unknown>): UIMappedAccount {
   return {
     id: apiAccount.id as string,
     codigo: apiAccount.codigo as string,
@@ -322,7 +322,7 @@ export interface UIMappedVehicle {
 /**
  * Maps a backend vehicle (from GET /workshop/vehiculos) to the UI shape.
  */
-function mapVehicleFromApi(apiVehicle: Record<string, unknown>): UIMappedVehicle {
+export function mapVehicleFromApi(apiVehicle: Record<string, unknown>): UIMappedVehicle {
   return {
     id: apiVehicle.id as string,
     plate: (apiVehicle.plate as string) ?? null,
@@ -379,7 +379,7 @@ export interface UIMappedBankAccount {
   createdAt?: string;
 }
 
-function mapBankAccountFromApi(api: Record<string, unknown>): UIMappedBankAccount {
+export function mapBankAccountFromApi(api: Record<string, unknown>): UIMappedBankAccount {
   return {
     id: api.id as string,
     codigo: (api.codigo as string) || "",
@@ -428,7 +428,7 @@ export interface UIMappedMovement {
   conciliado: boolean;
 }
 
-function mapMovementFromApi(api: Record<string, unknown>): UIMappedMovement {
+export function mapMovementFromApi(api: Record<string, unknown>): UIMappedMovement {
   return {
     id: api.id as string,
     tipo: (api.tipo as UIMappedMovement["tipo"]) || "INGRESO",
@@ -476,7 +476,7 @@ export interface UIMappedAnalyticsData {
   mesActual: string;
 }
 
-function mapAnalyticsFromApi(api: Record<string, unknown>): UIMappedAnalyticsData {
+export function mapAnalyticsFromApi(api: Record<string, unknown>): UIMappedAnalyticsData {
   return {
     totalIngresos: Number(api.totalIngresos ?? 0),
     totalOrdenes: Number(api.totalOrdenes ?? 0),
@@ -522,7 +522,7 @@ export interface UIMappedUser {
   createdAt: string;
 }
 
-function mapUserFromApi(api: Record<string, unknown>): UIMappedUser {
+export function mapUserFromApi(api: Record<string, unknown>): UIMappedUser {
   return {
     id: api.id as string,
     name: (api.name as string) || (api.nombre as string) || "",
@@ -572,7 +572,7 @@ export interface UIMappedAppointment {
   createdAt: string;
 }
 
-function mapAppointmentFromApi(api: Record<string, unknown>): UIMappedAppointment {
+export function mapAppointmentFromApi(api: Record<string, unknown>): UIMappedAppointment {
   return {
     id: api.id as string,
     clienteNombre: (api.clienteNombre as string) || "",
@@ -625,7 +625,7 @@ export interface UIMappedConfigSettings {
   facturaInicio: string;
 }
 
-function mapConfigFromApi(api: Record<string, unknown>): UIMappedConfigSettings {
+export function mapConfigFromApi(api: Record<string, unknown>): UIMappedConfigSettings {
   return {
     companyName: (api.companyName as string) || (api.razon_social as string) || "",
     companyRuc: (api.companyRuc as string) || (api.ruc as string) || "",
@@ -675,7 +675,7 @@ export interface UIMappedWhatsAppMessage {
   errorMessage?: string | null;
 }
 
-function mapWhatsAppMessageFromApi(api: Record<string, unknown>): UIMappedWhatsAppMessage {
+export function mapWhatsAppMessageFromApi(api: Record<string, unknown>): UIMappedWhatsAppMessage {
   return {
     id: api.id as string,
     clienteName: (api.clienteName as string) || "",
@@ -729,7 +729,7 @@ export interface UIMappedFleet {
   createdAt: string;
 }
 
-function mapFleetFromApi(api: Record<string, unknown>): UIMappedFleet {
+export function mapFleetFromApi(api: Record<string, unknown>): UIMappedFleet {
   return {
     id: api.id as string,
     nombre: (api.nombre as string) || "",
@@ -780,7 +780,7 @@ export interface UIMappedAuditEntry {
   createdAt: string;
 }
 
-function mapAuditFromApi(api: Record<string, unknown>): UIMappedAuditEntry {
+export function mapAuditFromApi(api: Record<string, unknown>): UIMappedAuditEntry {
   return {
     id: api.id as string,
     usuario: (api.usuario as string) || (api.userEmail as string) || (api.createdBy as string) || "",

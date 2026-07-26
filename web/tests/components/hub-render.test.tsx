@@ -13,7 +13,18 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 
+// Static import avoids Vitest module caching issues with React.lazy
+import HubPage from "@/app/(dashboard)/dashboard/hub/page";
+
 // ─── Mocks ─────────────────────────────────────
+
+// Use vi.hoisted to define mock fns before vi.mock hoisting (avoids TDZ errors)
+// Note: React.createElement is NOT available inside vi.hoisted (runs before imports)
+const { mockListWorkOrders, mockRequest, MockIcon } = vi.hoisted(() => ({
+  mockListWorkOrders: vi.fn(),
+  mockRequest: vi.fn(),
+  MockIcon: () => null as any,
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -24,10 +35,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: { success: vi.fn(), error: vi.fn() } }),
 }));
-
-// Mock lucide-react icons as simple span elements
-const MockIcon = ({ className, children }: any) =>
-  React.createElement("span", { "data-testid": "lucide-icon", className }, children || null);
 
 vi.mock("lucide-react", () => ({
   LayoutDashboard: MockIcon,
@@ -64,10 +71,6 @@ vi.mock("lucide-react", () => ({
   GitBranch: MockIcon,
   GripVertical: MockIcon,
 }));
-
-// Mock API with realistic data
-const mockListWorkOrders = vi.fn();
-const mockRequest = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   api: {
@@ -107,18 +110,13 @@ vi.mock("@/components/hub/quick-create-modal", () => ({
     open ? React.createElement("div", { "data-testid": "quick-create-modal" }, "Quick Create Modal") : null,
 }));
 
-// ─── Test helpers ──────────────────────────────
-
 function renderHub() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
-  const Page = React.lazy(() => import("@/app/(dashboard)/dashboard/hub/page"));
   return render(
     React.createElement(QueryClientProvider, { client: queryClient },
-      React.createElement(React.Suspense, { fallback: React.createElement("div", null, "Loading...") },
-        React.createElement(Page)
-      )
+      React.createElement(HubPage)
     )
   );
 }
