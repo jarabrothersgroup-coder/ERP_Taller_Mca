@@ -38,6 +38,16 @@ import {
   buildMessage,
   MESSAGE_TEMPLATES,
 } from "../services/whatsapp.service.js";
+import {
+  getUnresolvedErrors,
+  getErrorStats,
+  resolveError,
+} from "../../../shared/middleware/integration-error-logger.js";
+import {
+  processPendingMessages,
+  retryFailedMessages,
+  getQueueStats,
+} from "../services/whatsapp-queue.service.js";
 import type {
   SendMessageRequest,
   MessageTemplateData,
@@ -397,10 +407,6 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       const limit = limitStr ? parseInt(limitStr, 10) : 20;
 
       try {
-        const { getUnresolvedErrors, getErrorStats } = await import(
-          "../../../shared/middleware/integration-error-logger.js"
-        );
-
         const errors = await getUnresolvedErrors(tenantSlug, limit);
         const stats = await getErrorStats(tenantSlug);
 
@@ -443,10 +449,6 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       const { notes } = request.body || {};
 
       try {
-        const { resolveError } = await import(
-          "../../../shared/middleware/integration-error-logger.js"
-        );
-
         await resolveError(errorId, userEmail, notes);
         return reply.send({ success: true, message: "Error marcado como resuelto" });
       } catch (err) {
@@ -463,9 +465,6 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       const tenantSlug = (request as any).tenantSlug as string;
 
       try {
-        const { processPendingMessages } = await import(
-          "../services/whatsapp-queue.service.js"
-        );
         const result = await processPendingMessages(tenantSlug);
         return reply.send(result);
       } catch (err) {
@@ -482,9 +481,6 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       const tenantSlug = (request as any).tenantSlug as string;
 
       try {
-        const { retryFailedMessages } = await import(
-          "../services/whatsapp-queue.service.js"
-        );
         const result = await retryFailedMessages(tenantSlug);
         return reply.send(result);
       } catch (err) {
@@ -501,9 +497,6 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       const tenantSlug = (request as any).tenantSlug as string;
 
       try {
-        const { getQueueStats } = await import(
-          "../services/whatsapp-queue.service.js"
-        );
         const stats = await getQueueStats(tenantSlug);
         return reply.send(stats);
       } catch (err) {
