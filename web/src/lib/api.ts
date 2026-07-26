@@ -983,6 +983,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** Generate ESC/POS thermal receipt for an invoice */
+  printInvoice: (facturaId: string, protocolo: string = "ESCPOS", copias: number = 1) =>
+    request<{ payload: string; protocol: string; estimatedWidthMm: number; factura: any }>(
+      `/label-printing/factura/${facturaId}?protocolo=${protocolo}&copias=${copias}`,
+    ),
+
   /* ── Backup ────────────────────────────────── */
 
   listBackups: () => request<BackupJob[]>("/backup/list"),

@@ -11,6 +11,7 @@ import {
   Filter,
   FileText,
   Download,
+  Printer,
 } from "lucide-react";
 import { useInvoices } from "@/hooks/use-data";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
@@ -80,6 +81,38 @@ const columns: Column<UIMappedInvoice>[] = [
   },
   { header: "Emisión", accessor: "fechaEmision", sortable: true, hideOnMobile: true, className: "text-xs text-muted-foreground" },
   { header: "Vencimiento", accessor: "fechaVencimiento", sortable: true, align: "right", className: "text-xs" },
+  {
+    header: "",
+    accessor: "id",
+    className: "w-10",
+    cell: (_val, row) => (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0"
+        title="Imprimir factura"
+        onClick={async (e) => {
+          e.stopPropagation();
+          try {
+            const { api } = await import("@/lib/api");
+            const result = await api.printInvoice(row.id);
+            // Send raw ESC/POS to browser print (or WebSocket printer)
+            const blob = new Blob([result.payload], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Factura-${row.numero || row.id.slice(0, 8)}.bin`;
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            console.error("Error printing invoice:", err);
+          }
+        }}
+      >
+        <Printer className="h-3.5 w-3.5" />
+      </Button>
+    ),
+  },
 ];
 
 /* ── Page ─────────────────────────────────────── */
