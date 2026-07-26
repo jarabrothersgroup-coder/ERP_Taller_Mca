@@ -471,8 +471,248 @@ export function generateFacturaESCPOS(data: LabelData): string {
   return cmd;
 }
 
+// ─── HTML Escape Helper ────────────────────────
+
+/** Escape HTML special characters */
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ─── PDF Generation (HP LaserJet / CUPS) ──────
+
 /**
- * Generate plain text receipt for factura (fallback).
+ * Invoice config options for toggling visible sections.
+ */
+export interface InvoiceConfig {
+  paperWidthMm?: number;
+  paperHeightMm?: number;
+  showCompanyHeader?: boolean;
+  showClientInfo?: boolean;
+  showLineItems?: boolean;
+  showSubtotal?: boolean;
+  showIva?: boolean;
+  showBarcode?: boolean;
+  showQRCode?: boolean;
+  showFooter?: boolean;
+  showTimbrado?: boolean;
+  showIvaPerLine?: boolean;
+  showConservation?: boolean;
+  companyNombre?: string;
+  companyRuc?: string;
+  companyDireccion?: string;
+  companyTelefono?: string;
+  companyActividad?: string;
+  printerProtocol?: string;
+  printerAddress?: string;
+}
+
+/**
+ * Generate HTML invoice for PDF rendering (HP LaserJet, any CUPS printer).
+ *
+ * Conforms to SET Paraguay requirements (RG 1382/05):
+ * - Recuadro sup. izq: company data (nombre, RUC, dirección, actividad)
+ * - Recuadro sup. der: timbrado, fecha vigencia, RUC emisor, denominación, numeración 13 dígitos
+ * - Client info, line items, IVA breakdown, totals
+ * - CDC + QR for electronic, barcode for manual
+ *
+ * @returns HTML string ready for Chromium PDF conversion
+ */
+export function generateFacturaPDF(
+  data: LabelData,
+  config?: InvoiceConfig,
+): string {
+  const cfg = {
+    showCompanyHeader: true,
+    showClientInfo: true,
+    showLineItems: true,
+    showSubtotal: true,
+    showIva: true,
+    showBarcode: true,
+    showQRCode: true,
+    showFooter: true,
+    showTimbrado: true,
+    showIvaPerLine: false,
+    showConservation: false,
+    ...config,
+  };
+
+  const isElectronica = data.tipoFactura === "ELECTRONICA";
+  const w = config?.paperWidthMm || 80;
+  const isA4 = w >= 200;
+
+  // Parse line items
+  let lineItems: Array<{ desc: string; cant: number; precio: number; total: number }> = [];
+  const items = String(data.lineItems || "");
+  if (items) {
+    try { lineItems = JSON.parse(items); } catch { /* ignore */ }
+  }
+
+  // IVA calculation
+  const totalNum = Number(String(data.total || "0").replace(/[^\d]/g, ""));
+  const ivaRate = 0.10;
+  const base = Math.round((totalNum / (1 + ivaRate)));
+  const iva = totalNum - base;
+
+  const pageWidth = isA4 ? "210mm" : `${w}mm`;
+  const fontSize = isA4 ? "10pt" : "7pt";
+  const headerSize = isA4 ? "14pt" : "10pt";
+
+  let html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: ${pageWidth} auto; margin: ${isA4 ? "10mm" : "2mm"}; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Courier New", monospace; font-size: ${fontSize}; color: #000; line-height: 1.4; }
+  .receipt { width: ${pageWidth}; padding: ${isA4 ? "5mm" : "1mm"}; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .header-box { border: 2px solid #000; padding: 3mm; margin-bottom: 2mm; }
+  .header-grid { display: flex; justify-content: space-between; }
+  .header-left { flex: 1; }
+  .header-right { flex: 0 0 45%; text-align: right; border-left: 1px solid #000; padding-left: 3mm; margin-left: 3mm; }
+  .sep { border-top: 1px solid #000; margin: 2mm 0; }
+  .sep-double { border-top: 2px solid #000; margin: 2mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0; }
+  th, td { padding: 1mm 2mm; text-align: left; }
+  th { border-bottom: 1px solid #000; font-weight: bold; }
+  .td-right { text-align: right; }
+  .total-row { font-weight: bold; font-size: ${isA4 ? "12pt" : "8pt"}; }
+  .footer { margin-top: 3mm; text-align: center; font-size: ${isA4 ? "9pt" : "6pt"}; color: #555; }
+  .conservation { margin-top: 2mm; font-size: ${isA4 ? "7pt" : "5pt"}; color: #666; border: 1px dashed #999; padding: 1mm; }
+</style>
+</head>
+<body>
+<div class="receipt">`;
+
+  // ── Company header ──
+  if (cfg.showCompanyHeader) {
+    html += `
+  <div class="header-box">
+    <div class="header-grid">
+      <div class="header-left">
+        <div class="bold" style="font-size:${headerSize}">${escHtml(String(data.empresaNombre || "AUTOMOTIVEOS"))}</div>
+        <div>RUC: ${escHtml(String(data.empresaRuc || ""))}</div>
+        <div>${escHtml(String(data.empresaDireccion || ""))}</div>
+        <div>${escHtml(String(data.empresaTelefono || ""))}</div>
+        ${data.empresaActividad ? `<div>Actividad: ${escHtml(String(data.empresaActividad))}</div>` : ""}
+      </div>
+      <div class="header-right">
+        <div class="bold" style="font-size:${headerSize}">FACTURA</div>
+        <div>N°: ${escHtml(String(data.numeroFactura || ""))}</div>
+        <div>Fecha: ${escHtml(String(data.fechaEmision || ""))}</div>
+        ${cfg.showTimbrado ? `<div>Timbrado: ${escHtml(String(data.timbrado || "N/A"))}</div>` : ""}
+        <div>Vigencia: ${escHtml(String(data.timbradoVigencia || ""))}</div>
+        <div class="bold">${isElectronica ? "ELECTRÓNICA" : "MANUAL"}</div>
+      </div>
+    </div>
+  </div>`;
+  }
+
+  // ── Client info ──
+  if (cfg.showClientInfo && (data.clienteNombre || data.clienteRuc)) {
+    html += `
+  <div class="sep"></div>
+  <div><span class="bold">Cliente:</span> ${escHtml(String(data.clienteNombre || ""))}</div>`;
+    if (data.clienteRuc) {
+      html += `<div><span class="bold">RUC:</span> ${escHtml(String(data.clienteRuc))}</div>`;
+    }
+    if (data.clienteDireccion) {
+      html += `<div><span class="bold">Dir:</span> ${escHtml(String(data.clienteDireccion))}</div>`;
+    }
+  }
+
+  // ── Line items table ──
+  if (cfg.showLineItems && lineItems.length > 0) {
+    html += `
+  <div class="sep"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>Descripción</th>
+        <th class="td-right">Cant.</th>
+        <th class="td-right">P.Unit</th>
+        <th class="td-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>`;
+    for (const item of lineItems) {
+      html += `
+      <tr>
+        <td>${escHtml(item.desc)}</td>
+        <td class="td-right">${item.cant || 1}</td>
+        <td class="td-right">Gs. ${Number(item.precio || 0).toLocaleString("es-PY")}</td>
+        <td class="td-right">Gs. ${Number(item.total || 0).toLocaleString("es-PY")}</td>
+      </tr>`;
+    }
+    html += `
+    </tbody>
+  </table>`;
+  }
+
+  // ── Totals ──
+  html += `<div class="sep-double"></div>`;
+  if (cfg.showSubtotal) {
+    html += `<div class="right"><span class="bold">Subtotal:</span> Gs. ${base.toLocaleString("es-PY")}</div>`;
+  }
+  if (cfg.showIva) {
+    html += `<div class="right"><span class="bold">IVA 10%:</span> Gs. ${iva.toLocaleString("es-PY")}</div>`;
+  }
+  html += `<div class="right total-row" style="border-top:2px solid #000;padding-top:1mm;margin-top:1mm">
+    TOTAL: Gs. ${totalNum.toLocaleString("es-PY")}
+  </div>`;
+
+  // ── CDC / QR / Barcode ──
+  if (cfg.showBarcode || cfg.showQRCode) {
+    html += `<div class="sep"></div>`;
+    if (isElectronica && data.cdc && cfg.showQRCode) {
+      html += `
+  <div class="center">
+    <div style="margin:2mm auto;width:20mm;height:20mm;border:1px solid #ccc;display:flex;align-items:center;justify-content:center">
+      <span style="font-size:5pt">QR: CDC</span>
+    </div>
+    <div style="font-size:${isA4 ? "7pt" : "5pt"}">CDC: ${escHtml(String(data.cdc))}</div>
+  </div>`;
+    } else if (data.numeroFactura && cfg.showBarcode) {
+      html += `
+  <div class="center">
+    <div style="margin:2mm auto;height:8mm;background:repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 4px);width:60mm"></div>
+    <div style="font-size:${isA4 ? "7pt" : "5pt"}">${escHtml(String(data.numeroFactura))}</div>
+  </div>`;
+    }
+  }
+
+  // ── Footer ──
+  if (cfg.showFooter) {
+    html += `
+  <div class="sep"></div>
+  <div class="footer">
+    Gracias por su preferencia<br>
+    ${escHtml(String(data.empresaWebsite || "www.automotiveos.com.py"))}
+  </div>`;
+  }
+
+  // ── Conservation notice (RG 27/2019 for thermal paper) ──
+  if (cfg.showConservation) {
+    html += `
+  <div class="conservation">
+    Condiciones de conservación: Almacenar en lugar fresco, seco y alejado de la luz solar directa.
+    Durabilidad mínima garantizada: 5 años.
+  </div>`;
+  }
+
+  html += `
+</div>
+</body>
+</html>`;
+
+  return html;
+}
+
+/**
+ * Generate plain text invoice (fallback for any printer).
  */
 function generateFacturaPlainText(data: LabelData): string {
   const w = 48;
@@ -527,9 +767,10 @@ function generateFacturaPlainText(data: LabelData): string {
  * Generate a print payload for a label or receipt.
  *
  * @param tipo - Label type ("REPUESTO", "HERRAMIENTA", or "FACTURA")
- * @param protocolo - Printer protocol ("ESCPOS", "ZPL", or "TSPL")
+ * @param protocolo - Printer protocol ("ESCPOS", "ZPL", "TSPL", "PDF", "PCL")
  * @param data - Label data (fields to render)
  * @param layout - Optional custom layout configuration
+ * @param invoiceConfig - Optional invoice section toggles
  * @returns Print payload with raw commands
  */
 export function generateLabelPayload(
@@ -537,6 +778,7 @@ export function generateLabelPayload(
   protocolo: string,
   data: LabelData,
   _layout?: LabelLayout,
+  invoiceConfig?: InvoiceConfig,
 ): PrintPayload {
   let raw = "";
   let widthMm = 50;
@@ -546,8 +788,8 @@ export function generateLabelPayload(
     widthMm = 60;
     heightMm = 40;
   } else if (tipo === "FACTURA") {
-    widthMm = 80;
-    heightMm = 200; // dynamic, receipt-length
+    widthMm = invoiceConfig?.paperWidthMm || 80;
+    heightMm = invoiceConfig?.paperHeightMm || 200;
   }
 
   switch (protocolo) {
@@ -558,6 +800,14 @@ export function generateLabelPayload(
         raw = generateHerramientaESCPOS(data);
       } else {
         raw = generateRepuestoESCPOS(data);
+      }
+      break;
+    case "PDF":
+    case "PCL":
+      if (tipo === "FACTURA") {
+        raw = generateFacturaPDF(data, invoiceConfig);
+      } else {
+        raw = generatePlainText(tipo, data);
       }
       break;
     case "ZPL":

@@ -24,15 +24,18 @@ import {
 // ─── Enums ────────────────────────────────────
 
 export const printerProtocolEnum = pgEnum("printer_protocol", [
-  "ESCPOS",   // Epson, Xprinter, Star Micronics
+  "ESCPOS",   // Epson, Xprinter, Star Micronics (thermal 80mm)
   "ZPL",      // Zebra
   "TSPL",     // Brother, TSC, SATO
+  "PDF",      // HP LaserJet, any CUPS printer (HTML→PDF via Chromium)
+  "PCL",      // HP LaserJet native PCL
   "RAW_TEXT", // Plain text fallback
 ]);
 
 export const labelTypeEnum = pgEnum("label_type", [
   "REPUESTO",         // Spare part label (50x30mm)
   "HERRAMIENTA",      // Heavy tool label (60x40mm)
+  "FACTURA",          // Invoice receipt (80mm thermal or A4)
   "PERSONALIZADA",    // Custom user-defined label
 ]);
 
