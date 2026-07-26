@@ -10,6 +10,7 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
+import { env } from "../../../../config/env.js";
 import { facturas } from "../../schema/facturas.js";
 import { eq, and } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../../shared/errors/app-error.js";
@@ -111,7 +112,7 @@ async function generateStripePaymentLink(
       line_items: [{ price: price.id, quantity: 1 }],
       after_completion: {
         type: "redirect",
-        redirect: { url: successUrl ?? `${process.env["APP_URL"] ?? "http://localhost:3000"}/dashboard/facturas/${facturaId}` },
+        redirect: { url: successUrl ?? `${env.APP_URL || "http://localhost:3000"}/dashboard/facturas/${facturaId}` },
       },
     });
 
@@ -134,8 +135,8 @@ async function generatePagosPyLink(
   monto: number,
   _tenantSlug: string,
 ): Promise<PaymentLinkResult> {
-  const apiKey = process.env["PAGOSPY_API_KEY"];
-  const apiUrl = process.env["PAGOSPY_API_URL"] ?? "https://api.pasarelapy.com/v1";
+  const apiKey = env.PAGOSPY_API_KEY;
+  const apiUrl = env.PAGOSPY_API_URL;
 
   if (!apiKey) {
     // Modo desarrollo: mock con warning
@@ -168,8 +169,8 @@ async function generatePagosPyLink(
         moneda: "PYG",
         descripcion: `Factura #${facturaId.slice(0, 8)} - AutomotiveOS`,
         referencia: facturaId,
-        url_retorno: `${process.env["APP_URL"] ?? "http://localhost:3000"}/dashboard/facturas/${facturaId}`,
-        url_notificacion: `${process.env["APP_URL"] ?? "http://localhost:3000"}/finance/payments/webhook/pagospy`,
+        url_retorno: `${env.APP_URL || "http://localhost:3000"}/dashboard/facturas/${facturaId}`,
+        url_notificacion: `${env.APP_URL || "http://localhost:3000"}/finance/payments/webhook/pagospy`,
       }),
     });
 

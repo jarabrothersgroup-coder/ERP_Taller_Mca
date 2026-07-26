@@ -4,6 +4,9 @@
  * Provides a reusable `loginAsAdmin` helper to avoid duplicating
  * login code across multiple spec files.
  *
+ * Passwords read from env var SEED_ADMIN_PASSWORD (consistent with
+ * seed-auth-users.ts security fix) with "password123" as dev fallback.
+ *
  * @module web/e2e/auth.setup
  */
 
@@ -27,7 +30,9 @@ export async function loginAsAdmin(
 ): Promise<void> {
   const tenant = options?.tenant ?? "demo";
   const email = options?.email ?? "admin@demo.com";
-  const password = options?.password ?? "password123";
+  const password = options?.password ??
+    (typeof process !== "undefined" ? process.env["SEED_ADMIN_PASSWORD"] : undefined) ??
+    "password123";
 
   await page.goto("/sign-in");
   await page.getByLabel(/taller/i).fill(tenant);

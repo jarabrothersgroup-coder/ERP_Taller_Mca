@@ -6,14 +6,15 @@
  *
  * Usage: npx tsx scripts/seed-auth-users.ts <tenant_slug>
  *
- * Default credentials for demo:
- *   admin@demo.com   / admin123   (admin role)
- *   manager@demo.com / admin123   (manager role)
- *   mechanic@demo.com / admin123  (mechanic role)
+ * Passwords are read from environment variables to avoid hardcoded credentials.
+ *   SEED_ADMIN_PASSWORD     — admin@demo.com (default: auto-generated 16-char)
+ *   SEED_MANAGER_PASSWORD   — manager@demo.com (default: auto-generated 16-char)
+ *   SEED_MECHANIC_PASSWORD  — mechanic@demo.com (default: auto-generated 16-char)
  *
  * @module scripts/seed-auth-users
  */
 
+import crypto from "node:crypto";
 import { db } from "../src/shared/database/drizzle.js";
 import { eq } from "drizzle-orm";
 import { closeDb } from "../src/shared/database/connection.js";
@@ -30,6 +31,11 @@ if (!TENANT_SLUG) {
   process.exit(1);
 }
 
+/** Generate a cryptographically random 16-char alphanumeric password */
+function generatePassword(): string {
+  return crypto.randomBytes(12).toString("base64url").slice(0, 16);
+}
+
 interface UserDef {
   email: string;
   fullName: string;
@@ -37,24 +43,29 @@ interface UserDef {
   password: string;
 }
 
+// Passwords from env vars (with auto-generated fallback to avoid hardcoded secrets)
+const ADMIN_PW = process.env["SEED_ADMIN_PASSWORD"] || generatePassword();
+const MANAGER_PW = process.env["SEED_MANAGER_PASSWORD"] || generatePassword();
+const MECHANIC_PW = process.env["SEED_MECHANIC_PASSWORD"] || generatePassword();
+
 const USERS: UserDef[] = [
   {
     email: "admin@demo.com",
     fullName: "Admin Demo",
     role: "admin",
-    password: "admin123",
+    password: ADMIN_PW,
   },
   {
     email: "manager@demo.com",
     fullName: "Gerente Demo",
     role: "manager",
-    password: "admin123",
+    password: MANAGER_PW,
   },
   {
     email: "mechanic@demo.com",
     fullName: "Mecánico Demo",
     role: "mechanic",
-    password: "admin123",
+    password: MECHANIC_PW,
   },
 ];
 
@@ -75,6 +86,7 @@ async function main() {
   }
 
   console.log(`   📋 Tenant: ${tenant.name} (${tenant.slug})`);
+  console.log(`   ℹ️  Set SEED_ADMIN_PASSWORD / SEED_MANAGER_PASSWORD / SEED_MECHANIC_PASSWORD env vars to use custom passwords.`);
 
   // Get existing profiles for this tenant
   const existing = await db()
@@ -104,15 +116,15 @@ async function main() {
       isActive: true,
     });
 
-    console.log(`   ✅  Created ${user.email} (${user.role}) — password: ${user.password}`);
+    console.log(`   ✅  Created ${user.email} (${user.role})`);
     inserted++;
   }
 
   console.log(`\n🔐 Auth seed complete! ${inserted} inserted, ${skipped} skipped.`);
-  console.log(`\n📝 Credenciales de prueba:`);
-  console.log(`   Admin:    admin@demo.com / admin123`);
-  console.log(`   Manager:  manager@demo.com / admin123`);
-  console.log(`   Mechanic: mechanic@demo.com / admin123`);
+  console.log(`\n📝 Credenciales de prueba (IMPORTANTE: guardarlas antes de cerrar):`);
+  console.log(`   Admin:    admin@demo.com / ${ADMIN_PW}`);
+  console.log(`   Manager:  manager@demo.com / ${MANAGER_PW}`);
+  console.log(`   Mechanic: mechanic@demo.com / ${MECHANIC_PW}`);
   console.log(`\n   Tenant slug: ${TENANT_SLUG}`);
   console.log(`   URL login:   http://localhost:3000/sign-in`);
 }

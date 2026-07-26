@@ -14,6 +14,7 @@ import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { env } from "../config/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,11 +41,21 @@ export class SifenCryptoService {
    * @returns Promise resolving to the signed XML with X.509 envelope
    */
   public static signInvoiceAsync(xmlRaw: string): Promise<string> {
+    const certPath = env.SIFEN_CERT_PATH;
+    const certPass = env.SIFEN_CERT_PASS;
+
+    // Fail-closed: refuse to sign with empty password (security: C-02 fix)
+    if (!certPath || !certPass) {
+      return Promise.reject(
+        new Error(
+          "SIFEN_CERT_PATH y SIFEN_CERT_PASS deben estar configurados. " +
+          "Revise las variables de entorno para el certificado fiscal DNIT."
+        )
+      );
+    }
+
     return new Promise((resolve, reject) => {
-      const certPath =
-        process.env.SIFEN_CERT_PATH || "/etc/sifen/cert.p12";
-      const certPass =
-        process.env.SIFEN_CERT_PASS || "default_pass";
+
 
       // Spawn worker — keeps CPU-heavy crypto off the event loop
       const worker = new Worker(WORKER_PATH, {

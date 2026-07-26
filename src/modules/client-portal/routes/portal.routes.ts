@@ -19,6 +19,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { env } from "../../../config/env.js";
 import {
   generateMagicLink,
   validateMagicLink,
@@ -150,7 +151,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
         "../../finance/services/treasury/online-payment.service.js"
       );
 
-      const baseUrl = process.env["APP_URL"] || "http://localhost:3000";
+      const baseUrl = env.APP_URL || "http://localhost:3000";
       const result = await generatePaymentLink(
         {
           facturaId: id,

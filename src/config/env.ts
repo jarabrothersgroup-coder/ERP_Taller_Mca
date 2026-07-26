@@ -36,6 +36,8 @@ interface EnvConfig {
   SYNC_INTERVAL_MS: number;
   /** Pino log level */
   LOG_LEVEL: string;
+  /** Application base URL (required in production — used in email templates, payment redirects, webhooks) */
+  APP_URL: string;
   /** Allowed CORS origin (production) */
   CORS_ORIGIN: string;
 
@@ -65,6 +67,14 @@ interface EnvConfig {
   /** OpenAI API key for embedding generation (RAG system) */
   OPENAI_API_KEY: string;
 
+  // ─── Thinkcar Email Notifications ──────────
+  /** Email user for Thinkcar SMTP alerts (e.g., Gmail address) */
+  THINKCAR_EMAIL_USER: string;
+  /** Email password for Thinkcar SMTP */
+  THINKCAR_EMAIL_PASSWORD: string;
+  /** Alert recipient email (defaults to THINKCAR_EMAIL_USER) */
+  THINKCAR_ALERT_RECIPIENT: string;
+
   // ─── WhatsApp / Evolution API ──────────────
   /** Evolution API base URL (e.g., http://localhost:8080) */
   WHATSAPP_API_URL: string;
@@ -88,14 +98,20 @@ interface EnvConfig {
   CLERK_ISSUER: string;
 
   // ─── Stripe Billing ────────────────────────────
-  /** Stripe secret key for API calls */
+  /** Stripe secret key for API calls (required in production) */
   STRIPE_SECRET_KEY: string;
-  /** Stripe webhook signing secret */
+  /** Stripe webhook signing secret (required in production) */
   STRIPE_WEBHOOK_SECRET: string;
 
   // ─── Resend (Email) ────────────────────────────
-  /** Resend API key for transactional email */
+  /** Resend API key for transactional email (required in production) */
   RESEND_API_KEY: string;
+
+  // ─── PagosPy (Paraguay local payments) ─────────
+  /** PagosPy API key for online payments */
+  PAGOSPY_API_KEY: string;
+  /** PagosPy API base URL */
+  PAGOSPY_API_URL: string;
 }
 
 /**
@@ -124,13 +140,16 @@ export const env: EnvConfig = {
   LOG_LEVEL: process.env["LOG_LEVEL"] ?? "info",
   CORS_ORIGIN: process.env["CORS_ORIGIN"] ?? "",
 
-  // JWT auth
-  JWT_SECRET: process.env["JWT_SECRET"] ?? "",
+  // Application base URL (required in production for email/payment redirects)
+  APP_URL: requireEnv("APP_URL"),
+
+  // JWT auth — required in production (empty string allowed in dev/test)
+  JWT_SECRET: requireEnv("JWT_SECRET"),
 
   // Local storage
   STORAGE_PATH: process.env["STORAGE_PATH"] || "/data/erp-storage",
 
-  // SIFEN defaults (optional, not requireEnv to allow offline dev)
+  // SIFEN — required when SET_CONFIG=true
   SIFEN_CERT_PATH: process.env["SIFEN_CERT_PATH"] ?? "",
   SIFEN_CERT_PASS: process.env["SIFEN_CERT_PASS"] ?? "",
   SIFEN_USE_TEST: process.env["SIFEN_USE_TEST"] === "true" || true,
@@ -142,6 +161,11 @@ export const env: EnvConfig = {
 
   // RAG defaults (optional — fallback to ILIKE search)
   OPENAI_API_KEY: process.env["OPENAI_API_KEY"] ?? "",
+
+  // ─── Thinkcar Email — optional (alerts skipped if not configured) ──
+  THINKCAR_EMAIL_USER: process.env["THINKCAR_EMAIL_USER"] ?? "",
+  THINKCAR_EMAIL_PASSWORD: process.env["THINKCAR_EMAIL_PASSWORD"] ?? "",
+  THINKCAR_ALERT_RECIPIENT: process.env["THINKCAR_ALERT_RECIPIENT"] ?? "",
 
   // ─── WhatsApp / Evolution API ──────────────
   WHATSAPP_API_URL: process.env["WHATSAPP_API_URL"] || "http://localhost:8080",
@@ -158,9 +182,13 @@ export const env: EnvConfig = {
   CLERK_ISSUER: process.env["CLERK_ISSUER"] ?? "",
 
   // ─── Stripe Billing ────────────────────────────
-  STRIPE_SECRET_KEY: process.env["STRIPE_SECRET_KEY"] ?? "",
-  STRIPE_WEBHOOK_SECRET: process.env["STRIPE_WEBHOOK_SECRET"] ?? "",
+  STRIPE_SECRET_KEY: requireEnv("STRIPE_SECRET_KEY"),
+  STRIPE_WEBHOOK_SECRET: requireEnv("STRIPE_WEBHOOK_SECRET"),
 
   // ─── Resend (Email) ────────────────────────────────────
-  RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "",
+  RESEND_API_KEY: requireEnv("RESEND_API_KEY"),
+
+  // ─── PagosPy ───────────────────────────────────
+  PAGOSPY_API_KEY: process.env["PAGOSPY_API_KEY"] ?? "",
+  PAGOSPY_API_URL: process.env["PAGOSPY_API_URL"] ?? "https://api.pasarelapy.com/v1",
 };

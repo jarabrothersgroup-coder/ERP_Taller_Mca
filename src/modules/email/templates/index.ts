@@ -10,6 +10,8 @@
  * @module email/templates
  */
 
+import { env } from "../../../config/env.js";
+
 /** Base template wrapper with shared styles */
 function baseTemplate(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
@@ -306,7 +308,7 @@ export function subscriptionActivatedTemplate(data: SubscriptionActivatedTemplat
     </div>
     <p style="text-align:center;margin-top:16px;font-size:13px">Puede gestionar su suscripción desde el portal de facturación.</p>
     <div style="text-align:center;margin-top:16px">
-      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Gestionar Suscripción</a>
+      <a href="${env.APP_URL || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Gestionar Suscripción</a>
     </div>
   `;
   return baseTemplate("✅ Suscripción Activada", bodyHtml);
@@ -341,7 +343,7 @@ export function paymentFailedTemplate(data: PaymentFailedTemplateData): string {
     </div>
     <p style="text-align:center;margin-top:16px;font-size:13px">Por favor, actualice su método de pago para evitar la suspensión del servicio.</p>
     <div style="text-align:center;margin-top:16px">
-      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Actualizar Método de Pago</a>
+      <a href="${env.APP_URL || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Actualizar Método de Pago</a>
     </div>
   `;
   return baseTemplate("⚠️ Pago Fallido", bodyHtml);
@@ -373,7 +375,7 @@ export function subscriptionCancelledTemplate(data: SubscriptionCancelledTemplat
     </div>
     <p style="text-align:center;margin-top:16px;font-size:13px">Su acceso continuará hasta la fecha indicada. Puede reactivar su suscripción en cualquier momento.</p>
     <div style="text-align:center;margin-top:16px">
-      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Reactivar Suscripción</a>
+      <a href="${env.APP_URL || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Reactivar Suscripción</a>
     </div>
   `;
   return baseTemplate("❌ Suscripción Cancelada", bodyHtml);
@@ -405,7 +407,7 @@ export function trialEndingTemplate(data: TrialEndingTemplateData): string {
     </div>
     <p style="text-align:center;margin-top:16px;font-size:13px">Para continuar usando el servicio, elija un plan de suscripción.</p>
     <div style="text-align:center;margin-top:16px">
-      <a href="${process.env["APP_URL"] || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Elegir Plan</a>
+      <a href="${env.APP_URL || "http://localhost:3000"}/dashboard/billing" class="button button-primary">Elegir Plan</a>
     </div>
   `;
   return baseTemplate("⏰ Período de Prueba por Vencer", bodyHtml);
