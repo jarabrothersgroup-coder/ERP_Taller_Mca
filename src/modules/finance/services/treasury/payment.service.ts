@@ -79,10 +79,10 @@ export async function registerPayment(
 
     if (!factura) throw new NotFoundError(`Factura ${facturaId} no encontrada`);
 
-    const saldoActual = parseFloat(factura.saldoPendiente ?? factura.total ?? "0");
+    const saldoActual = parseFloat(factura.saldoPendiente ?? factura.total ?? "0") || 0;
 
-    if (saldoActual <= 0) {
-      throw new ValidationError("La factura ya está totalmente pagada");
+    if (isNaN(saldoActual) || saldoActual <= 0) {
+      throw new ValidationError("La factura ya está totalmente pagada o tiene un saldo inválido");
     }
 
     if (monto > saldoActual) {
@@ -196,8 +196,13 @@ export async function registerPayment(
         asientoId = emitResult.asientoId;
       }
     }
-  } catch {
-    // Non-blocking - payment is already recorded
+  } catch (accountingErr) {
+    // Log but don't block — payment is already recorded in DB
+    // Accounting entry can be reconciled manually or via retry job
+    console.error(
+      `[payment] Asiento contable COBRO falló para factura ${facturaId}:`,
+      accountingErr instanceof Error ? accountingErr.message : accountingErr,
+    );
   }
 
   return {

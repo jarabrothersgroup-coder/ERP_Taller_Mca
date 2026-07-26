@@ -13,7 +13,6 @@
 import {
   index,
   integer,
-  numeric,
   pgTable,
   text,
   timestamp,

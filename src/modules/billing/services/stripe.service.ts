@@ -138,7 +138,15 @@ export async function createCheckoutSession(
   if (!plan) throw new Error("Plan not found");
 
   if (!isStripeConfigured()) {
-    // Dev mode: return mock checkout URL
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error(
+        "STRIPE_SECRET_KEY no configurado. Configure la variable de entorno para billing en producción."
+      );
+    }
+    console.warn(
+      "[billing] ⚠️  MODO DESARROLLO — Checkout session simulada. " +
+      "Configure STRIPE_SECRET_KEY para billing real."
+    );
     return {
       sessionId: `cs_mock_${Date.now()}`,
       sessionUrl: `/dashboard/billing?mock_checkout=true&plan=${plan.code}`,
@@ -371,6 +379,15 @@ export async function createPortalSession(
   }
 
   if (!isStripeConfigured()) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error(
+        "STRIPE_SECRET_KEY no configurado. Configure la variable de entorno para billing portal en producción."
+      );
+    }
+    console.warn(
+      "[billing] ⚠️  MODO DESARROLLO — Portal de billing simulado. " +
+      "Configure STRIPE_SECRET_KEY para portal real."
+    );
     return { url: `/dashboard/billing?mock_portal=true` };
   }
 

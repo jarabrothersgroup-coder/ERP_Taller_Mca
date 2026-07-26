@@ -71,8 +71,8 @@ export const facturas = pgTable(
     /** Tenant slug for multi-tenant isolation */
     tenantSlug: text("tenant_slug").notNull(),
 
-    /** Work order that generated this invoice */
-    ordenId: uuid("orden_id").notNull(),
+    /** Work order that generated this invoice. NULL for fleet billing / manual imports. */
+    ordenId: uuid("orden_id"),
 
     /** Hybrid engine branch: MANUAL | ELECTRONICA */
     tipo: tipoFacturacionEnum("tipo").notNull(),

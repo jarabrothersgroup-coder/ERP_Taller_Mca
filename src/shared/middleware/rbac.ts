@@ -85,13 +85,16 @@ export async function resolveProfile(
   }
 
   // ── 3. DEPRECATED: X-User-Email header ─────────
-  // Only used during migration when no JWT is available.
-  // Will be removed once all clients send JWTs.
-  const email = request.headers["x-user-email"] as string | undefined;
-  if (email) {
-    request.log.warn({ email: email.slice(0, 3) + "***" }, "DEPRECATED: X-User-Email header used — migrate to JWT");
-    await resolveProfileFromEmail(request, email);
-    return;
+  // SECURITY FIX (ALTO-03): Disabled by default — allows impersonation of any user.
+  // Only re-enable temporarily with env ALLOW_X_USER_EMAIL_HEADER=true during migration.
+  const allowLegacyHeader = process.env["ALLOW_X_USER_EMAIL_HEADER"] === "true";
+  if (allowLegacyHeader) {
+    const email = request.headers["x-user-email"] as string | undefined;
+    if (email) {
+      request.log.warn({ email: email.slice(0, 3) + "***" }, "DEPRECATED: X-User-Email header used — migrate to JWT");
+      await resolveProfileFromEmail(request, email);
+      return;
+    }
   }
 
   // No auth provided — allow unauthenticated routes (login, health, etc.)
@@ -201,6 +204,17 @@ export function requireRole(...allowedRoles: string[]) {
 export const requireAdmin = requireRole("admin");
 export const requireManager = requireRole("manager");
 export const requireMechanic = requireRole("mechanic");
+
+/**
+ * Explicit authentication gate — rejects unauthenticated requests.
+ * Use this on routes that require login but don't need a specific role.
+ * Without this, resolveProfile silently passes for unauthenticated requests.
+ */
+export const requireAuth = async (request: FastifyRequest, _reply: FastifyReply): Promise<void> => {
+  if (!request.profile) {
+    throw new UnauthorizedError("Autenticación requerida. Inicie sesión.");
+  }
+};
 
 /**
  * Register global RBAC hooks on the Fastify instance.

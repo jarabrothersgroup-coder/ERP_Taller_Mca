@@ -17,6 +17,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { resolve, isAbsolute } from "node:path";
 import {
   executeBackup,
   validateBackupIntegrity,
@@ -24,6 +25,33 @@ import {
   purgeOldBackups,
   type BackupConfig,
 } from "../services/backup-engine.service.js";
+
+// ── Path traversal prevention (ALTO-04) ──
+const ALLOWED_BACKUP_ROOTS = [
+  process.env.BACKUP_PATH || "/var/backups/erp",
+  process.env.BACKUP_STAGING || "/tmp/backup-staging",
+];
+
+/**
+ * Resolves a user-supplied path against allowed backup roots.
+ * Returns the resolved absolute path only if it falls within an allowed root.
+ * Throws if the path escapes the allowed directory (path traversal attack).
+ */
+function safeBackupPath(userPath: string): string {
+  if (!isAbsolute(userPath)) {
+    // Relative paths resolve against each allowed root
+    for (const root of ALLOWED_BACKUP_ROOTS) {
+      const resolved = resolve(root, userPath);
+      if (resolved.startsWith(root)) return resolved;
+    }
+    throw new Error("Ruta de backup no válida");
+  }
+  for (const root of ALLOWED_BACKUP_ROOTS) {
+    const resolved = resolve(userPath);
+    if (resolved.startsWith(root)) return resolved;
+  }
+  throw new Error("Ruta de backup fuera del directorio permitido");
+}
 
 interface ExecuteBody {
   policyId?: string;
@@ -53,7 +81,8 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest<{ Querystring: { path?: string } }>, reply: FastifyReply) => {
-      const backupPath = request.query.path || process.env.BACKUP_PATH || "/var/backups/erp";
+      const rawPath = request.query.path || process.env.BACKUP_PATH || "/var/backups/erp";
+      const backupPath = request.query.path ? safeBackupPath(rawPath) : rawPath;
       const backups = await listBackups(backupPath);
       return reply.send({
         backups: backups.map(b => ({
@@ -84,7 +113,8 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest<{ Body: { filePath: string } }>, reply: FastifyReply) => {
-      const result = await validateBackupIntegrity(request.body.filePath);
+      const safePath = safeBackupPath(request.body.filePath);
+      const result = await validateBackupIntegrity(safePath);
       return reply.send(result);
     },
   );
@@ -116,7 +146,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
       };
 
       if (request.body.destinoConfig?.path) {
-        config.destinationDir = request.body.destinoConfig.path;
+        config.destinationDir = safeBackupPath(request.body.destinoConfig.path);
       }
 
       const result = await executeBackup(config);
@@ -149,7 +179,8 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const backupPath = request.body.path || process.env.BACKUP_PATH || "/var/backups/erp";
+      const rawPath = request.body.path || process.env.BACKUP_PATH || "/var/backups/erp";
+      const backupPath = request.body.path ? safeBackupPath(rawPath) : rawPath;
       const maxAge = request.body.maxAgeDays || 30;
       const maxCount = request.body.maxCount || 10;
       const purged = await purgeOldBackups(backupPath, maxAge, maxCount);
@@ -184,7 +215,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
 
       const { executeRestore } = await import("../services/backup-engine.service.js");
       const result = await executeRestore({
-        backupFilePath: request.body.backupFilePath,
+        backupFilePath: safeBackupPath(request.body.backupFilePath),
         decryptionPassword: request.body.decryptionPassword,
         dbUrl: process.env.DATABASE_URL || "",
         dbName: process.env.DB_NAME || "automotive_erp",

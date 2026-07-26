@@ -109,6 +109,43 @@ export const invoiceConfig = pgTable("invoice_config", {
   /** Economic activity description (required by SET) */
   companyActividad: text("company_actividad"),
 
+  // ── SET compliance elements ──
+
+  /** Timbrado number (required for manual invoices per RG 1382/05) */
+  timbradoNumero: text("timbrado_numero"),
+
+  /** Timbrado validity start date */
+  timbradoVigenciaInicio: text("timbrado_vigencia_inicio"),
+
+  /** Timbrado validity end date */
+  timbradoVigenciaFin: text("timbrado_vigencia_fin"),
+
+  /** Condition of sale: CONTADO | CREDITO (SET requirement) */
+  condicionVentaDefault: text("condicion_venta_default").default("CONTADO"),
+
+  /** Show condition of sale on printed invoice */
+  showCondicionVenta: boolean("show_condicion_venta").notNull().default(true),
+
+  /** Show "Son contribuyente del IVA" notice (SET requirement) */
+  showContribuyenteIva: boolean("show_contribuyente_iva").notNull().default(true),
+
+  /** Show exchange rate info (for USD invoices) */
+  showTipoCambio: boolean("show_tipo_cambio").notNull().default(false),
+
+  /** Invoice sequence prefix (e.g., "001" for punto de venta) */
+  seriePrefix: text("serie_prefix").default("001"),
+
+  // ── HP LaserJet P1150 specific ──
+
+  /** Printer model identifier */
+  printerModel: text("printer_model").default("generic"),
+
+  /** HP PCL5e specific: CUPS printer name */
+  cupsPrinterName: text("cups_printer_name"),
+
+  /** HP PCL5e specific: paper tray (Auto, Tray1, Tray2, Manual) */
+  paperTray: text("paper_tray").default("Auto"),
+
   // ── Timestamps ──
 
   createdAt: timestamp("created_at").defaultNow().notNull(),

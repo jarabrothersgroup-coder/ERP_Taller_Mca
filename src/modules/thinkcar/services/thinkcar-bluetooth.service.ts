@@ -66,6 +66,14 @@ function isThinkcarDevice(name: string): boolean {
   );
 }
 
+// ALTO-MED-01: Validate MAC address format before shell interpolation
+const MAC_RE = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+function assertValidMac(mac: string): void {
+  if (!MAC_RE.test(mac)) {
+    throw new Error(`Invalid MAC address format: ${mac.slice(0, 5)}***`);
+  }
+}
+
 function ensureSdpRecord(): void {
   const sdpPath = "/tmp/thinkcar-sdp.xml";
   if (!existsSync(sdpPath)) {
@@ -80,6 +88,7 @@ function ensureSdpRecord(): void {
 }
 
 function connectToDevice(mac: string): void {
+  assertValidMac(mac);
   try {
     execSync(`bluetoothctl -- pair ${mac} 2>/dev/null`, { timeout: 15000 });
   } catch {
@@ -100,6 +109,7 @@ function connectToDevice(mac: string): void {
 }
 
 function disconnectDevice(mac: string): void {
+  assertValidMac(mac);
   try {
     execSync(`bluetoothctl -- disconnect ${mac} 2>/dev/null`, { timeout: 5000 });
   } catch {

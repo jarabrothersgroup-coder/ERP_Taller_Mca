@@ -19,14 +19,14 @@ describe("🔴 [CRITICAL RISK] Capa 3: Rendimiento y Worker Threads para SIFEN",
     expect(signedXmlPromise).toBeInstanceOf(Promise);
 
     const result = await signedXmlPromise;
-    expect(result).toContain("MOCK_X509_SIGNATURE");
+    expect(result).toContain("DEV_MOCK_SIGNATURE_");
     expect(result).toContain('cdc=');
   });
 
   it("Lanza error si el XML está vacío", async () => {
     await expect(
       SifenCryptoService.signInvoiceAsync(""),
-    ).rejects.toThrow(/Faltan parámetros obligatorios/i);
+    ).rejects.toThrow(/xmlRaw es obligatorio/i);
   });
 
   it("Devuelve una promesa (no bloquea el hilo principal)", () => {

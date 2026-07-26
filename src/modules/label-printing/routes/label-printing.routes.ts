@@ -33,6 +33,7 @@ import {
   generateLabelPayload,
   generateFacturaPDF,
   validateLabelData,
+  escHtml,
   type LabelData,
   type InvoiceConfig,
 } from "../services/label-printing.service.js";
@@ -45,6 +46,46 @@ interface GenerateBody {
 }
 
 export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
+  // ── GET /label-printing/health — Printer connectivity check ──
+  app.get(
+    "/label-printing/health",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const tenant = request.tenantSlug;
+
+      // Fetch tenant's printer config
+      const [config] = await db()
+        .select()
+        .from(invoiceConfig)
+        .where(eq(invoiceConfig.tenantSlug, tenant))
+        .limit(1);
+
+      const printerAddress = config?.printerAddress || null;
+      const printerModel = config?.printerModel || "generic";
+      const protocol = config?.printerProtocol || "ESCPOS";
+
+      // Basic health check: verify config exists and printer is configured
+      const isConfigured = !!printerAddress;
+      const isPcl5e = printerModel.toLowerCase().includes("hp") ||
+                      printerModel.toLowerCase().includes("laserjet");
+
+      return reply.send({
+        status: isConfigured ? "ready" : "not_configured",
+        printer: {
+          address: printerAddress,
+          model: printerModel,
+          protocol,
+          isPcl5e,
+          dpi: config?.printerDpi || 203,
+          paperWidthMm: config?.paperWidthMm || 80,
+        },
+        message: isConfigured
+          ? `Impresora ${printerModel} configurada en ${printerAddress}`
+          : "No hay impresora configurada. Configure en Facturación → Configurador.",
+        timestamp: new Date().toISOString(),
+      });
+    },
+  );
+
   // ── GET /label-printing/repuesto/:id — Generate label for a spare part ──
   app.get<{ Params: { id: string }; Querystring: { protocolo?: string; copias?: number } }>(
     "/label-printing/repuesto/:id",
@@ -408,58 +449,53 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
         .where(eq(invoiceConfig.tenantSlug, tenant))
         .limit(1);
 
+      const configFields = {
+        paperWidthMm: (body.paperWidthMm as number) ?? existing?.paperWidthMm ?? 80,
+        paperHeightMm: (body.paperHeightMm as number) ?? existing?.paperHeightMm ?? 200,
+        printerProtocol: (body.printerProtocol as string) ?? existing?.printerProtocol ?? "ESCPOS",
+        printerAddress: (body.printerAddress as string) ?? existing?.printerAddress ?? null,
+        printerDpi: (body.printerDpi as number) ?? existing?.printerDpi ?? 203,
+        showCompanyHeader: (body.showCompanyHeader as boolean) ?? existing?.showCompanyHeader ?? true,
+        showClientInfo: (body.showClientInfo as boolean) ?? existing?.showClientInfo ?? true,
+        showLineItems: (body.showLineItems as boolean) ?? existing?.showLineItems ?? true,
+        showSubtotal: (body.showSubtotal as boolean) ?? existing?.showSubtotal ?? true,
+        showIva: (body.showIva as boolean) ?? existing?.showIva ?? true,
+        showBarcode: (body.showBarcode as boolean) ?? existing?.showBarcode ?? true,
+        showQRCode: (body.showQRCode as boolean) ?? existing?.showQRCode ?? true,
+        showFooter: (body.showFooter as boolean) ?? existing?.showFooter ?? true,
+        showTimbrado: (body.showTimbrado as boolean) ?? existing?.showTimbrado ?? true,
+        showIvaPerLine: (body.showIvaPerLine as boolean) ?? existing?.showIvaPerLine ?? false,
+        showConservation: (body.showConservation as boolean) ?? existing?.showConservation ?? false,
+        companyNombre: (body.companyNombre as string) ?? existing?.companyNombre ?? null,
+        companyRuc: (body.companyRuc as string) ?? existing?.companyRuc ?? null,
+        companyDireccion: (body.companyDireccion as string) ?? existing?.companyDireccion ?? null,
+        companyTelefono: (body.companyTelefono as string) ?? existing?.companyTelefono ?? null,
+        companyActividad: (body.companyActividad as string) ?? existing?.companyActividad ?? null,
+        // SET compliance
+        timbradoNumero: (body.timbradoNumero as string) ?? existing?.timbradoNumero ?? null,
+        timbradoVigenciaInicio: (body.timbradoVigenciaInicio as string) ?? existing?.timbradoVigenciaInicio ?? null,
+        timbradoVigenciaFin: (body.timbradoVigenciaFin as string) ?? existing?.timbradoVigenciaFin ?? null,
+        condicionVentaDefault: (body.condicionVentaDefault as string) ?? existing?.condicionVentaDefault ?? "CONTADO",
+        showCondicionVenta: (body.showCondicionVenta as boolean) ?? existing?.showCondicionVenta ?? true,
+        showContribuyenteIva: (body.showContribuyenteIva as boolean) ?? existing?.showContribuyenteIva ?? true,
+        showTipoCambio: (body.showTipoCambio as boolean) ?? existing?.showTipoCambio ?? false,
+        seriePrefix: (body.seriePrefix as string) ?? existing?.seriePrefix ?? "001",
+        // HP LaserJet P1150
+        printerModel: (body.printerModel as string) ?? existing?.printerModel ?? "generic",
+        cupsPrinterName: (body.cupsPrinterName as string) ?? existing?.cupsPrinterName ?? null,
+        paperTray: (body.paperTray as string) ?? existing?.paperTray ?? "Auto",
+        updatedAt: new Date(),
+      };
+
       if (existing) {
         await db()
           .update(invoiceConfig)
-          .set({
-            paperWidthMm: (body.paperWidthMm as number) ?? existing.paperWidthMm,
-            paperHeightMm: (body.paperHeightMm as number) ?? existing.paperHeightMm,
-            printerProtocol: (body.printerProtocol as string) ?? existing.printerProtocol,
-            printerAddress: (body.printerAddress as string) ?? existing.printerAddress,
-            printerDpi: (body.printerDpi as number) ?? existing.printerDpi,
-            showCompanyHeader: (body.showCompanyHeader as boolean) ?? existing.showCompanyHeader,
-            showClientInfo: (body.showClientInfo as boolean) ?? existing.showClientInfo,
-            showLineItems: (body.showLineItems as boolean) ?? existing.showLineItems,
-            showSubtotal: (body.showSubtotal as boolean) ?? existing.showSubtotal,
-            showIva: (body.showIva as boolean) ?? existing.showIva,
-            showBarcode: (body.showBarcode as boolean) ?? existing.showBarcode,
-            showQRCode: (body.showQRCode as boolean) ?? existing.showQRCode,
-            showFooter: (body.showFooter as boolean) ?? existing.showFooter,
-            showTimbrado: (body.showTimbrado as boolean) ?? existing.showTimbrado,
-            showIvaPerLine: (body.showIvaPerLine as boolean) ?? existing.showIvaPerLine,
-            showConservation: (body.showConservation as boolean) ?? existing.showConservation,
-            companyNombre: (body.companyNombre as string) ?? existing.companyNombre,
-            companyRuc: (body.companyRuc as string) ?? existing.companyRuc,
-            companyDireccion: (body.companyDireccion as string) ?? existing.companyDireccion,
-            companyTelefono: (body.companyTelefono as string) ?? existing.companyTelefono,
-            companyActividad: (body.companyActividad as string) ?? existing.companyActividad,
-            updatedAt: new Date(),
-          })
+          .set(configFields)
           .where(eq(invoiceConfig.tenantSlug, tenant));
       } else {
         await db().insert(invoiceConfig).values({
           tenantSlug: tenant,
-          paperWidthMm: (body.paperWidthMm as number) || 80,
-          paperHeightMm: (body.paperHeightMm as number) || 200,
-          printerProtocol: (body.printerProtocol as string) || "ESCPOS",
-          printerAddress: (body.printerAddress as string) || null,
-          printerDpi: (body.printerDpi as number) || 203,
-          showCompanyHeader: (body.showCompanyHeader as boolean) ?? true,
-          showClientInfo: (body.showClientInfo as boolean) ?? true,
-          showLineItems: (body.showLineItems as boolean) ?? true,
-          showSubtotal: (body.showSubtotal as boolean) ?? true,
-          showIva: (body.showIva as boolean) ?? true,
-          showBarcode: (body.showBarcode as boolean) ?? true,
-          showQRCode: (body.showQRCode as boolean) ?? true,
-          showFooter: (body.showFooter as boolean) ?? true,
-          showTimbrado: (body.showTimbrado as boolean) ?? true,
-          showIvaPerLine: (body.showIvaPerLine as boolean) ?? false,
-          showConservation: (body.showConservation as boolean) ?? false,
-          companyNombre: (body.companyNombre as string) || null,
-          companyRuc: (body.companyRuc as string) || null,
-          companyDireccion: (body.companyDireccion as string) || null,
-          companyTelefono: (body.companyTelefono as string) || null,
-          companyActividad: (body.companyActividad as string) || null,
+          ...configFields,
         });
       }
 
@@ -503,6 +539,19 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
           companyActividad: saved.companyActividad ?? undefined,
           printerProtocol: saved.printerProtocol,
           printerAddress: saved.printerAddress ?? undefined,
+          // SET compliance
+          timbradoNumero: saved.timbradoNumero ?? undefined,
+          timbradoVigenciaInicio: saved.timbradoVigenciaInicio ?? undefined,
+          timbradoVigenciaFin: saved.timbradoVigenciaFin ?? undefined,
+          condicionVentaDefault: saved.condicionVentaDefault ?? "CONTADO",
+          showCondicionVenta: saved.showCondicionVenta,
+          showContribuyenteIva: saved.showContribuyenteIva,
+          showTipoCambio: saved.showTipoCambio,
+          seriePrefix: saved.seriePrefix ?? "001",
+          // HP LaserJet P1150
+          printerModel: saved.printerModel ?? "generic",
+          cupsPrinterName: saved.cupsPrinterName ?? undefined,
+          paperTray: saved.paperTray ?? "Auto",
         } : {};
       }
 
@@ -829,6 +878,26 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
         showTimbrado: config.showTimbrado,
         showIvaPerLine: config.showIvaPerLine,
         showConservation: config.showConservation,
+        companyNombre: config.companyNombre ?? undefined,
+        companyRuc: config.companyRuc ?? undefined,
+        companyDireccion: config.companyDireccion ?? undefined,
+        companyTelefono: config.companyTelefono ?? undefined,
+        companyActividad: config.companyActividad ?? undefined,
+        printerProtocol: config.printerProtocol,
+        printerAddress: config.printerAddress ?? undefined,
+        // SET compliance
+        timbradoNumero: config.timbradoNumero ?? undefined,
+        timbradoVigenciaInicio: config.timbradoVigenciaInicio ?? undefined,
+        timbradoVigenciaFin: config.timbradoVigenciaFin ?? undefined,
+        condicionVentaDefault: config.condicionVentaDefault ?? "CONTADO",
+        showCondicionVenta: config.showCondicionVenta,
+        showContribuyenteIva: config.showContribuyenteIva,
+        showTipoCambio: config.showTipoCambio,
+        seriePrefix: config.seriePrefix ?? "001",
+        // HP LaserJet P1150
+        printerModel: config.printerModel ?? "generic",
+        cupsPrinterName: config.cupsPrinterName ?? undefined,
+        paperTray: config.paperTray ?? "Auto",
       } : {};
 
       const payload = generateLabelPayload("FACTURA", protocolo, labelData, undefined, invoiceCfg);
@@ -892,8 +961,4 @@ function generateHtmlPreview(tipo: string, data: LabelData, widthMm: number, hei
   <div style="text-align:center;font-size:6pt">Estado: ${escHtml(String(data.estado || ""))}</div>
   <div style="text-align:center;font-size:6pt;font-weight:bold;color:#c00">⚠ PROPIEDAD DEL TALLER</div>
 </div>`;
-}
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }

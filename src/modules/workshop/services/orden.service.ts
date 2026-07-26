@@ -127,11 +127,8 @@ export async function listOrdenes(
  * @returns The work order with vehicle and client details
  * @throws {NotFoundError} If the order does not exist
  */
-export async function getOrden(id: string, tenantSlug?: string): Promise<OrdenListRow> {
-  const whereConditions = [eq(ordenesTrabajo.id, id)];
-  if (tenantSlug) {
-    whereConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
-  }
+export async function getOrden(id: string, tenantSlug: string): Promise<OrdenListRow> {
+  const whereConditions = [eq(ordenesTrabajo.id, id), eq(ordenesTrabajo.tenantSlug, tenantSlug)];
   const [row] = await db()
     .select({
       id: ordenesTrabajo.id,
@@ -170,12 +167,9 @@ export async function getOrden(id: string, tenantSlug?: string): Promise<OrdenLi
 export async function signHvLockout(
   ordenId: string,
   mechanicId: string,
-  tenantSlug?: string,
+  tenantSlug: string,
 ): Promise<{ signed: boolean; signedAt: string }> {
-  const whereConditions = [eq(ordenesTrabajo.id, ordenId)];
-  if (tenantSlug) {
-    whereConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
-  }
+  const whereConditions = [eq(ordenesTrabajo.id, ordenId), eq(ordenesTrabajo.tenantSlug, tenantSlug)];
   const [orden] = await db()
     .select({ id: ordenesTrabajo.id, hvAlert: ordenesTrabajo.hvAlert })
     .from(ordenesTrabajo)
@@ -265,61 +259,60 @@ export async function createOrden(
       hvAlert: hvAlert ?? false,
       dtcCodes: dtcCodes ?? [],
       status: "Presupuestado",
-      tenantSlug: tenantSlug ?? "default",
+      tenantSlug: tenantSlug!,
     })
     .returning();
 
-  // ── G-08: WhatsApp recepción notification (fire-and-forget) ──
+  // ── G-08: WhatsApp recepción notification ──
   if (tenantSlug) {
     const _ordenId = orden.id;
     const _vehicleId = vehicleId;
     const _clientId = clientId;
-    (async () => {
-      try {
-        const [client] = await db()
-          .select({ phone: clients.phone, name: clients.name })
-          .from(clients)
-          .where(eq(clients.id, _clientId))
-          .limit(1);
+    // Awaited to ensure client receives confirmation — errors logged, don't block OT creation
+    try {
+      const [client] = await db()
+        .select({ phone: clients.phone, name: clients.name })
+        .from(clients)
+        .where(eq(clients.id, _clientId))
+        .limit(1);
 
-        if (client?.phone) {
-          let vehicleDesc = "";
-          if (_vehicleId) {
-            const [v] = await db()
-              .select({ brand: vehiculos.brand, model: vehiculos.model })
-              .from(vehiculos)
-              .where(eq(vehiculos.id, _vehicleId))
-              .limit(1);
-            if (v) vehicleDesc = `${v.brand} ${v.model}`;
-          }
-
-          const { sendTextMessage } = await import(
-            "../../whatsapp/services/whatsapp.service.js"
-          );
-          const { getTemplate } = await import(
-            "../../whatsapp/services/whatsapp-template.service.js"
-          );
-
-          const template = await getTemplate(tenantSlug, "recepcion");
-          if (template) {
-            let message = template.body
-              .replaceAll("{{nombre_cliente}}", client.name || "")
-              .replaceAll("{{vehiculo}}", vehicleDesc)
-              .replaceAll("{{vehiculo_marca}}", vehicleDesc.split(" ")[0] ?? "")
-              .replaceAll("{{vehiculo_modelo}}", vehicleDesc.split(" ").slice(1).join(" ") || vehicleDesc)
-              .replaceAll("{{chapa}}", "")
-              .replaceAll("{{orden_id}}", _ordenId.slice(0, 8));
-
-            await sendTextMessage(tenantSlug, client.phone, message);
-          }
+      if (client?.phone) {
+        let vehicleDesc = "";
+        if (_vehicleId) {
+          const [v] = await db()
+            .select({ brand: vehiculos.brand, model: vehiculos.model })
+            .from(vehiculos)
+            .where(eq(vehiculos.id, _vehicleId))
+            .limit(1);
+          if (v) vehicleDesc = `${v.brand} ${v.model}`;
         }
-      } catch (waErr) {
-        console.warn(
-          `[orden] Error enviando WhatsApp recepción OT ${_ordenId}:`,
-          waErr instanceof Error ? waErr.message : waErr,
+
+        const { sendTextMessage } = await import(
+          "../../whatsapp/services/whatsapp.service.js"
         );
+        const { getTemplate } = await import(
+          "../../whatsapp/services/whatsapp-template.service.js"
+        );
+
+        const template = await getTemplate(tenantSlug, "recepcion");
+        if (template) {
+          let message = template.body
+            .replaceAll("{{nombre_cliente}}", client.name || "")
+            .replaceAll("{{vehiculo}}", vehicleDesc)
+            .replaceAll("{{vehiculo_marca}}", vehicleDesc.split(" ")[0] ?? "")
+            .replaceAll("{{vehiculo_modelo}}", vehicleDesc.split(" ").slice(1).join(" ") || vehicleDesc)
+            .replaceAll("{{chapa}}", "")
+            .replaceAll("{{orden_id}}", _ordenId.slice(0, 8));
+
+          await sendTextMessage(tenantSlug, client.phone, message);
+        }
       }
-    })();
+    } catch (waErr) {
+      console.error(
+        `[orden] Error enviando WhatsApp recepción OT ${_ordenId}:`,
+        waErr instanceof Error ? waErr.message : waErr,
+      );
+    }
   }
 
   // ── Return as OrdenListRow with joined fields ──
@@ -390,48 +383,51 @@ export async function updateOrdenStatus(
     throw new Error(`Error al actualizar orden ${ordenId}`);
   }
 
-  // ── G-02: Registrar historial de cambio de estado ──
-  db()
-    .insert(ordenEstadoHistorial)
-    .values({
-      ordenTrabajoId: ordenId,
-      estadoAnterior: orden.status,
-      estadoNuevo: newStatus,
-      observaciones: null,
-    })
-    .catch((err) => {
-      console.warn(
-        `[orden] Error registrando historial de estado para OT ${ordenId}:`,
-        err instanceof Error ? err.message : err,
-      );
-    });
+  // ── G-02: Registrar historial de cambio de estado (CRÍTICO — auditoría) ──
+  try {
+    await db()
+      .insert(ordenEstadoHistorial)
+      .values({
+        ordenTrabajoId: ordenId,
+        estadoAnterior: orden.status,
+        estadoNuevo: newStatus,
+        observaciones: null,
+      });
+  } catch (histErr) {
+    // Audit trail failure is logged but doesn't block — order status already updated
+    console.error(
+      `[orden] CRÍTICO — Error registrando historial de estado para OT ${ordenId}:`,
+      histErr instanceof Error ? histErr.message : histErr,
+    );
+  }
 
   // ── Auto-consume inventory stock when OT is completed ──
   if (newStatus === "Listo" && tenantSlug) {
-    consumeStockOnOTClose(ordenId, tenantSlug).catch((err) => {
-      console.warn(
-        `[orden] Error consumiendo stock en OT ${ordenId}:`,
-        err instanceof Error ? err.message : err,
+    // Stock consumption is critical — await it to prevent inventory drift
+    try {
+      await consumeStockOnOTClose(ordenId, tenantSlug);
+    } catch (stockErr) {
+      console.error(
+        `[orden] CRÍTICO — Error consumiendo stock en OT ${ordenId}:`,
+        stockErr instanceof Error ? stockErr.message : stockErr,
       );
-    });
+    }
 
     // ── Revenue recognition via WorkshopConfigurator ──
-    (async () => {
-      try {
-        const [orden] = await db()
-          .select({
-            clientId: ordenesTrabajo.clientId,
-            totalCost: ordenesTrabajo.totalCost,
-          })
-          .from(ordenesTrabajo)
-          .where(and(
-            eq(ordenesTrabajo.id, ordenId),
-            eq(ordenesTrabajo.tenantSlug, tenantSlug),
-          ))
-          .limit(1);
+    try {
+      const [orden] = await db()
+        .select({
+          clientId: ordenesTrabajo.clientId,
+          totalCost: ordenesTrabajo.totalCost,
+        })
+        .from(ordenesTrabajo)
+        .where(and(
+          eq(ordenesTrabajo.id, ordenId),
+          eq(ordenesTrabajo.tenantSlug, tenantSlug),
+        ))
+        .limit(1);
 
-        if (!orden) return;
-
+      if (orden) {
         const [client] = await db()
           .select({ name: clients.name })
           .from(clients)
@@ -445,19 +441,19 @@ export async function updateOrdenStatus(
             tenantSlug,
             ordenId,
             clienteNombre: client?.name ?? "Cliente",
-            totalManoObra: total, // Simplified: assumes total = MO for now
+            totalManoObra: total,
             totalRepuestos: 0,
             totalServicios: 0,
             centroCostoId: undefined,
           });
         }
-      } catch (err) {
-        console.warn(
-          `[orden] Error generando asiento contable para OT completada ${ordenId}:`,
-          err instanceof Error ? err.message : err,
-        );
       }
-    })();
+    } catch (acctErr) {
+      console.error(
+        `[orden] CRÍTICO — Error generando asiento contable para OT completada ${ordenId}:`,
+        acctErr instanceof Error ? acctErr.message : acctErr,
+      );
+    }
   }
 
   // ── Notificaciones automáticas para TODOS los cambios de estado ──
@@ -532,7 +528,7 @@ export async function updateOrdenStatus(
           tenantSlug,
         });
 
-        console.warn(`[orden] Notificación de completado enviada a ${client.email}`);
+        console.log(`[orden] Notificación de completado enviada a ${client.email}`);
       } catch (emailErr) {
         console.warn(
           `[orden] Error enviando email de completado OT ${ordenId}:`,

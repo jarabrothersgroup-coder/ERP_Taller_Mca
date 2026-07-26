@@ -52,14 +52,13 @@ function generateCsrfToken(): string {
 /**
  * Fastify hook that sets a CSRF cookie on every response.
  * The cookie is HttpOnly=false so JavaScript can read it.
+ * Regenerates on every request to prevent cookie deletion attacks.
  */
 export async function csrfSetCookieHook(
   _request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  // Only set cookie if not already present
-  const existing = (_request as any).cookies?.[CSRF_COOKIE_NAME];
-  if (!existing && typeof (reply as any).cookie === 'function') {
+  if (typeof (reply as any).cookie === 'function') {
     const token = generateCsrfToken();
     (reply as any).cookie(CSRF_COOKIE_NAME, token, {
       httpOnly: false, // Must be readable by JavaScript
@@ -90,9 +89,9 @@ export async function csrfVerifyHook(
   const url = request.url.split("?")[0];
   if (CSRF_EXEMPT_PATHS.has(url)) return;
 
-  // Skip for API key / external integrations (they use different auth)
-  const authHeader = request.headers["authorization"];
-  if (!authHeader && !request.headers["x-user-email"]) return;
+  // CSRF protects against cookie-based forgery — always verify for stateful methods
+  // regardless of auth header presence. External API integrations should use
+  // exempt paths or API key middleware, not bypass CSRF.
 
   // Get token from cookie
   const cookieToken = (request as any).cookies?.[CSRF_COOKIE_NAME];

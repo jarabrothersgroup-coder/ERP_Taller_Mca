@@ -8,6 +8,7 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { sql } from "drizzle-orm";
+import { getDb } from "../../../shared/database/connection.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -97,18 +98,22 @@ export async function updateSequence(
   data: Partial<{ nombre: string; descripcion: string; triggerEvent: string; estado: string }>,
   tenantSlug: string,
 ): Promise<boolean> {
-  const updates: string[] = [];
-  if (data.nombre !== undefined) updates.push(`nombre = '${data.nombre}'`);
-  if (data.descripcion !== undefined) updates.push(`descripcion = '${data.descripcion}'`);
-  if (data.triggerEvent !== undefined) updates.push(`trigger_event = '${data.triggerEvent}'`);
-  if (data.estado !== undefined) updates.push(`estado = '${data.estado}'`);
-  updates.push("updated_at = now()");
-  if (updates.length === 1) return false;
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
 
-  const rows = await db().execute(sql.raw(`
-    UPDATE marketing_sequences SET ${updates.join(", ")}
-    WHERE id = '${id}' AND tenant_slug = '${tenantSlug}' RETURNING id
-  `));
+  if (data.nombre !== undefined) { sets.push(`nombre = $${idx++}`); values.push(data.nombre); }
+  if (data.descripcion !== undefined) { sets.push(`descripcion = $${idx++}`); values.push(data.descripcion); }
+  if (data.triggerEvent !== undefined) { sets.push(`trigger_event = $${idx++}`); values.push(data.triggerEvent); }
+  if (data.estado !== undefined) { sets.push(`estado = $${idx++}`); values.push(data.estado); }
+  sets.push("updated_at = now()");
+  if (sets.length === 1) return false;
+
+  values.push(id, tenantSlug);
+  const rows = await getDb().unsafe(`
+    UPDATE marketing_sequences SET ${sets.join(", ")}
+    WHERE id = $${idx++} AND tenant_slug = $${idx} RETURNING id
+  `, values as any[]);
   return rows.length > 0;
 }
 

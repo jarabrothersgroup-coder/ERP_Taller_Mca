@@ -165,16 +165,44 @@ export async function updateCuentaBancaria(
 export async function registrarMovimiento(
   data: NewMovimientoTes,
 ): Promise<MovimientoTes> {
-  // Validar que la cuenta existe
+  // Validate that the account exists
   await getCuentaBancaria(data.cuentaId);
 
-  const [result] = await db()
-    .insert(movimientosTes)
-    .values(data)
-    .returning();
+  // Atomic: insert movement + update balance inside a transaction
+  const [result] = await db().transaction(async (tx) => {
+    const [mov] = await tx
+      .insert(movimientosTes)
+      .values(data)
+      .returning();
 
-  // Actualizar saldo de la cuenta
-  await actualizarSaldoCuenta(data.cuentaId);
+    // Recalculate account balance from all movements
+    const [balResult] = await tx
+      .select({
+        total: sql<string>`COALESCE(SUM(
+          CASE WHEN ${movimientosTes.tipo} IN ('INGRESO', 'TRANSFERENCIA')
+            THEN CAST(${movimientosTes.monto} AS NUMERIC)
+            ELSE -CAST(${movimientosTes.monto} AS NUMERIC)
+          END
+        ), 0)`,
+      })
+      .from(movimientosTes)
+      .where(eq(movimientosTes.cuentaId, data.cuentaId));
+
+    const [cuentaDb] = await tx
+      .select({ saldoInicial: cuentasBancarias.saldoInicial })
+      .from(cuentasBancarias)
+      .where(eq(cuentasBancarias.id, data.cuentaId))
+      .limit(1);
+
+    const totalMovs = parseFloat(balResult?.total ?? "0");
+    const saldoInicial = parseFloat(cuentaDb?.saldoInicial ?? "0");
+    await tx
+      .update(cuentasBancarias)
+      .set({ saldoActual: String(saldoInicial + totalMovs), updatedAt: new Date() })
+      .where(eq(cuentasBancarias.id, data.cuentaId));
+
+    return [mov];
+  });
 
   // Emitir evento al Accounting Bus para generar asiento si aplica
   // Solo emitimos si hay cuentaContableId (se puede contabilizar automáticamente)
@@ -545,7 +573,7 @@ export async function pagarFacturaProveedor(
 
     if (!factura) throw new NotFoundError(`Factura proveedor ${facturaProvId} no encontrada`);
 
-    const saldoActual = parseFloat(factura.saldoPendiente ?? factura.total ?? "0");
+    const saldoActual = parseFloat(factura.saldoPendiente ?? factura.total ?? "0") || 0;
     if (saldoActual <= 0) throw new ValidationError("La factura ya está pagada");
     if (monto > saldoActual) throw new ValidationError(`Monto (${monto}) excede saldo (${saldoActual})`);
 
@@ -706,33 +734,7 @@ export async function proyectarFlujoCaja(
 
 /**
  * Recalcula el saldo_actual de una cuenta bancaria sumando todos sus movimientos.
- */
-async function actualizarSaldoCuenta(cuentaId: string): Promise<void> {
-  const [result] = await db()
-    .select({
-      total: sql<string>`COALESCE(SUM(
-        CASE WHEN ${movimientosTes.tipo} IN ('INGRESO', 'TRANSFERENCIA')
-          THEN CAST(${movimientosTes.monto} AS NUMERIC)
-          ELSE -CAST(${movimientosTes.monto} AS NUMERIC)
-        END
-      ), 0)`,
-    })
-    .from(movimientosTes)
-    .where(eq(movimientosTes.cuentaId, cuentaId));
-
-  const cuenta = await getCuentaBancaria(cuentaId);
-  const totalMovs = parseFloat(result?.total ?? "0");
-  const saldoInicial = parseFloat(cuenta.saldoInicial);
-  const nuevoSaldo = String(saldoInicial + totalMovs);
-
-  await db()
-    .update(cuentasBancarias)
-    .set({ saldoActual: nuevoSaldo, updatedAt: new Date() })
-    .where(eq(cuentasBancarias.id, cuentaId));
-}
-
-/**
- * Versión transaccional de actualizarSaldoCuenta para usar dentro de tx.
+ * Versión transaccional para usar dentro de tx.
  */
 async function actualizarSaldoCuentaTx(
   tx: ReturnType<typeof db>,

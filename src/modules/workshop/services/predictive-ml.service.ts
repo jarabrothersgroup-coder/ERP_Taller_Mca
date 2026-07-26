@@ -518,14 +518,17 @@ export async function getAllMlPredictions(
     .limit(200);
 
   const predictions: MlVehiclePrediction[] = [];
-  for (const v of vehicles) {
-    try {
-      const pred = await predictMlMaintenance(v.id, tenantSlug);
-      if (pred.scoreRiesgo >= umbralRiesgo) {
-        predictions.push(pred);
+  // Batch parallel with concurrency limit of 15
+  const BATCH = 15;
+  for (let i = 0; i < vehicles.length; i += BATCH) {
+    const batch = vehicles.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map((v) => predictMlMaintenance(v.id, tenantSlug)),
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.scoreRiesgo >= umbralRiesgo) {
+        predictions.push(r.value);
       }
-    } catch {
-      // Skip vehicles with errors
     }
   }
 
