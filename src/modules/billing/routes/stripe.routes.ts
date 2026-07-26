@@ -13,6 +13,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { env } from "../../../config/env.js";
 import {
   getPlans,
   getSubscription,
@@ -240,7 +241,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
       interval?: "monthly" | "annual";
     };
 
-    const baseUrl = process.env["APP_URL"] || "http://localhost:3000";
+    const baseUrl = env.APP_URL || "http://localhost:3000";
     const result = await createCheckoutSession(
       {
         planId: body.planId,
@@ -285,7 +286,7 @@ export async function billingRoutes(app: FastifyInstance): Promise<void> {
     const tenantSlug = req.tenantSlug;
     if (!tenantSlug) return reply.code(401).send({ error: "Tenant not identified" });
 
-    const baseUrl = process.env["APP_URL"] || "http://localhost:3000";
+    const baseUrl = env.APP_URL || "http://localhost:3000";
     const result = await createPortalSession(tenantSlug, `${baseUrl}/dashboard/billing`);
     return reply.send(result);
   });

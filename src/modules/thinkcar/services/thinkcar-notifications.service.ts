@@ -9,6 +9,7 @@
  */
 
 import nodemailer from "nodemailer";
+import { env } from "../../../config/env.js";
 
 export interface ManualReviewNotificationPayload {
   tenantSlug: string;
@@ -22,6 +23,10 @@ export class ThinkcarNotificationService {
    * Dispatches an immediate email alert to the workshop reception team
    * when a physical diagnostic report enters the manual review queue.
    *
+   * All credentials come exclusively from validated environment config (env.ts).
+   * No hardcoded fallbacks — if THINKCAR_EMAIL_USER/PASSWORD are not configured,
+   * the alert is silently skipped (graceful degradation).
+   *
    * @param payload - Details about the unlinked report
    * @returns `true` if the alert was sent successfully, `false` if skipped
    *          due to missing credentials or transport failure.
@@ -29,14 +34,13 @@ export class ThinkcarNotificationService {
   public static async sendManualReviewAlert(
     payload: ManualReviewNotificationPayload,
   ): Promise<boolean> {
-    const username =
-      process.env.THINKCAR_EMAIL_USER || "jarabrothersgroup@gmail.com";
-    const password = process.env.THINKCAR_EMAIL_PASSWORD;
-    const alertRecipient = process.env.THINKCAR_ALERT_RECIPIENT || username;
+    const username = env.THINKCAR_EMAIL_USER;
+    const password = env.THINKCAR_EMAIL_PASSWORD;
+    const alertRecipient = env.THINKCAR_ALERT_RECIPIENT || username;
 
-    if (!password) {
+    if (!username || !password) {
       console.warn(
-        "[THINKCAR_ALERT] Alerta omitida: Credenciales no configuradas.",
+        "[THINKCAR_ALERT] Alerta omitida: THINKCAR_EMAIL_USER y THINKCAR_EMAIL_PASSWORD no configurados.",
       );
       return false;
     }
