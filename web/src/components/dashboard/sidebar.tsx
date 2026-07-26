@@ -36,6 +36,7 @@ import {
   Landmark,
   ScrollText,
   RefreshCw,
+  RotateCcw,
   ShoppingCart,
   Timer,
   UserCheck,
@@ -128,6 +129,8 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: "Finanzas",
     items: [
       { label: "Facturación", href: "/dashboard/facturacion", icon: DollarSign },
+      { label: "Config. Impresión", href: "/dashboard/facturacion/configurador", icon: Settings },
+      { label: "Reimpresión", href: "/dashboard/facturacion/reimpresion", icon: RotateCcw },
       { label: "SIFEN", href: "/dashboard/finance/sifen", icon: FileText },
       { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },
       { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt },
