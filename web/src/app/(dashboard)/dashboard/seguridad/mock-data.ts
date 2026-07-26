@@ -1,6 +1,9 @@
 import type { UIMappedAuditEntry } from "@/lib/data-service";
 
-export interface AuditRecord extends UIMappedAuditEntry {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface AuditRecord extends UIMappedAuditEntry {
+  // UI audit log record type (extends UIMappedAuditEntry)
+}
 
 const acciones = ["CREAR", "MODIFICAR", "ANULAR", "PAGAR", "EMITIR"] as const;
 const entidades = ["OT", "FACTURA", "ASIENTO", "PAGO", "REPUESTO", "USUARIO", "CLIENTE"] as const;

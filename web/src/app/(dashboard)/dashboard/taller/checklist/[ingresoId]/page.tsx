@@ -239,7 +239,8 @@ export default function ChecklistPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast: t, ToastContainer } = useToast();
-  const ingresoId = params.ingresoId as string;
+  const ingresoId = params?.ingresoId as string;
+  if (!ingresoId) return null;
 
   const [step, setStep] = React.useState(0); // 0=Exterior, 1=Detalles, 2=Firma
   const [checklist, setChecklist] = React.useState<RecepcionChecklist>(getDefaultChecklist());

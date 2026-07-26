@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 export default function MagicLinkAuthPage() {
   const params = useParams();
   const router = useRouter();
-  const token = params.token as string;
+  const token = params?.token as string;
+  if (!token) return null;
 
   const [status, setStatus] = useState<"validating" | "success" | "error">("validating");
   const [errorMsg, setErrorMsg] = useState("");

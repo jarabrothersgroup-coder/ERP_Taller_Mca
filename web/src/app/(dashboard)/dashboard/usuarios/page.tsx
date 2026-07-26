@@ -25,8 +25,9 @@ import type { UIMappedUser } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface UserRecord extends UIMappedUser {
-  // Extended from base type
+  // Extended from base type (extends UIMappedUser)
 }
 
 /* ── Role Configuration ─────────────────────── */

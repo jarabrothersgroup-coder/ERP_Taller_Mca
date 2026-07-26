@@ -45,7 +45,8 @@ function getSession(): string | null {
 export default function PortalOrdenDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = params?.id as string;
+  if (!id) return null;
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);

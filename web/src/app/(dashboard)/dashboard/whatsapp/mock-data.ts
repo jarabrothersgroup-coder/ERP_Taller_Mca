@@ -1,6 +1,9 @@
 import type { UIMappedWhatsAppMessage } from "@/lib/data-service";
 
-export interface WAMessageRecord extends UIMappedWhatsAppMessage {}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface WAMessageRecord extends UIMappedWhatsAppMessage {
+  // WhatsApp message record UI type (extends UIMappedWhatsAppMessage)
+}
 
 const nombresClientes = [
   "María González", "Pedro López", "Juan Pérez", "Lucía Fernández",

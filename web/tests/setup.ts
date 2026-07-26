@@ -1,5 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 
+// Enable mock data fallback globally (must be set before data-service module is evaluated)
+process.env["NEXT_PUBLIC_ENABLE_MOCKS"] = "true";
+
 // Mock window.matchMedia for components that use it (e.g., theme toggles)
 Object.defineProperty(window, "matchMedia", {
   writable: true,

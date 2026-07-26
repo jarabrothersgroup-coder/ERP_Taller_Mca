@@ -174,7 +174,7 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
               {section.items.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+                  (item.href !== "/dashboard" && !!pathname && pathname.startsWith(item.href + "/"));
                 return (
                   <Link
                     key={item.href}
