@@ -1,10 +1,14 @@
 /**
- * Middleware — i18n locale negotiation
+ * Middleware — i18n locale negotiation + auth guard
  *
  * Auth validation happens on the backend (JWT).
  * This middleware handles locale detection and public route access.
+ *
+ * IMPORTANT: next-intl v4.x createIntlMiddleware does NOT correctly discover
+ * routes inside route groups like (auth), (dashboard). For public routes
+ * we bypass it entirely and let Next.js handle routing natively.
  */
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 
 const locales = ["es", "gu", "en"] as const;
@@ -14,8 +18,6 @@ const intlMiddleware = createIntlMiddleware({
   locales: locales as unknown as string[],
   defaultLocale,
   localeDetection: true,
-  // "never" avoids locale prefix in URL — pages keep clean paths.
-  // The locale is detected from the cookie/header and available via getLocale().
   localePrefix: "never",
 });
 
@@ -24,9 +26,10 @@ const publicRoutes = ["/sign-in", "/sign-up", "/api/auth"];
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes (no locale prefix since localePrefix="never")
+  // Public routes: bypass intlMiddleware (next-intl v4 doesn't resolve
+  // routes inside (auth)/(dashboard) route groups correctly).
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return intlMiddleware(request);
+    return NextResponse.next();
   }
 
   // Check for auth token cookie
