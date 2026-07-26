@@ -55,76 +55,120 @@ interface NavItem {
   badge?: string;
 }
 
+/**
+ * Sidebar reorganizado por FLUJO DE NEGOCIO de un taller automotriz:
+ *
+ * 1. 🎯 OPERACIONES — Lo que el usuario hace CADA MINUTO (frecuencia alta)
+ *    Flujo: Vehículo llega → Recepción → Diagnóstico → Presupuesto → Aprobación → Trabajo → Cobro
+ *
+ * 2. 🔧 SERVICIOS — Catálogos y herramientas especializadas del taller
+ *    Soporte técnico: precios, mecánicos, asignación, DVI, Thinkcar
+ *
+ * 3. 📦 INVENTARIO — Control de stock, compras, almacenes
+ *    Flujo: Stock bajo → Orden de compra → Recepción → Asignación a OT
+ *
+ * 4. 💰 FINANZAS — Facturación, contabilidad, tesorería, nómina
+ *    Flujo: Presupuesto → Factura → SIFEN → Cobro → Asiento contable automático
+ *
+ * 5. 👥 CRM — Clientes, pipeline, marketing, analytics
+ *    Flujo: Lead → CRM → Servicio → Fidelización → Reseñas
+ *
+ * 6. ⚙️ ADMIN — Configuración del sistema, seguridad, usuarios
+ *    Solo accessed on setup/maintenance (frecuencia baja)
+ */
 const navSections: { title: string; items: NavItem[] }[] = [
+  // ── 1. OPERACIONES ──────────────────────────────────────────────
+  // Flujo del día a día: qué está pasando AHORA en el taller
   {
-    title: "Principal",
+    title: "Operaciones",
     items: [
       { label: "Hub de Operaciones", href: "/dashboard/hub", icon: Zap, badge: "Nuevo" },
-      { label: "Panel de Control", href: "/dashboard/ejecutivo", icon: LayoutDashboard },
-      { label: "Taller", href: "/dashboard/taller", icon: Wrench },
+      { label: "Panel Ejecutivo", href: "/dashboard/ejecutivo", icon: LayoutDashboard },
       { label: "Recepción", href: "/dashboard/recepcion", icon: ClipboardCheck },
-      { label: "Servicios", href: "/dashboard/servicios", icon: Wrench },
+      { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
+      { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare, badge: "3" },
+    ],
+  },
+
+  // ── 2. SERVICIOS DEL TALLER ─────────────────────────────────────
+  // Catálogos, precios, personal, diagnóstico — todo lo técnico
+  {
+    title: "Servicios",
+    items: [
+      { label: "Catálogo Servicios", href: "/dashboard/servicios", icon: Wrench },
       { label: "Precios", href: "/dashboard/taller/precios", icon: TrendingUp },
       { label: "Flat Rate", href: "/dashboard/taller/flat-rate", icon: Timer },
-      { label: "Asignación", href: "/dashboard/taller/asignacion", icon: UserCheck },
+      { label: "Asignación OT", href: "/dashboard/taller/asignacion", icon: UserCheck },
       { label: "Mecánicos", href: "/dashboard/taller/mecanicos", icon: Users },
-      { label: "Clientes", href: "/dashboard/clientes", icon: Users },
-      { label: "Inventario", href: "/dashboard/inventario", icon: Package },
-      { label: "Mov. Stock", href: "/dashboard/inventario/movimientos", icon: RefreshCw },
-      { label: "Órdenes Compra", href: "/dashboard/inventario/ordenes-compra", icon: ShoppingCart },
-      { label: "Herramientas", href: "/dashboard/inventario/herramientas", icon: Wrench },
-      { label: "Almacenes", href: "/dashboard/inventario/almacenes", icon: Warehouse },
-      { label: "Conteo Cíclico", href: "/dashboard/inventario/conteo", icon: ClipboardCheck },
-      { label: "TecDoc", href: "/dashboard/inventario/tecdoc", icon: Search },
+      { label: "DVI", href: "/dashboard/dvi", icon: ClipboardCheck },
+      { label: "Thinkcar OBD2", href: "/dashboard/thinkcar", icon: Scan },
+      { label: "Mant. Predictivo", href: "/dashboard/taller/predictive-ml", icon: Brain },
       { label: "Proveedores", href: "/dashboard/taller/proveedores", icon: Truck },
     ],
   },
+
+  // ── 3. INVENTARIO ───────────────────────────────────────────────
+  // Control de stock y cadena de suministro
   {
-    title: "Inteligencia",
+    title: "Inventario",
     items: [
-      { label: "Mant. Predictivo", href: "/dashboard/taller/predictive-ml", icon: Brain },
+      { label: "Stock General", href: "/dashboard/inventario", icon: Package },
+      { label: "Movimientos", href: "/dashboard/inventario/movimientos", icon: RefreshCw },
+      { label: "Órdenes Compra", href: "/dashboard/inventario/ordenes-compra", icon: ShoppingCart },
+      { label: "Almacenes", href: "/dashboard/inventario/almacenes", icon: Warehouse },
+      { label: "Herramientas", href: "/dashboard/inventario/herramientas", icon: Wrench },
+      { label: "TecDoc", href: "/dashboard/inventario/tecdoc", icon: Search },
+      { label: "Conteo Cíclico", href: "/dashboard/inventario/conteo", icon: ClipboardCheck },
     ],
   },
+
+  // ── 4. FINANZAS ─────────────────────────────────────────────────
+  // Facturación electrónica (SIFEN), contabilidad, tesorería, nómina
   {
     title: "Finanzas",
     items: [
       { label: "Facturación", href: "/dashboard/facturacion", icon: DollarSign },
       { label: "SIFEN", href: "/dashboard/finance/sifen", icon: FileText },
+      { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },
       { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt },
       { label: "Contabilidad", href: "/dashboard/contabilidad", icon: Landmark },
       { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign },
-      { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },
-      { label: "Consolidación", href: "/dashboard/finance/consolidation", icon: Building2 },
       { label: "Nómina", href: "/dashboard/nomina", icon: Calculator },
+      { label: "Consolidación", href: "/dashboard/finance/consolidation", icon: Building2 },
     ],
   },
+
+  // ── 5. CRM & CRECIMIENTO ───────────────────────────────────────
+  // Relación con clientes, pipeline de ventas, analytics
   {
-    title: "Operaciones",
+    title: "CRM & Crecimiento",
     items: [
-      { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
-      { label: "CRM", href: "/dashboard/crm", icon: GitBranch },
-      { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare, badge: "3" },
-      { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-      { label: "Ejecutivo", href: "/dashboard/ejecutivo", icon: TrendingUp },
-      { label: "DVI", href: "/dashboard/dvi", icon: ClipboardCheck },
-      { label: "Thinkcar", href: "/dashboard/thinkcar", icon: Scan },
+      { label: "Clientes", href: "/dashboard/clientes", icon: Users },
+      { label: "CRM Pipeline", href: "/dashboard/crm", icon: GitBranch },
       { label: "Marketing", href: "/dashboard/marketing", icon: Megaphone },
+      { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     ],
   },
+
+  // ── 6. ADMINISTRACIÓN ───────────────────────────────────────────
+  // Setup y mantenimiento del sistema — acceso esporádico
   {
-    title: "Sistema",
+    title: "Administración",
     items: [
       { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
       { label: "Vehículos", href: "/dashboard/vehiculos", icon: Car },
+      { label: "Flotas", href: "/dashboard/flotas", icon: Truck },
       { label: "Seguridad", href: "/dashboard/seguridad", icon: Shield },
       { label: "Seguridad HW", href: "/dashboard/security-hw", icon: Fingerprint },
-      { label: "Flotas", href: "/dashboard/flotas", icon: Truck },
       { label: "Enterprise", href: "/dashboard/enterprise", icon: Building2 },
       { label: "Impresión", href: "/dashboard/label-printing", icon: Printer },
       { label: "Backup", href: "/dashboard/backup", icon: Database },
       { label: "Configuración", href: "/dashboard/config", icon: Settings },
     ],
   },
+
+  // ── 7. CUENTA ───────────────────────────────────────────────────
+  // Perfil personal y facturación de la suscripción
   {
     title: "Cuenta",
     items: [

@@ -15,6 +15,9 @@ import {
   Car,
   CheckCircle2,
   AlertCircle,
+  FileText,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +43,13 @@ interface TimeSlot {
   available: boolean;
 }
 
+const STEPS = [
+  { num: 1, label: "Vehículo", icon: Car },
+  { num: 2, label: "Fecha", icon: Calendar },
+  { num: 3, label: "Horario", icon: Clock },
+  { num: 4, label: "Motivo", icon: FileText },
+];
+
 /* ── Page ─────────────────────────────────────── */
 
 export default function PortalBookingPage() {
@@ -56,6 +66,9 @@ export default function PortalBookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+
+  // Compute current step
+  const currentStep = !selectedVehicle ? 1 : !selectedDate ? 2 : !selectedTime ? 3 : 4;
 
   // Load vehicles on mount
   useEffect(() => {
@@ -157,7 +170,8 @@ export default function PortalBookingPage() {
     return (
       <div className="space-y-4 animate-fade-in">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     );
   }
@@ -165,20 +179,25 @@ export default function PortalBookingPage() {
   // Success state
   if (success) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
         <Button variant="ghost" size="sm" onClick={() => router.push("/portal/dashboard")} className="mb-2">
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver al Dashboard
         </Button>
-        <Card>
-          <CardContent className="py-12 text-center">
-            <div className="mx-auto h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
+        <Card className="border-green-200 dark:border-green-800 overflow-hidden">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-center text-white">
+            <div className="mx-auto h-16 w-16 rounded-full bg-white/20 flex items-center justify-center mb-3 backdrop-blur-sm">
+              <CheckCircle2 className="h-8 w-8" />
             </div>
-            <h2 className="text-lg font-bold mb-2">¡Cita Agendada!</h2>
-            <p className="text-sm text-muted-foreground mb-6">
-              Tu cita fue registrada exitosamente. Te contactaremos para confirmar.
+            <h2 className="text-xl font-bold">¡Cita Agendada!</h2>
+            <p className="text-green-100 mt-1 text-sm">
+              Tu cita fue registrada exitosamente
             </p>
-            <div className="space-y-2 text-sm bg-muted/50 rounded-lg p-4 max-w-sm mx-auto">
+          </div>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Te contactaremos para confirmar el turno.
+            </p>
+            <div className="space-y-3 text-sm bg-muted/50 rounded-xl p-4">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fecha:</span>
                 <span className="font-medium">{selectedDate}</span>
@@ -195,9 +214,28 @@ export default function PortalBookingPage() {
                 </span>
               </div>
             </div>
-            <Button className="mt-6" onClick={() => router.push("/portal/dashboard")}>
-              Volver al Dashboard
-            </Button>
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => router.push("/portal/dashboard")}
+              >
+                Volver al Dashboard
+              </Button>
+              <Button
+                className="flex-1 gap-2"
+                onClick={() => {
+                  setSuccess(false);
+                  setSelectedVehicle("");
+                  setSelectedDate("");
+                  setSelectedTime("");
+                  setMotivo("");
+                }}
+              >
+                <Calendar className="h-4 w-4" />
+                Agendar otra
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -211,24 +249,68 @@ export default function PortalBookingPage() {
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver
         </Button>
         <h1 className="text-xl font-bold tracking-tight">Agendar Cita</h1>
-        <p className="text-sm text-muted-foreground">Seleccioná fecha, hora y motivo para tu visita al taller</p>
+        <p className="text-sm text-muted-foreground">Completá los pasos para reservar tu turno</p>
+      </div>
+
+      {/* Progress Stepper */}
+      <div className="flex items-center gap-1 sm:gap-2">
+        {STEPS.map((step, i) => {
+          const StepIcon = step.icon;
+          const isCompleted = step.num < currentStep;
+          const isCurrent = step.num === currentStep;
+          const isFuture = step.num > currentStep;
+          return (
+            <React.Fragment key={step.num}>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300",
+                    isCompleted && "bg-green-500 text-white shadow-sm shadow-green-500/30",
+                    isCurrent && "bg-orange-500 text-white shadow-sm shadow-orange-500/30 scale-110",
+                    isFuture && "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <StepIcon className="h-4 w-4" />
+                  )}
+                </div>
+                <span className={cn(
+                  "text-xs font-medium hidden sm:block",
+                  isCurrent ? "text-orange-600 dark:text-orange-400" : isCompleted ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                )}>
+                  {step.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div className={cn(
+                  "flex-1 h-0.5 rounded-full transition-all duration-300",
+                  isCompleted ? "bg-green-300 dark:bg-green-700" : "bg-muted"
+                )} />
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {error && (
         <Card className="border-destructive/50">
           <CardContent className="py-3 flex items-center gap-2 text-destructive text-sm">
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="h-4 w-4 shrink-0" />
             {error}
           </CardContent>
         </Card>
       )}
 
       {/* Step 1: Vehicle */}
-      <Card>
+      <Card className={cn("transition-all duration-200", currentStep === 1 && "ring-2 ring-orange-500/20 border-orange-300 dark:border-orange-700")}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Car className="h-4 w-4" />
-            1. Seleccioná tu vehículo
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold", currentStep === 1 ? "bg-orange-500 text-white" : currentStep > 1 ? "bg-green-500 text-white" : "bg-muted text-muted-foreground")}>
+              {currentStep > 1 ? <CheckCircle2 className="h-3.5 w-3.5" /> : "1"}
+            </div>
+            Seleccioná tu vehículo
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -242,18 +324,23 @@ export default function PortalBookingPage() {
                   type="button"
                   onClick={() => setSelectedVehicle(v.id)}
                   className={cn(
-                    "text-left p-3 rounded-lg border transition-colors",
+                    "text-left p-3 rounded-xl border-2 transition-all duration-200",
                     selectedVehicle === v.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
-                      : "hover:bg-accent/50"
+                      ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30 shadow-sm shadow-orange-500/10"
+                      : "border-transparent hover:border-border hover:bg-accent/50"
                   )}
                 >
-                  <p className="text-sm font-medium">
-                    {v.brand} {v.model}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {v.plate || "Sin chapa"} {v.year ? `· ${v.year}` : ""}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <Car className={cn("h-4 w-4 shrink-0", selectedVehicle === v.id ? "text-orange-500" : "text-muted-foreground")} />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {v.brand} {v.model}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {v.plate || "Sin chapa"} {v.year ? `· ${v.year}` : ""}
+                      </p>
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -262,11 +349,13 @@ export default function PortalBookingPage() {
       </Card>
 
       {/* Step 2: Date */}
-      <Card>
+      <Card className={cn("transition-all duration-200", currentStep === 2 && "ring-2 ring-orange-500/20 border-orange-300 dark:border-orange-700", currentStep < 2 && "opacity-50 pointer-events-none")}>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            2. Elegí una fecha
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold", currentStep === 2 ? "bg-orange-500 text-white" : currentStep > 2 ? "bg-green-500 text-white" : "bg-muted text-muted-foreground")}>
+              {currentStep > 2 ? <CheckCircle2 className="h-3.5 w-3.5" /> : "2"}
+            </div>
+            Elegí una fecha
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -278,59 +367,64 @@ export default function PortalBookingPage() {
               setSelectedDate(e.target.value);
               setSelectedTime("");
             }}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-300 transition-all"
           />
         </CardContent>
       </Card>
 
       {/* Step 3: Time */}
-      {selectedDate && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              3. Elegí un horario
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {slotsLoading ? (
-              <div className="grid grid-cols-4 gap-2">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <Skeleton key={i} className="h-10" />
-                ))}
-              </div>
-            ) : availableSlots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha</p>
-            ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {availableSlots.map((slot) => (
-                  <button
-                    key={slot.time}
-                    type="button"
-                    disabled={!slot.available}
-                    onClick={() => setSelectedTime(slot.time)}
-                    className={cn(
-                      "h-10 rounded-md border text-sm font-medium transition-colors",
-                      !slot.available
-                        ? "opacity-40 cursor-not-allowed bg-muted"
-                        : selectedTime === slot.time
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30 text-blue-600"
-                          : "hover:bg-accent/50"
-                    )}
-                  >
-                    {slot.time}
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <Card className={cn("transition-all duration-200", currentStep === 3 && "ring-2 ring-orange-500/20 border-orange-300 dark:border-orange-700", currentStep < 3 && "opacity-50 pointer-events-none")}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold", currentStep === 3 ? "bg-orange-500 text-white" : currentStep > 3 ? "bg-green-500 text-white" : "bg-muted text-muted-foreground")}>
+              {currentStep > 3 ? <CheckCircle2 className="h-3.5 w-3.5" /> : "3"}
+            </div>
+            Elegí un horario
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {slotsLoading ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-11 rounded-xl" />
+              ))}
+            </div>
+          ) : availableSlots.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Elegí una fecha para ver horarios disponibles</p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {availableSlots.map((slot) => (
+                <button
+                  key={slot.time}
+                  type="button"
+                  disabled={!slot.available}
+                  onClick={() => setSelectedTime(slot.time)}
+                  className={cn(
+                    "h-11 rounded-xl border-2 text-sm font-medium transition-all duration-200",
+                    !slot.available
+                      ? "opacity-30 cursor-not-allowed bg-muted border-transparent"
+                      : selectedTime === slot.time
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 shadow-sm shadow-orange-500/10"
+                        : "border-transparent hover:border-border hover:bg-accent/50"
+                  )}
+                >
+                  {slot.time}
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Step 4: Motivo */}
-      <Card>
+      <Card className={cn("transition-all duration-200", currentStep === 4 && "ring-2 ring-orange-500/20 border-orange-300 dark:border-orange-700", currentStep < 4 && "opacity-50 pointer-events-none")}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">4. Motivo de la visita</CardTitle>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold", currentStep === 4 ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground")}>
+              4
+            </div>
+            Motivo de la visita
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <textarea
@@ -338,19 +432,27 @@ export default function PortalBookingPage() {
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Ej: service de 10.000km, cambio de aceite, revisión general..."
             rows={3}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+            className="flex w-full rounded-xl border border-input bg-background px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-300 transition-all placeholder:text-muted-foreground/60"
           />
         </CardContent>
       </Card>
 
       {/* Submit */}
       <Button
-        className="w-full"
+        className="w-full h-12 text-base font-semibold gap-2 shadow-lg shadow-orange-500/20 active:scale-[0.98] transition-transform"
         size="lg"
         disabled={!selectedVehicle || !selectedDate || !selectedTime || !motivo || submitting}
         onClick={handleBook}
       >
-        {submitting ? "Agendando..." : "Agendar Cita"}
+        {submitting ? (
+          "Agendando..."
+        ) : (
+          <>
+            <Calendar className="h-5 w-5" />
+            Agendar Cita
+            <Sparkles className="h-4 w-4" />
+          </>
+        )}
       </Button>
     </div>
   );
