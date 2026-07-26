@@ -226,26 +226,44 @@ Ver todas las interacciones:
 
 ## 6. Módulo de Facturación (Finance)
 
-### 6.1 Facturación Electrónica (SIFEN)
+### 6.1 Tipos de Factura
 
-El sistema genera facturas electrónicas conformes a la normativa de la DNIT:
+El sistema soporta dos motores de facturación:
 
-**Tipos de Documento:**
-- **Factura Electrónica** (con código de control)
-- **Nota de Crédito** (para devoluciones)
-- **Nota de Débito** (para ajustes)
+- **Factura Electrónica (SIFEN):** XML firmado digitalmente con código de control (CDC), conforme a DNIT V150
+- **Factura Manual:** Registro de factura pre-impresa con número manual, en cola para futura conversión electrónica
 
-**Proceso:**
-1. Dentro de una OT finalizada, hacer clic en **Facturar**
-2. Seleccionar tipo de documento
-3. Verificar datos del cliente (RUC, nombre)
-4. Confirmar → El sistema genera:
-   - XML firmado digitalmente
-   - PDF con código QR
-   - Código de control (CDC)
-5. Enviar por WhatsApp o imprimir
+**Proceso de facturación:**
+1. Ir a **Facturación → Nueva Factura**
+2. Seleccionar orden de trabajo (debe estar en estado Presupuestado, Aprobado o Listo)
+3. Elegir tipo: **Electrónica (SIFEN)** o **Manual**
+4. Si es Manual: ingresar el número de factura (formato: 001-001-0001234)
+5. Confirmar → El sistema genera:
+   - Registro de factura con líneas de detalle (servicios + repuestos)
+   - Asiento contable automático (VENTA)
+   - Email al cliente con la factura
 
-### 6.2 Plan de Cuentas
+### 6.2 Impresión de Facturas (Impresora Térmica)
+
+El sistema genera recibos en formato ESC/POS para impresoras térmicas de 80mm:
+
+**Configuración de impresora:**
+1. Conectar impresora térmica USB al servidor
+2. Verificar que el sistema operativo la detecte (`ls /dev/usb/lp*`)
+3. La factura se imprime en formato de recibo con:
+   - Encabezado del taller (nombre, RUC, dirección)
+   - Número y tipo de factura
+   - Datos del cliente
+   - Líneas de detalle (servicios y repuestos)
+   - Subtotal, IVA 10%, Total
+   - Código QR con CDC (electrónica) o código de barras (manual)
+
+**Para imprimir:**
+1. Ir a **Facturación**
+2. Hacer clic en el ícono de impresora (🖨️) junto a la factura
+3. Se descarga el archivo ESC/POS listo para enviar a la impresora
+
+### 6.3 Plan de Cuentas
 
 Contabilidad de doble entrada con:
 - **Cuentas de Activo** (caja, bancos, inventario)
@@ -253,7 +271,9 @@ Contabilidad de doble entrada con:
 - **Cuentas de Ingresos** (servicios, repuestos)
 - **Cuentas de Egresos** (sueldos, alquiler, utilities)
 
-### 6.3 Tesorería
+**Asientos automáticos:** Toda transacción genera su asiento contable automáticamente (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN). El usuario nunca crea asientos manualmente.
+
+### 6.4 Tesorería
 
 Gestión de:
 - **Cuentas** (caja chica, cuentas bancarias)
@@ -262,7 +282,7 @@ Gestión de:
 - **Conciliación** bancaria
 - **Flujo de Caja** proyectado
 
-### 6.4 Presupuestos Operativos
+### 6.5 Presupuestos Operativos
 
 Para planificación financiera:
 - Crear presupuestos mensuales/anuales
