@@ -19,11 +19,26 @@ const intlMiddleware = createIntlMiddleware({
 
 const publicRoutes = ["/sign-in", "/sign-up", "/api/auth"];
 
+/**
+ * Check if pathname matches a public route, optionally with a locale prefix.
+ * This avoids infinite redirect loops when i18n middleware prefixes the URL.
+ */
+function isPublicRoute(pathname: string): boolean {
+  // Direct match (no locale prefix)
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    return true;
+  }
+  // Locale-prefixed match: /es/sign-in, /en/api/auth/..., etc.
+  return locales.some((locale) =>
+    publicRoutes.some((route) => pathname.startsWith(`/${locale}${route}`)),
+  );
+}
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+  // Allow public routes (including locale-prefixed versions)
+  if (isPublicRoute(pathname)) {
     return intlMiddleware(request);
   }
 
