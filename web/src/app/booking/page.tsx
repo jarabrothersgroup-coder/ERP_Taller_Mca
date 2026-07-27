@@ -62,9 +62,18 @@ export default function BookingPage() {
   const [success, setSuccess] = React.useState<{ id: string } | null>(null);
   const [error, setError] = React.useState("");
 
+  // AI Suggestions state
+  const [aiSuggestions, setAiSuggestions] = React.useState<{
+    time: string;
+    score: number;
+    reason: string;
+    isSweetSpot: boolean;
+  }[]>([]);
+  const [loadingAi, setLoadingAi] = React.useState(false);
+
   const today = new Date().toISOString().split("T")[0];
 
-  // ─── Availability Check ────────────────────────────────
+  // ─── Availability Check ────────────────────────────
 
   React.useEffect(() => {
     if (booking.fecha && booking.servicio) {
@@ -88,7 +97,6 @@ export default function BookingPage() {
           setAvailableSlots(data.availableSlots || []);
         })
         .catch(() => {
-          // Fallback: generate default slots
           const slots: string[] = [];
           for (let h = 8; h < 17; h++) {
             for (let m = 0; m < 60; m += 30) {
@@ -108,6 +116,29 @@ export default function BookingPage() {
         .finally(() => setCheckingAvailability(false));
     }
   }, [booking.fecha, booking.servicio, today]);
+
+  // ─── AI Suggestions (separate effect with telefono dep) ──
+
+  React.useEffect(() => {
+    if (booking.fecha && booking.servicio) {
+      setAiSuggestions([]);
+      setLoadingAi(true);
+
+      api
+        .request<{
+          suggestions: { time: string; score: number; reason: string; isSweetSpot: boolean }[];
+        }>(
+          `/scheduling/ai-suggestions?date=${booking.fecha}&tipoServicio=${booking.servicio}${booking.telefono ? `&clientePhone=${encodeURIComponent(booking.telefono)}` : ""}`,
+        )
+        .then((data) => {
+          setAiSuggestions(data.suggestions || []);
+        })
+        .catch(() => {
+          // AI suggestions are optional
+        })
+        .finally(() => setLoadingAi(false));
+    }
+  }, [booking.fecha, booking.servicio, booking.telefono, today]);
 
   // ─── Navigation ────────────────────────────────────────
 
@@ -347,6 +378,46 @@ export default function BookingPage() {
               <label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block font-medium">
                 Horarios disponibles
               </label>
+
+              {/* AI Suggestions banner */}
+              {!checkingAvailability && aiSuggestions.length > 0 && !loadingAi && (
+                <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-blue-500" />
+                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                      Horarios recomendados
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {aiSuggestions.slice(0, 4).map((s) => (
+                      <button
+                        key={s.time}
+                        onClick={() => setBooking((p) => ({ ...p, hora: s.time }))}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5",
+                          booking.hora === s.time
+                            ? "bg-blue-500 text-white border-blue-500 shadow-sm"
+                            : "bg-white dark:bg-blue-950/50 border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50",
+                          s.isSweetSpot && "ring-2 ring-amber-400/50",
+                        )}
+                        title={s.reason}
+                      >
+                        <Sparkles className={cn("h-3 w-3", s.isSweetSpot ? "text-amber-400" : "text-blue-400")} />
+                        {s.time}
+                        {s.isSweetSpot && (
+                          <span className="text-[9px] text-amber-500 font-bold ml-0.5">★</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {aiSuggestions[0] && (
+                    <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                      ✨ {aiSuggestions[0].reason}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {checkingAvailability ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <Clock className="h-6 w-6 mx-auto mb-2 animate-pulse" />
@@ -361,20 +432,35 @@ export default function BookingPage() {
                       slot.setHours(h, m, 0, 0);
                       return slot <= new Date();
                     })();
+                    const isAiSuggested = aiSuggestions.some((s) => s.time === time);
+                    const aiSuggestion = aiSuggestions.find((s) => s.time === time);
                     return (
                       <button
                         key={time}
                         disabled={isPast}
                         onClick={() => setBooking((p) => ({ ...p, hora: time }))}
                         className={cn(
-                          "py-2.5 rounded-lg text-sm font-medium border transition-all",
+                          "py-2.5 rounded-lg text-sm font-medium border transition-all relative group",
                           isPast && "opacity-25 cursor-not-allowed",
                           booking.hora === time
                             ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-card border-border hover:border-blue-500 hover:bg-accent",
+                            : isAiSuggested
+                              ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                              : "bg-card border-border hover:border-blue-500 hover:bg-accent",
                         )}
                       >
                         {time}
+                        {isAiSuggested && (
+                          <div className="absolute -top-1.5 -right-1.5">
+                            <Sparkles className="h-3 w-3 text-blue-400" />
+                          </div>
+                        )}
+                        {/* Tooltip with AI reason */}
+                        {isAiSuggested && aiSuggestion && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-popover border text-[10px] text-popover-foreground whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-sm">
+                            {aiSuggestion.reason}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
