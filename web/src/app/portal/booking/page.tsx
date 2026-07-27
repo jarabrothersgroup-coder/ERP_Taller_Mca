@@ -67,6 +67,15 @@ export default function PortalBookingPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  // AI Suggestions
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    time: string;
+    score: number;
+    reason: string;
+    isSweetSpot: boolean;
+  }[]>([]);
+  const [loadingAi, setLoadingAi] = useState(false);
+
   // Compute current step
   const currentStep = !selectedVehicle ? 1 : !selectedDate ? 2 : !selectedTime ? 3 : 4;
 
@@ -103,6 +112,7 @@ export default function PortalBookingPage() {
   useEffect(() => {
     if (!selectedDate) {
       setAvailableSlots([]);
+      setAiSuggestions([]);
       return;
     }
 
@@ -126,6 +136,33 @@ export default function PortalBookingPage() {
     };
 
     fetchAvailability();
+
+    // Fetch AI suggestions for selected date
+    const fetchAiSuggestions = async () => {
+      setLoadingAi(true);
+      try {
+        const sessionToken = getSession();
+        const clientPhone = sessionToken
+          ? await api
+              .request<{ phone: string }>("/portal/profile", {
+                headers: { "X-Portal-Session": sessionToken },
+              })
+              .then((r) => r.phone)
+              .catch(() => undefined)
+          : undefined;
+
+        const data = await api.request<{
+          suggestions: { time: string; score: number; reason: string; isSweetSpot: boolean }[];
+        }>(`/scheduling/ai-suggestions?date=${selectedDate}&tipoServicio=RAPIDO${clientPhone ? `&clientePhone=${encodeURIComponent(clientPhone)}` : ""}`);
+        setAiSuggestions(data.suggestions || []);
+      } catch {
+        // AI suggestions are optional
+      } finally {
+        setLoadingAi(false);
+      }
+    };
+
+    fetchAiSuggestions();
   }, [selectedDate]);
 
   // Get min date (tomorrow)
@@ -389,29 +426,86 @@ export default function PortalBookingPage() {
                 <Skeleton key={i} className="h-11 rounded-xl" />
               ))}
             </div>
-          ) : availableSlots.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Elegí una fecha para ver horarios disponibles</p>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {availableSlots.map((slot) => (
-                <button
-                  key={slot.time}
-                  type="button"
-                  disabled={!slot.available}
-                  onClick={() => setSelectedTime(slot.time)}
-                  className={cn(
-                    "h-11 rounded-xl border-2 text-sm font-medium transition-all duration-200",
-                    !slot.available
-                      ? "opacity-30 cursor-not-allowed bg-muted border-transparent"
-                      : selectedTime === slot.time
-                        ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 shadow-sm shadow-orange-500/10"
-                        : "border-transparent hover:border-border hover:bg-accent/50"
+            <>
+              {/* AI Suggestions banner */}
+              {!slotsLoading && aiSuggestions.length > 0 && !loadingAi && (
+                <div className="mb-4 p-3 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      Horarios recomendados para vos
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {aiSuggestions.slice(0, 3).map((s) => (
+                      <button
+                        key={s.time}
+                        type="button"
+                        onClick={() => setSelectedTime(s.time)}
+                        className={cn(
+                          "px-3.5 py-2 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5",
+                          selectedTime === s.time
+                            ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                            : "bg-white dark:bg-amber-950/50 border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/50",
+                          s.isSweetSpot && "ring-2 ring-amber-400/50",
+                        )}
+                        title={s.reason}
+                      >
+                        <Sparkles className={cn("h-3 w-3", s.isSweetSpot ? "text-amber-400" : "text-amber-400")} />
+                        {s.time}
+                      </button>
+                    ))}
+                  </div>
+                  {aiSuggestions[0] && (
+                    <p className="text-[10px] text-muted-foreground mt-1.5 italic">
+                      ✨ {aiSuggestions[0].reason}
+                    </p>
                   )}
-                >
-                  {slot.time}
-                </button>
-              ))}
-            </div>
+                </div>
+              )}
+
+              {availableSlots.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay horarios disponibles para esta fecha</p>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {availableSlots.map((slot) => {
+                    const isAiSuggested = aiSuggestions.some((s) => s.time === slot.time);
+                    const aiSuggestion = aiSuggestions.find((s) => s.time === slot.time);
+                    return (
+                      <button
+                        key={slot.time}
+                        type="button"
+                        disabled={!slot.available}
+                        onClick={() => setSelectedTime(slot.time)}
+                        className={cn(
+                          "h-11 rounded-xl border-2 text-sm font-medium transition-all duration-200 relative group",
+                          !slot.available
+                            ? "opacity-30 cursor-not-allowed bg-muted border-transparent"
+                            : selectedTime === slot.time
+                              ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 shadow-sm shadow-orange-500/10"
+                              : isAiSuggested
+                                ? "border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                                : "border-transparent hover:border-border hover:bg-accent/50"
+                        )}
+                      >
+                        {slot.time}
+                        {isAiSuggested && (
+                          <div className="absolute -top-1.5 -right-1.5">
+                            <Sparkles className="h-3 w-3 text-amber-400" />
+                          </div>
+                        )}
+                        {isAiSuggested && aiSuggestion && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-popover border text-[10px] text-popover-foreground whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-sm">
+                            {aiSuggestion.reason}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

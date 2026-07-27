@@ -7,15 +7,36 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { useInventory } from "@/hooks/use-data";
 import { NewProductDialog } from "./new-product-dialog";
 import { InventoryStats } from "./stats";
 import { columns } from "./columns";
+import { BarcodeScannerButton } from "@/components/inventory/barcode-scanner-button";
+import { api } from "@/lib/api";
 
 export default function InventoryPage() {
-  const { data: allItems = [], isLoading: loading } = useInventory();
+  const { toast: { success: toastSuccess, error: toastError }, ToastContainer } = useToast();
+  const { data: allItems = [], isLoading: loading, refetch } = useInventory();
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("");
+
+  // Handle barcode scan — search by barcode
+  const handleBarcodeScan = React.useCallback(
+    async (result: { format: string; value: string }) => {
+      try {
+        const item = await api.lookupByBarcode(result.value);
+        if (item) {
+          // Found the item - set it as search
+          setSearch(item.descripcion || item.codigo);
+          toastSuccess(`Producto encontrado: ${item.descripcion || item.codigo}`);
+        }
+      } catch {
+        toastError(`Código "${result.value}" no encontrado en inventario`);
+      }
+    },
+    [toastSuccess, toastError],
+  );
 
   const filtered = React.useMemo(() => {
     let result = allItems;
@@ -121,6 +142,7 @@ export default function InventoryPage() {
         stickyHeader
         actions={
           <div className="flex gap-1">
+            <BarcodeScannerButton onScan={handleBarcodeScan} variant="outline" size="sm" label="Escanear" />
             <Button
               variant="outline"
               size="sm"
@@ -140,6 +162,8 @@ export default function InventoryPage() {
           </div>
         }
       />
+
+      {ToastContainer}
     </div>
   );
 }

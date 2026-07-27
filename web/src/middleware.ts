@@ -21,7 +21,14 @@ const intlMiddleware = createIntlMiddleware({
   localePrefix: "never",
 });
 
-const publicRoutes = ["/sign-in", "/sign-up", "/register", "/forgot-password", "/api/auth"];
+const publicRoutes = [
+  "/sign-in",
+  "/sign-up",
+  "/register",
+  "/forgot-password",
+  "/booking",
+  "/portal",
+];
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

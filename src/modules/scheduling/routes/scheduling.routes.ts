@@ -29,6 +29,7 @@ import {
   getSchedulingStats,
 } from "../services/agendamiento.service.js";
 import { checkAvailability } from "../services/capacity.service.js";
+import { getAISuggestions } from "../services/ai-scheduling.service.js";
 import { executeReminderCron, sendConfirmationMessage } from "../jobs/reminder.cron.js";
 import type {
   CreateAgendamientoRequest,
@@ -416,6 +417,52 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Error obteniendo estadísticas";
         return reply.status(500).send({ error: "StatsError", message: msg });
+      }
+    },
+  );
+
+  // ── GET /scheduling/ai-suggestions — AI-powered time suggestions ──
+  app.get<{
+    Querystring: {
+      date: string;
+      tipoServicio: string;
+      clientePhone?: string;
+    };
+  }>(
+    "/scheduling/ai-suggestions",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          required: ["date", "tipoServicio"],
+          properties: {
+            date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+            tipoServicio: { type: "string", enum: ["RAPIDO", "PESADO"] },
+            clientePhone: { type: "string" },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Querystring: { date: string; tipoServicio: string; clientePhone?: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const tenantSlug = (request as any).tenantSlug as string;
+      const { date, tipoServicio, clientePhone } = request.query;
+
+      try {
+        const result = await getAISuggestions(
+          date,
+          tipoServicio as TipoServicio,
+          tenantSlug,
+          clientePhone,
+        );
+        return reply.send(result);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error generando sugerencias";
+        return reply.status(500).send({ error: "AISuggestionError", message: msg });
       }
     },
   );

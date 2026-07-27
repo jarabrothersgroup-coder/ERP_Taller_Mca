@@ -429,6 +429,15 @@ export const api = {
       method: "DELETE",
     }),
 
+  /* ── Inventory: Barcode Lookup ──────────────── */
+
+  /**
+   * Look up an inventory item by its barcode/QR code.
+   * Uses the backend endpoint with BarcodeDetector integration.
+   */
+  lookupByBarcode: (barcode: string) =>
+    request<InventoryItem>(`/inventory/repuestos/barcode/${encodeURIComponent(barcode)}`),
+
   /* ── Inventory: Stock Operations ───────────── */
 
   stockEntrada: (body: {
