@@ -22,6 +22,7 @@ const intlMiddleware = createIntlMiddleware({
 });
 
 const publicRoutes = [
+  "/api/auth",
   "/sign-in",
   "/sign-up",
   "/register",
