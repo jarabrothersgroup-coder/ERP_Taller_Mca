@@ -1,15 +1,18 @@
 /**
  * Onboarding Routes — Create new tenant with initial configuration.
  *
- * POST /api/onboarding/setup — Create tenant with business info
+ * POST /api/onboarding/setup — Create tenant with business info + admin user
  *   Also auto-configures accounting modules (configuradores + mappings).
  */
 
 import type { FastifyInstance } from "fastify";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenantConfig, librosObligatorios } from "../schema/index.js";
+import { tenants } from "../../../shared/database/schema/index.js";
+import { profiles } from "../../../shared/database/schema/index.js";
 import { clasificarMIC, determinarRegimenIRE, activarLibrosObligatorios } from "../services/tenant-classifier.service.js";
 import { autoConfigureAccounting } from "../../finance/services/accounting/auto-configure.service.js";
+import { hashPassword } from "../../config/services/auth-utils.js";
 import { eq } from "drizzle-orm";
 
 interface OnboardingBody {
@@ -20,14 +23,17 @@ interface OnboardingBody {
   formaJuridica?: string;
   cantidadPersonal?: number;
   ingresosAnuales?: number;
+  adminName?: string;
+  adminEmail?: string;
+  adminPassword?: string;
 }
 
 export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
   /**
    * POST /api/onboarding/setup
    *
-   * Creates a new tenant with initial configuration.
-   * This is called after user registers via Clerk.
+   * Creates a new tenant with initial configuration and admin user.
+   * Creates: public.tenants + tenant_config + libros_obligatorios + profiles (admin)
    */
   app.post<{
     Body: OnboardingBody;
@@ -40,12 +46,21 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       formaJuridica = "UNIPERSONAL",
       cantidadPersonal = 0,
       ingresosAnuales = 0,
+      adminName = "Admin",
+      adminEmail,
+      adminPassword,
     } = request.body;
 
     // Validate required fields
     if (!tenantSlug || !ruc || !dv || !razonSocial) {
       return reply.status(400).send({
         error: "Campos requeridos: tenantSlug, ruc, dv, razonSocial",
+      });
+    }
+
+    if (!adminEmail || !adminPassword) {
+      return reply.status(400).send({
+        error: "Campos requeridos: adminEmail, adminPassword",
       });
     }
 
@@ -56,16 +71,35 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // Check if tenant already exists
-    const existing = await db()
+    // Check if tenant already exists (in tenants or tenant_config)
+    const existingTenant = await db()
+      .select()
+      .from(tenants)
+      .where(eq(tenants.slug, tenantSlug))
+      .limit(1);
+
+    const existingConfig = await db()
       .select()
       .from(tenantConfig)
       .where(eq(tenantConfig.tenantSlug, tenantSlug))
       .limit(1);
 
-    if (existing.length > 0) {
+    if (existingTenant.length > 0 || existingConfig.length > 0) {
       return reply.status(409).send({
         error: "Ya existe un taller con ese slug",
+      });
+    }
+
+    // Check for duplicate admin email
+    const existingProfile = await db()
+      .select()
+      .from(profiles)
+      .where(eq(profiles.email, adminEmail))
+      .limit(1);
+
+    if (existingProfile.length > 0) {
+      return reply.status(409).send({
+        error: "Ya existe un usuario con ese email",
       });
     }
 
@@ -73,7 +107,19 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     const clasificacion = clasificarMIC(ingresosAnuales, cantidadPersonal);
     const regimen = determinarRegimenIRE(clasificacion);
 
-    // Create tenant config
+    // 1. Create tenant in public.tenants
+    const schemaName = `tenant_${tenantSlug.replace(/[^a-zA-Z0-9_]/g, "_")}`;
+    const [tenant] = await db()
+      .insert(tenants)
+      .values({
+        name: razonSocial,
+        slug: tenantSlug,
+        schemaName,
+        ruc,
+      })
+      .returning();
+
+    // 2. Create tenant config
     const [config] = await db()
       .insert(tenantConfig)
       .values({
@@ -89,7 +135,20 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       })
       .returning();
 
-    // Activate mandatory books
+    // 3. Create admin user
+    const passwordHash = hashPassword(adminPassword);
+    const [admin] = await db()
+      .insert(profiles)
+      .values({
+        tenantId: tenant.id,
+        email: adminEmail,
+        fullName: adminName,
+        role: "admin",
+        passwordHash,
+      })
+      .returning();
+
+    // 4. Activate mandatory books
     const librosRequeridos = activarLibrosObligatorios(formaJuridica, regimen);
     for (const lr of librosRequeridos) {
       await db().insert(librosObligatorios).values({
@@ -99,7 +158,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // Auto-configure accounting modules (idempotent: safe to call multiple times)
+    // 5. Auto-configure accounting modules (idempotent: safe to call multiple times)
     const accountingConfig = await autoConfigureAccounting();
 
     return reply.status(201).send({
@@ -110,6 +169,11 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
         razonSocial: config.razonSocial,
         clasificacionMic: config.clasificacionMic,
         regimenIre: config.regimenIre,
+      },
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role,
       },
       accounting: {
         configuradoresRegistrados: accountingConfig.configuradores,

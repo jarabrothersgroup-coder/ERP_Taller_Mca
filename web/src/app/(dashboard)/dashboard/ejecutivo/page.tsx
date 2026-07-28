@@ -61,16 +61,18 @@ function getPrefersReducedMotion(): boolean {
 
 /* ─── Helpers ───────────────────────────────── */
 
-function formatGuarani(amount: number): string {
-  if (amount >= 1_000_000) return `₲ ${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `₲ ${(amount / 1_000).toFixed(0)}K`;
-  return `₲ ${amount.toLocaleString("es-PY")}`;
+function formatGuarani(amount: number = 0): string {
+  const v = Number(amount) || 0;
+  if (v >= 1_000_000) return `₲ ${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `₲ ${(v / 1_000).toFixed(0)}K`;
+  return `₲ ${v.toLocaleString("es-PY")}`;
 }
 
-function formatNumber(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-  return v.toLocaleString();
+function formatNumber(v: number = 0): string {
+  const n = Number(v) || 0;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return n.toLocaleString();
 }
 
 type Period = "today" | "week" | "month" | "quarter";
@@ -222,7 +224,7 @@ function KpiCard({ title, value, subtitle, icon: Icon, color, bgColor, trend, go
 
 function ChartTooltip({ active, payload, label, formatter }: Record<string, any>) {
   if (!active || !payload?.length) return null;
-  const fmt = formatter ?? ((v: number) => v.toLocaleString());
+  const fmt = formatter ?? ((v: number) => (Number(v) || 0).toLocaleString());
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md backdrop-blur-sm">
       <p className="font-medium mb-1">{label}</p>
@@ -273,10 +275,11 @@ function YoYComparison({ label, current, previous, format = "currency" }: {
 }) {
   const change = previous > 0 ? ((current - previous) / previous) * 100 : 0;
   const positive = change >= 0;
-  const fmt = (v: number) => {
-    if (format === "currency") return formatGuarani(v);
-    if (format === "percent") return `${v.toFixed(1)}%`;
-    return v.toLocaleString();
+  const fmt = (v: number = 0) => {
+    const n = Number(v) || 0;
+    if (format === "currency") return formatGuarani(n);
+    if (format === "percent") return `${n.toFixed(1)}%`;
+    return n.toLocaleString();
   };
 
   return (
