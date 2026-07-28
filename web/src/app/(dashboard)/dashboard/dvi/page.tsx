@@ -256,9 +256,9 @@ export default function DVIPage() {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      insp.id.toLowerCase().includes(q) ||
-      insp.vehicleId.toLowerCase().includes(q) ||
-      insp.status.toLowerCase().includes(q)
+      (insp.id ?? "").toLowerCase().includes(q) ||
+      (insp.vehicleId ?? "").toLowerCase().includes(q) ||
+      (insp.status ?? "").toLowerCase().includes(q)
     );
   });    const handleOpenCompare = (insp: DVIInspection) => {
     setSelectedInspection(insp);
@@ -326,9 +326,9 @@ export default function DVIPage() {
                 Volver
               </Button>
               <div>
-                <h2 className="text-lg font-bold">DVI-{selectedInspection.id.slice(0, 8)}</h2>
+                <h2 className="text-lg font-bold">DVI-{(selectedInspection.id ?? "").slice(0, 8)}</h2>
                 <p className="text-xs text-muted-foreground">
-                  Vehículo: {selectedInspection.vehicleId.slice(0, 8)} — {selectedInspection.status}
+                  Vehículo: {(selectedInspection.vehicleId ?? "N/A").slice(0, 8)} — {selectedInspection.status}
                 </p>
               </div>
             </div>
@@ -438,13 +438,13 @@ export default function DVIPage() {
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">DVI-{insp.id.slice(0, 8)}</CardTitle>
+                    <CardTitle className="text-sm">DVI-{(insp.id ?? "").slice(0, 8)}</CardTitle>
                     <Badge variant={statusVariant[insp.status] ?? "secondary"} className="text-[10px]">
                       {insp.status}
                     </Badge>
                   </div>
                   <CardDescription className="text-xs">
-                    Vehículo: {insp.vehicleId.slice(0, 8)}
+                    Vehículo: {(insp.vehicleId ?? "N/A").slice(0, 8)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
