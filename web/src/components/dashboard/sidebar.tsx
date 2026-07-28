@@ -44,6 +44,7 @@ import {
   Warehouse,
   Search,
   Zap,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -158,6 +159,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Administración",
     items: [
+      { label: "Nuevo Taller", href: "/onboarding", icon: Plus, badge: "Nuevo" },
       { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
       { label: "Vehículos", href: "/dashboard/vehiculos", icon: Car },
       { label: "Flotas", href: "/dashboard/flotas", icon: Truck },

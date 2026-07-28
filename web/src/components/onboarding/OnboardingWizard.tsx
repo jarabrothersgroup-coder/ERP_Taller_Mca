@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/components/providers/session-provider";
 import { useRouter } from "next/navigation";
-import { Car, Building2, Users, CheckCircle2, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Car, Building2, Users, CheckCircle2, ArrowRight, ArrowLeft, Loader2, UserPlus } from "lucide-react";
 
 interface OnboardingData {
   tenantSlug: string;
@@ -13,12 +13,16 @@ interface OnboardingData {
   formaJuridica: string;
   cantidadPersonal: number;
   ingresosAnuales: number;
+  adminName: string;
+  adminEmail: string;
+  adminPassword: string;
 }
 
 const steps = [
   { id: 1, title: "Datos del Taller", icon: Building2 },
   { id: 2, title: "Clasificación", icon: Users },
-  { id: 3, title: "Confirmar", icon: CheckCircle2 },
+  { id: 3, title: "Administrador", icon: UserPlus },
+  { id: 4, title: "Confirmar", icon: CheckCircle2 },
 ];
 
 const formasJuridicas = [
@@ -30,7 +34,7 @@ const formasJuridicas = [
 ];
 
 export default function OnboardingWizard() {
-  const { user } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -43,6 +47,9 @@ export default function OnboardingWizard() {
     formaJuridica: "UNIPERSONAL",
     cantidadPersonal: 1,
     ingresosAnuales: 0,
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
   });
 
   const updateData = (partial: Partial<OnboardingData>) => {
@@ -70,6 +77,22 @@ export default function OnboardingWizard() {
     return true;
   };
 
+  const validateStep3 = (): boolean => {
+    if (!data.adminName || !data.adminEmail || !data.adminPassword) {
+      setError("Completá todos los campos del administrador");
+      return false;
+    }
+    if (!data.adminEmail.includes("@")) {
+      setError("Ingresá un email válido");
+      return false;
+    }
+    if (data.adminPassword.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
@@ -87,6 +110,14 @@ export default function OnboardingWizard() {
         throw new Error(result.error || "Error al crear el taller");
       }
 
+      // Auto-login with the new admin credentials
+      const loginResult = await login(data.tenantSlug, data.adminEmail, data.adminPassword);
+      if (loginResult.error) {
+        // Tenant created but login failed — redirect to sign-in
+        router.push("/sign-in");
+        return;
+      }
+
       // Success — redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
@@ -99,7 +130,8 @@ export default function OnboardingWizard() {
   const handleNext = () => {
     if (step === 1 && !validateStep1()) return;
     if (step === 2 && !validateStep2()) return;
-    if (step === 3) {
+    if (step === 3 && !validateStep3()) return;
+    if (step === 4) {
       handleSubmit();
       return;
     }
@@ -314,8 +346,55 @@ export default function OnboardingWizard() {
             </div>
           )}
 
-          {/* Step 3: Confirm */}
+          {/* Step 3: Admin Credentials */}
           {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Tu Nombre *</label>
+                <input
+                  type="text"
+                  value={data.adminName}
+                  onChange={(e) => updateData({ adminName: e.target.value })}
+                  placeholder="Ej: Juan Pérez"
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Email del Administrador *</label>
+                <input
+                  type="email"
+                  value={data.adminEmail}
+                  onChange={(e) => updateData({ adminEmail: e.target.value })}
+                  placeholder="admin@taller.com"
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se usará para iniciar sesión en el sistema
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Contraseña *</label>
+                <input
+                  type="password"
+                  value={data.adminPassword}
+                  onChange={(e) => updateData({ adminPassword: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3">
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  Este usuario será el administrador del taller. Podés crear más usuarios después desde <strong>Usuarios</strong> en el panel.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Confirm */}
+          {step === 4 && (
             <div className="space-y-4">
               <div className="rounded-lg bg-muted p-4 space-y-3">
                 <div className="flex justify-between">
@@ -342,10 +421,20 @@ export default function OnboardingWizard() {
                   <span className="text-sm text-muted-foreground">Personal:</span>
                   <span className="text-sm font-medium">{data.cantidadPersonal}</span>
                 </div>
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Admin:</span>
+                    <span className="text-sm font-medium">{data.adminName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Email:</span>
+                    <span className="text-sm font-medium">{data.adminEmail}</span>
+                  </div>
+                </div>
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                Al confirmar se creará tu taller con la configuración fiscal por defecto.
+                Al confirmar se creará tu taller con la configuración fiscal por defecto y tu cuenta de administrador.
                 Podés modificar estos datos después desde Configuración.
               </p>
             </div>
@@ -378,7 +467,7 @@ export default function OnboardingWizard() {
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : step === 3 ? (
+              ) : step === 4 ? (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
                   Crear Taller
