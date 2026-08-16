@@ -49,7 +49,11 @@ async function main(): Promise<void> {
     max: 1, // Single connection for smoke test
     idle_timeout: 10,
     connect_timeout: 10,
-    ssl: { rejectUnauthorized: false },
+    // Honor sslmode=disable (local dev) — only require TLS for remote URLs
+    // that don't explicitly opt out (same logic as connection.ts).
+    ssl: DATABASE_URL!.includes("sslmode=disable")
+      ? false
+      : { rejectUnauthorized: false },
   });
 
   // ─── Step 2: Verify basic query ────

@@ -53,35 +53,3 @@ export function db(): PostgresJsDatabase<DbSchema> {
   }
   return _db;
 }
-
-/**
- * Creates a fresh Drizzle instance for a specific tenant schema.
- *
- * This allows querying per-tenant tables using the same Drizzle API
- * but scoped to the tenant's isolated schema (e.g., `tenant_taller_el_chero`).
- *
- * IMPORTANT: this always uses the shared singleton connection (never the
- * request's reserved connection) so it cannot mutate the active request's
- * `app.current_tenant` RLS context. Used for explicit cross-tenant operations
- * (admin/backfill) outside the normal request path.
- *
- * @param schemaName - The tenant's PostgreSQL schema name (e.g. `tenant_acme`)
- * @returns A Drizzle ORM instance scoped to that schema
- *
- * @example
- * ```ts
- * const tenantDb = dbForTenant("tenant_taller_el_chero");
- * const clients = await tenantDb.execute(sql`SELECT * FROM ${sql(schemaName)}.clients`);
- * ```
- */
-export function dbForTenant(schemaName: string): PostgresJsDatabase<DbSchema> {
-  const safe = String(schemaName).replace(/[^a-zA-Z0-9_-]/g, "");
-  const sql = getDb();
-  // Session-scoped search_path on the singleton (used for explicit cross-tenant
-  // queries outside a request transaction — e.g. CLI/backfill scripts).
-  sql`SET search_path TO ${sql(safe)}, public`.execute();
-  if (!_db) {
-    _db = drizzle(sql, { schema, logger: false });
-  }
-  return _db;
-}

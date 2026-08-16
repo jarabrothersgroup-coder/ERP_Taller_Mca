@@ -9,16 +9,28 @@
 
 import postgres from "postgres";
 import { env } from "../../config/env.js";
+import { getRequestDb } from "./request-context.js";
 
 let sql: postgres.Sql | null = null;
 
 /**
- * Returns a shared PostgreSQL connection instance.
- * Creates the connection on first call (singleton pattern).
+ * Returns a PostgreSQL connection for the current execution context.
+ *
+ * When a per-request tenant context is active (`ENABLE_REQUEST_TENANT_CONTEXT`),
+ * returns that request's dedicated reserved connection so that raw SQL
+ * (`getDb().unsafe(...)` / template tags) inherits the request's
+ * `app.current_tenant` RLS context — same guarantee `db()` provides for
+ * Drizzle queries. Outside a request (CLI, cron, background jobs) falls back
+ * to the shared singleton pool.
  *
  * @returns A `postgres.Sql` instance configured for Neon/Supabase.
  */
 export function getDb(): postgres.Sql {
+  // Reserved request connection first (see transaction-context.ts).
+  const ctx = getRequestDb();
+  if (ctx && ctx.tx && !ctx.released) {
+    return ctx.tx as postgres.Sql;
+  }
   if (!sql) {
     sql = postgres(env.DATABASE_URL, {
       max: 5,                      // Max connections in pool — lean for <50MB
