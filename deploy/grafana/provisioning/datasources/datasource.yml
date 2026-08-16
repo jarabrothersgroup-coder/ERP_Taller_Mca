@@ -11,7 +11,7 @@ datasources:
       password: "${PG_GRAFANA_PASSWORD}"
     jsonData:
       sslmode: disable
-      postgresVersion: 1500
+      postgresVersion: 1600
       timescaledb: false
     isDefault: true
 

@@ -17,7 +17,8 @@ set -euo pipefail
 DB_NAME="${DB_NAME:-automotive_os}"
 GRAFANA_ROLE="grafana_reader"
 GRAFANA_PASSWORD="${PG_GRAFANA_PASSWORD:-}"
-PSQL=(psql -v ON_ERROR_STOP=1)
+# NOTA: se pasa -d "$DB_NAME" explícito en la invocación (el default de psql sería
+# la DB homónima del usuario del SO, no la DB objetivo).
 
 usage() { grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
 
@@ -36,7 +37,7 @@ fi
 
 echo "[grafana-reader] Creando rol '$GRAFANA_ROLE' (solo lectura) en DB '$DB_NAME'..."
 
-"${PSQL[@]}" <<SQL
+psql -v ON_ERROR_STOP=1 -d "$DB_NAME" <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$GRAFANA_ROLE') THEN
