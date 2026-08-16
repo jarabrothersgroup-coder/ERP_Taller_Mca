@@ -4,6 +4,24 @@ import { join } from "node:path";
 const CONFIG_DIR = join(process.cwd(), "config");
 const CONFIG_PATH = join(CONFIG_DIR, "tenant_settings.json");
 const UPLOAD_DIR = join(process.cwd(), "assets", "uploads");
+const GLOBAL_LOGO_NAME = "company_logo.png";
+
+/**
+ * Per-tenant settings path: `config/tenant_settings.<slug>.json`.
+ * Falls back to the legacy global `config/tenant_settings.json` when the
+ * tenant-specific file doesn't exist yet.
+ */
+function settingsPathFor(tenantSlug?: string): string {
+  return tenantSlug
+    ? join(CONFIG_DIR, `tenant_settings.${tenantSlug}.json`)
+    : CONFIG_PATH;
+}
+
+function logoPathFor(tenantSlug?: string): string {
+  return tenantSlug
+    ? join(UPLOAD_DIR, `logo.${tenantSlug}.png`)
+    : join(UPLOAD_DIR, GLOBAL_LOGO_NAME);
+}
 
 export interface TenantSettings {
   companyName: string;
@@ -33,38 +51,94 @@ const DEFAULTS: TenantSettings = {
   },
 };
 
-let cached: TenantSettings | null = null;
+/** Per-tenant cache — keyed by slug (`_global` for the legacy global file). */
+const cache = new Map<string, TenantSettings | null>();
 
-export async function getSettings(): Promise<TenantSettings> {
-  if (cached) return cached;
-  try {
-    const data = await readFile(CONFIG_PATH, "utf-8");
-    cached = JSON.parse(data) as TenantSettings;
-    return cached;
-  } catch {
-    return DEFAULTS;
-  }
+function cacheKey(tenantSlug?: string): string {
+  return tenantSlug ?? "_global";
 }
 
-export async function saveSettings(partial: Partial<TenantSettings>): Promise<TenantSettings> {
-  const current = await getSettings();
+/**
+ * Reads settings for a tenant (or global when no slug given).
+ *
+ * Resolution order:
+ *   1. `config/tenant_settings.<slug>.json` (per-tenant)
+ *   2. `config/tenant_settings.json` (legacy global — backward compat)
+ *   3. DEFAULTS
+ */
+export async function getSettings(tenantSlug?: string): Promise<TenantSettings> {
+  const key = cacheKey(tenantSlug);
+  if (cache.has(key)) return cache.get(key)!;
+
+  const candidates = tenantSlug
+    ? [settingsPathFor(tenantSlug), CONFIG_PATH]
+    : [CONFIG_PATH];
+
+  for (const path of candidates) {
+    try {
+      const data = await readFile(path, "utf-8");
+      const parsed = JSON.parse(data) as TenantSettings;
+      cache.set(key, parsed);
+      return parsed;
+    } catch {
+      // Try next candidate
+    }
+  }
+
+  cache.set(key, DEFAULTS);
+  return DEFAULTS;
+}
+
+/**
+ * Persists settings for a tenant (or global when no slug given).
+ * Writes to the per-tenant file so one tenant's identity never
+ * overwrites another's.
+ */
+export async function saveSettings(
+  partial: Partial<TenantSettings>,
+  tenantSlug?: string,
+): Promise<TenantSettings> {
+  const current = await getSettings(tenantSlug);
   const updated = { ...current, ...partial };
+  const path = settingsPathFor(tenantSlug);
   await mkdir(CONFIG_DIR, { recursive: true });
-  await writeFile(CONFIG_PATH, JSON.stringify(updated, null, 2), "utf-8");
-  cached = updated;
+  await writeFile(path, JSON.stringify(updated, null, 2), "utf-8");
+  cache.set(cacheKey(tenantSlug), updated);
   return updated;
 }
 
-export async function getLogoBase64(): Promise<string> {
-  const logoPath = join(UPLOAD_DIR, "company_logo.png");
-  try {
-    const buffer = await readFile(logoPath);
-    return `data:image/png;base64,${buffer.toString("base64")}`;
-  } catch {
-    return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+/**
+ * Returns the tenant's logo as a base64 data URL.
+ *
+ * Resolution order:
+ *   1. `assets/uploads/logo.<slug>.png` (per-tenant)
+ *   2. `assets/uploads/company_logo.png` (legacy global)
+ *   3. Transparent 1x1 GIF
+ */
+export async function getLogoBase64(tenantSlug?: string): Promise<string> {
+  const candidates = tenantSlug
+    ? [logoPathFor(tenantSlug), join(UPLOAD_DIR, GLOBAL_LOGO_NAME)]
+    : [join(UPLOAD_DIR, GLOBAL_LOGO_NAME)];
+
+  for (const path of candidates) {
+    try {
+      const buffer = await readFile(path);
+      return `data:image/png;base64,${buffer.toString("base64")}`;
+    } catch {
+      // Try next candidate
+    }
   }
+
+  return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 }
 
-export function invalidateCache(): void {
-  cached = null;
+/**
+ * Invalidates the cache for one tenant (or all when called without args).
+ */
+export function invalidateCache(tenantSlug?: string): void {
+  if (tenantSlug) {
+    cache.delete(tenantSlug);
+  } else {
+    cache.clear();
+  }
 }
