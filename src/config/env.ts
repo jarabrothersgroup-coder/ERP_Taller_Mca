@@ -185,11 +185,14 @@ export const env: EnvConfig = {
   CLERK_ISSUER: process.env["CLERK_ISSUER"] ?? "",
 
   // ─── Stripe Billing ────────────────────────────
-  STRIPE_SECRET_KEY: requireEnv("STRIPE_SECRET_KEY"),
-  STRIPE_WEBHOOK_SECRET: requireEnv("STRIPE_WEBHOOK_SECRET"),
+  // Opcionales: stripe.service degrada a mock y verifica firma solo si
+  // STRIPE_WEBHOOK_SECRET está seteado (ver stripe.routes.ts:356).
+  STRIPE_SECRET_KEY: process.env["STRIPE_SECRET_KEY"] ?? "",
+  STRIPE_WEBHOOK_SECRET: process.env["STRIPE_WEBHOOK_SECRET"] ?? "",
 
   // ─── Resend (Email) ────────────────────────────────────
-  RESEND_API_KEY: requireEnv("RESEND_API_KEY"),
+  // Opcional: resend.service cae a nodemailer/SMTP si no está seteado.
+  RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "",
 
   // ─── PagosPy ───────────────────────────────────
   PAGOSPY_API_KEY: process.env["PAGOSPY_API_KEY"] ?? "",
