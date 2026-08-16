@@ -17,6 +17,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -37,7 +38,7 @@ export const profiles = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull(),
     fullName: text("full_name").notNull(),
     role: text("role").notNull().default("user"),
     passwordHash: text("password_hash"),
@@ -53,6 +54,12 @@ export const profiles = pgTable(
     roleCheck: check(
       "profiles_role_check",
       sql`${table.role} IN ('admin', 'manager', 'mechanic', 'user')`,
+    ),
+    // Per-tenant email uniqueness: the same email may exist in different
+    // tenants, but never twice within one tenant (see migration 0021).
+    tenantEmailUnique: unique("profiles_tenant_id_email_unique").on(
+      table.tenantId,
+      table.email,
     ),
   }),
 );

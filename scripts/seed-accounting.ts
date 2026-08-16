@@ -258,11 +258,11 @@ async function main() {
     count++;
   }
 
-  // Count total
+  // Count total — plan_cuentas is a GLOBAL chart of accounts (codigo is
+  // unique across tenants), so no tenant filter applies here.
   const result = await db()
     .select({ count: sql<number>`count(*)::int` })
-    .from(planCuentas)
-    .where(eq(planCuentas.tenantSlug, TENANT_SLUG));
+    .from(planCuentas);
 
   console.log(`\n   ✅  Plan de Cuentas: ${result[0]?.count ?? 0} total accounts for ${TENANT_SLUG}`);
   console.log("\n🌱 Plan de Cuentas seeding complete!");

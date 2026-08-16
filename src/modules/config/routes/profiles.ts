@@ -71,22 +71,40 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
       .limit(1);
     if (!tenant) throw new NotFoundError("Tenant no encontrado");
 
-    const [profile] = await db()
-      .insert(profiles)
-      .values({
-        tenantId: tenant.id,
-        email: body.email,
-        fullName: body.fullName,
-        role: body.role || "mechanic",
-      })
-      .returning({
-        id: profiles.id,
-        email: profiles.email,
-        fullName: profiles.fullName,
-        role: profiles.role,
-        isActive: profiles.isActive,
-        createdAt: profiles.createdAt,
-      });
+    let profile: {
+      id: string; email: string; fullName: string; role: string;
+      isActive: boolean; createdAt: Date;
+    };
+    try {
+      const [created] = await db()
+        .insert(profiles)
+        .values({
+          tenantId: tenant.id,
+          email: body.email,
+          fullName: body.fullName,
+          role: body.role || "mechanic",
+        })
+        .returning({
+          id: profiles.id,
+          email: profiles.email,
+          fullName: profiles.fullName,
+          role: profiles.role,
+          isActive: profiles.isActive,
+          createdAt: profiles.createdAt,
+        });
+      if (!created) throw new BadRequestError("No se pudo crear el perfil");
+      profile = created;
+    } catch (err) {
+      // Unique violation (23505): duplicate email within the same tenant.
+      // postgres.js wraps the driver error in `cause` (the driver error carries
+      // `code`), so unwrap one level.
+      const cause = (err as { cause?: { code?: string } }).cause;
+      const code = (err as { code?: string }).code ?? cause?.code;
+      if (code === "23505") {
+        throw new BadRequestError("Ya existe un perfil con ese email en este taller");
+      }
+      throw err;
+    }
     return reply.code(201).send({
       id: profile.id,
       email: profile.email,

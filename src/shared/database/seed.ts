@@ -28,7 +28,7 @@ async function seed(): Promise<void> {
   const profileIds: string[] = [];
   for (const m of mechanics) {
     const [existing] = await sql`
-      SELECT id FROM public.profiles WHERE email = ${m.email}
+      SELECT id FROM public.profiles WHERE email = ${m.email} AND tenant_id = ${tenant.id}
     `;
     if (existing) {
       profileIds.push(existing.id);

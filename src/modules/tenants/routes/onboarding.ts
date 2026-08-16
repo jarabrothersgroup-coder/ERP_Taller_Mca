@@ -90,18 +90,11 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    // Check for duplicate admin email
-    const existingProfile = await db()
-      .select()
-      .from(profiles)
-      .where(eq(profiles.email, adminEmail))
-      .limit(1);
-
-    if (existingProfile.length > 0) {
-      return reply.status(409).send({
-        error: "Ya existe un usuario con ese email",
-      });
-    }
+    // NOTE: admin email is NOT checked globally anymore — per-tenant email
+    // uniqueness (migration 0021) allows the same email in different tenants
+    // (e.g. an accountant managing several workshops). The new tenant has no
+    // profiles yet, so no within-tenant conflict is possible at creation time;
+    // the DB constraint (tenant_id, email) enforces uniqueness from here on.
 
     // Classify MIC based on inputs
     const clasificacion = clasificarMIC(ingresosAnuales, cantidadPersonal);
