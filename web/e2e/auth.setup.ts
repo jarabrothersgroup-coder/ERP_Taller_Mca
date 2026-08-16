@@ -38,6 +38,25 @@ export async function loginAsAdmin(
   await page.getByLabel(/taller/i).fill(tenant);
   await page.getByLabel(/correo/i).fill(email);
   await page.getByLabel(/contraseña/i).fill(password);
-  await page.getByRole("button", { name: /iniciar sesión/i }).click();
+  // The submit button's visible text is "Ingresar" (aria name may vary)
+  await page.getByRole("button", { name: /ingresar|iniciar sesión/i }).click();
   await page.waitForURL(/\/dashboard/);
+}
+
+/**
+ * Logs in via the API and returns the request headers needed for direct API
+ * calls (tenant slug + JWT). Used by the API-level e2e specs.
+ */
+export async function getApiAuthHeaders(
+  request: import("@playwright/test").APIRequestContext,
+): Promise<Record<string, string>> {
+  const res = await request.post("http://localhost:4000/api/auth/login", {
+    data: { tenantSlug: "demo", email: "admin@demo.com", password: "password123" },
+  });
+  const body = (await res.json()) as { token?: string };
+  return {
+    "X-Tenant-Slug": "demo",
+    "Content-Type": "application/json",
+    ...(body.token ? { Authorization: `Bearer ${body.token}` } : {}),
+  };
 }

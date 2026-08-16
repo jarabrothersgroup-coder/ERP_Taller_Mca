@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, authHeadersMultipart } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -278,7 +278,7 @@ export default function ChecklistPage() {
     formData.append("file", file);
     await fetch(`/workshop/ingresos/${ingresoId}/fotos`, {
       method: "POST",
-      headers: { "X-Tenant-Slug": "demo" },
+      headers: authHeadersMultipart(),
       body: formData,
     });
     const data = await api.request(`/workshop/ingresos/${ingresoId}/fotos`);

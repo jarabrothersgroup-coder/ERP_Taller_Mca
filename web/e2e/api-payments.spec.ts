@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getApiAuthHeaders } from "./auth.setup";
 
 /**
  * API-level E2E tests for Pagos Online (Stripe/PagosPy).
@@ -8,10 +9,15 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("API: Pagos Online", () => {
   const baseUrl = "http://localhost:4000";
+  let headers: Record<string, string>;
+
+  test.beforeEach(async ({ request }) => {
+    headers = await getApiAuthHeaders(request);
+  });
 
   test("POST /finance/payments/link rejects non-existent invoice", async ({ request }) => {
     const res = await request.post(`${baseUrl}/finance/payments/link`, {
-      headers: { "X-Tenant-Slug": "demo", "Content-Type": "application/json" },
+      headers,
       data: {
         facturaId: "00000000-0000-0000-0000-000000000000",
         provider: "STRIPE",
@@ -22,7 +28,7 @@ test.describe("API: Pagos Online", () => {
 
   test("POST /finance/payments/link requires valid provider", async ({ request }) => {
     const res = await request.post(`${baseUrl}/finance/payments/link`, {
-      headers: { "X-Tenant-Slug": "demo", "Content-Type": "application/json" },
+      headers,
       data: {
         facturaId: "00000000-0000-0000-0000-000000000000",
         provider: "INVALID",

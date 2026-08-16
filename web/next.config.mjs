@@ -3,13 +3,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
-/** Backend host and port for API rewrites — override via env vars */
-const BACKEND_HOST = process.env.BACKEND_HOST || "192.168.18.104";
+/**
+ * Backend host and port for API rewrites — override via env vars.
+ * Defaults to localhost:3000 (same-host deployment / local dev).
+ * En despliegues donde el backend está en otro host, setear BACKEND_HOST.
+ */
+const BACKEND_HOST = process.env.BACKEND_HOST || "localhost";
 const BACKEND_PORT = process.env.BACKEND_PORT || "3000";
 
 const nextConfig = {
   reactStrictMode: true,
-  optimizeFonts: false,
   images: {
     remotePatterns: [
       {

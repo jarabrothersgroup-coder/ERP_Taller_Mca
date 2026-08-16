@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, authHeadersMultipart } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1094,7 +1094,7 @@ function TrabajoTerceroCard({
         `${api.getBaseUrl()}/workshop/ordenes/${ordenId}/trabajos-terceros/${trabajo.id}/adjuntos`,
         {
           method: "POST",
-          headers: { "X-Tenant-Slug": api.getTenantSlug() },
+          headers: authHeadersMultipart(),
           body: formData,
         }
       );

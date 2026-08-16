@@ -18,7 +18,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { queryKeys } from "@/hooks/use-data";
-import { getTenantSlug } from "@/lib/api";
+import { authHeaders } from "@/lib/api";
 
 interface VehicleForm {
   plate: string;
@@ -50,7 +50,7 @@ export function NewVehicleDialog({ onCreated }: { onCreated?: () => void }) {
     mutationFn: async (data: VehicleForm) => {
       const res = await fetch("/workshop/vehiculos", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+        headers: authHeaders(),
         body: JSON.stringify({
           plate: data.plate.toUpperCase(),
           vin: data.vin || null,

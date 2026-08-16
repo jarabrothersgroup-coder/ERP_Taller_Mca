@@ -18,12 +18,13 @@ test.describe("Workshop Flow", () => {
   test("should load the workshop dashboard", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page.getByText(/automotive/i).first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/panel de control/i).first()).toBeVisible();
+    await expect(page.getByText("Panel Ejecutivo").first()).toBeVisible();
   });
 
   test("should list work orders", async ({ page }) => {
-    await page.goto("/dashboard/ordenes");
-    await expect(page.getByRole("heading", { name: /órdenes/i }).first()).toBeVisible({ timeout: 10000 });
+    // Work orders live in the Operations Hub
+    await page.goto("/dashboard/hub");
+    await expect(page.getByRole("heading", { name: /hub de operaciones/i }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("should load clients page", async ({ page }) => {
@@ -37,7 +38,8 @@ test.describe("Workshop Flow", () => {
   });
 
   test("should load appointments page", async ({ page }) => {
-    await page.goto("/dashboard/agenda");
-    await expect(page.getByText(/turnos/i).first()).toBeVisible({ timeout: 10000 });
+    // Appointments live in Calendario
+    await page.goto("/dashboard/calendario");
+    await expect(page.getByText("Calendario").first()).toBeVisible({ timeout: 10000 });
   });
 });

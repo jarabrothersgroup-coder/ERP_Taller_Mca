@@ -60,34 +60,43 @@ export default function SignInPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Taller</label>
+              <label htmlFor="signin-tenant" className="text-sm font-medium">Taller</label>
               <input
+                id="signin-tenant"
+                name="tenantSlug"
                 type="text"
                 value={tenantSlug}
                 onChange={(e) => setTenantSlug(e.target.value)}
                 placeholder="mi-taller"
+                autoComplete="organization"
                 required
                 className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Email</label>
+              <label htmlFor="signin-email" className="text-sm font-medium">Correo electrónico</label>
               <input
+                id="signin-email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="usuario@taller.com"
+                autoComplete="email"
                 required
                 className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Contraseña</label>
+              <label htmlFor="signin-password" className="text-sm font-medium">Contraseña</label>
               <input
+                id="signin-password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 required
                 className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
               />

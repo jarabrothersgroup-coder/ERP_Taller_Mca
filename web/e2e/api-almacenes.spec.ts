@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getApiAuthHeaders } from "./auth.setup";
 
 /**
  * API-level E2E tests for Multi-almacén (warehouse) endpoints.
@@ -8,10 +9,11 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("API: Multi-almacén", () => {
   const baseUrl = "http://localhost:4000";
-  const headers = {
-    "X-Tenant-Slug": "demo",
-    "Content-Type": "application/json",
-  };
+  let headers: Record<string, string>;
+
+  test.beforeEach(async ({ request }) => {
+    headers = await getApiAuthHeaders(request);
+  });
 
   test("POST /inventory/almacenes creates and returns a warehouse", async ({ request }) => {
     const res = await request.post(`${baseUrl}/inventory/almacenes`, {

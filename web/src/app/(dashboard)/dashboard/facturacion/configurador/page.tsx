@@ -18,6 +18,7 @@ import {
   MonitorSpeaker,
 } from "lucide-react";
 import Link from "next/link";
+import { authHeaders } from "@/lib/api";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -162,7 +163,7 @@ export default function InvoiceConfiguratorPage() {
 
   // Load config
   useEffect(() => {
-    fetch("/api/label-printing/config")
+    fetch("/api/label-printing/config", { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         setConfig({
@@ -215,7 +216,7 @@ export default function InvoiceConfiguratorPage() {
     try {
       await fetch("/api/label-printing/config", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify(config),
       });
     } catch (err) {
@@ -230,7 +231,7 @@ export default function InvoiceConfiguratorPage() {
     try {
       const res = await fetch("/api/label-printing/config/preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ config }),
       });
       const data = await res.json();

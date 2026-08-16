@@ -9,22 +9,22 @@ import { loginAsAdmin } from "./auth.setup";
  */
 test.describe("Nota de Crédito SIFEN", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page, { tenant: "taller-el-chero", email: "jaraju01@gmail.com", password: "Admin01$" });
+    await loginAsAdmin(page);
   });
 
   test("credit note page shows emission form", async ({ page }) => {
     await page.goto("/dashboard/contabilidad/nota-credito");
-    await expect(page.getByText(/nota de cr[eé]dito/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /nota de crédito/i }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("credit note requires CDC original", async ({ page }) => {
     await page.goto("/dashboard/contabilidad/nota-credito");
     // Should have a field for CDC original
-    await expect(page.getByText(/cdc|documento original/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByLabel(/cdc del dte original/i)).toBeVisible({ timeout: 10000 });
   });
 
   test("SIFEN dashboard shows document stats", async ({ page }) => {
-    await page.goto("/dashboard/contabilidad/sifen");
-    await expect(page.getByText(/sifen|facturaci[oó]n electr[oó]nica/i)).toBeVisible({ timeout: 10000 });
+    await page.goto("/dashboard/finance/sifen");
+    await expect(page.getByRole("heading", { name: /sifen|facturaci[oó]n electr[oó]nica/i }).first()).toBeVisible({ timeout: 10000 });
   });
 });

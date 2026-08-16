@@ -19,7 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { queryKeys } from "@/hooks/use-data";
-import { getTenantSlug } from "@/lib/api";
+import { authHeaders } from "@/lib/api";
 
 interface BankAccountForm {
   nombre: string;
@@ -52,7 +52,7 @@ export function NewBankAccountDialog({ onCreated }: { onCreated?: () => void }) 
     mutationFn: async (data: BankAccountForm) => {
       const res = await fetch("/finance/treasury/cuentas", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+        headers: authHeaders(),
         body: JSON.stringify({
           nombre: data.nombre,
           codigo: data.codigo,

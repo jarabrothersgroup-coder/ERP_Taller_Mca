@@ -5,19 +5,11 @@ import { Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
-import nextDynamic from "next/dynamic";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { TenantResolver } from "@/components/providers/tenant-resolver";
-
-const ServiceWorkerRegistration = nextDynamic(
-  () =>
-    import(
-      "@/components/providers/service-worker-registration"
-    ).then((m) => ({ default: m.ServiceWorkerRegistration })),
-  { ssr: false },
-);
+import { ServiceWorker } from "@/components/providers/service-worker";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -75,7 +67,7 @@ export default async function RootLayout({
             <QueryProvider>
               <SessionProvider>
                 <TenantResolver />
-                <ServiceWorkerRegistration />
+                <ServiceWorker />
                 {children}
               </SessionProvider>
             </QueryProvider>

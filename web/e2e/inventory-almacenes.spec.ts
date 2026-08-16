@@ -9,12 +9,13 @@ import { loginAsAdmin } from "./auth.setup";
  */
 test.describe("Multi-almacén (Warehouse)", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page, { tenant: "taller-el-chero", email: "jaraju01@gmail.com", password: "Admin01$" });
+    await loginAsAdmin(page);
   });
 
   test("warehouse page lists almacenes", async ({ page }) => {
     await page.goto("/dashboard/inventario/almacenes");
-    await expect(page.getByText(/almac[eé]n|almacenes/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Almacenes" })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("table, [role='grid']").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("warehouse CRUD - create and delete warehouse", async ({ page }) => {
@@ -24,8 +25,10 @@ test.describe("Multi-almacén (Warehouse)", () => {
     await expect(createBtn).toBeVisible({ timeout: 5000 });
   });
 
-  test("stock transfer page shows transfer form", async ({ page }) => {
-    await page.goto("/dashboard/inventario/almacenes/transferir");
-    await expect(page.getByText(/transferir|transferencia/i)).toBeVisible({ timeout: 10000 });
+  test("warehouse page offers stock transfer", async ({ page }) => {
+    await page.goto("/dashboard/inventario/almacenes");
+    // Transfer is done via the page (modal/form), not a separate route
+    await expect(page.getByRole("heading", { name: "Almacenes" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/transferir|transferencia/i).first()).toBeVisible({ timeout: 10000 });
   });
 });

@@ -136,6 +136,51 @@ export function getTenantSlug(): string {
   return _tenantSlug ?? "demo";
 }
 
+/* ── Auth headers for direct fetch() calls ── */
+
+/**
+ * Headers for raw fetch() calls that bypass the `api` client.
+ * Includes the JWT (if present) and the tenant slug, so protected
+ * endpoints stay reachable now that the backend enforces auth globally.
+ */
+export function authHeaders(extra?: Record<string, string | undefined>): Record<string, string> {
+  const headers: Record<string, string | undefined> = {
+    "Content-Type": "application/json",
+    "X-Tenant-Slug": getTenantSlug(),
+  };
+  if (typeof window !== "undefined") {
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      // Double-submit CSRF token — mirrors the legacy SPA (app.js): the
+      // backend compares this header with the _csrf cookie on stateful calls.
+      const csrf = document.cookie.split("; ").find((c) => c.startsWith("_csrf="))?.split("=").slice(1).join("=");
+      if (csrf) headers["X-CSRF-Token"] = csrf;
+    } catch {
+      // localStorage/document unavailable — send without token
+    }
+  }
+  const merged: Record<string, string | undefined> = { ...headers, ...extra };
+  const out: Record<string, string> = {};
+  for (const key of Object.keys(merged)) {
+    const value = merged[key];
+    // Drop explicitly-undefined values (e.g. FormData uploads that must let
+    // the browser set Content-Type with the multipart boundary).
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Headers for FormData/multipart uploads — auth + tenant, but no
+ * Content-Type (the browser must set it with the multipart boundary).
+ */
+export function authHeadersMultipart(): Record<string, string> {
+  const headers = authHeaders();
+  delete headers["Content-Type"];
+  return headers;
+}
+
 /* ── API Client ─────────────────────────────── */
 
 class ApiError extends Error {
@@ -163,12 +208,18 @@ async function request<T>(
   options?: RequestInit,
 ): Promise<T> {
   const token = await getAuthToken();
+  let csrfToken: string | undefined;
+  if (typeof document !== "undefined") {
+    const m = document.cookie.split("; ").find((c) => c.startsWith("_csrf="));
+    if (m) csrfToken = m.split("=").slice(1).join("=");
+  }
   const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       "X-Tenant-Slug": getTenantSlug(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
       ...options?.headers,
     },
   });

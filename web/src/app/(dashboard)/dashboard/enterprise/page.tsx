@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getTenantSlug } from "@/lib/api";
+import { authHeaders } from "@/lib/api";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -69,7 +69,7 @@ function SSOTab() {
     try {
       await fetch("/enterprise/sso", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+        headers: authHeaders(),
         body: JSON.stringify(config),
       });
       setSaved(true);
@@ -172,7 +172,7 @@ function WhiteLabelTab() {
     try {
       await fetch("/enterprise/white-label", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+        headers: authHeaders(),
         body: JSON.stringify(config),
       });
       setSaved(true);
@@ -282,7 +282,7 @@ function DataRetentionTab() {
     try {
       await fetch("/enterprise/data-retention", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Tenant-Slug": getTenantSlug() },
+        headers: authHeaders(),
         body: JSON.stringify(config),
       });
       setSaved(true);

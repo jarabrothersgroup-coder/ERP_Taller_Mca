@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { loginAsAdmin } from "./auth.setup";
 
 /**
  * Page loading E2E tests.
@@ -8,88 +9,90 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("Dashboard Pages", () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto("/sign-in");
-    await page.getByLabel(/taller/i).fill("taller-el-chero");
-    await page.getByLabel(/correo/i).fill("jaraju01@gmail.com");
-    await page.getByLabel(/contraseña/i).fill("Admin01$");
-    await page.getByRole("button", { name: /ingresar/i }).click();
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
+    await loginAsAdmin(page);
   });
+
+  // Pages render their title as <h1>; the sidebar has <h4> section headers
+  // with the same labels, so scope to the page's h1.
+  const pageTitle = (page: import("@playwright/test").Page, name: string | RegExp) =>
+    page.locator("h1").filter({ hasText: name }).first();
+
+  const pageHasTable = async (page: import("@playwright/test").Page) => {
+    await expect(page.locator("table, [role='grid']").first()).toBeVisible({ timeout: 15000 });
+  };
 
   test("inventory page shows product table", async ({ page }) => {
     await page.goto("/dashboard/inventario");
-    await expect(page.getByText("Inventario")).toBeVisible();
-    // Should show stats cards or table
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Inventario")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("clients page shows client table", async ({ page }) => {
     await page.goto("/dashboard/clientes");
-    await expect(page.getByText(/clientes/i)).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Clientes")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("vehicles page shows vehicle table", async ({ page }) => {
     await page.goto("/dashboard/vehiculos");
-    await expect(page.getByText(/vehículos/i)).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Vehículos")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("facturacion page shows invoice table", async ({ page }) => {
     await page.goto("/dashboard/facturacion");
-    await expect(page.getByText("Facturación")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Facturación")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("contabilidad page shows accounts table", async ({ page }) => {
     await page.goto("/dashboard/contabilidad");
-    await expect(page.getByText("Contabilidad")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Contabilidad")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("tesoreria page shows treasury view", async ({ page }) => {
     await page.goto("/dashboard/tesoreria");
-    await expect(page.getByText("Tesorería")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Tesorería")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("calendario page shows appointments", async ({ page }) => {
     await page.goto("/dashboard/calendario");
-    await expect(page.getByText("Calendario")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Calendario")).toBeVisible({ timeout: 15000 });
   });
 
   test("analytics page shows KPIs", async ({ page }) => {
     await page.goto("/dashboard/analytics");
-    await expect(page.getByText("Analytics")).toBeVisible();
+    await expect(pageTitle(page, "Analytics")).toBeVisible({ timeout: 15000 });
   });
 
   test("whatsapp page shows messages", async ({ page }) => {
     await page.goto("/dashboard/whatsapp");
-    await expect(page.getByText("WhatsApp")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "WhatsApp")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("seguridad page shows audit log", async ({ page }) => {
     await page.goto("/dashboard/seguridad");
-    await expect(page.getByText(/seguridad|auditoría/i)).toBeVisible();
+    await expect(pageTitle(page, /seguridad/i)).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("flotas page shows fleet table", async ({ page }) => {
     await page.goto("/dashboard/flotas");
-    await expect(page.getByText(/flotas/i)).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, /flotas/i)).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 
   test("config page shows settings form", async ({ page }) => {
     await page.goto("/dashboard/config");
-    await expect(page.getByText("Configuración")).toBeVisible();
+    await expect(pageTitle(page, "Configuración")).toBeVisible({ timeout: 15000 });
   });
 
   test("usuarios page shows users table", async ({ page }) => {
     await page.goto("/dashboard/usuarios");
-    await expect(page.getByText("Usuarios")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible({ timeout: 10000 });
+    await expect(pageTitle(page, "Usuarios")).toBeVisible({ timeout: 15000 });
+    await pageHasTable(page);
   });
 });

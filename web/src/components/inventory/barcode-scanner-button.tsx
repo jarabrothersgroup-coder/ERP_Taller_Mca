@@ -1,4 +1,4 @@
-// @ts-nocheck — BarcodeDetector API no está en tipos DOM estándar de TypeScript
+// BarcodeDetector API — tipos globales declarados en src/types/barcode-detector.d.ts
 "use client";
 
 import * as React from "react";
@@ -89,6 +89,11 @@ export function BarcodeScannerButton({
     // Small delay to ensure dialog is rendered
     await new Promise((r) => setTimeout(r, 300));
     if (!videoRef.current) return;
+
+    if (typeof BarcodeDetector === "undefined") {
+      setError("BarcodeDetector no soportado en este navegador");
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
