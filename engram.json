@@ -43,8 +43,33 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 99 — Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
-    "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021, verificar Next 16 en prod), monitoreo Grafana, revisión de riesgos OPEN del chaos_audit (C-05..C-12)",
+    "current_sprint": "Sprint 99 COMPLETED — Grafana datasource por provisioning verificado (role grafana_reader + PG_GRAFANA_PASSWORD), build mobile verificado (typecheck + bundle android OK, 4 type errors corregidos), riesgos chaos_audit C-05..C-12 cerrados/verificados",
+    "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021/0022, verificar Next 16 en prod), monitoreo Grafana con deploy/grafana + provision-grafana-reader.sh, dashboard/sidebar polish",
+    "sprint_99_completed": {
+      "goal": "Grafana datasource password via provisioning + mobile build verification + cierre de riesgos chaos_audit",
+      "completed_date": "2026-08-16",
+      "priority": "HIGH",
+      "tasks": [
+        {
+          "id": "S99-1",
+          "name": "Mobile build verification (React Native/Expo)",
+          "status": "COMPLETED",
+          "description": "npm ci (979 packages) + tsc --noEmit PASS + expo export android bundle 2.41 MB OK. Corregidos 4 type errors: RootNavigation usaba @react-navigation/stack no instalado (→ native-stack), push.ts usaba Application.androidId deprecado (→ getAndroidId()/getIosIdForVendorAsync()), BarcodeScanner comparaba type number 256 vs string (→ 'qr'), getPriorityIcon devolvía string amplio (→ IoniconName). tsconfig tenía ignoreDeprecations '6.0' inválido en TS 5.9 (removido)."
+        },
+        {
+          "id": "S99-2",
+          "name": "Grafana datasource por provisioning (password vía env)",
+          "status": "COMPLETED",
+          "description": "deploy/grafana/provisioning/datasources/datasource.yml ya usaba ${PG_GRAFANA_PASSWORD} en secureJsonData (correcto). Faltaba: role grafana_reader nunca se creaba ni la var se documentaba. Creado scripts/provision-grafana-reader.sh (idempotente, solo SELECT, ALTER DEFAULT PRIVILEGES) y documentada PG_GRAFANA_PASSWORD en .env.example. YAML/JSON validados."
+        },
+        {
+          "id": "S99-3",
+          "name": "Cierre de riesgos chaos_audit C-05..C-12",
+          "status": "COMPLETED",
+          "description": "Todos tenían fix en código; faltaba verificación y actualización de estado. C-05 migración 0013 aplicada; C-06 ON_ERROR_STOP=off → on en sync-to-cloud.sh + circuit-breaker existente; C-07 SETNX lock en response-cache/async-processor; C-08 auto-save localStorage; C-09 beforeunload + shutdown hooks; C-10 nonce diario; C-11 withTimeout; C-12 VERIFICADO: no existen vistas en src/ ni migraciones (0 matches CREATE VIEW), RLS vía db() con app.current_tenant. Estado actualizado en engram.json + docs/Proyecto/09_Auditoria_Genetica.md."
+        }
+      ]
+    },
     "sprint_98_completed": {
       "goal": "Auditoría técnica integral (8 pilares) + migración Next.js 14 → 16 + hardening",
       "duration": "3 sesiones",
@@ -1231,14 +1256,14 @@
         "C-02": "Race condition stock TOCTOU — FIXED: atomic UPDATE WHERE stock >= cantidad",
         "C-03": "SIFEN timezone UTC vs Paraguay — FIXED: Intl.DateTimeFormat America/Asuncion",
         "C-04": "Timing attack USB token — FIXED: crypto.timingSafeEqual",
-        "C-05": "Sin CHECK constraints en DB — OPEN: requiere migración SQL",
-        "C-06": "Split-brain sync híbrido — OPEN: requiere ON_ERROR_STOP=on",
-        "C-07": "Cache stampede Redis — OPEN: requiere SETNX lock",
-        "C-08": "Canvas DVI sin auto-save — OPEN: requiere localStorage auto-save",
-        "C-09": "Bluetooth listeners zombi — OPEN: requiere beforeunload handlers",
-        "C-10": "Idempotencia CRM por día — OPEN: requiere nonce único",
-        "C-11": "WhatsApp queue sin timeout — OPEN: requiere AbortSignal.timeout",
-        "C-12": "RLS bypass en vistas LEFT JOIN — OPEN: requiere auditoría de vistas"
+        "C-05": "Sin CHECK constraints en DB — FIXED: migración 0013 (facturas, repuestos, stock_movements, asientos, plan_cuentas, etc.) aplicada",
+        "C-06": "Split-brain sync híbrido — FIXED: ON_ERROR_STOP=on en sync-to-cloud.sh + circuit-breaker en sync-service.ts",
+        "C-07": "Cache stampede Redis — FIXED: SETNX lock en response-cache.ts + async-processor.service.ts",
+        "C-08": "Canvas DVI sin auto-save — FIXED: localStorage auto-save 30s + restore en dvi.js y web dvi/page.tsx",
+        "C-09": "Bluetooth listeners zombi — FIXED: beforeunload handlers en thinkcar.js + shutdown hooks en thinkcar-bluetooth.service.ts",
+        "C-10": "Idempotencia CRM por día — FIXED: nonce diario en crm-sync.worker.ts + in-memory nonce en deals.service.ts",
+        "C-11": "WhatsApp queue sin timeout — FIXED: AbortSignal.timeout/withTimeout en whatsapp-queue.service.ts",
+        "C-12": "RLS bypass en vistas LEFT JOIN — VERIFICADO: no existen vistas (CREATE VIEW ausente en src/ y migraciones); RLS se aplica vía db() con app.current_tenant"
       }
     },
     "sprint_32_progress": {

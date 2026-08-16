@@ -63,8 +63,10 @@ sync_table() {
   fi
 
   # Step 2: pg_restore to Supabase Cloud (with SSL)
+  # C-06: ON_ERROR_STOP=on — evita commits parciales con internet flaky.
+  # Con --single-transaction, cualquier error aborta y revierte TODO (sin split-brain).
   gunzip -c "$dump_file" | psql "$CLOUD_DB_URL" \
-    --set ON_ERROR_STOP=off \
+    --set ON_ERROR_STOP=on \
     --single-transaction \
     2>&1 | tee -a "${LOG_DIR}/sync_${timestamp}.log"
 

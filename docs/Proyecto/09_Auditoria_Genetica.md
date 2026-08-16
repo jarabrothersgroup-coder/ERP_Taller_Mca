@@ -388,14 +388,14 @@ FASE 2 — CONTRAER (limpieza):
 | C-02 | Race condition stock TOCTOU | ✅ FIXED (atomic UPDATE WHERE) |
 | C-03 | SIFEN timezone UTC vs Paraguay | ✅ FIXED (Intl.DateTimeFormat) |
 | C-04 | Timing attack USB token | ✅ FIXED (timingSafeEqual) |
-| C-05 | Sin CHECK constraints en DB | ⏳ OPEN |
-| C-06 | Split-brain sync híbrido | ⏳ OPEN |
-| C-07 | Cache stampede Redis | ⏳ OPEN |
-| C-08 | Canvas DVI sin auto-save | ⏳ OPEN |
-| C-09 | Bluetooth listeners zombi | ⏳ OPEN |
-| C-10 | Idempotencia CRM por día | ⏳ OPEN |
-| C-11 | WhatsApp queue sin timeout | ⏳ OPEN |
-| C-12 | RLS bypass en vistas LEFT JOIN | ⏳ OPEN |
+| C-05 | Sin CHECK constraints en DB | ✅ FIXED (migración 0013) |
+| C-06 | Split-brain sync híbrido | ✅ FIXED (ON_ERROR_STOP=on + circuit-breaker) |
+| C-07 | Cache stampede Redis | ✅ FIXED (SETNX lock) |
+| C-08 | Canvas DVI sin auto-save | ✅ FIXED (localStorage auto-save) |
+| C-09 | Bluetooth listeners zombi | ✅ FIXED (beforeunload handlers) |
+| C-10 | Idempotencia CRM por día | ✅ FIXED (nonce diario) |
+| C-11 | WhatsApp queue sin timeout | ✅ FIXED (withTimeout) |
+| C-12 | RLS bypass en vistas LEFT JOIN | ✅ VERIFICADO (no existen vistas; RLS vía db()) |
 
 ---
 
