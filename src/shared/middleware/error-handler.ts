@@ -61,6 +61,32 @@ export async function errorHandler(
     return;
   }
 
+  // Client errors (4xx) that aren't AppError/validation — e.g. Fastify's
+  // JSON body parser rejects malformed JSON with statusCode 400
+  // (FST_ERR_CTP_INVALID_JSON_BODY). Without this branch those would be
+  // misclassified as 500, masking a client bug as a server fault.
+  if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+    reply.status(error.statusCode).send({
+      error: "ValidationError",
+      message: "Datos de entrada inválidos",
+    });
+    return;
+  }
+
+  // PostgreSQL unique violation (23505) — e.g. the idempotency index on
+  // asientos_contables (0020/0022) rejecting a duplicate documento_ref.
+  // postgres.js wraps the driver error in `cause`, so unwrap one level
+  // (same pattern as profiles.ts). Maps to 409 so clients can distinguish
+  // a duplicate from a genuine server fault.
+  const driver = (error as unknown as { cause?: { code?: string } }).cause;
+  if (driver?.code === "23505") {
+    reply.status(409).send({
+      error: "ConflictError",
+      message: "Ya existe un registro con los mismos datos (violación de unicidad)",
+    });
+    return;
+  }
+
   // BAJO-04 FIX: Generic fallback — NEVER leak internals
   reply.status(500).send({
     error: "InternalServerError",
