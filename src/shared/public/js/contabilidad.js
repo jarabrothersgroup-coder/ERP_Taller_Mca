@@ -549,9 +549,9 @@ async function cargarPnL() {
 // ─── Libros Contables ─────────────────────
 
 const LIBROS_TABS = { diario: 'Libro Diario', mayor: 'Libro Mayor', inventario: 'Libro Inventario' };
-let librosTabActivo = 'diario';
-let librosAnho = new Date().getFullYear();
-let librosMes = new Date().getMonth() + 1;
+const librosTabActivo = 'diario';
+const librosAnho = new Date().getFullYear();
+const librosMes = new Date().getMonth() + 1;
 
 async function renderContabLibros(container) {
   container.innerHTML = `
@@ -675,7 +675,7 @@ function renderLibroInventario(data) {
 // ─── Impuestos (5.7) ───────────────────────
 
 const IMPUESTOS_TABS = { form120: 'IVA (Form 120)', ire: 'IRE', idu: 'IDU', isc: 'ISC', inr: 'INR' };
-let impTabActivo = 'form120';
+const impTabActivo = 'form120';
 
 async function renderContabImpuestos(container) {
   container.innerHTML = `

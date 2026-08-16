@@ -449,19 +449,6 @@
   }
 
   /**
-   * Get database size estimate (for UI display).
-   * @returns {Promise<{ordenes: number, inventario: number, clientes: number, total: number}>}
-   */
-  async function getStorageStats() {
-    const [ordenes, inventario, clientes] = await Promise.all([
-      count('ordenes'),
-      count('inventario'),
-      count('clientes'),
-    ]);
-    return { ordenes, inventario, clientes, total: ordenes + inventario + clientes };
-  }
-
-  /**
    * Close the database connection.
    */
   function close() {

@@ -11,8 +11,8 @@
   const STORAGE_KEY = 'automotiveos_locale';
 
   let _currentLocale = DEFAULT_LOCALE;
-  let _translations = {};
-  let _loaded = {};
+  const _translations = {};
+  const _loaded = {};
 
   // ═════════════════════════════════════════════════
   //  LOCALE DETECTION

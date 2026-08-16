@@ -11,9 +11,9 @@
 
 /* ─── Global references ─── */
 let _serviciosCat = [];   // cached categories
-let _serviciosVt = [];    // cached vehicle types
-let _serviciosFt = [];    // cached fuel types
-let _serviciosMi = [];    // cached mileage intervals
+const _serviciosVt = [];    // cached vehicle types
+const _serviciosFt = [];    // cached fuel types
+const _serviciosMi = [];    // cached mileage intervals
 let _serviciosActiveTab = 'servicios';
 
 function renderServicios(container) {

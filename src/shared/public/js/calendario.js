@@ -15,7 +15,7 @@
 /* global api, esc */
 
 // ─── State ──────────────────────────────────
-let _calState = {
+const _calState = {
   currentWeekStart: _calGetWeekStart(new Date()),
   appointments: [],
   loading: false,

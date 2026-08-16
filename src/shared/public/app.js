@@ -985,7 +985,7 @@ function scanVinCamera(forceManual) {
     const video = document.getElementById('scanner-video');
     video.srcObject = stream;
     const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'codabar', 'ean_13', 'ean_8', 'qr_code'] });
-    let scanning = true;
+    const scanning = true;
     const scanLoop = () => {
       if (!scanning) return;
       detector.detect(video).then(barcodes => {

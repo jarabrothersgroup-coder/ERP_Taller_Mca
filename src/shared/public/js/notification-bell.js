@@ -14,7 +14,7 @@
 /* global api, esc */
 
 // ─── State ──────────────────────────────────
-let _notifState = {
+const _notifState = {
   ws: null,
   notifications: [],
   unreadCount: 0,

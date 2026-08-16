@@ -8,7 +8,7 @@
 
 // ─── State ──────────────────────────────────────
 
-let budgetState = {
+const budgetState = {
   presupuestos: [],
   selectedId: null,
   comparativa: null,

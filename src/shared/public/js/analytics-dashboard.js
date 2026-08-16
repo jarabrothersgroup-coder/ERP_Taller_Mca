@@ -15,7 +15,7 @@
 /* global api, esc, authHeaders, Chart */
 
 // ─── State ──────────────────────────────────
-let _analyticsState = {
+const _analyticsState = {
   range: { from: "", to: "" },
   kpis: [],
   revenueTrend: [],

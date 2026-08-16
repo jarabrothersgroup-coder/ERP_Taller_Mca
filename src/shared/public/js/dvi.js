@@ -15,7 +15,7 @@
 /* global api, esc, authHeaders */
 
 // ─── State ──────────────────────────────────
-let _dviState = {
+const _dviState = {
   currentTool: 'circle',
   currentImage: null,
   markupData: [],

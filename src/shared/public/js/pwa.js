@@ -226,7 +226,7 @@ export async function requestNotificationPermission() {
 
 // ─── Sync Status Indicator ────────────────────
 
-let _syncStatus = { online: navigator.onLine, lastSync: null, pendingOps: 0 };
+const _syncStatus = { online: navigator.onLine, lastSync: null, pendingOps: 0 };
 
 function updateSyncStatus() {
   const dot = document.getElementById("ws-dot");

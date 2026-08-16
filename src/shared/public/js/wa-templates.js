@@ -14,7 +14,7 @@
 /* global api, esc */
 
 // ─── State ──────────────────────────────────
-let _waTmplState = {
+const _waTmplState = {
   templates: [],
   editingKey: null,
   followups: [],

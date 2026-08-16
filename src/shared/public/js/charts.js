@@ -110,7 +110,7 @@
     const thickness = opts.thickness || 20;
     const total = slices.reduce((s, i) => s + i.value, 0) || 1;
 
-    let gradientParts = [];
+    const gradientParts = [];
     let cumulativePct = 0;
     for (const slice of slices) {
       const pct = (slice.value / total) * 100;

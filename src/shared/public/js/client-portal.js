@@ -13,7 +13,7 @@
 
 /* global api, esc */
 
-let _portalState = {
+const _portalState = {
   session: null,
   client: null,
   view: 'login',
