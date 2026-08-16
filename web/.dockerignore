@@ -1,0 +1,31 @@
+node_modules/
+.next/
+out/
+dist/
+
+# Tests & E2E (not needed at runtime)
+tests/
+e2e/
+test-results/
+playwright-report/
+playwright.config.ts
+vitest.config.ts
+
+# Env / secrets (never ship)
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# TS build info
+*.tsbuildinfo
+
+# Misc
+output.txt

@@ -24,9 +24,11 @@
 
 services:
   # ─── PostgreSQL 16 (Local Database) ───────────
+  # pgvector/pgvector:pg16 — la migración 0000 requiere la extensión `vector`
+  # (RAG embeddings), ausente en postgres:16-alpine plano.
   postgres:
-    image: postgres:16-alpine
-    container_name: erp-postgres
+    image: docker.io/pgvector/pgvector:pg16
+    # Sin container_name: serverctl filtra contenedores por prefijo {project_id}_
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
@@ -41,7 +43,9 @@ services:
           cpus: "0.5"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    # NOTA: NO montar docker/postgres/init.sql — crea whatsapp_errors_log y
+    # crm_sync_log que la migración 0000 también crea (conflicto en DB fresca).
+    # Las 23 migraciones drizzle son la única fuente de verdad del esquema.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-automotive_os}"]
       interval: 10s
@@ -53,7 +57,6 @@ services:
   # ─── Redis 7 (Cache) ─────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: erp-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -81,14 +84,19 @@ services:
 
   # ─── ERP Backend (Fastify + TypeScript) ───────
   erp:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: automotiveos/erp-backend:latest
-    container_name: erp-backend
     restart: unless-stopped
     ports:
       # NOTE: hardcoded (not ${PORT:-3000}) — podman-compose 1.6.0 crashes with
       # "sequence item 0: expected str instance, int found" when an integer
       # default is used inside a port mapping during variable interpolation.
       - "3000:3000"
+      # 4000: alias de desarrollo — los tests E2E API (e2e/api-*.spec.ts)
+      # llaman a http://localhost:4000 directamente.
+      - "4000:3000"
     deploy:
       resources:
         limits:
@@ -108,6 +116,7 @@ services:
       # per request (defense-in-depth RLS). Safe with fail-closed RLS (0019).
       ENABLE_REQUEST_TENANT_CONTEXT: ${ENABLE_REQUEST_TENANT_CONTEXT:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_URL: ${APP_URL:-http://localhost:3000}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       # WhatsApp / Evolution API (optional)
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://evolution-api:8080}
@@ -122,9 +131,15 @@ services:
       SIFEN_USE_TEST: ${SIFEN_USE_TEST:-true}
       # RAG
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Requeridos por env.ts en producción (billing/email) — vacíos si no se usan
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     healthcheck:
       # /health/live is the public liveness probe; /health requires JWT auth
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health/live"]
+      # 127.0.0.1 (not localhost): Alpine resolves localhost to ::1 (IPv6) but
+      # the app only listens on IPv4 → false connection refused.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health/live"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -134,6 +149,41 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ─── Web Frontend (Next.js 16) ───────────────
+  # Modern dashboard. Proxies /api/*, /workshop/*, etc. to the erp backend
+  # via next.config.mjs rewrites (BACKEND_HOST/BACKEND_PORT baked at build).
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: automotiveos/erp-web:latest
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_HOST: erp
+      BACKEND_PORT: "3000"
+    healthcheck:
+      # /sign-in responde 200 sin auth (el middleware de auth redirige /health/*
+      # a /sign-in sin cookie). El backend tiene su propio healthcheck /health/live.
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/sign-in', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      erp:
         condition: service_healthy
     networks:
       - erp-network

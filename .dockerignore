@@ -49,6 +49,7 @@ logs/
 AGENTS.md
 
 # ─── Misc ────────────────────────────────────
-tsconfig.json
+# tsconfig.json es NECESARIO: el Dockerfile lo copia en la etapa build (npx tsc)
 tsconfig.*.json
+!tsconfig.json
 .vitest/
