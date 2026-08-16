@@ -492,9 +492,11 @@ export async function generarAsientoAutomatico(
 
   // ── 1. Look up work order totals from the database ──
   // We query the work order and its associated third-party work
-  // to build the journal entry lines
+  // to build the journal entry lines. Canonical model: ordenes_trabajo
+  // lives in the public schema (Arquitectura A); the legacy per-tenant
+  // schema table (tenant_<slug>.work_orders) is deprecated.
   const [orden] = await getDb()<Array<{ id: string; total_cost: string }>>`
-    SELECT id, total_cost FROM work_orders WHERE id = ${ordenTrabajoId}
+    SELECT id, total_cost FROM public.ordenes_trabajo WHERE id = ${ordenTrabajoId}
   `;
 
   if (!orden) {

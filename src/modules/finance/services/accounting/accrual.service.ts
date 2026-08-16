@@ -82,18 +82,21 @@ export async function generarDevengamientoIngresos(
   const conceptos: string[] = [];
   let totalMonto = 0;
 
-  // Obtener OT en proceso no facturadas con costo estimado
-  // Buscamos work_orders con estado = 'in_progress' que tengan total_cost > 0
+  // Obtener OT en proceso no facturadas con costo estimado.
+  // Canonical model: ordenes_trabajo lives in public schema (Arquitectura A),
+  // statuses are the Spanish enum (En_Proceso / Control_Calidad = in progress).
+  // The legacy per-tenant schema (tenant_<slug>.work_orders, Arquitectura B) is
+  // deprecated — see src/shared/database/migrate.legacy.ts.
   const ordenes = await getDb()<Array<{ id: string; description: string; total_cost: string }>>`
     SELECT id, description, total_cost
-    FROM work_orders
-    WHERE status = 'in_progress'
+    FROM public.ordenes_trabajo
+    WHERE status IN ('En_Proceso', 'Control_Calidad')
       AND total_cost > 0
       AND total_cost IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM asientos_contables ac
         WHERE ac.modulo_origen = 'DEVENGAMIENTO_INGRESOS'
-          AND ac.orden_trabajo_id = work_orders.id
+          AND ac.orden_trabajo_id = ordenes_trabajo.id
           AND EXTRACT(YEAR FROM ac.fecha) = ${anho}
           AND EXTRACT(MONTH FROM ac.fecha) = ${mes}
       )

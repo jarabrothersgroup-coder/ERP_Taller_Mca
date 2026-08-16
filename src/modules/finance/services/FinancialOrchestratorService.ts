@@ -20,26 +20,26 @@ export function validateTenantSchema(slug: string): string {
   return slug;
 }
 
-function tenantSchema(slug: string): string {
-  validateTenantSchema(slug);
-  return `tenant_${slug}`;
-}
-
 export async function calculateMonthlyCommissions(
   slug: string,
   month: number,
   year: number,
 ): Promise<{ created: number }> {
+  validateTenantSchema(slug);
   const db = getDb();
-  const tSchema = tenantSchema(slug);
 
   const [tenant] = await db`SELECT id FROM public.tenants WHERE slug = ${slug}`;
   if (!tenant) throw new NotFoundError("Tenant no encontrado");
 
+  // Canonical model: ordenes_trabajo lives in the public schema, isolated by
+  // tenant_slug (Arquitectura A). The legacy per-tenant schema
+  // (tenant_<slug>.work_orders, Arquitectura B) is deprecated — see
+  // src/shared/database/migrate.legacy.ts.
   const orders = await db`
     SELECT o.id, o.total_cost
-    FROM ${db(tSchema)}.work_orders o
-    WHERE o.status IN ('completed', 'Listo')
+    FROM public.ordenes_trabajo o
+    WHERE o.tenant_slug = ${slug}
+      AND o.status = 'Listo'
       AND EXTRACT(MONTH FROM o.updated_at) = ${month}
       AND EXTRACT(YEAR FROM o.updated_at) = ${year}
   `;
@@ -94,8 +94,8 @@ export async function checkWorkshopEquilibrium(
   amountRemaining: number;
   commissionsLiberated: number;
 }> {
+  validateTenantSchema(slug);
   const db = getDb();
-  const tSchema = tenantSchema(slug);
 
   const [tenant] = await db`SELECT id FROM public.tenants WHERE slug = ${slug}`;
   if (!tenant) throw new NotFoundError("Tenant no encontrado");
@@ -129,8 +129,9 @@ export async function checkWorkshopEquilibrium(
 
   const [revenue] = await db`
     SELECT COALESCE(SUM(CAST(o.total_cost AS NUMERIC)), 0) as total
-    FROM ${db(tSchema)}.work_orders o
-    WHERE o.status IN ('completed', 'Listo')
+    FROM public.ordenes_trabajo o
+    WHERE o.tenant_slug = ${slug}
+      AND o.status = 'Listo'
       AND EXTRACT(MONTH FROM o.updated_at) = ${month}
       AND EXTRACT(YEAR FROM o.updated_at) = ${year}
   `;

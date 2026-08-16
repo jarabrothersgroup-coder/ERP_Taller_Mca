@@ -121,7 +121,7 @@ export async function refundirAsientos(
   }
 
   if (Math.abs(totalDebe - totalHaber) > 0.01) {
-    // Balancear con diferencia
+    // Balancear con diferencia
     const diff = (totalDebe - totalHaber).toFixed(2);
     throw new Error(
       `Refundición no balancea: Débito=${totalDebe.toFixed(2)}, Haber=${totalHaber.toFixed(2)} (dif=${diff})`,
