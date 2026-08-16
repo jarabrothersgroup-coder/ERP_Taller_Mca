@@ -167,7 +167,7 @@ export async function parseReport(
   brandHint?: string | null,
 ): Promise<ScanReport> {
   let detectedBrand = brandHint ?? "Desconocido";
-  let vehicle = {
+  const vehicle = {
     brand: "",
     model: "",
     year: null as number | null,
@@ -176,7 +176,7 @@ export async function parseReport(
     engineType: null as string | null,
   };
   let odometer: number | null = null;
-  let scanDate: string | null = null;
+  const scanDate: string | null = null;
   let currentEcu = "Sistema General";
   const ecusMap = new Map<string, DtcCode[]>();
 

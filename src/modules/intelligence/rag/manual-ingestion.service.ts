@@ -93,7 +93,9 @@ export async function storeChunks(
 }
 
 export async function queryRag(req: RagQueryRequest): Promise<RagQueryResult> {
-  const topK = req.topK ?? 3;
+  // Clamp to a bounded integer — the value is interpolated into `LIMIT`,
+  // so never trust the raw input (defense-in-depth on top of route schema).
+  const topK = Math.max(1, Math.min(20, Math.floor(req.topK ?? 3)));
   const sql = getDb();
   const apiKey = process.env["OPENAI_API_KEY"];
 
@@ -150,7 +152,9 @@ async function fallbackSearch(req: RagQueryRequest): Promise<RagQueryResult> {
   }
 
   const conditions = terms.map(() => `content ILIKE '%' || ? || '%'`).join(" OR ");
-  const topK = req.topK ?? 3;
+  // Clamp to a bounded integer — the value is interpolated into `LIMIT`,
+  // so never trust the raw input (defense-in-depth on top of route schema).
+  const topK = Math.max(1, Math.min(20, Math.floor(req.topK ?? 3)));
 
   let rows: any[];
   if (req.vehicleId) {

@@ -153,7 +153,7 @@ export async function generateDiagnosis(
 /**
  * Generates a root cause explanation for a DTC in Spanish.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 function generateRootCause(
   dtc: DtcCode,
   _suggestions?: string[],
@@ -203,7 +203,7 @@ function getSeverityForCode(code: string): string {
  * Generates a natural-language diagnosis summary in Spanish,
  * tailored for Paraguayan workshop mechanics.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 function generateSummary(
   findings: DiagnosisFinding[],
   allCodes: DtcCode[],

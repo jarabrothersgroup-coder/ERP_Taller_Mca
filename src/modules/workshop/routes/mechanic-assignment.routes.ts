@@ -10,6 +10,9 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { eq, and } from "drizzle-orm";
+import { db } from "../../../shared/database/drizzle.js";
+import { ordenesTrabajo } from "../schema/ordenes-trabajo.js";
 import { assignOptimalMechanic } from "../services/mechanic-assignment.service.js";
 
 export async function mechanicAssignmentRoutes(app: FastifyInstance): Promise<void> {
@@ -41,6 +44,16 @@ export async function mechanicAssignmentRoutes(app: FastifyInstance): Promise<vo
       request: FastifyRequest<{ Body: { ordenId: string; hvAlert?: boolean; requiredCertificaciones?: string[]; preferredMechanicId?: string } }>,
       reply: FastifyReply,
     ) => {
+      // Validate that the OT exists before assigning a mechanic.
+      const [ot] = await db()
+        .select({ id: ordenesTrabajo.id })
+        .from(ordenesTrabajo)
+        .where(and(eq(ordenesTrabajo.id, request.body.ordenId), eq(ordenesTrabajo.tenantSlug, request.tenantSlug)))
+        .limit(1);
+      if (!ot) {
+        return reply.status(404).send({ success: false, message: "OT no encontrada" });
+      }
+
       const result = await assignOptimalMechanic({
         ...request.body,
         tenantSlug: request.tenantSlug,

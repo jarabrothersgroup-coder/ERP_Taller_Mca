@@ -219,7 +219,7 @@ export async function getBillingStats(tenantSlug: string) {
 
 function calculateNextInvoice(diaCobro: number, ciclo: string): string {
   const now = new Date();
-  let next = new Date(now.getFullYear(), now.getMonth(), diaCobro);
+  const next = new Date(now.getFullYear(), now.getMonth(), diaCobro);
   if (next <= now) {
     if (ciclo === "TRIMESTRAL") next.setMonth(next.getMonth() + 3);
     else if (ciclo === "ANUAL") next.setFullYear(next.getFullYear() + 1);

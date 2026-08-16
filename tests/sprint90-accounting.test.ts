@@ -218,9 +218,10 @@ describe("Sprint 90 — Accounting Configurators & AutoReversal", () => {
     });
 
     it("configure() requires PostgreSQL (skip in unit tests)", {
-      // This test verifies the configure method signature, not DB execution
-      // DB-dependent: needs running PostgreSQL
-      skip: process.env["SKIP_DB_TESTS"] === "true",
+      // Este test verifica que configure() rechaza SIN PostgreSQL.
+      // Si hay una DB configurada/alcanzable, configure() resuelve (idempotente),
+      // así que el test solo aplica en entornos sin DB.
+      skip: process.env["SKIP_DB_TESTS"] === "true" || !!process.env["DATABASE_URL"],
     }, async () => {
       const { inventarioConfigurator } = await import("../src/modules/finance/services/index.js");
       // configure inserts into configurador_modulo (requires DB)

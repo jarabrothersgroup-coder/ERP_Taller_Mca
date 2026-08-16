@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { db } from "../../../shared/database/drizzle.js";
+import { getSettings, invalidateCache } from "../../config/services/TenantConfigService.js";
 import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc } from "drizzle-orm";
@@ -12,24 +11,16 @@ import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
 import { crearNotificacionPush } from "./notification-push.service.js";
 
-// ─── Tenant settings cache ──────────────────────
-
-let _tenantSettingsCache: Record<string, unknown> | null = null;
+// ─── Tenant settings (per-tenant, global fallback) ─────────────
 
 /**
- * Reads the workshop address from config/tenant_settings.json.
- * Falls back to a default if the file is not found or unparseable.
+ * Reads the workshop address from the tenant's settings file
+ * (`config/tenant_settings.<slug>.json`, falling back to the global
+ * `config/tenant_settings.json`). Falls back to a default if none exists.
  */
-async function getWorkshopAddress(): Promise<string> {
-  if (_tenantSettingsCache) return (_tenantSettingsCache.address as string | undefined) ?? "Coronel Oviedo, Paraguay";
-  try {
-    const raw = await readFile(join(process.cwd(), "config", "tenant_settings.json"), "utf-8");
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    _tenantSettingsCache = parsed;
-    return (parsed.address as string | undefined) ?? "Coronel Oviedo, Paraguay";
-  } catch {
-    return "Coronel Oviedo, Paraguay";
-  }
+async function getWorkshopAddress(tenantSlug?: string): Promise<string> {
+  const settings = await getSettings(tenantSlug);
+  return settings.address || "Coronel Oviedo, Paraguay";
 }
 
 /**
@@ -37,7 +28,7 @@ async function getWorkshopAddress(): Promise<string> {
  * Call this from config PUT handlers when settings are updated at runtime.
  */
 export function invalidateSettingsCache(): void {
-  _tenantSettingsCache = null;
+  invalidateCache();
 }
 
 // ─── Tenant isolation helper ──────────────────
@@ -296,7 +287,7 @@ export async function createOrden(
 
         const template = await getTemplate(tenantSlug, "recepcion");
         if (template) {
-          let message = template.body
+          const message = template.body
             .replaceAll("{{nombre_cliente}}", client.name || "")
             .replaceAll("{{vehiculo}}", vehicleDesc)
             .replaceAll("{{vehiculo_marca}}", vehicleDesc.split(" ")[0] ?? "")
@@ -513,7 +504,7 @@ export async function updateOrdenStatus(
           serviciosRealizados: orden.description ?? "Servicio completado",
           total: totalVal.toLocaleString("es-PY", { minimumFractionDigits: 0 }),
           tallerNombre: tenantSlug,
-          tallerDireccion: await getWorkshopAddress(),
+          tallerDireccion: await getWorkshopAddress(tenantSlug),
           fecha: new Date().toLocaleDateString("es-PY"),
         });
 

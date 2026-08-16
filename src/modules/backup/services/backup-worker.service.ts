@@ -48,10 +48,11 @@ function shouldRunPolicy(policy: {
     case "DIARIA":
       return true; // Every day at the specified time
 
-    case "SEMANAL":
+    case "SEMANAL": {
       // diaSemana: 1=Monday..7=Sunday (DB convention), JS: 0=Sunday..6=Monday
       const jsDay = currentDayOfWeek === 0 ? 7 : currentDayOfWeek;
       return policy.diaSemana ? jsDay === policy.diaSemana : true;
+    }
 
     case "MENSUAL":
       return policy.diaMes ? currentDayOfMonth === policy.diaMes : currentDayOfMonth === 1;

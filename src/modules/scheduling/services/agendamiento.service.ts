@@ -292,7 +292,7 @@ export async function listAgendamientos(
     .from(agendamientos)
     .where(whereClause);
 
-  let query = db()
+  const query = db()
     .select()
     .from(agendamientos)
     .where(whereClause)

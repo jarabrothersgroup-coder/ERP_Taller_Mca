@@ -9,7 +9,39 @@
  *
  * @module inventory/services/barcode-scanner.service
  */
-// @ts-nocheck — Browser-only API (BarcodeDetector, HTMLVideoElement, MediaStream)
+
+// ─── Browser API declarations (BarcodeDetector no está en lib.dom) ─────────
+// Este servicio es browser-only (no se importa desde el backend Node).
+// Declaramos los tipos mínimos sin depender de lib.dom.
+interface BarcodeFormat {
+  format: string;
+  rawValue: string;
+}
+
+interface BarcodeDetectorConstructor {
+  new (options?: { formats?: string[] }): BarcodeDetector;
+  getSupportedFormats(): Promise<string[]>;
+}
+
+interface BarcodeDetector {
+  detect(input: unknown): Promise<BarcodeFormat[]>;
+}
+
+declare const BarcodeDetector: BarcodeDetectorConstructor | undefined;
+
+type BarcodeVideoElement = {
+  srcObject: unknown;
+  play(): Promise<void>;
+  paused: boolean;
+};
+
+type BarcodeMediaStream = { getTracks(): { stop(): void }[] };
+
+interface BarcodeNavigator {
+  mediaDevices?: {
+    getUserMedia(constraints: unknown): Promise<BarcodeMediaStream>;
+  };
+}
 
 // ─── Types ────────────────────────────────────
 
@@ -54,7 +86,7 @@ export async function getScannerCapability(): Promise<ScannerCapability> {
  * @returns Scan result or null if no barcode detected
  */
 export async function scanFromVideo(
-  videoElement: HTMLVideoElement,
+  videoElement: BarcodeVideoElement,
   timeoutMs = 5000,
 ): Promise<ScanResult | null> {
   if (typeof BarcodeDetector === "undefined") {
@@ -98,7 +130,7 @@ export async function scanFromVideo(
  * @returns Array of scan results
  */
 export async function scanFromImage(
-  imageData: string | Blob | ImageData,
+  imageData: unknown,
 ): Promise<ScanResult[]> {
   if (typeof BarcodeDetector === "undefined") {
     throw new Error(
@@ -130,11 +162,11 @@ export async function scanFromImage(
  * @returns Stop function to end the stream
  */
 export function startContinuousScan(
-  videoElement: HTMLVideoElement,
+  videoElement: BarcodeVideoElement,
   onScan: (result: ScanResult) => void,
 ): () => void {
   let scanning = true;
-  let stream: MediaStream | null = null;
+  let stream: BarcodeMediaStream | null = null;
 
   const scanLoop = async () => {
     while (scanning) {
@@ -146,8 +178,9 @@ export function startContinuousScan(
   };
 
   // Start camera
-  navigator.mediaDevices
-    .getUserMedia({
+  const nav = navigator as unknown as BarcodeNavigator;
+  nav.mediaDevices
+    ?.getUserMedia({
       video: { facingMode: "environment" },
     })
     .then((mediaStream) => {
@@ -156,7 +189,7 @@ export function startContinuousScan(
       videoElement.play();
       scanLoop();
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       console.error("[barcode-scanner] Error accediendo a la cámara:", err);
     });
 
