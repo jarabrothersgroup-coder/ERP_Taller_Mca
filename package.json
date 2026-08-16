@@ -75,7 +75,7 @@
     "fastify-plugin": "^5.1.0",
     "imapflow": "^1.3.7",
     "node-forge": "^1.4.0",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.5",
     "pdf-parse": "^1.1.1",
     "postgres": "^3.4.9",
     "puppeteer-core": "^25.1.0",
@@ -100,6 +100,7 @@
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
+    "globals": "^17.11.0",
     "pino-pretty": "^13.1.3",
     "postcss": "^8.5.15",
     "prettier": "^3.9.6",
@@ -107,5 +108,11 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.8"
+  },
+  "overrides": {
+    "hyperid": "^4.0.0",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.4"
+    }
   }
 }
