@@ -43,7 +43,9 @@ function getPriorityColor(priority: string): string {
   }
 }
 
-function getPriorityIcon(priority: string): string {
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+function getPriorityIcon(priority: string): IoniconName {
   switch (priority) {
     case "urgent": return "alert-circle";
     case "high": return "warning";

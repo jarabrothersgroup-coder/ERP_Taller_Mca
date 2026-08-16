@@ -20,9 +20,12 @@ import {
 import { api } from "../api/client";
 
 /** Stable per-install device id (falls back to a generated uuid). */
-function getDeviceId(): string {
-  const id = Application.androidId ?? Application.getIosIdForVendorAsync?.() ?? null;
-  return (id as string) ?? `dev-${Math.random().toString(36).slice(2)}`;
+async function getDeviceId(): Promise<string> {
+  if (Platform.OS === "android") {
+    return Application.getAndroidId() || `dev-${Math.random().toString(36).slice(2)}`;
+  }
+  const iosId = await Application.getIosIdForVendorAsync();
+  return iosId ?? `dev-${Math.random().toString(36).slice(2)}`;
 }
 
 /**
@@ -40,7 +43,7 @@ export async function registerPushToken(profileEmail?: string): Promise<void> {
     }
 
     const token = await getExpoPushTokenAsync();
-    const deviceId = getDeviceId();
+    const deviceId = await getDeviceId();
 
     await api.registerPushToken({
       deviceId,
@@ -57,7 +60,7 @@ export async function registerPushToken(profileEmail?: string): Promise<void> {
 export async function unregisterPushToken(): Promise<void> {
   try {
     if (!Device.isDevice) return;
-    const deviceId = getDeviceId();
+    const deviceId = await getDeviceId();
     await api.unregisterPushToken(deviceId);
   } catch {
     // Non-fatal.

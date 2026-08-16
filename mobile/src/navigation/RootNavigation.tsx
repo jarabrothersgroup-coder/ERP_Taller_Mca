@@ -7,7 +7,7 @@
 import * as React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
 
@@ -27,7 +27,7 @@ import BarcodeScannerScreen from "../screens/BarcodeScannerScreen";
 import PushNotificationsScreen from "../screens/PushNotificationsScreen";
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 const headerStyle = {
   backgroundColor: colors.primary,

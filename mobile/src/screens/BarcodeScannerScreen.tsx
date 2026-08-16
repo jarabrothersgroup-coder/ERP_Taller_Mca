@@ -46,7 +46,7 @@ export default function BarcodeScannerScreen({ route, navigation }: any) {
 
     const item: ScannedItem = {
       barcode: data,
-      type: type === 256 ? "QR" : "BARCODE",
+      type: type === "qr" ? "QR" : "BARCODE",
       timestamp: new Date().toISOString(),
     };
 
