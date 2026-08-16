@@ -494,14 +494,14 @@ podman-compose -f docker-compose.onpremise.yml up -d
 
 ### 12.5 Migraciones
 
-La base es fresca: aplicar las 23 migraciones drizzle (únicas fuente de verdad
+La base es fresca: aplicar las 24 migraciones drizzle (únicas fuente de verdad
 del esquema; **no** montar `docker/postgres/init.sql`, rompe la cadena):
 
 ```bash
 npx drizzle-kit migrate --config=drizzle.config.ts
 ```
 
-Verificar journal completo: 23 entradas en `__drizzle_migrations`.
+Verificar journal completo: 24 entradas en `__drizzle_migrations`.
 
 ### 12.6 Health checks
 

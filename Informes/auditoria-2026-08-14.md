@@ -622,3 +622,49 @@ archivos `.sql`, y los **21** `.sql.json` de hash están **untracked**. Un clone
 | `git diff --check` | PASS |
 
 **Sin commit ni push.**
+
+---
+
+## §38 — Deploy Podman rootless + pruebas negativas (2026-08-16)
+
+### Correcciones adicionales de esta sesión
+
+1. **JSON malformado → 400 (antes 500)** — `error-handler.ts`: Fastify rechaza
+   JSON inválido con `statusCode 400` (FST_ERR_CTP_INVALID_JSON_BODY) pero el
+   handler solo contemplaba AppError/validation/429 → 500 genérico. Nuevo
+   branch 4xx genérico. (+6 unit tests)
+2. **Unique violation 23505 → 409 ConflictError** — `error-handler.ts`
+   centralizado (patrón ya usado en profiles.ts). Verificado con POST
+   duplicado de asiento → 409.
+3. **Idempotencia real en asientos (HIGH→FIXED)** — migración **0022**:
+   el índice único parcial 0020 `(documento_ref, modulo_origen)` NO bloqueaba
+   asientos con `modulo_origen = NULL` (Postgres trata NULLs como distintos).
+   El endpoint manual nunca setea modulo_origen → doble click/retry
+   duplicaban la contabilización (reproducido: 2 asientos con el mismo ref).
+   `NULLS NOT DISTINCT` cierra el hueco; se conserva la exclusión `nota_%`.
+
+### Pruebas negativas ejecutadas (stack containerizado)
+
+| Prueba | Resultado |
+|---|---|
+| GET protegido sin token | 401 ✅ |
+| Token válido + X-Tenant-Slug ajeno | 401 (sin fuga entre tenants) ✅ |
+| UUID inválido en body | 400 ✅ |
+| JSON malformado | 400 ✅ (era 500) |
+| Campo requerido faltante | 400 ✅ |
+| Password incorrecto (login) | 401 ✅ |
+| Tenant inexistente (login) | 400 ✅ |
+| JWT manipulado / malformado | 401 ✅ |
+| Brute force (8 intentos) | 429 tras 5 ✅ |
+| POST asiento duplicado (mismo documentoRef) | 409 + 1 solo en DB ✅ |
+| not_credito múltiple vs misma factura | permitido (exclusión nota_%) ✅ |
+
+### Migraciones
+
+- 0022 añadida y aplicada (journal 24 entradas, DB 24 aplicadas, hash SHA-256 OK).
+- 0021 (email único por tenant) verificada aplicada: `profiles_tenant_id_email_unique`.
+
+### Tests
+
+- Backend: **1780 PASS / 1 skip** (incluye 6 nuevos de error-handler).
+- E2E containerizado: **48/48 PASS**.
