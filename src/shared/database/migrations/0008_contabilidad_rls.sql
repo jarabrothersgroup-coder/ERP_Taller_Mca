@@ -7,6 +7,46 @@
 -- both global (tenant_slug IS NULL) and tenant-specific overrides.
 
 -- ═══════════════════════════════════════════════════════════════
+-- 0. Self-contained tables (configurador_modulo + cuenta_mapping)
+--
+-- These two tables are defined in the TS schema (finance/accounting.ts)
+-- but were never created by any earlier migration — they only existed in
+-- environments bootstrapped via `drizzle-kit push` or manual SQL. Without
+-- this block the migration sequence fails on a clean database.
+-- `IF NOT EXISTS` keeps this idempotent for DBs where they already exist.
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS configurador_modulo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  modulo TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  descripcion TEXT,
+  activo BOOLEAN NOT NULL DEFAULT true,
+  version TEXT,
+  tenant_slug TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS configurador_modulo_activo_idx ON configurador_modulo (activo);
+
+CREATE TABLE IF NOT EXISTS cuenta_mapping (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_slug TEXT,
+  modulo TEXT NOT NULL,
+  tipo_evento TEXT NOT NULL,
+  sub_tipo TEXT,
+  cuenta_debe_id UUID NOT NULL REFERENCES plan_cuentas(id) ON DELETE RESTRICT,
+  cuenta_haber_id UUID NOT NULL REFERENCES plan_cuentas(id) ON DELETE RESTRICT,
+  descripcion TEXT,
+  activo BOOLEAN NOT NULL DEFAULT true,
+  prioridad INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS cuenta_mapping_mod_tipo_idx ON cuenta_mapping (modulo, tipo_evento);
+CREATE INDEX IF NOT EXISTS cuenta_mapping_full_idx ON cuenta_mapping (modulo, tipo_evento, sub_tipo);
+CREATE INDEX IF NOT EXISTS cuenta_mapping_tenant_idx ON cuenta_mapping (tenant_slug);
+
+-- ═══════════════════════════════════════════════════════════════
 -- 1. RLS for configurador_modulo
 -- ═══════════════════════════════════════════════════════════════
 ALTER TABLE configurador_modulo ENABLE ROW LEVEL SECURITY;

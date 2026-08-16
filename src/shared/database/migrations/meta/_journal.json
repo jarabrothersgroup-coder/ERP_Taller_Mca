@@ -15,6 +15,153 @@
       "when": 1783934851829,
       "tag": "0001_amazing_gabe_jones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783934852829,
+      "tag": "0002_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783934852830,
+      "tag": "0003_analytics_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783934852831,
+      "tag": "0004_enterprise_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783934852832,
+      "tag": "0005_white_label",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783934852833,
+      "tag": "0006_compras",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783934852834,
+      "tag": "0007_donaciones",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783934852835,
+      "tag": "0008_contabilidad_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783934852836,
+      "tag": "0009_indices_compuestos",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783934852837,
+      "tag": "0010_almacenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783934852838,
+      "tag": "0011_contingencia_tenant_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783934852839,
+      "tag": "0012_cycle_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783934852840,
+      "tag": "0012_ingreso_checklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783934852841,
+      "tag": "0013_check_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783934852842,
+      "tag": "0014_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1783934852843,
+      "tag": "0015_invoice_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783934852844,
+      "tag": "0016_set_compliance_hp_printing",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783934852845,
+      "tag": "0017_nullable_orden_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783934852846,
+      "tag": "0018_unique_invoice_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786778344742,
+      "tag": "0019_rls_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1786828668725,
+      "tag": "0020_idempotencia_asientos",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1786836578404,
+      "tag": "0021_email_unique_por_tenant",
+      "breakpoints": true
     }
   ]
 }

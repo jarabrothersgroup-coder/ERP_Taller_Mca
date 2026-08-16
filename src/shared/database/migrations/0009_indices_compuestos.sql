@@ -18,8 +18,10 @@ CREATE INDEX IF NOT EXISTS facturas_orden_tenant_idx ON facturas (orden_id, tena
 -- ── Finance: asientos_contables + asientos_detalle ─
 -- Used in: balanced scorecard, ledger queries
 CREATE INDEX IF NOT EXISTS asientos_fecha_estado_idx ON asientos_contables (fecha, estado);
-CREATE INDEX IF NOT EXISTS asientos_tenant_fecha_idx ON asientos_contables (tenant_slug, fecha);
 CREATE INDEX IF NOT EXISTS asientos_detalle_asiento_cuenta_idx ON asientos_detalle (asiento_id, cuenta_id);
+-- NOTE: asientos_contables has no tenant_slug column (tenant scoping is via
+-- documento/orden references) — the previous asientos_tenant_fecha_idx line
+-- referenced a non-existent column and was removed.
 
 -- ── Inventory: stock_movements ────────────────────
 -- Used in: analytics cost queries, stock reports
