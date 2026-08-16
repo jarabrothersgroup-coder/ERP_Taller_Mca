@@ -102,6 +102,12 @@ Ver [DESPLIEGUE.md](./DESPLIEGUE.md) para guía completa.
 docker compose -f docker-compose.onpremise.yml up -d
 ```
 
+### Podman rootless (servidor Arch/Omarchy con serverctl)
+
+Ver [DESPLIEGUE.md §12](./DESPLIEGUE.md) — stack validado con Podman rootless:
+postgres+redis+erp+web containerizados, control desde `serverctl` vía
+`systemd --user`, sin auto-start.
+
 ### Manual
 
 ```bash

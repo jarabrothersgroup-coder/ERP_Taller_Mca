@@ -440,3 +440,117 @@ sudo systemctl restart automotiveos.service
 | 403 Forbidden | Falta X-Tenant-Slug | Usar header en requests |
 | Storage no funciona | Directorio no existe | `sudo mkdir -p /data/erp-storage/dvi-photos` |
 | Disk I/O lento | HDD | Tunear `random_page_cost=10.0` en postgresql.conf |
+
+---
+
+## 12. Despliegue con Podman Rootless + serverctl (Arch Linux / Omarchy)
+
+Esta es la forma **validada** de correr el stack en el servidor del taller
+(Arch Linux, Podman rootless, `serverctl` como punto de control central).
+No usa Docker daemon ni `sudo podman`.
+
+### 12.1 Requisitos
+
+- **Podman rootless** con almacenamiento en el disco de proyectos:
+
+  ```bash
+  podman info --format '{{.Store.GraphRoot}}'   # /mnt/Proyectos/contenedores/podman/storage
+  podman info --format '{{.Store.RunRoot}}'     # /run/user/1000/containers
+  ```
+
+- **podman-compose** (el proyecto usa `docker-compose.onpremise.yml`)
+- **serverctl** (`~/server-tools`) como controlador de proyectos
+- `systemd --user` para encendido/apagado
+
+### 12.2 Stack y puertos (`docker-compose.onpremise.yml`)
+
+| Servicio   | Imagen                          | Puerto host | Depende de       |
+|------------|---------------------------------|-------------|------------------|
+| postgres   | `pgvector/pgvector:pg16`        | 5434        | —                |
+| redis      | `redis:7-alpine`                | 6380        | —                |
+| erp        | `automotiveos/erp-backend` (build) | 3000 (+4000 alias E2E) | postgres, redis |
+| web        | `automotiveos/erp-web` (build)  | 3100        | erp              |
+
+> Los puertos evitan conflicto con GestionIRP (5432/6379/3001). El backend
+> sirve el SPA legacy en `:3000`; el frontend moderno (Next.js 16) en `:3100`.
+
+### 12.3 Variables de entorno
+
+```bash
+cd /mnt/Proyectos/repos/ERP_Taller_Mca
+cp .env.example .env   # luego editar con valores reales
+```
+
+Variables críticas: `DATABASE_URL`, `TOKEN_SECRET` (JWT), `APP_URL`,
+`POSTGRES_USER/PASSWORD/DB`, `REDIS_PASSWORD`. `STRIPE_*` y `RESEND_API_KEY`
+son **opcionales** (el backend degrada a mock/SMTP si no están).
+
+### 12.4 Build y arranque
+
+```bash
+podman-compose -f docker-compose.onpremise.yml build
+podman-compose -f docker-compose.onpremise.yml up -d
+```
+
+### 12.5 Migraciones
+
+La base es fresca: aplicar las 23 migraciones drizzle (únicas fuente de verdad
+del esquema; **no** montar `docker/postgres/init.sql`, rompe la cadena):
+
+```bash
+npx drizzle-kit migrate --config=drizzle.config.ts
+```
+
+Verificar journal completo: 23 entradas en `__drizzle_migrations`.
+
+### 12.6 Health checks
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/health/live   # backend (público)
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3100/sign-in      # web
+podman ps   # los 4 contenedores deben estar (healthy)
+```
+
+`/health` requiere JWT; `/health/live` es el liveness público.
+
+### 12.7 Registro en serverctl
+
+El proyecto ya está registrado en `~/server-tools/projects/erp-taller-mca.toml`
+(category `light`, exclusive `false`). Unidades systemd --user creadas:
+`erp-taller-mca.service` (alias full), `erp-taller-mca-full.service`,
+`erp-taller-mca-infra.service` — con `RequiresMountsFor=/mnt/Proyectos`.
+
+```bash
+serverctl        # flechas → ERP Taller MCA → Enter → ON/OFF
+```
+
+**Auto-start deshabilitado a propósito** — se controla exclusivamente desde
+serverctl. Los contenedores se nombran `erp_taller_mca_*` (sin `container_name`
+explícito) para que serverctl los detecte.
+
+### 12.8 Parar / arrancar preservando datos
+
+```bash
+systemctl --user stop erp-taller-mca.service     # down (sin -v)
+systemctl --user start erp-taller-mca.service
+```
+
+Los volúmenes (`erp_taller_mca_postgres_data`, `erp_taller_mca_redis_data`,
+`erp_taller_mca_erp_storage`) persisten bajo el GraphRoot.
+
+### 12.9 E2E contra el stack containerizado
+
+```bash
+cd web
+npx playwright test --config=playwright.container.config.ts   # baseURL :3100
+```
+
+### 12.10 Solución de problemas específica de Podman
+
+| Síntoma | Causa | Solución |
+|---------|-------|----------|
+| `vector` extension no existe | Imagen postgres plana | Usar `pgvector/pgvector:pg16` |
+| Healthcheck backend falla en contenedor | Alpine resuelve `localhost`→`::1` | Healthcheck usa `127.0.0.1` |
+| Migraciones chocan con tablas pre-creadas | `init.sql` montado | Quitar el mount; migraciones son la fuente de verdad |
+| serverctl no ve contenedores | `container_name` explícito | Usar nombres generados `{project_id}_*` |
+| Backend no arranca por env faltante | `requireEnv` fail-closed | Verificar `APP_URL` y `TOKEN_SECRET` en `.env` |
