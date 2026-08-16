@@ -85,7 +85,10 @@ services:
     container_name: erp-backend
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      # NOTE: hardcoded (not ${PORT:-3000}) — podman-compose 1.6.0 crashes with
+      # "sequence item 0: expected str instance, int found" when an integer
+      # default is used inside a port mapping during variable interpolation.
+      - "3000:3000"
     deploy:
       resources:
         limits:
@@ -98,7 +101,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_local_password}@postgres:5432/${POSTGRES_DB:-automotive_os}?sslmode=disable
       STORAGE_PATH: /data/erp-storage
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # security-hw requires TOKEN_SECRET (>= 32 chars) or the app refuses to boot
+      TOKEN_SECRET: ${TOKEN_SECRET:-change-me-dev-token-secret-32-chars-min}
       TENANT_SCHEMA_PREFIX: ${TENANT_SCHEMA_PREFIX:-tenant_}
+      # Per-request tenant context: dedicated connection + app.current_tenant
+      # per request (defense-in-depth RLS). Safe with fail-closed RLS (0019).
+      ENABLE_REQUEST_TENANT_CONTEXT: ${ENABLE_REQUEST_TENANT_CONTEXT:-true}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       # WhatsApp / Evolution API (optional)
@@ -115,7 +123,8 @@ services:
       # RAG
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      # /health/live is the public liveness probe; /health requires JWT auth
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health/live"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -20,7 +20,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npx tsc --noEmit 2>/dev/null; npx tsc
+RUN npx tsc
 
 # ─── Stage 3: Production ────────────────────────────────
 FROM node:22-alpine AS production
@@ -38,9 +38,10 @@ COPY engram.json ./
 # Copy static frontend assets
 COPY src/shared/public ./dist/shared/public
 
-# Health check
+# Health check — /health/live is the public liveness probe (always 200 when
+# the server is up). /health and /api/v1/health require auth / don't exist.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/v1/health || exit 1
+  CMD wget -qO- http://localhost:3000/health/live || exit 1
 
 USER erp
 EXPOSE 3000
