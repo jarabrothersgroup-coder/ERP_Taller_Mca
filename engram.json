@@ -43,8 +43,61 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 97 — Ejecutivo dashboard overhaul + data-service exports + custom error pages + deployed to PCSERVER + PC01Tmca",
-    "next_sprint": "Sprint 98 — E2E Playwright test execution, Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
+    "current_sprint": "Sprint 99 — Grafana PostgreSQL datasource password via provisioning, mobile app React Native build verification, dashboard/sidebar polish",
+    "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021, verificar Next 16 en prod), monitoreo Grafana, revisión de riesgos OPEN del chaos_audit (C-05..C-12)",
+    "sprint_98_completed": {
+      "goal": "Auditoría técnica integral (8 pilares) + migración Next.js 14 → 16 + hardening",
+      "duration": "3 sesiones",
+      "priority": "HIGH",
+      "completed_date": "2026-08-16",
+      "summary": "Auditoría completa de backend, frontend, DB, seguridad, contabilidad y testing. Cierre de gaps CRITICAL/HIGH: auth gate global con tenant scoping (CRIT-01), getDb request-aware (gap RLS en raw SQL), email único por tenant (migración 0021), rutas legacy per-schema → canónico (break-even 500), settings por tenant, fixes Dockerfile/compose/env, esbuild advisory (npm audit root 4→0, web 2 HIGH→0), journal de migraciones completado (23/23, un clone fresco aplica todas).",
+      "tasks": [
+        {
+          "id": "AUD-1",
+          "name": "Migración Next.js 14 → 16 (React 19, Turbopack)",
+          "status": "COMPLETED",
+          "description": "middleware.ts → proxy.ts con matcher en export const config (bug CRITICAL: proxy interceptaba _next/static chunks → app sin hidratar; fix: chunks 200 application/javascript). Eliminado src/pages/ (custom _document removido en Next 16), optimizeFonts obsoleto, next/dynamic ssr:false → client component. tsc/build PASS, 111 unit PASS, E2E 48/48."
+        },
+        {
+          "id": "AUD-2",
+          "name": "Auth gate global + tenant scoping",
+          "status": "COMPLETED",
+          "description": "Middleware de auth con RBAC + RLS en rutas compartidas; cierra bypass de auth y fuga entre tenants."
+        },
+        {
+          "id": "AUD-3",
+          "name": "Email único por tenant (migración 0021)",
+          "status": "COMPLETED",
+          "description": "Unique constraint por tenant en perfiles + tests."
+        },
+        {
+          "id": "AUD-4",
+          "name": "npm audit: 0 vulnerabilidades",
+          "status": "COMPLETED",
+          "description": "web: 2 HIGH → 0; root: 4 moderate (esbuild GHSA-67mh-4wv8-2f99) → 0 vía override esbuild 0.25.12 (drizzle-kit intacto, 1780 tests PASS)."
+        },
+        {
+          "id": "AUD-5",
+          "name": "Journal de migraciones reparado",
+          "status": "COMPLETED",
+          "description": "HEAD listaba solo 2/23 migraciones; 21 meta .sql.json untracked. Commit bc7c7b4 completa el journal — clone fresco aplica las 23. Hashes SHA-256 verificados."
+        },
+        {
+          "id": "AUD-6",
+          "name": "E2E Playwright completo",
+          "status": "COMPLETED",
+          "description": "48/48 PASS contra build de producción (next start + BACKEND_PORT=4000); dev server de Turbopack excede timeouts de Playwright."
+        }
+      ],
+      "test_results": {
+        "backend": "1780 PASS / 1 skip (DB real automotiveos)",
+        "web_unit": "111 PASS (vitest)",
+        "web_e2e": "48/48 PASS (Playwright, 53s)",
+        "npm_audit": "root 0 / web 0",
+        "tsc": "PASS (root + web)"
+      },
+      "commits": "11 commits por tema (0cbaf7d..eec1b3b) — auth gate, getDb, email único, finance legacy, settings tenant, fixes misc, assets JS, docker/compose, Next 16, docs, esbuild"
+    },
     "sprint_96_completed": {
       "goal": "Sprint 96 — Hub de Operaciones (Operations Hub) + refactoring + 29 tests + deploy",
       "duration": "1 day",

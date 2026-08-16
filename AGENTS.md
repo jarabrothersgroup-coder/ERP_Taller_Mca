@@ -28,4 +28,10 @@ Located in `.opencode/agents/`:
 ## State
 
 Current sprint in `engram.json.state.current_sprint` — update after each sprint milestone.
-No build/test/lint tooling installed yet (Sprint 1 — Environment Configuration).
+
+## Tooling (installed, verified 2026-08-16)
+
+- **Web** (`web/`): Next.js 16 (Turbopack), React 19 — `npm run build`, `npm run lint`, `npm run typecheck`, `npm test` (vitest, 111 tests), `npm run test:e2e` (Playwright, 48 tests — run against `next start` production build with `BACKEND_PORT=4000`, not the dev server)
+- **Backend** (root): `npx tsc --noEmit` (typecheck), `npx vitest run` (1780 tests — requires `DATABASE_URL` of a fully-migrated DB, e.g. local `automotiveos` on port 5433 with `sslmode=disable`), `drizzle-kit check`/`migrate` for migrations
+- `npm audit` clean (0 vulnerabilities, root + web)
+- Proxy file is `src/proxy.ts` (Next 16 convention, `export const config = { matcher }`), NOT `middleware.ts`
