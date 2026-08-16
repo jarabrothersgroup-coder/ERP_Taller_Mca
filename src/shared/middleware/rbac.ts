@@ -22,6 +22,7 @@ import { profiles, type Profile } from "../database/schema/index.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/app-error.js";
 import { verifyToken, extractTokenFromHeader } from "../services/auth-jwt.js";
 import { verifyClerkToken, extractClerkToken, isClerkConfigured, type ClerkUserClaims } from "../services/clerk-verify.js";
+import { resolveTenantId } from "../utils/tenant-email.js";
 
 // ─── Request augmentation ──────────────────────────────
 
@@ -104,6 +105,25 @@ export async function resolveProfile(
  * Resolve user profile from Clerk JWT claims.
  * Maps Clerk org_id → tenant, looks up profile by email.
  */
+/**
+ * Resolve the tenant UUID for the request's tenant slug.
+ * Returns null when the slug doesn't map to an existing tenant.
+ */
+async function tenantIdForSlug(request: FastifyRequest): Promise<string | null> {
+  const tenantSlug = request.tenantSlug;
+  if (!tenantSlug) return null;
+  return resolveTenantId(tenantSlug);
+}
+
+/**
+ * Tenant-scoped profile lookup (CRIT-01 FIX).
+ *
+ * Profiles are resolved by email AND tenant_id so that a user of tenant A
+ * cannot switch the X-Tenant-Slug header to tenant B and impersonate a
+ * profile that only belongs to B (cross-tenant escalation). If the slug is
+ * unknown or the profile doesn't belong to that tenant, the request is
+ * rejected.
+ */
 async function resolveProfileFromClerkClaims(
   request: FastifyRequest,
   claims: ClerkUserClaims,
@@ -111,8 +131,10 @@ async function resolveProfileFromClerkClaims(
   const email = claims.email;
   if (!email) return;
 
-  const tenantSlug = request.tenantSlug;
-  if (!tenantSlug) return;
+  const tenantId = await tenantIdForSlug(request);
+  if (!tenantId) {
+    throw new UnauthorizedError("Tenant no encontrado para el slug provisto");
+  }
 
   const [profile] = await db()
     .select({
@@ -127,6 +149,7 @@ async function resolveProfileFromClerkClaims(
     .where(
       and(
         eq(profiles.email, email),
+        eq(profiles.tenantId, tenantId),
         eq(profiles.isActive, true),
       ),
     )
@@ -147,8 +170,8 @@ async function resolveProfileFromEmail(
   request: FastifyRequest,
   email: string,
 ): Promise<void> {
-  const tenantSlug = request.tenantSlug;
-  if (!tenantSlug) return;
+  const tenantId = await tenantIdForSlug(request);
+  if (!tenantId) return;
 
   const [profile] = await db()
     .select({
@@ -163,6 +186,7 @@ async function resolveProfileFromEmail(
     .where(
       and(
         eq(profiles.email, email),
+        eq(profiles.tenantId, tenantId),
         eq(profiles.isActive, true),
       ),
     )

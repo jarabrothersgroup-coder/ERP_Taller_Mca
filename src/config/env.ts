@@ -152,7 +152,10 @@ export const env: EnvConfig = {
   // SIFEN — required when SET_CONFIG=true
   SIFEN_CERT_PATH: process.env["SIFEN_CERT_PATH"] ?? "",
   SIFEN_CERT_PASS: process.env["SIFEN_CERT_PASS"] ?? "",
-  SIFEN_USE_TEST: process.env["SIFEN_USE_TEST"] === "true" || true,
+  // Default to test/homologation mode; explicit "false" opts into production.
+  // FIX: previous `=== "true" || true` was ALWAYS true — production SIFEN
+  // could never be enabled via env.
+  SIFEN_USE_TEST: process.env["SIFEN_USE_TEST"] !== "false",
   SIFEN_PROD_URL: process.env["SIFEN_PROD_URL"] ?? "https://sifen.dnit.gov.py/sifen-ws",
   SIFEN_TEST_URL: process.env["SIFEN_TEST_URL"] ?? "https://sifen-test.dnit.gov.py/sifen-ws",
 

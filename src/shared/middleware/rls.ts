@@ -114,6 +114,14 @@ $$;
  * @param tableName - The table name to create policies for
  * @param tenantColumn - The column containing the tenant slug (default: 'tenant_slug')
  * @returns SQL string for CREATE POLICY
+ *
+ * FAIL-CLOSED: no `OR current_tenant() = ''` escape hatch (audit CRITICAL-3).
+ * When `app.current_tenant` is unset (NULL), no rows are visible — a missing
+ * tenant context blocks access instead of opening the whole table.
+ *
+ * Only use for tables that are NEVER read pre-auth (login/webhook bootstrap).
+ * Pre-auth bootstrap tables (profiles, facturas, ...) must stay app-filtered.
+ * See migration 0019_rls_security.sql.
  */
 export function generateRlsPolicySql(
   tableName: string,
@@ -121,9 +129,7 @@ export function generateRlsPolicySql(
 ): string {
   return `
 -- RLS policy for ${tableName}
--- Enforces tenant isolation at database level
--- C-12 FIX: Removed IS NULL escape hatch that allowed LEFT JOIN bypass.
--- Public routes work via = '' (current_setting returns '' when unset).
+-- Enforces tenant isolation at database level (fail-closed — no escape hatch).
 
 -- Enable RLS
 ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
@@ -134,32 +140,37 @@ ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY;
 -- SELECT policy — only allow rows matching current tenant
 CREATE POLICY "${tableName}_tenant_isolation_select" ON ${tableName}
   FOR SELECT
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant());
 
 -- INSERT policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_insert" ON ${tableName}
   FOR INSERT
-  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
+  WITH CHECK (${tenantColumn} = public.current_tenant());
 
 -- UPDATE policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_update" ON ${tableName}
   FOR UPDATE
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '')
-  WITH CHECK (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant())
+  WITH CHECK (${tenantColumn} = public.current_tenant());
 
 -- DELETE policy — enforce tenant_slug matches session
 CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
   FOR DELETE
-  USING (${tenantColumn} = public.current_tenant() OR public.current_tenant() = '');
+  USING (${tenantColumn} = public.current_tenant());
 `;
 }
 
 /**
  * SQL helper to generate RLS policies for tables with tenant_id (UUID FK) instead of tenant_slug.
  *
+ * WARNING: `app.current_tenant` holds the tenant SLUG, never the UUID. Comparing
+ * `tenant_id::text = current_tenant()` can never match, so this policy would
+ * lock the table for everyone (including the correct tenant). Do NOT enable RLS
+ * on tenant_id tables until the context is set to the tenant UUID.
+ *
  * @param tableName - The table name
  * @param tenantColumn - The UUID column containing the tenant ID (default: 'tenant_id')
- * @returns SQL string for CREATE POLICY
+ * @returns SQL string for CREATE POLICY (fail-closed)
  */
 export function generateRlsPolicyUuidSql(
   tableName: string,
@@ -167,7 +178,8 @@ export function generateRlsPolicyUuidSql(
 ): string {
   return `
 -- RLS policy for ${tableName} (UUID tenant column)
--- C-12 FIX: Removed IS NULL escape hatch that allowed LEFT JOIN bypass.
+-- WARNING: current_tenant() holds the slug, not the UUID — this policy only
+-- matches when app.current_tenant is set to the tenant UUID. Verify before use.
 ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY;
 
@@ -175,32 +187,27 @@ CREATE POLICY "${tableName}_tenant_isolation_select" ON ${tableName}
   FOR SELECT
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() = ''
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_insert" ON ${tableName}
   FOR INSERT
   WITH CHECK (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() = ''
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_update" ON ${tableName}
   FOR UPDATE
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() = ''
   )
   WITH CHECK (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() = ''
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
   FOR DELETE
   USING (
     ${tenantColumn}::text = public.current_tenant()
-    OR public.current_tenant() = ''
   );
 `;
 }

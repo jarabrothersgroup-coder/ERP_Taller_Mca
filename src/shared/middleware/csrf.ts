@@ -40,6 +40,10 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/health/deep",
   "/metrics",
   "/docs",
+  // External webhooks — third-party providers can't do the double-submit dance
+  "/finance/payments/webhook",
+  "/scheduling/webhook/whatsapp",
+  "/api/onboarding/setup",
 ]);
 
 /**
@@ -89,9 +93,13 @@ export async function csrfVerifyHook(
   const url = request.url.split("?")[0];
   if (CSRF_EXEMPT_PATHS.has(url)) return;
 
-  // CSRF protects against cookie-based forgery — always verify for stateful methods
-  // regardless of auth header presence. External API integrations should use
-  // exempt paths or API key middleware, not bypass CSRF.
+  // Skip when the request is authenticated with a Bearer JWT: a cross-site
+  // attacker cannot attach an Authorization header (CORS preflight blocks it),
+  // so CSRF (which defends cookie-based sessions) is not applicable. This also
+  // lets API clients / mobile apps use stateful endpoints without the
+  // double-submit dance.
+  const authHeader = request.headers.authorization as string | undefined;
+  if (authHeader && authHeader.startsWith("Bearer ")) return;
 
   // Get token from cookie
   const cookieToken = (request as any).cookies?.[CSRF_COOKIE_NAME];

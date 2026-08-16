@@ -183,10 +183,9 @@ export async function healthCheckPlugin(app: FastifyInstance): Promise<void> {
         const ok = await validateConnection();
         return { name: "database", status: ok ? "ok" : "error", latencyMs: Date.now() - s, message: ok ? "Connected" : "Disconnected" };
       })(),
-      // Redis — check if port is reachable
-      pingService("redis", "http://localhost:6379", 2000).catch(() => ({
-        name: "redis", status: "skip" as const, latencyMs: 0, message: "Not configured",
-      })),
+      // Redis — the app has no Redis client (in-memory queue/ratelimit), so
+      // an HTTP ping would always fail and wrongly flip /health/deep to 503.
+      Promise.resolve({ name: "redis", status: "skip" as const, latencyMs: 0, message: "No Redis client configured" }),
       // Evolution API — ping health endpoint
       pingService("evolution-api", `${process.env.EVOLUTION_API_URL || "http://localhost:8080"}/health`, 3000),
       // Twenty CRM — ping health endpoint

@@ -53,14 +53,23 @@ export async function registerRequestTransactions(
   // Reserve a dedicated connection + set the tenant context at the start of
   // each request.
   //
+  // Registered as PREHANDLER (not onRequest): the per-tenant resolveTenant
+  // hook runs as onRequest in EACH module's scoped plugin, and Fastify runs
+  // parent-scope hooks BEFORE child-scope hooks. A root onRequest would
+  // execute before resolveTenant, leaving request.tenantSlug undefined and
+  // setting app.current_tenant='' on every request — breaking tenant
+  // isolation. As preHandler it runs after all onRequest hooks (resolveTenant
+  // included) and before the handler.
+  //
   // IMPORTANT: `requestDbStorage.enterWith(ctx)` MUST be called synchronously
   // (before any `await`). AsyncLocalStorage binds the store to the current
   // async resource; an `await` before `enterWith` would move the continuation
   // into a new resource that the Fastify handler does not share, so the store
   // would be invisible to handlers. We therefore create the context object,
   // enter it synchronously, then fill `tx`/`drizzle` after the awaits (the
-  // handler runs only after `onRequest` fully resolves, so the fields are set).
-  app.addHook("onRequest", async (request: FastifyRequest) => {
+  // handler runs only after the preHandler fully resolves, so the fields are
+  // set).
+  app.addHook("preHandler", async (request: FastifyRequest) => {
     const tenantSlug = (request as { tenantSlug?: string }).tenantSlug;
     const ctx: RequestDbContext = {
       tx: undefined as never,

@@ -125,6 +125,16 @@ async function buildApp() {
   const { registerCsrfProtection } = await import("./shared/middleware/csrf.js");
   await registerCsrfProtection(app);
 
+  // ─── Global Authentication Gate (CRIT-01 FIX) ─
+  // Rejects unauthenticated requests on all routes except a curated public
+  // allowlist. Resolves the user profile itself so enforcement is uniform
+  // even for modules that never registered resolveProfile.
+  // Runs as preHandler — AFTER per-plugin onRequest hooks (resolveTenant),
+  // so request.tenantSlug is available for the tenant-scoped profile lookup.
+  const { authGate } = await import("./shared/middleware/auth-gate.js");
+  app.addHook("preHandler", authGate);
+  app.log.info("Global authentication gate registered (preHandler)");
+
   // ─── RLS Tenant Context (PostgreSQL) ─────────
   // Sets app.current_tenant session variable for Row Level Security
   // Must run AFTER resolveTenant (needs request.tenantSlug)
@@ -421,29 +431,45 @@ async function buildApp() {
     (await import("./shared/plugins/search.js")).default,
   );
 
-  // ─── CSV Import Module ─────────────────────
-  // CSV data import for vehiculos, clientes, repuestos
-  await app.register(
-    (await import("./shared/routes/import.routes.js")).importRoutes,
-  );
+  // ─── Shared tenant-scoped routes (CSV import, presets, PDF, audit export) ──
+  // All of these read `request.tenantSlug`, so they are registered in a scope
+  // that resolves the tenant + profile (auth enforced by the global gate).
+  await app.register(async (tenantApp) => {
+    const { resolveTenant: resolveTenantHook } = await import("./shared/middleware/tenant-resolver.js");
+    const { resolveProfile: resolveProfileHook } = await import("./shared/middleware/rbac.js");
+    tenantApp.addHook("onRequest", resolveTenantHook);
+    tenantApp.addHook("onRequest", resolveProfileHook);
 
-  // ─── Filter Presets Module ──────────────────
-  // Advanced multi-field filtering with saved presets
-  await app.register(
-    (await import("./shared/routes/filter-presets.routes.js")).filterPresetRoutes,
-  );
+    // ─── CSV Import Module ─────────────────────
+    // CSV data import for vehiculos, clientes, repuestos
+    await tenantApp.register(
+      (await import("./shared/routes/import.routes.js")).importRoutes,
+    );
+
+    // ─── Filter Presets Module ──────────────────
+    // Advanced multi-field filtering with saved presets
+    await tenantApp.register(
+      (await import("./shared/routes/filter-presets.routes.js")).filterPresetRoutes,
+    );
+
+    // ─── PDF Report Module ──────────────────────
+    // Server-side PDF generation for OT + Invoice reports.
+    // Requires Chromium (graceful degradation if not available).
+    await tenantApp.register(
+      (await import("./shared/routes/pdf-report.routes.js")).pdfReportRoutes,
+    );
+
+    // ─── Audit Log Export Module ────────────────
+    // CSV export for audit log entries with date/entity/action filters.
+    await tenantApp.register(
+      (await import("./shared/routes/audit-export.routes.js")).auditExportRoutes,
+    );
+  });
 
   // ─── Locale (i18n) Routes ──────────────────
   // Serves ES/GU translation JSON files for the SPA.
   await app.register(
     (await import("./modules/intelligence/routes/locale.routes.js")).default,
-  );
-
-  // ─── PDF Report Module ──────────────────────
-  // Server-side PDF generation for OT + Invoice reports.
-  // Requires Chromium (graceful degradation if not available).
-  await app.register(
-    (await import("./shared/routes/pdf-report.routes.js")).pdfReportRoutes,
   );
 
   // ─── Label Printing Module ──────────────────
@@ -472,12 +498,6 @@ async function buildApp() {
   // CRITICAL: Must be registered early to protect all routes.
   await app.register(
     (await import("./modules/security-hw/plugin.js")).default,
-  );
-
-  // ─── Audit Log Export Module ────────────────
-  // CSV export for audit log entries with date/entity/action filters.
-  await app.register(
-    (await import("./shared/routes/audit-export.routes.js")).auditExportRoutes,
   );
 
   // ─── Billing Module (Stripe SaaS) ───────────
