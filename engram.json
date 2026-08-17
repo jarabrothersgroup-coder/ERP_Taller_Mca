@@ -48,10 +48,16 @@
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
-      "services": ["postgres", "redis", "erp", "web"],
-      "ports": {"web": 3100, "api": 3000, "api_alias_dev": 4000, "postgres": 5434, "redis": 6380},
+      "services": ["postgres", "redis", "erp", "web", "grafana (profile observability)"],
+      "ports": {"web": 3100, "api": 3000, "api_alias_dev": 4000, "postgres": 5434, "redis": 6380, "grafana": 3300},
       "status": "UP",
       "health": "all healthy",
+      "grafana": {
+        "provisioning": "deploy/grafana/provisioning (datasource parametrizado PG_DATASOURCE_URL, dashboards planos)",
+        "role": "grafana_reader (solo lectura, RLS aislada)",
+        "dashboards": ["erp-financial", "erp-monitoring"],
+        "verified": "Database Connection OK + queries reales + E2E 48/48 PASS"
+      },
       "note": "Deploy local para pruebas/mejoras; producción pendiente en PCSERVER cuando se restablezca conexión"
     },
     "sprint_99_completed": {
