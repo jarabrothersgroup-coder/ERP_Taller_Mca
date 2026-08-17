@@ -563,8 +563,21 @@ podman-compose -f docker-compose.onpremise.yml --profile observability up -d gra
 
 # 3. Verificar:
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3300/login   # 200
-# UI: http://localhost:3300  (admin / GRAFANA_ADMIN_PASSWORD, default erp_grafana_admin)
+# UI: http://localhost:3300  (admin / GRAFANA_ADMIN_PASSWORD)
 ```
+
+> **Acceso admin seguro:** `GRAFANA_ADMIN_PASSWORD` en `.env` (generar con
+> `openssl rand -base64 24`). `GF_SECURITY_ADMIN_PASSWORD` del compose solo
+> aplica en el primer init del contenedor; en una instancia ya inicializada
+> cambiar vía API:
+> ```bash
+> ID=$(curl -s -u admin:OLD http://localhost:3300/api/users/search?query=admin \
+>   | python3 -c "import json,sys; print(json.load(sys.stdin)['users'][0]['id'])")
+> curl -s -u admin:OLD -X PUT http://localhost:3300/api/admin/users/$ID/password \
+>   -H 'Content-Type: application/json' -d "{\"password\":\"NEW\"}"
+> ```
+> La UI es de solo lectura para anónimos (`Viewer`) — no se puede modificar
+> nada sin login admin.
 
 - Datasource: `deploy/grafana/provisioning/datasources/datasource.yml` — la URL
   se inyecta vía `PG_DATASOURCE_URL` (Grafana **no** soporta default `:-` en
@@ -574,7 +587,30 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3300/login   # 200
   (el wrapper `{dashboard: {...}, overwrite: true}` de export/import hace fallar
   el file-provisioning con "Dashboard title cannot be empty").
 
-### 12.11 Solución de problemas específica de Podman
+### 12.11 Deploy a PCSERVER (producción)
+
+Una vez restablecida la conexión (Tailscale + llave SSH), desplegar el stack
+containerizado con el script seguro:
+
+```bash
+scripts/deploy-to-pcserver.sh --dry-run   # ensayo: solo valida conexión y vars
+scripts/deploy-to-pcserver.sh             # ejecución real
+```
+
+El script (no destructivo):
+
+1. Verifica SSH (`BatchMode` — aborta limpio sin credenciales).
+2. Verifica `git pull --ff-only` en el remoto.
+3. Valida variables críticas del `.env` remoto **sin imprimir valores**
+   (`DATABASE_URL`, `JWT_SECRET`, `TOKEN_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`).
+4. Aplica **solo migraciones pendientes** con `drizzle-kit migrate`
+   (incremental, `ON_ERROR_STOP`; nunca recrea la DB — incluye 0021 y 0022).
+5. `podman-compose build` + `up -d` (preserva volúmenes, sin `down -v`).
+6. Health checks: `podman ps` + `/health/live` (backend) + `/sign-in` (web).
+
+Configurar por env: `DEPLOY_USER`, `DEPLOY_HOST`, `DEPLOY_DIR`.
+
+### 12.12 Solución de problemas específica de Podman
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|

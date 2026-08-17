@@ -1,0 +1,218 @@
+apiVersion: 1
+
+# Reglas de alerta para el stack ERP Taller MCA.
+# Usan el datasource PostgreSQL (uid erp-postgresql, ver datasources.yml).
+#
+# NOTA IMPORTANTE: Grafana NO expande variables de entorno dentro del modelo
+# de las reglas (issue grafana/grafana#54984/#84250 — solo datasources y
+# contact points). Los umbrales son VALORES FIJOS; ajustarlos editando este
+# archivo (buscar "UMBRAL").
+groups:
+  - orgId: 1
+    name: ERP Taller MCA — Operación
+    folder: ERP Alertas
+    interval: 2m
+    rules:
+      # ── PostgreSQL caído ──────────────────────────────────────────
+      - uid: erp-postgres-down
+        title: PostgreSQL ERP no responde
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: erp-postgresql
+            model:
+              refId: A
+              format: table
+              intervalMs: 1000
+              maxDataPoints: 43200
+              rawSql: "SELECT 1 AS ok"
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: erp-postgresql
+          - refId: B
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              mode: strict
+          - refId: C
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: PostgreSQL ERP no responde
+          description: El datasource PostgreSQL no devuelve datos. Revisar contenedor erp_taller_mca_postgres_1.
+
+      # ── Backend sin actividad reciente ────────────────────────────
+      - uid: erp-backend-inactive
+        title: Backend ERP sin actividad (5 min)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: erp-postgresql
+            model:
+              refId: A
+              format: table
+              intervalMs: 1000
+              maxDataPoints: 43200
+              rawSql: "SELECT COUNT(*)::int AS n FROM facturas WHERE created_at > now() - interval '5 minutes'"
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: erp-postgresql
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              mode: strict
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Backend ERP sin actividad reciente
+          description: No se crearon facturas en los últimos 5 minutos durante 15 min. Verificar el contenedor erp (cron/workers activos?).
+
+      # ── Facturas vencidas pendientes ──────────────────────────────
+      - uid: erp-facturas-vencidas
+        title: Facturas vencidas sin cobrar
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: erp-postgresql
+            model:
+              refId: A
+              format: table
+              intervalMs: 1000
+              maxDataPoints: 43200
+              rawSql: "SELECT COUNT(*)::int AS n FROM facturas WHERE estado_pago IN ('PENDIENTE','PARCIAL') AND fecha_vencimiento < CURRENT_DATE"
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: erp-postgresql
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              mode: strict
+          - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    # UMBRAL: facturas vencidas que disparan alerta (fijo — ver cabecera).
+                    params: [5]
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.alertname }}: {{ $values.C }} facturas vencidas"
+          description: Hay facturas vencidas sin cobrar. Revisar cuentas por cobrar en el dashboard financiero.
+
+      # ── Cuentas bancarias con saldo bajo ──────────────────────────
+      - uid: erp-saldo-bajo
+        title: Saldo bancario bajo
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: erp-postgresql
+            model:
+              refId: A
+              format: table
+              intervalMs: 1000
+              maxDataPoints: 43200
+              # UMBRAL: saldo mínimo (fijo — ver cabecera). Ajustar el valor aquí.
+              # COUNT siempre devuelve 1 fila (0 = sin cuentas bajo el umbral → OK;
+              # si devolviera 0 filas, Grafana evalúa NoData como pending/alerting).
+              rawSql: "SELECT COUNT(*)::int AS n FROM (SELECT cb.nombre FROM cuentas_bancarias cb WHERE cb.activo = true AND cb.saldo_actual < 1000000::numeric) t"
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: erp-postgresql
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+              mode: strict
+          - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Saldo bancario bajo detectado
+          description: Una o más cuentas bancarias tienen saldo menor al umbral configurado.

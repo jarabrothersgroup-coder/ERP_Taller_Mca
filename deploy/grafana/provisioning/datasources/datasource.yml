@@ -2,6 +2,9 @@ apiVersion: 1
 
 datasources:
   - name: PostgreSQL
+    # UID fijo para que las alertas (provisioning/alerting/rules.yml) puedan
+    # referenciar el datasource de forma determinista.
+    uid: erp-postgresql
     type: postgres
     access: proxy
     # URL parametrizable vía env var (Grafana NO soporta default `:-` en la

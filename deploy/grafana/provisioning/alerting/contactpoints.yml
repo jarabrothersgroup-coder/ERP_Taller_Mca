@@ -1,0 +1,20 @@
+apiVersion: 1
+
+# Contact points para alertas de ERP Taller MCA.
+# - erp-webhook: notificación genérica (Telegram/Teams/Slack vía URL).
+#   Configurar ALERT_WEBHOOK_URL en .env con la URL real del bot/canal.
+#   NOTA: Grafana exige URL no vacía y NO soporta default `:-` en la
+#   interpolación de provisioning — el compose inyecta un default no vacío
+#   (http://127.0.0.1:9999/...) que se debe reemplazar en producción.
+# - Email: NO se provisiona (requiere SMTP de Grafana, GF_SMTP_*); si se
+#   configura SMTP, agregar un contact point tipo email manualmente en la UI.
+contactPoints:
+  - orgId: 1
+    name: ERP Alerts
+    receivers:
+      - uid: erp-webhook
+        type: webhook
+        settings:
+          url: "${ALERT_WEBHOOK_URL}"
+          httpMethod: POST
+        disableResolveMessage: false

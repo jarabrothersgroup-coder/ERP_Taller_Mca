@@ -211,6 +211,12 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-erp_grafana_admin}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      # Alertas (ver .env.example). ALERT_WEBHOOK_URL con default no vacío:
+      # Grafana exige URL en el contact point (provisioning falla si está vacía).
+      # En prod configurar el webhook real (Telegram/Teams/Slack).
+      # NOTA: los umbrales de las reglas son fijos (rules.yml) — Grafana no
+      # expande env vars dentro del modelo de reglas (grafana#54984).
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-http://127.0.0.1:9999/grafana-webhook}
     volumes:
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
