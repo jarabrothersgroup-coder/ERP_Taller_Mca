@@ -56,7 +56,13 @@
         "provisioning": "deploy/grafana/provisioning (datasource parametrizado PG_DATASOURCE_URL, dashboards planos)",
         "role": "grafana_reader (solo lectura, RLS aislada)",
         "dashboards": ["erp-financial", "erp-monitoring"],
-        "verified": "Database Connection OK + queries reales + E2E 48/48 PASS"
+        "alerts": {
+          "contact_point": "webhook (ALERT_WEBHOOK_URL, default no vacío)",
+          "rules": ["PostgreSQL caído (critical)", "Backend sin actividad", "Facturas vencidas", "Saldo bancario bajo"],
+          "note": "Umbrales fijos en rules.yml (Grafana no expande env vars en reglas, grafana#54984); verificadas en vivo (7 vencidas → pending)"
+        },
+        "admin_password": "GRAFANA_ADMIN_PASSWORD en .env (24 chars, aplicada vía API)",
+        "verified": "Database Connection OK + queries reales + E2E 48/48 PASS + alertas evaluando"
       },
       "note": "Deploy local para pruebas/mejoras; producción pendiente en PCSERVER cuando se restablezca conexión"
     },
