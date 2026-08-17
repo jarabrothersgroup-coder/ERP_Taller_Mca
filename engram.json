@@ -43,7 +43,7 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 99 COMPLETED — Grafana datasource por provisioning verificado (role grafana_reader + PG_GRAFANA_PASSWORD), build mobile verificado (typecheck + bundle android OK, 4 type errors corregidos), riesgos chaos_audit C-05..C-12 cerrados/verificados",
+    "current_sprint": "Sprint 100 RE-VERIFICADO — build mobile OK (tsc --noEmit PASS + expo export android 2.41 MB), riesgos chaos_audit C-01..C-12 re-verificados en código (fail-closed RLS, UPDATE atómico stock, timezone Asuncion, timingSafeEqual, migración 0013 aplicada 24/24, ON_ERROR_STOP=on, SETNX lock, auto-save DVI, beforeunload, nonce diario, withTimeout, sin vistas), deploy local Podman UP (5 contenedores healthy), Grafana :3300 con alertas, E2E 48/48 PASS",
     "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021/0022, verificar Next 16 en prod), monitoreo Grafana con deploy/grafana + provision-grafana-reader.sh, dashboard/sidebar polish",
     "last_deploy": {
       "host": "local (Podman rootless)",
