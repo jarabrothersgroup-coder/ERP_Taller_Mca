@@ -188,6 +188,38 @@ services:
     networks:
       - erp-network
 
+  # ─── Grafana (Monitoreo — Opcional) ───────────
+  # Dashboards financiero + monitoreo con datasource PostgreSQL (rol de solo
+  # lectura grafana_reader, ver scripts/provision-grafana-reader.sh).
+  # Activar con: podman-compose -f docker-compose.onpremise.yml --profile observability up -d grafana
+  grafana:
+    image: docker.io/grafana/grafana:11.4.0
+    profiles: ["observability"]
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3300}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          cpus: "0.25"
+    environment:
+      # Interpolación de provisioning: Grafana expande ${VAR} pero NO soporta
+      # default `:-` — ambas vars son obligatorias (ver .env.example).
+      PG_GRAFANA_PASSWORD: ${PG_GRAFANA_PASSWORD}
+      PG_DATASOURCE_URL: ${PG_DATASOURCE_URL:-postgres:5432}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-erp_grafana_admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - erp-network
+
   # ─── Evolution API (WhatsApp — Opcional) ─────
   # Descomentar si necesitas WhatsApp integration
   # evolution-api:
@@ -243,6 +275,7 @@ volumes:
   postgres_data:
   redis_data:
   erp_storage:
+  grafana_data:
 
 networks:
   erp-network:

@@ -470,6 +470,7 @@ No usa Docker daemon ni `sudo podman`.
 | redis      | `redis:7-alpine`                | 6380        | —                |
 | erp        | `automotiveos/erp-backend` (build) | 3000 (+4000 alias E2E) | postgres, redis |
 | web        | `automotiveos/erp-web` (build)  | 3100        | erp              |
+| grafana    | `grafana/grafana:11.4.0` (profile `observability`) | 3300 | postgres |
 
 > Los puertos evitan conflicto con GestionIRP (5432/6379/3001). El backend
 > sirve el SPA legacy en `:3000`; el frontend moderno (Next.js 16) en `:3100`.
@@ -545,7 +546,35 @@ cd web
 npx playwright test --config=playwright.container.config.ts   # baseURL :3100
 ```
 
-### 12.10 Solución de problemas específica de Podman
+### 12.10 Grafana (monitoreo, opcional)
+
+El stack incluye un servicio `grafana` (profile `observability` — **no** arranca
+por defecto; se levanta a demanda). Provisiona 2 dashboards (financiero +
+monitoreo) con datasource PostgreSQL de solo lectura.
+
+```bash
+# 1. Crear el rol de solo lectura (idempotente):
+#    PG_GRAFANA_PASSWORD='...' sudo -u postgres bash scripts/provision-grafana-reader.sh -d automotive_os
+#    (en el stack containerizado: copiar el script al contenedor postgres y
+#     ejecutarlo con PGUSER=erp_user; ver sección 12.11)
+
+# 2. Levantar Grafana:
+podman-compose -f docker-compose.onpremise.yml --profile observability up -d grafana
+
+# 3. Verificar:
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3300/login   # 200
+# UI: http://localhost:3300  (admin / GRAFANA_ADMIN_PASSWORD, default erp_grafana_admin)
+```
+
+- Datasource: `deploy/grafana/provisioning/datasources/datasource.yml` — la URL
+  se inyecta vía `PG_DATASOURCE_URL` (Grafana **no** soporta default `:-` en
+  provisioning): `localhost:5432` para Grafana en el host, `postgres:5432`
+  para el contenedor en la red del compose.
+- Dashboards en `deploy/grafana/provisioning/dashboards/*.json` — formato **plano**
+  (el wrapper `{dashboard: {...}, overwrite: true}` de export/import hace fallar
+  el file-provisioning con "Dashboard title cannot be empty").
+
+### 12.11 Solución de problemas específica de Podman
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|
@@ -554,3 +583,7 @@ npx playwright test --config=playwright.container.config.ts   # baseURL :3100
 | Migraciones chocan con tablas pre-creadas | `init.sql` montado | Quitar el mount; migraciones son la fuente de verdad |
 | serverctl no ve contenedores | `container_name` explícito | Usar nombres generados `{project_id}_*` |
 | Backend no arranca por env faltante | `requireEnv` fail-closed | Verificar `APP_URL` y `TOKEN_SECRET` en `.env` |
+| `next build` falla con TS2307 en `playwright.container.config.ts` | `.dockerignore` excluía `playwright.config.ts` pero no `playwright.container.config.ts` (lo importa) | Excluir ambos (`playwright.config.ts` + `playwright.container.config.ts`) |
+| Dashboards Grafana "title cannot be empty" | JSON en formato export (`{dashboard: ...}`) | Unwrappear al dashboard plano |
+| Datasource Grafana con URL vacía | `${VAR:-default}` no soportado | Pasar `PG_DATASOURCE_URL` explícita (sin default `:-`) |
+| Rol `grafana_reader` no creado por el script | `psql` conectaba a la DB del usuario SO (sin `-d`) | Script usa `-d "$DB_NAME"` explícito; ejecutar con `PGUSER=erp_user` en el contenedor |

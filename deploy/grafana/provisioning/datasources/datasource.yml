@@ -4,7 +4,12 @@ datasources:
   - name: PostgreSQL
     type: postgres
     access: proxy
-    url: localhost:5432
+    # URL parametrizable vía env var (Grafana NO soporta default `:-` en la
+    # interpolación de provisioning). Prod (Grafana en host):
+    #   PG_DATASOURCE_URL=localhost:5432
+    # Stack containerizado (Grafana en la red del compose):
+    #   PG_DATASOURCE_URL=postgres:5432
+    url: "${PG_DATASOURCE_URL}"
     database: automotive_os
     user: grafana_reader
     secureJsonData:
