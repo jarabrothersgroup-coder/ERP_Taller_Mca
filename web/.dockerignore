@@ -9,6 +9,7 @@ e2e/
 test-results/
 playwright-report/
 playwright.config.ts
+playwright.container.config.ts
 vitest.config.ts
 
 # Env / secrets (never ship)

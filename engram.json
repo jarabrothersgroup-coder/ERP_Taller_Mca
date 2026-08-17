@@ -45,6 +45,15 @@
   "state": {
     "current_sprint": "Sprint 99 COMPLETED — Grafana datasource por provisioning verificado (role grafana_reader + PG_GRAFANA_PASSWORD), build mobile verificado (typecheck + bundle android OK, 4 type errors corregidos), riesgos chaos_audit C-05..C-12 cerrados/verificados",
     "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021/0022, verificar Next 16 en prod), monitoreo Grafana con deploy/grafana + provision-grafana-reader.sh, dashboard/sidebar polish",
+    "last_deploy": {
+      "host": "local (Podman rootless)",
+      "compose": "docker-compose.onpremise.yml",
+      "services": ["postgres", "redis", "erp", "web"],
+      "ports": {"web": 3100, "api": 3000, "api_alias_dev": 4000, "postgres": 5434, "redis": 6380},
+      "status": "UP",
+      "health": "all healthy",
+      "note": "Deploy local para pruebas/mejoras; producción pendiente en PCSERVER cuando se restablezca conexión"
+    },
     "sprint_99_completed": {
       "goal": "Grafana datasource password via provisioning + mobile build verification + cierre de riesgos chaos_audit",
       "completed_date": "2026-08-16",
