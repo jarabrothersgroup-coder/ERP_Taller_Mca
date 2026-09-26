@@ -102,6 +102,12 @@ interface EnvConfig {
   STRIPE_SECRET_KEY: string;
   /** Stripe webhook signing secret (required in production) */
   STRIPE_WEBHOOK_SECRET: string;
+  /** Stripe mode: "test" (default) or "live" */
+  STRIPE_MODE: string;
+  /** Stripe live secret key (used when STRIPE_MODE=live) */
+  STRIPE_SECRET_KEY_LIVE: string;
+  /** Stripe live webhook signing secret (used when STRIPE_MODE=live) */
+  STRIPE_WEBHOOK_SECRET_LIVE: string;
 
   // ─── Resend (Email) ────────────────────────────
   /** Resend API key for transactional email (required in production) */
@@ -189,6 +195,10 @@ export const env: EnvConfig = {
   // STRIPE_WEBHOOK_SECRET está seteado (ver stripe.routes.ts:356).
   STRIPE_SECRET_KEY: process.env["STRIPE_SECRET_KEY"] ?? "",
   STRIPE_WEBHOOK_SECRET: process.env["STRIPE_WEBHOOK_SECRET"] ?? "",
+  // "test" por defecto; STRIPE_MODE=live usa STRIPE_SECRET_KEY_LIVE.
+  STRIPE_MODE: process.env["STRIPE_MODE"] ?? "test",
+  STRIPE_SECRET_KEY_LIVE: process.env["STRIPE_SECRET_KEY_LIVE"] ?? "",
+  STRIPE_WEBHOOK_SECRET_LIVE: process.env["STRIPE_WEBHOOK_SECRET_LIVE"] ?? "",
 
   // ─── Resend (Email) ────────────────────────────────────
   // Opcional: resend.service cae a nodemailer/SMTP si no está seteado.

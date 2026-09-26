@@ -42,6 +42,7 @@ const CSRF_EXEMPT_PATHS = new Set([
   "/docs",
   // External webhooks — third-party providers can't do the double-submit dance
   "/finance/payments/webhook",
+  "/billing/webhook",
   "/scheduling/webhook/whatsapp",
   "/api/onboarding/setup",
 ]);

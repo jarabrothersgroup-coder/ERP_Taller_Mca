@@ -1,0 +1,192 @@
+# ─────────────────────────────────────────────────────────
+# AutomotiveOS Cloud ERP — Docker Compose (Local / Podman)
+# ─────────────────────────────────────────────────────────
+# Archivo generado por deploy-local-podman.sh
+# Editar puertos y paths según necesidad
+# ─────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: docker.io/pgvector/pgvector:pg16
+    container_name: erp-local_postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-automotive_os}
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_local_password}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp_user} -d ${POSTGRES_DB:-automotive_os}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-local-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: erp-local_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-erp_redis_password}
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-erp_redis_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-local-network
+
+  erp:
+    build:
+      context: ${PROJECT_ROOT:-/mnt/PROYECTOS/repos/ERP_Taller_Mca}
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    image: automotiveos/erp-backend:local
+    container_name: erp-local_erp
+    restart: unless-stopped
+    ports:
+      - "3200:3000"
+      - "4000:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.75"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: "0.0.0.0"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_local_password}@postgres:5432/${POSTGRES_DB:-automotive_os}?sslmode=disable
+      STORAGE_PATH: /data/erp-storage
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      TOKEN_SECRET: ${TOKEN_SECRET:-change-me}
+      TENANT_SCHEMA_PREFIX: ${TENANT_SCHEMA_PREFIX:-tenant_}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_URL: ${APP_URL:-http://localhost:3200}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3300}
+      ENABLE_REQUEST_TENANT_CONTEXT: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - ./data/storage:/data/erp-storage
+      - ./data/config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - erp-local-network
+
+  web:
+    build:
+      context: ${PROJECT_ROOT:-/mnt/PROYECTOS/repos/ERP_Taller_Mca}/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: http://localhost:3000
+    image: automotiveos/erp-web:local
+    container_name: erp-local_web
+    restart: unless-stopped
+    ports:
+      - "3300:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.75"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      BACKEND_HOST: erp
+      BACKEND_PORT: "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/sign-in"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      erp:
+        condition: service_healthy
+    networks:
+      - erp-local-network
+
+  grafana:
+    image: docker.io/grafana/grafana:11.4.0
+    container_name: erp-local_grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3300}:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+          cpus: "0.25"
+    environment:
+      PG_GRAFANA_PASSWORD: ${PG_GRAFANA_PASSWORD:-}
+      PG_DATASOURCE_URL: postgres:5432
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-erp_grafana_admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-http://127.0.0.1:9999/grafana-webhook}
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ${PROJECT_ROOT:-/mnt/PROYECTOS/repos/ERP_Taller_Mca}/deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - erp-local-network
+    profiles:
+      - observability
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  erp_storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/storage
+
+networks:
+  erp-local-network:
+    driver: bridge

@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
   saveBtn: { padding: spacing.sm },
   camera: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "center", alignItems: "center" },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center" },
   guideFrame: { width: "85%", height: "50%", borderWidth: 2, borderColor: "rgba(255,255,255,0.5)", borderRadius: borderRadius.md },
   labelBanner: { position: "absolute", top: 80, left: spacing.lg, right: spacing.lg, backgroundColor: "rgba(0,0,0,0.6)", padding: spacing.sm, borderRadius: borderRadius.sm },
   labelText: { color: "#fff", fontSize: fontSize.sm, fontWeight: "600", textAlign: "center" },

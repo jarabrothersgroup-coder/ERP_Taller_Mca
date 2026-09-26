@@ -81,6 +81,28 @@ systemctl restart erp-taller
   BD del request en `sql.begin()` (transacción por request) o usar una conexión dedicada.
   Hasta entonces, el filtrado por `tenant_slug` en la app sigue siendo la capa principal.
 
+## Migraciones de BD — aplicar y hacer rollback
+
+- Las migraciones viven en `src/shared/database/migrations/` y se aplican con
+  `npm run db:migrate` (`drizzle-kit migrate`). Los `.sql` son **forward-only**
+  (no existe `down.sql` en drizzle-kit).
+- **Orden**: `meta/_journal.json` define el orden de aplicación (`idx`). Si editás
+  migraciones a mano, reordenalas ahí. Desde 2026-09 `0024_ingreso_checklist`
+  está al final (se generó fuera de orden, entre `0012` y `0013`).
+- **Estado aplicado**: se guarda por hash en `drizzle.__drizzle_migrations`.
+  Reordenar el journal NO re-ejecuta nada en DBs ya migradas (el hash no cambia).
+- **Rollback de una migración ya aplicada** (forward-only):
+  1. Identificar los DDL del `.sql` objetivo y generar el SQL inverso a mano
+     (p. ej. `ALTER TABLE ... DROP COLUMN`, `DROP TABLE ...`).
+  2. Preferir restaurar desde backup si el cambio ya tocó datos:
+     `pg_restore`/`psql` con el dump previo (ver `scripts/backup-*.sh`).
+  3. ⚠️ No borrar la fila de `drizzle.__drizzle_migrations` sin re-aplicar el
+     `.sql` luego, o el check de pendientes quedará inconsistente.
+- **Migración falla en producción**: la transacción de drizzle-kit revierte ese
+  paso; corregir el `.sql`, no editar el journal; re-correr `npm run db:migrate`.
+- Antes de desplegar: `npm run db:generate` local contra la misma versión de
+  schema y revisar que `db:check` pase con la BD disponible.
+
 ## Secretos obligatorios en `.env`
 
 - `JWT_SECRET` — fuerte, obligatorio en producción (el arranque falla si falta).

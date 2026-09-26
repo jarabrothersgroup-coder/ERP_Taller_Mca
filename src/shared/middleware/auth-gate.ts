@@ -45,6 +45,7 @@ const PUBLIC_PATHS = [
   "/api/lead",
   // Payment provider webhooks (Stripe/PagosPy don't send JWT)
   "/finance/payments/webhook",
+  "/billing/webhook",
   // Client portal (own magic-link / PIN auth)
   "/portal/",
   // TV display + status (public by design)
@@ -64,8 +65,8 @@ const PUBLIC_PATHS = [
   "/mobile/health",
   // Reports service probe
   "/reports/health",
-  // Prometheus metrics (scraped by infra without JWT — TODO: protect with
-  // network ACL / basic auth in production)
+  // Prometheus metrics — protected by METRICS_BASIC_AUTH when set
+  // (optional basic auth for production; falls back to public for dev)
   "/metrics",
 ];
 
@@ -98,6 +99,18 @@ export async function authGate(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
+  // /metrics: optional basic auth via METRICS_BASIC_AUTH env (user:password base64)
+  if (request.url === "/metrics" && process.env.METRICS_BASIC_AUTH) {
+    const authHeader = request.headers.authorization;
+    if (authHeader !== `Basic ${process.env.METRICS_BASIC_AUTH}`) {
+      reply.header("WWW-Authenticate", 'Basic realm="metrics"');
+      reply.status(401).send({ error: "Authentication required" });
+      return;
+    }
+    // Authenticated — fall through to skip the rest of the gate
+    return;
+  }
+
   if (isPublicRoute(request.url)) return;
 
   // Resolve the user profile only when it wasn't already resolved by a

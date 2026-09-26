@@ -13,6 +13,17 @@ web/out/
 .env
 .env.local
 .env.production
+.env.example.local
+
+# ─── Secretos locales (nunca versionar) ───────
+Docs/Llaves.txt
+
+# ─── CodeGraph ────────────────────────────────
+.codegraph/
+
+# ─── Test artifacts ───────────────────────────
+web/test-results/
+web/playwright-report/
 
 # ─── IDE / Editor ────────────────────────────
 .vscode/

@@ -65,7 +65,8 @@ describe("Sprint 69 — Stripe Webhook Signature Verification", () => {
     expect(routes).toContain("constructEvent(");
     expect(routes).toContain("rawBody,");
     expect(routes).toContain("signature,");
-    expect(routes).toContain("webhookSecret");
+    // Multi-secret verification (test + live)
+    expect(routes).toContain("for (const secret of webhookSecrets)");
   });
 
   it("webhook route rejects missing signature in production", () => {
@@ -297,5 +298,55 @@ describe("Sprint 69 — Billing Email Routes", () => {
     const plugin = readFile("src/modules/email/plugin.ts");
     expect(plugin).toContain('billingEmailRoutes');
     expect(plugin).toContain('import { billingEmailRoutes }');
+  });
+});
+
+// ═══════════════════════════════════════════════
+// 7. Billing Webhook Reachability & Idempotency
+// ═══════════════════════════════════════════════
+describe("Sprint 69 — Billing Webhook Reachability & Idempotency", () => {
+  it("auth-gate PUBLIC_PATHS exempts /billing/webhook (Stripe sends no JWT)", () => {
+    const authGate = readFile("src/shared/middleware/auth-gate.ts");
+    expect(authGate).toContain('"/billing/webhook"');
+    expect(authGate).toContain('"/finance/payments/webhook"');
+  });
+
+  it("CSRF_EXEMPT_PATHS exempts /billing/webhook", () => {
+    const csrf = readFile("src/shared/middleware/csrf.ts");
+    expect(csrf).toContain('"/billing/webhook"');
+  });
+
+  it("billing plugin skips tenant/profile hooks for the webhook path", () => {
+    const plugin = readFile("src/modules/billing/plugin.ts");
+    expect(plugin).toContain('WEBHOOK_PATH = "/billing/webhook"');
+    expect(plugin).toContain('request.url.split("?")[0] === WEBHOOK_PATH');
+  });
+
+  it("invoice.paid and payment_failed upsert by stripeInvoiceId (no duplicate rows)", () => {
+    const service = readFile("src/modules/billing/services/stripe.service.ts");
+    expect(service).toContain("onConflictDoUpdate");
+    expect(service).toContain("target: subscriptionInvoices.stripeInvoiceId");
+  });
+
+  it("checkout.session.completed looks up by stripeSubscriptionId (replay-safe)", () => {
+    const service = readFile("src/modules/billing/services/stripe.service.ts");
+    expect(service).toContain("existingByStripe");
+    expect(service).toContain("eq(subscriptions.stripeSubscriptionId");
+  });
+
+  it("webhook accepts test and live signing secrets", () => {
+    const service = readFile("src/modules/billing/services/stripe.service.ts");
+    expect(service).toContain("getStripeWebhookSecrets");
+    expect(service).toContain("STRIPE_WEBHOOK_SECRET_LIVE");
+    const routes = readFile("src/modules/billing/routes/stripe.routes.ts");
+    expect(routes).toContain("for (const secret of webhookSecrets)");
+  });
+
+  it("env exposes STRIPE_MODE and live keys with test-mode default", () => {
+    const env = readFile("src/config/env.ts");
+    expect(env).toContain("STRIPE_MODE");
+    expect(env).toContain("STRIPE_SECRET_KEY_LIVE");
+    expect(env).toContain("STRIPE_WEBHOOK_SECRET_LIVE");
+    expect(env).toContain('?? "test"');
   });
 });

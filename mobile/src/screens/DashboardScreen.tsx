@@ -225,7 +225,7 @@ export default function DashboardScreen({ navigation }: any) {
             color={colors.info}
           />
           <StatCard
-            label="Completadas"
+            label="Completadas hoy"
             value={String(stats.ordenesCompletadas)}
             icon="checkmark-circle"
             color={colors.primary}

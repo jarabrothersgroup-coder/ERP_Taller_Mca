@@ -12,6 +12,41 @@
  */
 
 import { describe, it, expect } from "vitest";
+import net from "node:net";
+
+/**
+ * Probes whether PostgreSQL is actually reachable.
+ *
+ * The old guard only checked `process.env.DATABASE_URL` at collection time,
+ * but `src/config/env.ts` loads `.env` lazily on first import — so locally
+ * (shell without DATABASE_URL, `.env` present, PG up) the test ran and failed.
+ *
+ * @param url - Postgres connection string
+ * @returns true when a TCP connection to the DB host succeeds
+ */
+function probePostgres(url: string): Promise<boolean> {
+  if (!url) return Promise.resolve(false);
+  let host: string;
+  let port: number;
+  try {
+    const u = new URL(url);
+    host = u.hostname || "localhost";
+    port = u.port ? Number(u.port) : 5432;
+  } catch {
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const done = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(3000, () => done(false));
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+  });
+}
 
 // ─── Module Exports ────────────────────────────
 
@@ -218,15 +253,21 @@ describe("Sprint 90 — Accounting Configurators & AutoReversal", () => {
     });
 
     it("configure() requires PostgreSQL (skip in unit tests)", {
-      // Este test verifica que configure() rechaza SIN PostgreSQL.
-      // Si hay una DB configurada/alcanzable, configure() resuelve (idempotente),
-      // así que el test solo aplica en entornos sin DB.
-      skip: process.env["SKIP_DB_TESTS"] === "true" || !!process.env["DATABASE_URL"],
+      // Solo anulado a mano; con DB caída el test valida el rechazo,
+      // con DB viva valida que configure() realmente persiste.
+      skip: process.env["SKIP_DB_TESTS"] === "true",
     }, async () => {
+      // Lazy import so dotenv (.env) is loaded exactly like production.
+      const { env } = await import("../src/config/env.js");
       const { inventarioConfigurator } = await import("../src/modules/finance/services/index.js");
-      // configure inserts into configurador_modulo (requires DB)
-      // Will throw ECONNREFUSED if no PostgreSQL is running
-      await expect(inventarioConfigurator.configure()).rejects.toThrow();
-    });
+      const reachable = await probePostgres(env.DATABASE_URL);
+
+      if (reachable) {
+        // configure() inserts into configurador_modulo (idempotent, returns void).
+        await expect(inventarioConfigurator.configure()).resolves.toBeUndefined();
+      } else {
+        await expect(inventarioConfigurator.configure()).rejects.toThrow();
+      }
+    }, 30_000);
   });
 });

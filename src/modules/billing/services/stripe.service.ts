@@ -30,9 +30,34 @@ import type {
   CreateCheckoutResponse,
 } from "../types.js";
 
+const STRIPE_MODE_LIVE = "live";
+
+/**
+ * Selected Stripe API key.
+ * STRIPE_MODE=live → STRIPE_SECRET_KEY_LIVE; otherwise → STRIPE_SECRET_KEY (test).
+ */
+export function getStripeSecretKey(): string {
+  const mode = process.env["STRIPE_MODE"] ?? "test";
+  return mode === STRIPE_MODE_LIVE
+    ? (process.env["STRIPE_SECRET_KEY_LIVE"] ?? "")
+    : (process.env["STRIPE_SECRET_KEY"] ?? "");
+}
+
+/**
+ * Webhook signing secrets configured in the environment.
+ * A single endpoint accepts both the test and the live secret, so one Stripe
+ * webhook URL works across modes without changing STRIPE_MODE.
+ */
+export function getStripeWebhookSecrets(): string[] {
+  return [
+    process.env["STRIPE_WEBHOOK_SECRET"],
+    process.env["STRIPE_WEBHOOK_SECRET_LIVE"],
+  ].filter((s): s is string => !!s);
+}
+
 /** Whether Stripe is configured */
 function isStripeConfigured(): boolean {
-  return !!process.env["STRIPE_SECRET_KEY"];
+  return !!getStripeSecretKey();
 }
 
 /**
@@ -46,7 +71,7 @@ let _stripeClient: any = null;
 async function ensureStripeClient(): Promise<void> {
   if (!_stripeClient && isStripeConfigured()) {
     const Stripe = (await import("stripe")).default;
-    _stripeClient = new Stripe(process.env["STRIPE_SECRET_KEY"]!);
+    _stripeClient = new Stripe(getStripeSecretKey());
   }
 }
 
@@ -197,8 +222,15 @@ export async function processWebhookEvent(eventType: string, data: Record<string
         break;
       }
 
-      // Create or update subscription
-      const existing = await getSubscription(tenantSlug);
+      // Create or update subscription. Lookup by Stripe subscription ID makes
+      // replays of checkout.session.completed idempotent (Stripe retries
+      // webhooks with exponential backoff until a 2xx is returned).
+      const [existingByStripe] = await db()
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, obj.subscription));
+
+      const existing = existingByStripe ?? (await getSubscription(tenantSlug));
       if (existing?.id) {
         await db()
           .update(subscriptions)
@@ -240,16 +272,30 @@ export async function processWebhookEvent(eventType: string, data: Record<string
       if (!subscriptionId) break;
       const [sub] = await db().select().from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
       if (sub) {
-        await db().insert(subscriptionInvoices).values({
-          tenantId: sub.tenantId,
-          stripeInvoiceId: obj.id,
-          stripeSubscriptionId: subscriptionId,
-          amountPyg: obj.amount_paid || obj.amount_due || 0,
-          currency: (obj.currency || "pyg").toUpperCase(),
-          status: "paid",
-          paidAt: new Date(),
-          dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
-        });
+        await db()
+          .insert(subscriptionInvoices)
+          .values({
+            tenantId: sub.tenantId,
+            stripeInvoiceId: obj.id,
+            stripeSubscriptionId: subscriptionId,
+            amountPyg: obj.amount_paid || obj.amount_due || 0,
+            currency: (obj.currency || "pyg").toUpperCase(),
+            status: "paid",
+            paidAt: new Date(),
+            dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
+          })
+          .onConflictDoUpdate({
+            target: subscriptionInvoices.stripeInvoiceId,
+            set: {
+              tenantId: sub.tenantId,
+              stripeSubscriptionId: subscriptionId,
+              amountPyg: obj.amount_paid || obj.amount_due || 0,
+              currency: (obj.currency || "pyg").toUpperCase(),
+              status: "paid",
+              paidAt: new Date(),
+              dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
+            },
+          });
       }
       break;
     }
@@ -259,15 +305,30 @@ export async function processWebhookEvent(eventType: string, data: Record<string
       if (!subscriptionId) break;
       const [sub] = await db().select().from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subscriptionId));
       if (sub) {
-        await db().insert(subscriptionInvoices).values({
-          tenantId: sub.tenantId,
-          stripeInvoiceId: obj.id,
-          stripeSubscriptionId: subscriptionId,
-          amountPyg: obj.amount_due || 0,
-          currency: (obj.currency || "pyg").toUpperCase(),
-          status: "failed",
-          dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
-        });
+        // Upsert by stripe invoice id: reruns of the same event update the
+        // existing row instead of inserting a duplicate invoice.
+        await db()
+          .insert(subscriptionInvoices)
+          .values({
+            tenantId: sub.tenantId,
+            stripeInvoiceId: obj.id,
+            stripeSubscriptionId: subscriptionId,
+            amountPyg: obj.amount_due || 0,
+            currency: (obj.currency || "pyg").toUpperCase(),
+            status: "failed",
+            dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
+          })
+          .onConflictDoUpdate({
+            target: subscriptionInvoices.stripeInvoiceId,
+            set: {
+              tenantId: sub.tenantId,
+              stripeSubscriptionId: subscriptionId,
+              amountPyg: obj.amount_due || 0,
+              currency: (obj.currency || "pyg").toUpperCase(),
+              status: "failed",
+              dueDate: obj.due_date ? new Date(obj.due_date * 1000) : null,
+            },
+          });
 
         // Send payment failed email notification (resolve tenantId → slug)
         try {

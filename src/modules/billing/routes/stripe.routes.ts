@@ -22,6 +22,7 @@ import {
   createPortalSession,
   processWebhookEvent,
   getStripeClient,
+  getStripeWebhookSecrets,
 } from "../services/stripe.service.js";
 
 // ─── Swagger Schemas ─────────────────────────────────────────────────────────
@@ -353,10 +354,13 @@ async function webhookSubPlugin(app: FastifyInstance): Promise<void> {
     },
   }, async (req: FastifyRequest, reply: FastifyReply) => {
     const signature = req.headers["stripe-signature"] as string | undefined;
-    const webhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+    const webhookSecrets = getStripeWebhookSecrets();
 
-    // Production: require signature verification
-    if (webhookSecret) {
+    // Production: require signature verification.
+    // Accepts both the test (STRIPE_WEBHOOK_SECRET) and the live
+    // (STRIPE_WEBHOOK_SECRET_LIVE) signing secret so one endpoint works
+    // across modes.
+    if (webhookSecrets.length > 0) {
       if (!signature) {
         app.log.warn("Stripe webhook received without signature header");
         return reply.code(400).send({ error: "Missing stripe-signature header" });
@@ -368,13 +372,24 @@ async function webhookSubPlugin(app: FastifyInstance): Promise<void> {
           app.log.error("Raw body not available for webhook verification");
           return reply.code(500).send({ error: "Raw body not captured" });
         }
-        const event = stripe.webhooks.constructEvent(
-          rawBody,
-          signature,
-          webhookSecret,
-        );
+
+        let event: any = null;
+        let verificationError: unknown = null;
+        for (const secret of webhookSecrets) {
+          try {
+            event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+            break;
+          } catch (err: unknown) {
+            verificationError = err;
+          }
+        }
+        if (!event) {
+          app.log.error({ err: verificationError }, "Stripe webhook signature verification failed");
+          return reply.code(400).send({ error: "Invalid signature" });
+        }
+
         const eventType = event.type;
-        const data = event.data.object as Record<string, unknown>;
+        const data = event.data.object;
 
         app.log.info({ eventType, id: event.id }, "Received verified Stripe webhook event");
 

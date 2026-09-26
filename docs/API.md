@@ -227,15 +227,22 @@ Login por tenant + email. Crea perfil automáticamente si no existe.
 
 ## Perfiles
 
-Requiere `X-Tenant-Slug`.
+Requiere `X-Tenant-Slug` + JWT autenticado.
+
+> **SEG-01:** `POST`/`PATCH`/`DELETE` requieren rol **`admin`** (403 para el
+> resto). Todo lookup por `:id` está scopeado al tenant (404 si el perfil
+> pertenece a otro taller). El `role` debe ser `admin` | `manager` | `mechanic`
+> | `user` (400 si no). `PATCH` solo acepta `email`, `fullName`, `role`,
+> `isActive` (alias: `name` → `fullName`, `active` → `isActive`); un admin no
+> puede cambiar su propio `role`/`isActive` ni eliminarse a sí mismo (403).
 
 ### `GET /api/profiles`
 
-Listar perfiles del tenant.
+Listar perfiles del tenant (requiere sesión).
 
 ### `POST /api/profiles`
 
-Crear perfil.
+Crear perfil (**solo admin**).
 
 **Request:**
 ```json
@@ -244,16 +251,16 @@ Crear perfil.
 
 ### `PATCH /api/profiles/:id`
 
-Actualizar perfil.
+Actualizar perfil (**solo admin**; campos whitelist).
 
 **Request (parcial):**
 ```json
-{ "fullName": "Carlos López Martínez", "role": "supervisor" }
+{ "fullName": "Carlos López Martínez", "role": "mechanic" }
 ```
 
 ### `DELETE /api/profiles/:id`
 
-Desactivar perfil (soft-delete, `is_active = false`).
+Desactivar perfil (soft-delete, `is_active = false`) (**solo admin**).
 
 ---
 
