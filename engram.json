@@ -48,7 +48,7 @@
       "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
       "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
       "verified_on": "2026-09-26",
-      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1843 (1839 PASS / 4 skip) incl. 8 tests de contrato T-00 · web 111/111",
+      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1855 (1851 PASS / 4 skip) incl. 8 tests de contrato T-00 y 12 E2E Fase 1 · web 111/111",
       "phases": {
         "fase_0_contrato": {
           "status": "COMPLETADO",
@@ -69,7 +69,7 @@
           ]
         },
         "fase_1_reconexion": {
-          "status": "COMPLETADO_EN_CODIGO",
+          "status": "COMPLETADO",
           "done": [
             "T-11 citas→scheduling/appointments",
             "T-12 SSE→/api/notifications/stream",
@@ -81,10 +81,11 @@
             "T-18 label-printing ×6",
             "T-19 fotos→/storage/:bucket/*",
             "T-20 mobile sign-lockout + rutas movil",
-            "T-21 portal →/portal/summary"
-          ],
-          "pending": [
-            "E2E con asserts de datos para los 12 flujos (criterio de éxito sin cubrir)"
+            "T-21 portal →/portal/summary",
+            "E2E tests/e2e-reconnected-flows.test.ts (12 it): app real vía buildApp() + app.inject() contra DB migrada, fixtures propias tenant e2e-reconnected (idempotentes, limpias en afterAll), asserts de round-trip de datos — 12/12 verdes",
+            "Criterio de éxito pendiente (fase_1_reconexion.pending) cerrado: citas id leído de vuelta, SSE evento connected, kpis×4, stock 10→6 con movimientos, préstamo/devolución, payroll ok/commissionsCreated, cuenta en árbol, label ×6, storage round-trip bytes iguales, lockout HEV 422→firmar→Listo 200, portal PIN→sesión→summary, shapes paginados",
+            "hallazgo: validateTenantSchema rechazaba slugs con guión → POST /api/v1/finance/payroll/calculate devolvía 422 para taller-mca (tenant por defecto) y test-tenant; regex ahora ^[a-zA-Z0-9_-]+$ (queries parametrizadas, sin interpolación de identificadores) — tests/finance-security.test.ts actualizado",
+            "infra vitest: hookTimeout 60s (buildApp arranca crons), env LOG_LEVEL=silent y STORAGE_PATH=/tmp/erp-storage-vitest (el default /data/erp-storage no existe en local)"
           ]
         },
         "fase_2_seguridad": {
