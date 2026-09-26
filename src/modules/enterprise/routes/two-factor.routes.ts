@@ -11,6 +11,9 @@ import {
   verifyTotp,
   generateBackupCodes,
   getTotpTimeRemaining,
+  enrollTwoFactor,
+  hasTwoFactorEnrollment,
+  verifyTwoFactorCode,
 } from "../services/two-factor.service.js";
 
 /**
@@ -22,7 +25,7 @@ export async function twoFactorRoutes(
   app.addHook("preHandler", requireAdmin);
 
   /**
-   * POST /enterprise/2fa/setup — Generate 2FA secret and provisioning URI
+   * POST /2fa/setup — Generate 2FA secret, provisioning URI and persist enrollment
    */
   app.post("/setup", async (request: FastifyRequest, reply: FastifyReply) => {
     const { accountName } = request.body as { accountName?: string };
@@ -35,6 +38,13 @@ export async function twoFactorRoutes(
 
     const backupCodes = generateBackupCodes(10);
 
+    // Persist the enrollment (SEG-03): encrypted secret + hashed backup codes.
+    // Without this, destructive backup endpoints stay fail-closed (403).
+    const profileId = request.profile?.id;
+    if (profileId) {
+      await enrollTwoFactor(request.tenantSlug, profileId, secret, backupCodes);
+    }
+
     return reply.send({
       secret,
       otpauthUrl,
@@ -45,18 +55,42 @@ export async function twoFactorRoutes(
   });
 
   /**
-   * POST /enterprise/2fa/verify — Verify a TOTP code
+   * GET /2fa/status — Is 2FA enrolled for the current admin? (never leaks the secret)
+   */
+  app.get("/status", async (request: FastifyRequest, reply: FastifyReply) => {
+    const profileId = request.profile?.id;
+    const enabled = profileId
+      ? await hasTwoFactorEnrollment(request.tenantSlug, profileId)
+      : false;
+
+    return reply.send({ enabled });
+  });
+
+  /**
+   * POST /2fa/verify — Verify a TOTP code.
+   * `secret` is optional: when omitted, the code is checked against the
+   * persisted enrollment for the current admin (backup codes accepted).
    */
   app.post("/verify", async (request: FastifyRequest, reply: FastifyReply) => {
     const { secret, code } = request.body as { secret?: string; code?: string };
 
-    if (!secret || !code) {
+    if (!code) {
       return reply.status(400).send({
-        error: "Faltan parámetros: secret y code son requeridos",
+        error: "Faltan parámetros: code es requerido",
       });
     }
 
-    const isValid = verifyTotp(secret, code);
+    let isValid: boolean;
+    if (secret) {
+      isValid = verifyTotp(secret, code);
+    } else {
+      const result = await verifyTwoFactorCode(
+        request.tenantSlug,
+        request.profile!.id,
+        code,
+      );
+      isValid = result.ok;
+    }
 
     return reply.send({
       valid: isValid,

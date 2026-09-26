@@ -48,7 +48,7 @@
       "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
       "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
       "verified_on": "2026-09-26",
-      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1855 (1851 PASS / 4 skip) incl. 8 tests de contrato T-00 y 12 E2E Fase 1 · web 111/111",
+      "baseline": "tsc root+web PASS · eslint 0 err · drizzle-kit check OK · backend 1865 (1861 PASS / 4 skip) incl. 8 tests de contrato T-00, 12 E2E Fase 1 y 10 T-21b · web 111/111",
       "phases": {
         "fase_0_contrato": {
           "status": "COMPLETADO",
@@ -89,14 +89,17 @@
           ]
         },
         "fase_2_seguridad": {
-          "status": "1/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
+          "status": "2/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
           "done": [
-            "T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción"
+            "T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción",
+            "T-21b SEG-03 backup fail-closed: migración 0025_two_factor_secrets (secret cifrado AES-256-GCM con TOKEN_SECRET vía encryptBuffer, backup codes scrypt, unique tenant_slug+profile_id, FK profiles ON DELETE CASCADE); POST /2fa/setup ahora persiste el enrolamiento, GET /2fa/status expone enabled, POST /2fa/verify acepta secret o enrolamiento persistido; guards requireAdmin+TOTP en /backup/execute|restore|purge (sin enrolamiento → 403 accionable apuntando a /2fa/setup, código inválido/faltante → 403, backup codes de uso único) — tests/security-two-factor-backup.test.ts (10 it) · rutas reales /2fa/* y /backup/*"
           ],
           "pending": [
-            "T-21b SEG-03 backup/restore/purge sin requireAdmin ni validación TOTP real",
             "T-21c SEG-04 requireManager con 0 usos; destructivos sin rol",
             "T-21d SEG-02 rls.ts set_config(...,false) session-scoped, ENABLE_REQUEST_TENANT_CONTEXT default false, INV-05 lookups sin tenant confirmados"
+          ],
+          "found_and_fixed": [
+            "src/app.ts ejecutaba start() al importar el módulo → cada importador (tests, scripts/dump-routes.ts) levantaba un segundo servidor en :3000; entre workers de vitest había carrera → EADDRINUSE → process.exit(1) como unhandled error. Auto-start ahora sólo si src/app.ts es el entrypoint (tsx src/app.ts / node dist/app.js) — verificado en ambos modos"
           ]
         },
         "fase_3_integridad": {

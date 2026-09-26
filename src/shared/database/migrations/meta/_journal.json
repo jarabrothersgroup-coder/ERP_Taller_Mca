@@ -176,6 +176,13 @@
       "when": 1783934852840,
       "tag": "0024_ingreso_checklist",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1790452292225,
+      "tag": "0025_two_factor_secrets",
+      "breakpoints": true
     }
   ]
 }

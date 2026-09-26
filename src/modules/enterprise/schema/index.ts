@@ -9,7 +9,8 @@
  * @module enterprise/schema
  */
 
-import { pgTable, text, boolean, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, index, uuid, unique } from "drizzle-orm/pg-core";
+import { profiles } from "../../../shared/database/schema/profiles.js";
 
 /* ── SSO Configuration ─────────────────────── */
 
@@ -120,3 +121,39 @@ export const dataRetentionPolicy = pgTable("data_retention_policy", {
 
 export type DataRetentionPolicy = typeof dataRetentionPolicy.$inferSelect;
 export type NewDataRetentionPolicy = typeof dataRetentionPolicy.$inferInsert;
+
+/* ── 2FA (TOTP) Secret Storage (SEG-03) ────── */
+
+/**
+ * Server-side 2FA enrollment per admin profile.
+ *
+ * The TOTP secret is stored ENCRYPTED (AES-256-GCM with TOKEN_SECRET) and the
+ * backup codes are stored as scrypt hashes — never in plaintext. Required by
+ * the destructive backup endpoints (execute/restore/purge), which fail closed
+ * when no enrollment exists (T-21b).
+ */
+export const twoFactorSecrets = pgTable(
+  "two_factor_secrets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantSlug: text("tenant_slug").notNull(),
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    /** AES-256-GCM (TOKEN_SECRET) — base64 of [salt][iv][tag][ciphertext] */
+    secretEncrypted: text("secret_encrypted").notNull(),
+    /** scrypt hashes ("salt:hash") of the single-use backup codes */
+    backupCodesHash: text("backup_codes_hash").array().notNull(),
+    enabledAt: timestamp("enabled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("two_factor_secrets_tenant_profile_unique").on(table.tenantSlug, table.profileId),
+    index("two_factor_secrets_profile_idx").on(table.profileId),
+    index("two_factor_secrets_tenant_idx").on(table.tenantSlug),
+  ],
+);
+
+export type TwoFactorSecret = typeof twoFactorSecrets.$inferSelect;
+export type NewTwoFactorSecret = typeof twoFactorSecrets.$inferInsert;

@@ -228,6 +228,7 @@ export {
   ssoConfig,
   whiteLabelConfig,
   dataRetentionPolicy,
+  twoFactorSecrets,
 } from "../../../modules/enterprise/schema/index.js";
 export type {
   SsoConfig,
@@ -236,6 +237,8 @@ export type {
   NewWhiteLabelConfig,
   DataRetentionPolicy,
   NewDataRetentionPolicy,
+  TwoFactorSecret,
+  NewTwoFactorSecret,
 } from "../../../modules/enterprise/schema/index.js";
 
 export {

@@ -18,6 +18,8 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { resolve, isAbsolute } from "node:path";
+import { requireAdmin } from "../../../shared/middleware/rbac.js";
+import { verifyTwoFactorCode } from "../../enterprise/services/two-factor.service.js";
 import {
   executeBackup,
   validateBackupIntegrity,
@@ -25,6 +27,34 @@ import {
   purgeOldBackups,
   type BackupConfig,
 } from "../services/backup-engine.service.js";
+
+/**
+ * Guard for destructive backup operations (SEG-03 / T-21b).
+ *
+ * Fail-closed: requires an admin role AND a valid TOTP/backup code verified
+ * against the persisted /2fa enrollment. No enrollment → 403 actionable.
+ */
+async function requireAdminWithTwoFactor(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  await requireAdmin(request, reply);
+
+  const body = (request.body ?? {}) as { twoFactorCode?: string };
+  const headerCode = request.headers["x-2fa-code"];
+  const code =
+    body.twoFactorCode ?? (typeof headerCode === "string" ? headerCode : undefined);
+
+  const result = await verifyTwoFactorCode(request.tenantSlug, request.profile!.id, code);
+
+  if (!result.ok) {
+    const error =
+      result.reason === "missing_enrollment"
+        ? "2FA no configurado para este administrador. Ejecutá POST /2fa/setup para enrolar el TOTP antes de esta operación."
+        : "Código 2FA inválido o faltante.";
+    return reply.status(403).send({ error });
+  }
+}
 
 // ── Path traversal prevention (ALTO-04) ──
 const ALLOWED_BACKUP_ROOTS = [
@@ -58,6 +88,7 @@ interface ExecuteBody {
   destino?: string;
   destinoConfig?: any;
   encryptionPassword?: string;
+  twoFactorCode?: string;
 }
 
 interface RestoreBody {
@@ -123,6 +154,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: ExecuteBody }>(
     "/backup/execute",
     {
+      preHandler: requireAdminWithTwoFactor,
       schema: {
         body: {
           type: "object",
@@ -131,6 +163,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
             destino: { type: "string", enum: ["LOCAL", "S3", "GDRIVE", "FTP"] },
             destinoConfig: { type: "object" },
             encryptionPassword: { type: "string" },
+            twoFactorCode: { type: "string" },
           },
         },
       },
@@ -167,6 +200,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { path?: string; maxAgeDays?: number; maxCount?: number } }>(
     "/backup/purge",
     {
+      preHandler: requireAdminWithTwoFactor,
       schema: {
         body: {
           type: "object",
@@ -174,6 +208,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
             path: { type: "string" },
             maxAgeDays: { type: "integer", minimum: 1 },
             maxCount: { type: "integer", minimum: 1 },
+            twoFactorCode: { type: "string" },
           },
         },
       },
@@ -192,6 +227,7 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: RestoreBody }>(
     "/backup/restore",
     {
+      preHandler: requireAdminWithTwoFactor,
       schema: {
         body: {
           type: "object",
@@ -205,14 +241,6 @@ export async function backupRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest<{ Body: RestoreBody }>, reply: FastifyReply) => {
-      // In production, verify 2FA code here
-      const { twoFactorCode } = request.body;
-      if (!twoFactorCode && process.env.NODE_ENV === "production") {
-        return reply.status(403).send({
-          error: "Código de autenticación de dos factores requerido para restauración",
-        });
-      }
-
       const { executeRestore } = await import("../services/backup-engine.service.js");
       const result = await executeRestore({
         backupFilePath: safeBackupPath(request.body.backupFilePath),

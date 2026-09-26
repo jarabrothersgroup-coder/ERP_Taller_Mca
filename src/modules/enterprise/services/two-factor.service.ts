@@ -13,6 +13,10 @@
  */
 
 import crypto from "node:crypto";
+import { and, eq } from "drizzle-orm";
+import { db } from "../../../shared/database/drizzle.js";
+import { twoFactorSecrets } from "../schema/index.js";
+import { encryptBuffer, decryptBuffer } from "../../backup/services/backup-engine.service.js";
 
 // ─── Constants ────────────────────────────────────────
 
@@ -170,4 +174,138 @@ export function verifyBackupCode(
  */
 export function getTotpTimeRemaining(): number {
   return PERIOD - (Math.floor(Date.now() / 1000) % PERIOD);
+}
+
+// ─── Enrollment persistence (SEG-03 / T-21b) ──────────
+
+const TOKEN_SECRET_MIN_LENGTH = 32;
+
+/**
+ * Fail-closed key password: TOKEN_SECRET must exist and be >= 32 chars
+ * (buildApp already aborts without it — same contract as hardware-fingerprint).
+ */
+function encryptionPassword(): string {
+  const password = process.env.TOKEN_SECRET;
+  if (!password || password.length < TOKEN_SECRET_MIN_LENGTH) {
+    throw new Error(
+      "FATAL: TOKEN_SECRET ausente o menor a 32 caracteres — operación 2FA abortada (fail-closed)",
+    );
+  }
+  return password;
+}
+
+/** Encrypt a TOTP secret for storage (AES-256-GCM, base64 output). */
+export function encryptSecret(secret: string): string {
+  return encryptBuffer(Buffer.from(secret, "utf8"), encryptionPassword()).toString("base64");
+}
+
+/** Decrypt a stored TOTP secret. Throws if TOKEN_SECRET is unusable (fail-closed). */
+export function decryptSecret(storedEncrypted: string): string {
+  return decryptBuffer(Buffer.from(storedEncrypted, "base64"), encryptionPassword()).toString("utf8");
+}
+
+export type TwoFactorVerification =
+  | { ok: true; method: "totp" | "backup" }
+  | { ok: false; reason: "missing_enrollment" | "missing_code" | "invalid_code" };
+
+/**
+ * Persist (or replace) the 2FA enrollment for an admin profile.
+ * The secret is stored ENCRYPTED and the backup codes as scrypt hashes.
+ */
+export async function enrollTwoFactor(
+  tenantSlug: string,
+  profileId: string,
+  secret: string,
+  backupCodes: string[],
+): Promise<void> {
+  const values = {
+    tenantSlug,
+    profileId,
+    secretEncrypted: encryptSecret(secret),
+    backupCodesHash: hashBackupCodes(backupCodes),
+    enabledAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  await db()
+    .insert(twoFactorSecrets)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [twoFactorSecrets.tenantSlug, twoFactorSecrets.profileId],
+      set: values,
+    });
+}
+
+/** True when the profile has a persisted 2FA enrollment for this tenant. */
+export async function hasTwoFactorEnrollment(
+  tenantSlug: string,
+  profileId: string,
+): Promise<boolean> {
+  const rows = await db()
+    .select({ id: twoFactorSecrets.id })
+    .from(twoFactorSecrets)
+    .where(
+      and(
+        eq(twoFactorSecrets.tenantSlug, tenantSlug),
+        eq(twoFactorSecrets.profileId, profileId),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+/**
+ * Verify a TOTP (or single-use backup) code against the persisted enrollment.
+ * Fail-closed: no enrollment → missing_enrollment (403 actionable), no/invalid
+ * code → missing_code/invalid_code (403). A consumed backup code is removed
+ * from the stored hashes so it cannot be replayed.
+ */
+export async function verifyTwoFactorCode(
+  tenantSlug: string,
+  profileId: string,
+  code?: string,
+): Promise<TwoFactorVerification> {
+  const rows = await db()
+    .select()
+    .from(twoFactorSecrets)
+    .where(
+      and(
+        eq(twoFactorSecrets.tenantSlug, tenantSlug),
+        eq(twoFactorSecrets.profileId, profileId),
+      ),
+    )
+    .limit(1);
+
+  const enrollment = rows[0];
+  if (!enrollment) return { ok: false, reason: "missing_enrollment" };
+
+  const candidate = code?.trim() ?? "";
+  if (!candidate) return { ok: false, reason: "missing_code" };
+
+  const secret = decryptSecret(enrollment.secretEncrypted);
+  if (verifyTotp(secret, candidate)) return { ok: true, method: "totp" };
+
+  const backupIndex = enrollment.backupCodesHash.findIndex((hash) => {
+    try {
+      return verifyBackupCode(candidate.toUpperCase(), hash);
+    } catch {
+      return false;
+    }
+  });
+
+  if (backupIndex >= 0) {
+    // Single-use: consume the backup code (defensive against replay).
+    await db()
+      .update(twoFactorSecrets)
+      .set({
+        backupCodesHash: enrollment.backupCodesHash.filter((_, i) => i !== backupIndex),
+        updatedAt: new Date(),
+      })
+      .where(eq(twoFactorSecrets.id, enrollment.id));
+
+    return { ok: true, method: "backup" };
+  }
+
+  return { ok: false, reason: "invalid_code" };
 }
