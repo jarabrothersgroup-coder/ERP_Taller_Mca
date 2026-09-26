@@ -14,6 +14,8 @@
  */
 
 import Fastify from "fastify";
+import { resolve as resolvePath } from "node:path";
+import { pathToFileURL } from "node:url";
 import { env } from "./config/env.js";
 import { healthCheckPlugin } from "./plugins/health-check.js";
 import { syncPlugin } from "./plugins/sync.js";
@@ -626,4 +628,22 @@ async function start(): Promise<void> {
   });
 }
 
-start();
+/**
+ * Auto-start sólo cuando este archivo es el entrypoint del proceso
+ * (`tsx src/app.ts` / `node dist/app.js`). Importar `buildApp` (tests,
+ * scripts/dump-routes.ts) NO debe levantar un segundo servidor en :3000:
+ * entre workers de vitest había carrera → EADDRINUSE → process.exit(1).
+ */
+function isEntrypoint(): boolean {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    return import.meta.url === pathToFileURL(resolvePath(argv1)).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isEntrypoint()) {
+  start();
+}
