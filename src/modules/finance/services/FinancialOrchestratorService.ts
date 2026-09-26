@@ -12,9 +12,13 @@ export function validateTenantSchema(slug: string): string {
   if (!slug || typeof slug !== "string") {
     throw new ValidationError("Tenant slug debe ser un string no vacío");
   }
-  if (!/^[a-zA-Z0-9_]+$/.test(slug)) {
+  // Hyphens are legal in tenant slugs (e.g. the default seed "taller-mca").
+  // All queries below are parameterized, so this is a sanity check, not SQLi
+  // defense (mismatch with tenant-resolver's SLUG_RE used to 422 payroll for
+  // any slug containing "-").
+  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) {
     throw new ValidationError(
-      `Tenant slug contiene caracteres inválidos: "${slug}". Solo se permiten letras, números y guiones bajos.`,
+      `Tenant slug contiene caracteres inválidos: "${slug}". Solo se permiten letras, números, guiones bajos y guiones.`,
     );
   }
   return slug;

@@ -55,8 +55,12 @@ describe("🔴 [CRITICAL] Tenant Schema — SQL Injection Prevention", () => {
     expect(() => validateTenantSchema(null as unknown as string)).toThrow("no vacío");
   });
 
-  it("rejects hyphenated slug (common attack vector)", () => {
-    expect(() => validateTenantSchema("taller-jara")).toThrow("caracteres inválidos");
+  it("allows hyphenated slug (legal per tenant-resolver SLUG_RE — e.g. taller-mca, test-tenant)", () => {
+    // Regresión Fase 1: el payroll rechazaba con 422 cualquier slug con guión,
+    // incluido el tenant por defecto "taller-mca" (queries parametrizadas, no
+    // hay interpolación de identificadores).
+    expect(validateTenantSchema("taller-jara")).toBe("taller-jara");
+    expect(validateTenantSchema("taller-mca")).toBe("taller-mca");
   });
 });
 
