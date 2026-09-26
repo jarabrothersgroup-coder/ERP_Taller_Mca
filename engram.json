@@ -43,8 +43,49 @@
     }
   },
   "state": {
-    "current_sprint": "Sprint 100 RE-VERIFICADO — build mobile OK (tsc --noEmit PASS + expo export android 2.41 MB), riesgos chaos_audit C-01..C-12 re-verificados en código (fail-closed RLS, UPDATE atómico stock, timezone Asuncion, timingSafeEqual, migración 0013 aplicada 24/24, ON_ERROR_STOP=on, SETNX lock, auto-save DVI, beforeunload, nonce diario, withTimeout, sin vistas), deploy local Podman UP (5 contenedores healthy), Grafana :3300 con alertas, E2E 48/48 PASS",
-    "next_sprint": "Sprint 100 — Deploy de la auditoría a PCSERVER/PC01Tmca (aplicar migraciones 0021/0022, verificar Next 16 en prod), monitoreo Grafana con deploy/grafana + provision-grafana-reader.sh, dashboard/sidebar polish",
+    "audit_total_20260906": true,
+    "audit_gap_20260925": {
+      "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
+      "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
+      "verified_on": "2026-09-26",
+      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1835/1835 · web 111/111",
+      "phases": {
+        "fase_0_contrato": {
+          "status": "PENDIENTE",
+          "pending": ["T-00 test de contrato FE↔BE en CI", "T-01 config única de rewrites (matar next.config.mjs raíz, alinear vercel.json, quitar CORS *)"]
+        },
+        "fase_1_reconexion": {
+          "status": "COMPLETADO_EN_CODIGO",
+          "done": ["T-11 citas→scheduling/appointments", "T-12 SSE→/api/notifications/stream", "T-13 rewrite /analytics", "T-14 stock→repuestos/:id/ingreso + /salida", "T-15 tool-loans/:id/return", "T-16 payroll /api/v1", "T-17 cuentas→contabilidad", "T-18 label-printing ×6", "T-19 fotos→/storage/:bucket/*", "T-20 mobile sign-lockout + rutas movil", "T-21 portal →/portal/summary"],
+          "pending": ["E2E con asserts de datos para los 12 flujos (criterio de éxito sin cubrir)"]
+        },
+        "fase_2_seguridad": {
+          "status": "1/5",
+          "done": ["T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción"],
+          "pending": ["T-21b SEG-03 backup/restore/purge sin requireAdmin ni validación TOTP real", "T-21c SEG-04 requireManager con 0 usos; destructivos sin rol", "T-21d SEG-02 rls.ts set_config(...,false) session-scoped, ENABLE_REQUEST_TENANT_CONTEXT default false, INV-05 lookups sin tenant confirmados", "T-21e SEG-05 vercel.json Access-Control-Allow-Origin *"]
+        },
+        "fase_3_integridad": {
+          "status": "0/4",
+          "pending": ["T-31 updateOrdenStatus sin transacción (try/catch + console.error en orden.service.ts:434-457)", "T-32 salidaStock/ingresoStock sin transaction", "T-33 auditoría de clientes/vehículos/stock + historial OT dentro de transacción", "T-34 deleteClient sin guarda de OT/facturas (cascada)"]
+        },
+        "fase_4_crud": {
+          "status": "2/7",
+          "done": ["T-41 PATCH /workshop/proveedores/:id", "PATCH /inventory/almacenes/:id", "desasignación OT vía setAssignedTo(null)"],
+          "pending": ["T-42 DELETE mecánicos/campañas/flotas/DVI", "T-43 ficha de próximos mantenimientos (no existe tabla mantenimientos_programados)", "T-44 CRUD manual de Órdenes de Compra", "T-45 anulación de factura manual + CRUD staff/payroll-summary", "T-46 escritura de fidelización + respuesta de reseñas", "T-47 inventario/estado de los 316 endpoints sin consumidor"]
+        },
+        "fase_5_ui": {
+          "status": "1/5",
+          "done": ["T-52 parcial: Hub no sobreescribe una OT ya asignada"],
+          "pending": ["T-51 sidebar en cascada + badges dinámicos (WhatsApp \"3\"/\"Nuevo\" hardcodeados) + colapsado en localStorage", "T-52 eliminar auto-asignación silenciosa con catch() en hub/page.tsx:85", "T-53 manejo de error: 7/31 páginas", "T-54 componente FilterSelect", "T-55 feedback de éxito/error en mutaciones (39 toast.error)"]
+        },
+        "fase_6_calidad": {
+          "status": "0/3",
+          "pending": ["T-61 tests de comportamiento vía app.inject (12 archivos)", "T-62 E2E con asserts de datos", "T-63 contrato + chequeo de lookups sin tenant en CI"]
+        }
+      }
+    },
+    "current_sprint": "Sprint 102 — EN CURSO 2026-09-26: (1) higiene: 1167 archivos restaurados de 755 a 644, gitignore (.codegraph/, Docs/Llaves.txt, .env.example.local, web/test-results/, web/playwright-report/); (2) tests reparados: sprint101 (journal no debe fijar 0023 como último) y sprint90 (probe de conectividad en vez de asumir DB caída); (3) Fase 0 de la auditoría 2026-09-25: T-00 test de contrato FE↔BE + T-01 config única de rewrites. Verificación 2026-09-26: Fase 1 completa en código (11/11) y T-21a/SEG-01 cerrado; tsc root+web PASS, eslint 0 errores, drizzle-kit check OK, backend 1835/1835, web 111/111.",
+    "next_sprint": "Sprint 103 — Fase 2 restante (T-21b backup+TOTP, T-21c matriz rol×endpoint, T-21d RLS/lookups sin tenant, T-21e CORS) en paralelo con Fase 3 (T-31..T-34: transacciones de OT y stock, auditoría, guarda de deleteClient). Después Fase 5 (sidebar/errores) y Fase 4 (T-43 ficha de mantenimientos, T-44 OC manual).",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -202,7 +243,7 @@
           "name": "Deploy a PCSERVER y PC01Tmca",
           "status": "COMPLETED",
           "description": "Git push → PCSERVER git pull → PC01Tmca git pull + npm install + next build (success)",
-          "servers": ["PCSERVER (100.104.144.92): git reset --hard origin/main ✅", "PC01Tmca (100.66.187.39): next build success ✅"]
+          "servers": ["PCSERVER (<REDACTED_IP_TAILSCALE>): git reset --hard origin/main ✅", "PC01Tmca (<REDACTED_IP_PC01Tmca>): next build success ✅"]
         }
       ],
       "results": {
@@ -365,8 +406,8 @@
       "date": "2026-07-25",
       "commit": "ac22e23",
       "pcserver": {
-        "ip": "192.168.18.104",
-        "tailscale_ip": "100.104.144.92",
+        "ip": "<REDACTED_IP_LAN>",
+        "tailscale_ip": "<REDACTED_IP_TAILSCALE>",
         "repo_path": "/data/ERP_Taller_Mca",
         "backup_path": "/data/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
         "services": ["erp-taller.service (Fastify :3000)", "nginx (:80)", "dirsrv@erp-taller (389)", "postgresql (5432)"],
@@ -374,7 +415,7 @@
         "status": "ACTIVE"
       },
       "pc01tmca": {
-        "ip": "100.66.187.39",
+        "ip": "<REDACTED_IP_PC01Tmca>",
         "repo_path": "/home/jarabro/Proyectos/ERP_Taller_Mca",
         "web_path": "/home/jarabro/Proyectos/ERP_Taller_Mca/web",
         "backup_path": "/home/jarabro/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
