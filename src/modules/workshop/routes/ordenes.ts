@@ -1,11 +1,12 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden } from "../services/orden.service.js";
+import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden, setAssignedTo, type ExcludeStatus } from "../services/orden.service.js";
 import { previewStockConsumption } from "../../inventory/services/ot-stock-consumer.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 import { generateOtPdf, isPdfAvailable } from "../../../shared/services/pdf-report.service.js";
 import { db } from "../../../shared/database/drizzle.js";
 import { ordenesTrabajo, vehiculos, ordenServicios, ordenRepuestos } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
+import { listActiveTecnicos } from "../services/tecnicos.service.js";
 import { eq, and } from "drizzle-orm";
 
 interface OrdenParams {
@@ -28,11 +29,30 @@ interface StatusBody {
   status: string;
 }
 
+/** Technician entry for the Operations Hub filter dropdown */
+interface TecnicoRow {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
 interface OrdenesQuery {
   status?: string;
+  /** Comma-separated statuses to exclude (e.g. `excludeStatus=Finalizado_Retirado`) */
+  excludeStatus?: string;
   limit?: string;
   offset?: string;
 }
+
+/** All valid OT statuses (mirror of schema estadoOrdenEnum) */
+const ALL_STATUSES = [
+  "Presupuestado",
+  "Aprobado",
+  "En_Proceso",
+  "Control_Calidad",
+  "Listo",
+  "Finalizado_Retirado",
+] as const;
 
 const ORDEN_RESPONSE_PROPS = {
   id: { type: "string" },
@@ -45,6 +65,7 @@ const ORDEN_RESPONSE_PROPS = {
   dtcCodes: { type: "array", items: { type: "string" }, nullable: true },
   createdAt: { type: "string" },
   updatedAt: { type: "string" },
+  assignedTo: { type: "string", nullable: true },
   vehiculo: { type: "string", nullable: true },
   plate: { type: "string", nullable: true },
   cliente: { type: "string", nullable: true },
@@ -88,8 +109,9 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             status: {
               type: "string",
-              enum: ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"],
+              enum: ALL_STATUSES,
             },
+            excludeStatus: { type: "string" },
             limit: { type: "string" },
             offset: { type: "string" },
           },
@@ -106,10 +128,49 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
       const q = request.query;
       const ordenes = await listOrdenes({
         status: q.status,
+        excludeStatus: q.excludeStatus
+          ? (q.excludeStatus.split(",").map((s) => s.trim()).filter(Boolean) as ExcludeStatus[])
+          : undefined,
         limit: q.limit ? parseInt(q.limit, 10) : undefined,
         offset: q.offset ? parseInt(q.offset, 10) : undefined,
       }, request.tenantSlug);
       return reply.send(ordenes);
+    },
+  );
+
+  // ── GET /workshop/tecnicos — Active technicians (Hub filter dropdown) ──
+  app.get<{ Querystring: { limit?: string } }>(
+    "/workshop/tecnicos",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            limit: { type: "string" },
+          },
+        },
+        response: {
+          200: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                nombre: { type: "string" },
+                activo: { type: "boolean" },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Querystring: { limit?: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const limit = request.query.limit ? parseInt(request.query.limit, 10) : 50;
+      const rows = await listActiveTecnicos(request.tenantSlug, limit);
+      return reply.send(rows satisfies TecnicoRow[]);
     },
   );
 
@@ -150,7 +211,7 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             status: {
               type: "string",
-              enum: ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"],
+              enum: ALL_STATUSES,
             },
           },
         },
@@ -163,6 +224,34 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
       const { id } = request.params;
       const { status } = request.body;
       const result = await updateOrdenStatus(id, status, request.tenantSlug);
+      return reply.send(result);
+    },
+  );
+
+  // ── POST /workshop/ordenes/:id/assign — Assign mechanic (Hub technician filter) ──
+  app.post<{ Params: OrdenParams; Body: { mechanicId: string | null } }>(
+    "/workshop/ordenes/:id/assign",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        body: {
+          type: "object",
+          required: ["mechanicId"],
+          properties: {
+            mechanicId: { type: ["string", "null"] },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Params: OrdenParams; Body: { mechanicId: string | null } }>,
+      reply: FastifyReply,
+    ) => {
+      const result = await setAssignedTo(request.params.id, request.body.mechanicId, request.tenantSlug);
       return reply.send(result);
     },
   );
@@ -250,7 +339,7 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             status: {
               type: "string",
-              enum: ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"],
+              enum: ALL_STATUSES,
             },
           },
         },

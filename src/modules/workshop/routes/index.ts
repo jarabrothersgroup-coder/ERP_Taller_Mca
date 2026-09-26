@@ -24,6 +24,7 @@ import { signatureRoutes } from "./signature.routes.js";
 import { predictiveMaintenanceRoutes } from "./predictive-maintenance.routes.js";
 import { notificationPushRoutes } from "./notification-push.routes.js";
 import { notificationSseRoutes } from "./notification-sse.routes.js";
+import { hubBoardRoutes } from "./hub-board.routes.js";
 import { mechanicAssignmentRoutes } from "./mechanic-assignment.routes.js";
 import { predictiveMlRoutes } from "./predictive-ml.routes.js";
 import { mechanicProfilesRoutes } from "./mechanic-profiles.routes.js";
@@ -91,6 +92,8 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(predictiveMaintenanceRoutes);
   await app.register(notificationPushRoutes);
   await app.register(notificationSseRoutes);
+  // Sprint 101b: aggregated Operations Hub board + SSE change pings
+  await app.register(hubBoardRoutes);
   await app.register(mechanicAssignmentRoutes);
   // Sprint 86: ML-based predictive maintenance
   await app.register(predictiveMlRoutes);

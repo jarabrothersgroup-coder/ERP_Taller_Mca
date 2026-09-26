@@ -32,6 +32,10 @@ import { vehiculos } from "./vehiculos.js";
 /**
  * Estados de orden de trabajo.
  * Reflects the Paraguayan taller workflow lifecycle.
+ *
+ * "Finalizado_Retirado" is the terminal state: vehicle delivered and
+ * payment collected. It exists in the DB enum since migration 0023
+ * (legacy UIs already referenced it; previously unrepresentable).
  */
 export const estadoOrdenEnum = pgEnum("estado_orden", [
   "Presupuestado",
@@ -39,6 +43,7 @@ export const estadoOrdenEnum = pgEnum("estado_orden", [
   "En_Proceso",
   "Control_Calidad",
   "Listo",
+  "Finalizado_Retirado",
 ]);
 
 // ─── Table ────────────────────────────────────
@@ -96,6 +101,13 @@ export const ordenesTrabajo = pgTable(
 
     /** Mechanic UUID who signed the lockout */
     hvLockoutSignedBy: text("hv_lockout_signed_by"),
+
+    /**
+     * Mechanic (profile id) assigned to this work order.
+     * Drives the Operations Hub technician filter and mechanic workload
+     * queries. Set via POST /workshop/mechanic-assignment/assign.
+     */
+    assignedTo: text("assigned_to"),
 
     /** Total estimated / final cost (Gs. or USD) */
     totalCost: numeric("total_cost", { precision: 10, scale: 2 }).default("0"),

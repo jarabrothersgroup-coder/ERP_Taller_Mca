@@ -6,19 +6,21 @@ import {
   useSensor, useSensors, PointerSensor, TouchSensor, closestCenter,
   type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { GripVertical } from "lucide-react";
+import { GripVertical, PackageCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, ClipboardCheck } from "lucide-react";
-import { STATUS_FLOW, type KanbanOT, timeAgo, getStatusConfig, formatCurrency } from "./types";
+import { STATUS_FLOW, TERMINAL_STATUS, type KanbanOT, timeAgo, getStatusConfig, formatCurrency, toUiStatus, toBackendStatus } from "./types";
 
 interface HubSidebarProps {
   ordenes: KanbanOT[];
   selectedId: string | null;
   onSelect: (ot: KanbanOT) => void;
   onStatusChange: (ordenId: string, newStatus: string) => void;
+  /** Closes the OT: marks it Finalizado_Retirado (vehicle delivered) */
+  onRetirar?: (ordenId: string) => void;
 }
 
-export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange }: HubSidebarProps) {
+export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange, onRetirar }: HubSidebarProps) {
   const [activeDraggingId, setActiveDraggingId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
@@ -32,8 +34,8 @@ export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange }: Hu
     const groups: Record<string, KanbanOT[]> = {};
     for (const s of STATUS_FLOW) groups[s.key] = [];
     for (const ot of ordenes) {
-      if (groups[ot.status]) groups[ot.status].push(ot);
-      else groups.Presupuestado.push(ot);
+      const key = toUiStatus(ot.status);
+      (groups[key] ??= []).push(ot);
     }
     return groups;
   }, [ordenes]);
@@ -51,10 +53,11 @@ export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange }: Hu
     const { active, over } = event;
     if (!over || !active) return;
     const ordenId = String(active.id);
-    const targetStatus = String(over.id);
+    const targetStatus = toBackendStatus(String(over.id));
     const ot = ordenes.find(o => o.id === ordenId);
     if (!ot || ot.status === targetStatus) return;
-    // Only allow valid forward/backward moves within the flow
+    // Only allow valid forward/backward moves within the flow (terminal state
+    // is reached via the explicit "Retirar" action, not by dragging)
     const validStatuses = STATUS_FLOW.map(s => s.key);
     if (!validStatuses.includes(targetStatus)) return;
     onStatusChange(ordenId, targetStatus);
@@ -108,6 +111,7 @@ export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange }: Hu
                       isSelected={selectedId === ot.id}
                       statusConfig={s}
                       onClick={() => onSelect(ot)}
+                      onRetirar={onRetirar}
                     />
                   ))}
                 </div>
@@ -135,7 +139,7 @@ export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange }: Hu
         {activeDraggingOT ? (
           <div className="rounded-lg border bg-card p-3 shadow-xl -rotate-2 opacity-90 space-y-2 w-64">
             <div className="flex items-center gap-1.5">
-              <span className={cn("h-1.5 w-1.5 rounded-full", getStatusConfig(activeDraggingOT.status).dot)} />
+              <span className={cn("h-1.5 w-1.5 rounded-full", getStatusConfig(toUiStatus(activeDraggingOT.status)).dot)} />
               <span className="text-xs font-mono font-medium">OT #{activeDraggingOT.id.slice(0, 8)}</span>
             </div>
             <p className="text-xs text-muted-foreground">{activeDraggingOT.vehicleName || "Sin vehículo"} · {activeDraggingOT.plate || "—"}</p>
@@ -167,7 +171,7 @@ function DroppableColumn({ statusKey, config, children }: { statusKey: string; c
 
 /* ── Draggable OT Card ──────────────────────── */
 
-function DraggableOTCard({ ot, isSelected, statusConfig, onClick }: { ot: KanbanOT; isSelected: boolean; statusConfig: typeof STATUS_FLOW[0]; onClick: () => void }) {
+function DraggableOTCard({ ot, isSelected, statusConfig, onClick, onRetirar }: { ot: KanbanOT; isSelected: boolean; statusConfig: typeof STATUS_FLOW[0]; onClick: () => void; onRetirar?: (ordenId: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: ot.id,
     data: { status: ot.status },
@@ -209,6 +213,19 @@ function DraggableOTCard({ ot, isSelected, statusConfig, onClick }: { ot: Kanban
           {ot.hvAlert && <AlertTriangle className="h-3 w-3 text-red-500" />}
         </div>
       </div>
+      {onRetirar && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRetirar(ot.id);
+          }}
+          className="mt-1.5 w-full flex items-center justify-center gap-1 rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
+        >
+          <PackageCheck className="h-3 w-3" />
+          Retirar
+        </button>
+      )}
     </div>
   );
 }

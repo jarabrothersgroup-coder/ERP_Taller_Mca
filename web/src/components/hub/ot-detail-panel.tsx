@@ -12,9 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LayoutDashboard, Wrench, Package, Receipt, MessageCircle,
   Send, DollarSign, Car, User, Phone, ExternalLink,
-  ChevronRight, Camera, Printer, X, Building2,
+  ChevronRight, Camera, Printer, X, Building2, PackageCheck,
 } from "lucide-react";
-import { STATUS_FLOW, getStatusConfig, formatCurrency, type KanbanOT } from "./types";
+import { STATUS_FLOW, TERMINAL_STATUS, getStatusConfig, formatCurrency, type KanbanOT } from "./types";
 
 /* ── Cobro Actions (Invoice + Payment) ───── */
 
@@ -111,6 +111,22 @@ export function OTDetailPanel({ orden, onClose, onRefresh }: OTDetailPanelProps)
       return { ...ot, servicios, repuestos, trabajosTerceros: terceros };
     },
     enabled: !!orden?.id,
+  });
+
+  // Close OT — vehicle delivered (terminal state)
+  const retirarOT = useMutation({
+    mutationFn: () => {
+      if (!orden) throw new Error("No hay orden seleccionada");
+      return api.updateWorkOrderStatus(orden.id, TERMINAL_STATUS);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-orders"] });
+      qc.invalidateQueries({ queryKey: ["hub-active-orders"] });
+      qc.invalidateQueries({ queryKey: ["hub-orden-detail", orden?.id] });
+      onRefresh();
+      toast.success("OT cerrada — vehículo retirado");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   // Status advance
@@ -458,6 +474,13 @@ export function OTDetailPanel({ orden, onClose, onRefresh }: OTDetailPanelProps)
         </Button>
         {fullOrden?.status === "Listo" && (
           <CobroActions ordenId={orden.id} total={totalGeneral} onRefresh={onRefresh} />
+        )}
+        {fullOrden?.status === "Listo" && (
+          <Button size="sm" className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => retirarOT.mutate()} disabled={retirarOT.isPending}>
+            <PackageCheck className="h-3.5 w-3.5" />
+            {retirarOT.isPending ? "Cerrando..." : "Marcar Retirado"}
+          </Button>
         )}
       </div>
     </div>

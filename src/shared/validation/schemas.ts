@@ -59,12 +59,12 @@ export const createOrdenSchema = z.object({
   vehicleId: uuid,
   clientId: uuid,
   description: z.string().min(1, "Descripción requerida").max(2000),
-  status: z.enum(["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"]).optional(),
+  status: z.enum(["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo", "Finalizado_Retirado"]).optional(),
 });
 
 export const updateOrdenSchema = z.object({
   description: z.string().max(2000).optional(),
-  status: z.enum(["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"]).optional(),
+  status: z.enum(["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo", "Finalizado_Retirado"]).optional(),
   diagnosis: z.string().max(2000).optional(),
 });
 

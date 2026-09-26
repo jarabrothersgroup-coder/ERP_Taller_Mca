@@ -1,30 +1,8 @@
-import {
-  Wrench,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  X,
-} from "lucide-react";
-import type { OrderStatus } from "./types";
+// Status configuration consolidated in web/src/lib/status.ts
+// This file re-exports for backward compatibility with existing imports
 
 export const technicians = ["Carlos M.", "Ana R.", "Luis M.", "Pedro G.", "Sofía L."];
 
-export const statusConfig: Record<OrderStatus, { label: string; variant: "secondary" | "warning" | "success" | "destructive" | "default"; icon: React.ElementType }> = {
-  pending: { label: "Pendiente", variant: "secondary", icon: Clock },
-  budgeted: { label: "Presupuestado", variant: "default", icon: Wrench },
-  in_progress: { label: "En Progreso", variant: "warning", icon: Wrench },
-  quality: { label: "Control Calidad", variant: "warning", icon: AlertTriangle },
-  ready: { label: "Listo", variant: "success", icon: CheckCircle2 },
-  completed: { label: "Completado", variant: "success", icon: CheckCircle2 },
-  cancelled: { label: "Cancelado", variant: "destructive", icon: X },
-};
+export { statusConfig, statusColors } from "@/lib/status";
 
-export const statusColors: Record<OrderStatus, "secondary" | "warning" | "success" | "destructive" | "default"> = {
-  pending: "secondary",
-  budgeted: "default",
-  in_progress: "warning",
-  quality: "warning",
-  ready: "success",
-  completed: "success",
-  cancelled: "destructive",
-};
+export type { ORDER_STATUS as OrderStatus } from "@/lib/status";

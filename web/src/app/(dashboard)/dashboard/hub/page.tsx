@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { Tecnico } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +14,8 @@ import { LayoutDashboard, Zap, Filter } from "lucide-react";
 import { HubSidebar } from "@/components/hub/hub-sidebar";
 import { OTDetailPanel } from "@/components/hub/ot-detail-panel";
 import { QuickCreateModal } from "@/components/hub/quick-create-modal";
-import type { KanbanOT } from "@/components/hub/types";
-
-/* ── Technician type ───────────────────────── */
-interface Technician {
-  id: string;
-  nombre: string;
-  activo: boolean;
-}
+import { TERMINAL_STATUS, toBackendStatus, type KanbanOT } from "@/components/hub/types";
+import { useHubBoardSse } from "@/hooks/use-hub-board-sse";
 
 export default function OperationsHubPage() {
   const qc = useQueryClient();
@@ -30,39 +25,36 @@ export default function OperationsHubPage() {
   const [mobilePanel, setMobilePanel] = React.useState<"list" | "detail">("list");
   const [tecnicoFilter, setTecnicoFilter] = React.useState<string>("");
 
-  // Fetch technicians for filter
-  const { data: tecnicos = [] } = useQuery<Technician[]>({
-    queryKey: ["hub-tecnicos"],
-    queryFn: () => api.request<Technician[]>("/workshop/tecnicos?limit=50"),
+  // Real-time board invalidation (SSE pings → refetch; no fixed polling)
+  useHubBoardSse(true);
+
+  // Aggregated board: open OTs (pre-joined) + technicians in ONE request —
+  // replaces the 3-request fan-out + client-side join of Sprint 96.
+  // refetchInterval kept as a slow fallback in case SSE is blocked by a proxy.
+  const { data: board, isLoading, refetch } = useQuery({
+    queryKey: ["hub-board"],
+    queryFn: () => api.getHubBoard({ excludeStatus: TERMINAL_STATUS }),
+    refetchInterval: 120_000,
+    // v5: numeric Infinity is not a valid staleTime — use a large finite value
+    staleTime: 30_000,
   });
 
-  // Fetch active orders
-  const { data: allOrdenes = [], isLoading, refetch } = useQuery<KanbanOT[]>({
-    queryKey: ["hub-active-orders"],
-    queryFn: async () => {
-      const [ots, allVehicles, allClients] = await Promise.all([
-        api.listWorkOrders({ limit: 100 }),
-        api.request<any[]>("/workshop/vehiculos?limit=200").catch(() => []),
-        api.request<any[]>("/workshop/clientes?limit=200").catch(() => []),
-      ]);
-      const vehicleMap = new Map(allVehicles.map((v: any) => [v.id, v]));
-      const clientMap = new Map(allClients.map((c: any) => [c.id, c]));
-      return ots.map((ot: any) => {
-        const v = vehicleMap.get(ot.vehicleId);
-        const c = clientMap.get(ot.clientId);
-        return { ...ot, vehicleName: v ? `${v.brand || ""} ${v.model || ""}`.trim() : "", plate: v?.plate || "", clientName: c?.name || "", clientPhone: c?.phone || "", clientEmail: c?.email || "" } as KanbanOT;
-      });
-    },
-    refetchInterval: 30_000,
-  });
+  const allOrdenes = React.useMemo(
+    () =>
+      ((board?.ordenes ?? []) as KanbanOT[]).map((o) => ({
+        ...o,
+        vehicleName: o.vehiculo ?? "",
+        clientName: o.cliente ?? "",
+      })),
+    [board],
+  );
+  const tecnicos = board?.tecnicos ?? [];
 
-  // Filter by technician
+  // Filter by assigned technician (assignedTo now comes from the API —
+  // Sprint 101; OTs without an assignee only show under "Todos")
   const ordenes = React.useMemo(() => {
     if (!tecnicoFilter) return allOrdenes;
-    return allOrdenes.filter(ot => {
-      const assignedTo = (ot as any).assignedTo || (ot as any).tecnicoId || "";
-      return assignedTo === tecnicoFilter;
-    });
+    return allOrdenes.filter(ot => ot.assignedTo === tecnicoFilter);
   }, [allOrdenes, tecnicoFilter]);
 
   // Status change mutation (drag & drop)
@@ -70,7 +62,7 @@ export default function OperationsHubPage() {
     mutationFn: ({ ordenId, newStatus }: { ordenId: string; newStatus: string }) =>
       api.updateWorkOrderStatus(ordenId, newStatus),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["hub-active-orders"] });
+      qc.invalidateQueries({ queryKey: ["hub-board"] });
       qc.invalidateQueries({ queryKey: ["hub-orden-detail"] });
       toast.success("Estado de OT actualizado");
     },
@@ -87,10 +79,23 @@ export default function OperationsHubPage() {
   const handleSelectOT = (ot: KanbanOT) => {
     setSelectedOT(ot);
     setMobilePanel("detail");
+    // Keep the assignee in sync: only fill when unset (never overwrites a
+    // deliberate manual assignment)
+    if (tecnicoFilter && !ot.assignedTo) {
+      api.assignWorkOrder(ot.id, tecnicoFilter).then(() =>
+        qc.invalidateQueries({ queryKey: ["hub-board"] }),
+      ).catch(() => {
+        /* non-blocking: assignment is advisory for the filter */
+      });
+    }
   };
 
   const handleStatusChange = (ordenId: string, newStatus: string) => {
     changeStatus.mutate({ ordenId, newStatus });
+  };
+
+  const handleRetirar = (ordenId: string) => {
+    changeStatus.mutate({ ordenId, newStatus: toBackendStatus(TERMINAL_STATUS) });
   };
 
   return (
@@ -127,7 +132,7 @@ export default function OperationsHubPage() {
           className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
         >
           <option value="">Todos los técnicos</option>
-          {tecnicos.map((t: Technician) => (
+          {tecnicos.map((t: Tecnico) => (
             <option key={t.id} value={t.id}>{t.nombre}</option>
           ))}
         </select>
@@ -156,7 +161,13 @@ export default function OperationsHubPage() {
               {isLoading ? (
                 <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16" />)}</div>
               ) : (
-                <HubSidebar ordenes={ordenes} selectedId={selectedOT?.id || null} onSelect={handleSelectOT} onStatusChange={handleStatusChange} />
+                <HubSidebar
+                  ordenes={ordenes}
+                  selectedId={selectedOT?.id || null}
+                  onSelect={handleSelectOT}
+                  onStatusChange={handleStatusChange}
+                  onRetirar={handleRetirar}
+                />
               )}
             </CardContent>
           </Card>

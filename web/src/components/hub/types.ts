@@ -1,5 +1,13 @@
-import { Clock, Star, Wrench, Search, CheckCircle2 } from "lucide-react";
 import type { ElementType } from "react";
+
+/* ── Technician type — canonical payload shape re-exported from api client ── */
+export type { Tecnico } from "@/lib/api";
+
+/* ── Re-export unified status config from lib/status.ts ── */
+export { ORDER_STATUS, TERMINAL_STATUS, BOARD_STATUSES, STATUS_LABELS, WHATSAPP_STATUS_MAP, STATUS_FLOW, statusConfig, statusColors, getStatusLabel, getStatusConfig, isTerminalStatus, isBoardStatus, toUiStatus, toBackendStatus } from "@/lib/status";
+
+/* ── Local import for type alias ── */
+import { STATUS_FLOW as STATUS_FLOW_TYPE } from "@/lib/status";
 
 /* ── Work order type ──────────────────────── */
 
@@ -17,35 +25,14 @@ export interface KanbanOT {
   clientPhone?: string;
   clientEmail?: string;
   hvAlert?: boolean;
+  /** Mechanic (profile id) assigned to this OT — powers the technician filter */
+  assignedTo?: string | null;
+  /** Board payloads (GET /workshop/hub/board) pre-join these as vehiculo/cliente */
+  vehiculo?: string | null;
+  cliente?: string | null;
   services?: any[];
   repuestos?: any[];
   trabajosTerceros?: any[];
-}
-
-/* ── Status flow config ───────────────────── */
-
-export interface StatusConfigItem {
-  key: string;
-  label: string;
-  icon: ElementType;
-  color: string;
-  bg: string;
-  border: string;
-  dot: string;
-}
-
-export const STATUS_FLOW: StatusConfigItem[] = [
-  { key: "Presupuestado", label: "Presupuestado", icon: Clock, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/30", border: "border-yellow-200 dark:border-yellow-800/30", dot: "bg-yellow-500" },
-  { key: "Aprobado", label: "Aprobado", icon: Star, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800/30", dot: "bg-blue-500" },
-  { key: "En_Proceso", label: "En Proceso", icon: Wrench, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-950/30", border: "border-indigo-200 dark:border-indigo-800/30", dot: "bg-indigo-500" },
-  { key: "Control_Calidad", label: "Control Calidad", icon: Search, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30", border: "border-purple-200 dark:border-purple-800/30", dot: "bg-purple-500" },
-  { key: "Listo", label: "Listo", icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800/30", dot: "bg-green-500" },
-];
-
-/* ── Helpers ───────────────────────────────── */
-
-export function getStatusConfig(status: string): StatusConfigItem {
-  return STATUS_FLOW.find(s => s.key === status) || STATUS_FLOW[0];
 }
 
 export function formatCurrency(value: number | string | null | undefined): string {
@@ -60,3 +47,6 @@ export function timeAgo(dateStr: string): string {
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
 }
+
+// Legacy type alias for backward compatibility
+export type StatusConfigItem = typeof STATUS_FLOW_TYPE[0];

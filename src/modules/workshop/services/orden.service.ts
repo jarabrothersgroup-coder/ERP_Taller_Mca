@@ -1,8 +1,8 @@
 import { db } from "../../../shared/database/drizzle.js";
 import { getSettings, invalidateCache } from "../../config/services/TenantConfigService.js";
-import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial } from "../schema/index.js";
+import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial, estadoOrdenEnum } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
-import { eq, sql, and, desc } from "drizzle-orm";
+import { eq, sql, and, desc, notInArray } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
 import { presupuestos } from "../../finance/schema/budget.js";
@@ -10,6 +10,7 @@ import { workshopConfigurator } from "../../finance/services/index.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
 import { crearNotificacionPush } from "./notification-push.service.js";
+import { broadcastBoardChanged } from "./hub-board.service.js";
 
 // ─── Tenant settings (per-tenant, global fallback) ─────────────
 
@@ -46,6 +47,8 @@ export interface OrdenListRow {
   dtcCodes: string[] | null;
   createdAt: string;
   updatedAt: string;
+  /** Mechanic (profile id) assigned to this work order */
+  assignedTo: string | null;
   // Joined fields
   vehiculo?: string | null;
   plate?: string | null;
@@ -57,12 +60,13 @@ export interface OrdenListRow {
  *
  * Uses a single JOIN query to bring in vehicle and client info.
  *
- * @param filters - Optional filters (status, limit, offset)
+ * @param filters - Optional filters (status, excludeStatus, limit, offset)
  * @returns List of work orders with vehicle and client info
  */
 export async function listOrdenes(
   filters?: {
     status?: string;
+    excludeStatus?: ExcludeStatus[];
     limit?: number;
     offset?: number;
   },
@@ -74,6 +78,9 @@ export async function listOrdenes(
   }
   if (filters?.status) {
     conditions.push(eq(ordenesTrabajo.status, filters.status as EstadoOrden));
+  }
+  if (filters?.excludeStatus && filters.excludeStatus.length > 0) {
+    conditions.push(notInArray(ordenesTrabajo.status, filters.excludeStatus as EstadoOrden[]));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -92,6 +99,7 @@ export async function listOrdenes(
       dtcCodes: ordenesTrabajo.dtcCodes,
       createdAt: ordenesTrabajo.createdAt,
       updatedAt: ordenesTrabajo.updatedAt,
+      assignedTo: ordenesTrabajo.assignedTo,
       vehiculo: sql<string>`COALESCE(${vehiculos.brand} || ' ' || ${vehiculos.model}, NULL)`,
       plate: vehiculos.plate,
       cliente: clients.name,
@@ -132,6 +140,7 @@ export async function getOrden(id: string, tenantSlug: string): Promise<OrdenLis
       dtcCodes: ordenesTrabajo.dtcCodes,
       createdAt: ordenesTrabajo.createdAt,
       updatedAt: ordenesTrabajo.updatedAt,
+      assignedTo: ordenesTrabajo.assignedTo,
       vehiculo: sql<string>`COALESCE(${vehiculos.brand} || ' ' || ${vehiculos.model}, NULL)`,
       plate: vehiculos.plate,
       cliente: clients.name,
@@ -254,6 +263,9 @@ export async function createOrden(
     })
     .returning();
 
+  // Sprint 101b: ping connected Hub boards so they refetch
+  broadcastBoardChanged(tenantSlug!);
+
   // ── G-08: WhatsApp recepción notification ──
   if (tenantSlug) {
     const _ordenId = orden.id;
@@ -318,6 +330,7 @@ export async function createOrden(
     dtcCodes: orden.dtcCodes,
     createdAt: orden.createdAt.toISOString(),
     updatedAt: orden.updatedAt.toISOString(),
+    assignedTo: orden.assignedTo,
     vehiculo: null,
     plate: null,
     cliente: null,
@@ -326,12 +339,55 @@ export async function createOrden(
 
 // ─── Status transition ─────────────────────────
 
+/** Statuses that can be excluded from list queries. */
+export type ExcludeStatus = (typeof estadoOrdenEnum.enumValues)[number];
+
+/**
+ * Assigns (or clears) the mechanic responsible for a work order.
+ *
+ * Powers the Operations Hub technician filter — before Sprint 101 the OT
+ * list API never returned an assignee, so filtering silently matched nothing.
+ *
+ * @param ordenId - Work order UUID
+ * @param mechanicId - Profile UUID of the mechanic (null to unassign)
+ * @param tenantSlug - Tenant slug for multi-tenant isolation
+ * @returns The updated order id and assignee
+ * @throws {NotFoundError} If the order does not exist in this tenant
+ */
+export async function setAssignedTo(
+  ordenId: string,
+  mechanicId: string | null,
+  tenantSlug?: string,
+): Promise<{ id: string; assignedTo: string | null }> {
+  const conditions = [eq(ordenesTrabajo.id, ordenId)];
+  if (tenantSlug) {
+    conditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
+  }
+  const [updated] = await db()
+    .update(ordenesTrabajo)
+    .set({ assignedTo: mechanicId, updatedAt: new Date() })
+    .where(and(...conditions))
+    .returning({ id: ordenesTrabajo.id, assignedTo: ordenesTrabajo.assignedTo });
+
+  if (!updated) {
+    throw new NotFoundError(`Orden de trabajo ${ordenId} no encontrada`);
+  }
+  return { id: updated.id, assignedTo: updated.assignedTo };
+}
+
 export async function updateOrdenStatus(
   ordenId: string,
   newStatus: string,
   tenantSlug?: string,
 ): Promise<{ id: string; status: string }> {
-  const validStatuses: ReadonlyArray<string> = ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo"];
+  const validStatuses: ReadonlyArray<string> = [
+    "Presupuestado",
+    "Aprobado",
+    "En_Proceso",
+    "Control_Calidad",
+    "Listo",
+    "Finalizado_Retirado",
+  ];
   if (!validStatuses.includes(newStatus)) {
     throw new ValidationError(`Estado inválido: ${newStatus}`);
   }
@@ -535,6 +591,10 @@ export async function updateOrdenStatus(
       err instanceof Error ? err.message : err,
     );
   });
+
+  // Sprint 101b: ping connected Hub boards so they refetch
+  if (tenantSlug) broadcastBoardChanged(tenantSlug);
+
   return { id: updated.id, status: updated.status };
 }
 
@@ -579,13 +639,15 @@ async function broadcastToScreens(orderId: string, status: string): Promise<void
 
 // ─── Notificaciones multi-canal por cambio de estado ──
 
+// Status mappings — consolidated in web/src/lib/status.ts for frontend.
+// Kept here for backend-only operations (WhatsApp notifications, etc).
 const WHATSAPP_STATUS_MAP: Record<string, string> = {
   Presupuestado: "PRESUPUESTADO",
   Aprobado: "EN_REPARACION",
   En_Proceso: "EN_REPARACION",
   Control_Calidad: "EN_REPARACION",
   Listo: "LISTO_ENTREGA",
-  Finalizado: "FINALIZADO_RETIRADO",
+  Finalizado_Retirado: "FINALIZADO_RETIRADO",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -594,6 +656,7 @@ const STATUS_LABELS: Record<string, string> = {
   En_Proceso: "En reparación",
   Control_Calidad: "Control de calidad",
   Listo: "Listo para entrega",
+  Finalizado_Retirado: "Finalizado — Retirado",
 };
 
 /**
@@ -767,6 +830,7 @@ export async function convertPresupuestoToOT(
       dtcCodes: orden.dtcCodes,
       createdAt: orden.createdAt.toISOString(),
       updatedAt: orden.updatedAt.toISOString(),
+      assignedTo: orden.assignedTo ?? null,
       vehiculo: null,
       plate: null,
       cliente: null,

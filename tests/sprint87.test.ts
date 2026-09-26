@@ -114,11 +114,12 @@ describe("Sprint 87 — Notificaciones OT (Push + WhatsApp)", () => {
     expect(service).toContain("await sendTextMessage(tenantSlug, client.phone, message)");
   });
 
-  it("WHATSAPP_STATUS_MAP maps all 5 OT states to templates", () => {
+  it("WHATSAPP_STATUS_MAP maps all 6 OT states to templates", () => {
     const service = readFile("src/modules/workshop/services/orden.service.ts");
     expect(service).toContain("Presupuestado: \"PRESUPUESTADO\"");
     expect(service).toContain("Listo: \"LISTO_ENTREGA\"");
-    expect(service).toContain("Finalizado: \"FINALIZADO_RETIRADO\"");
+    // Sprint 101: key aligned with the estado_orden enum (was the phantom "Finalizado")
+    expect(service).toContain("Finalizado_Retirado: \"FINALIZADO_RETIRADO\"");
   });
 
   it("notificacionPush exists and exports expected functions", async () => {
@@ -192,15 +193,15 @@ describe("Sprint 87 — Checklist Recepción", () => {
     expect(types).toContain("PanelState");
   });
 
-  it("migration 0012 exists for checklist and presupuesto columns", () => {
+  it("migration 0024 exists for checklist and presupuesto columns", () => {
     const exists = existsSync(
-      resolve(PROJECT_ROOT, "src/shared/database/migrations/0012_ingreso_checklist.sql"),
+      resolve(PROJECT_ROOT, "src/shared/database/migrations/0024_ingreso_checklist.sql"),
     );
     expect(exists).toBe(true);
   });
 
-  it("migration 0012 creates ingreso_checklist table", () => {
-    const migration = readFile("src/shared/database/migrations/0012_ingreso_checklist.sql");
+  it("migration 0024 creates ingreso_checklist table", () => {
+    const migration = readFile("src/shared/database/migrations/0024_ingreso_checklist.sql");
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS ingreso_checklist");
   });
 

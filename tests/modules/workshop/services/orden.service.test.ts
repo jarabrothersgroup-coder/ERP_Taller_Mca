@@ -30,9 +30,10 @@ vi.mock("../../../../src/modules/workshop/schema/index.js", () => ({
     id: "ot.id", vehicleId: "ot.vehicleId", clientId: "ot.clientId",
     status: "ot.status", hvAlert: "ot.hvAlert", hvLockoutSigned: "ot.hvLockoutSigned",
     description: "ot.description", dtcCodes: "ot.dtcCodes",
-    createdAt: "ot.createdAt", updatedAt: "ot.updatedAt",
+    createdAt: "ot.createdAt", updatedAt: "ot.updatedAt", assignedTo: "ot.assignedTo",
   },
   vehiculos: { id: "v.id", brand: "v.brand", model: "v.model", plate: "v.plate" },
+  estadoOrdenEnum: { enumValues: ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo", "Finalizado_Retirado"] },
 }));
 
 const { listOrdenes, getOrden } = await import(
@@ -53,6 +54,7 @@ function makeOrdenRow(overrides: Record<string, unknown> = {}) {
     dtcCodes: null,
     createdAt: new Date("2026-06-09T10:00:00Z"),
     updatedAt: new Date("2026-06-09T12:00:00Z"),
+    assignedTo: null,
     vehiculo: "Toyota Corolla",
     plate: "ABC-1234",
     cliente: "Juan Pérez",

@@ -20,8 +20,9 @@ import HubPage from "@/app/(dashboard)/dashboard/hub/page";
 
 // Use vi.hoisted to define mock fns before vi.mock hoisting (avoids TDZ errors)
 // Note: React.createElement is NOT available inside vi.hoisted (runs before imports)
-const { mockListWorkOrders, mockRequest, MockIcon } = vi.hoisted(() => ({
+const { mockListWorkOrders, mockGetHubBoard, mockRequest, MockIcon } = vi.hoisted(() => ({
   mockListWorkOrders: vi.fn(),
+  mockGetHubBoard: vi.fn(),
   mockRequest: vi.fn(),
   MockIcon: () => null as any,
 }));
@@ -34,6 +35,11 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: { success: vi.fn(), error: vi.fn() } }),
+}));
+
+// Board SSE subscription is browser-network behavior — not under test here
+vi.mock("@/hooks/use-hub-board-sse", () => ({
+  useHubBoardSse: vi.fn(),
 }));
 
 vi.mock("lucide-react", () => ({
@@ -76,6 +82,7 @@ vi.mock("@/lib/api", () => ({
   api: {
     request: mockRequest,
     listWorkOrders: mockListWorkOrders,
+    getHubBoard: mockGetHubBoard,
     getWorkOrder: vi.fn(),
     createWorkOrder: vi.fn(),
     createClient: vi.fn(),
@@ -126,8 +133,8 @@ function renderHub() {
 describe("Operations Hub — Render Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default mock: no OTs
-    mockListWorkOrders.mockResolvedValue([]);
+    // Default mock: empty board (no OTs, no technicians)
+    mockGetHubBoard.mockResolvedValue({ ordenes: [], tecnicos: [], generatedAt: new Date().toISOString() });
     mockRequest.mockResolvedValue([]);
   });
 
@@ -155,10 +162,14 @@ describe("Operations Hub — Render Tests", () => {
   });
 
   it("shows active order count badge", async () => {
-    mockListWorkOrders.mockResolvedValue([
-      { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "500000", createdAt: new Date().toISOString() },
-      { id: "ot-2", vehicleId: "v1", clientId: "c1", status: "Listo", description: "Test 2", totalCost: "300000", createdAt: new Date().toISOString() },
-    ]);
+    mockGetHubBoard.mockResolvedValue({
+      ordenes: [
+        { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "500000", createdAt: new Date().toISOString() },
+        { id: "ot-2", vehicleId: "v1", clientId: "c1", status: "Listo", description: "Test 2", totalCost: "300000", createdAt: new Date().toISOString() },
+      ],
+      tecnicos: [],
+      generatedAt: new Date().toISOString(),
+    });
     mockRequest
       .mockResolvedValueOnce([{ id: "v1", brand: "Toyota", model: "Hilux", plate: "ABC 1234" }]) // vehicles
       .mockResolvedValueOnce([{ id: "c1", name: "Juan Pérez", phone: "0981123456" }]); // clients
@@ -170,12 +181,16 @@ describe("Operations Hub — Render Tests", () => {
   });
 
   it("counts OTs by status correctly", async () => {
-    mockListWorkOrders.mockResolvedValue([
-      { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "Presupuestado", description: "Test", totalCost: "100000", createdAt: new Date().toISOString() },
-      { id: "ot-2", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "200000", createdAt: new Date().toISOString() },
-      { id: "ot-3", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "300000", createdAt: new Date().toISOString() },
-      { id: "ot-4", vehicleId: "v1", clientId: "c1", status: "Listo", description: "Test", totalCost: "400000", createdAt: new Date().toISOString() },
-    ]);
+    mockGetHubBoard.mockResolvedValue({
+      ordenes: [
+        { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "Presupuestado", description: "Test", totalCost: "100000", createdAt: new Date().toISOString() },
+        { id: "ot-2", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "200000", createdAt: new Date().toISOString() },
+        { id: "ot-3", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "300000", createdAt: new Date().toISOString() },
+        { id: "ot-4", vehicleId: "v1", clientId: "c1", status: "Listo", description: "Test", totalCost: "400000", createdAt: new Date().toISOString() },
+      ],
+      tecnicos: [],
+      generatedAt: new Date().toISOString(),
+    });
     mockRequest
       .mockResolvedValueOnce([{ id: "v1", brand: "Toyota", model: "Hilux", plate: "ABC-1" }]) // vehicles
       .mockResolvedValueOnce([{ id: "c1", name: "Juan", phone: "0981" }]); // clients
@@ -188,17 +203,21 @@ describe("Operations Hub — Render Tests", () => {
     });
   });
 
-  it("calls listWorkOrders API on mount", async () => {
+  it("calls getHubBoard API on mount", async () => {
     renderHub();
     await waitFor(() => {
-      expect(mockListWorkOrders).toHaveBeenCalled();
+      expect(mockGetHubBoard).toHaveBeenCalled();
     });
   });
 
   it("renders sidebar with OT count", async () => {
-    mockListWorkOrders.mockResolvedValue([
-      { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "Presupuestado", description: "Test", totalCost: "100000", createdAt: new Date().toISOString() },
-    ]);
+    mockGetHubBoard.mockResolvedValue({
+      ordenes: [
+        { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "Presupuestado", description: "Test", totalCost: "100000", createdAt: new Date().toISOString() },
+      ],
+      tecnicos: [],
+      generatedAt: new Date().toISOString(),
+    });
     mockRequest
       .mockResolvedValueOnce([{ id: "v1", brand: "Toyota", model: "Hilux", plate: "ABC 1234" }])
       .mockResolvedValueOnce([{ id: "c1", name: "Juan Pérez", phone: "0981123456" }]);
