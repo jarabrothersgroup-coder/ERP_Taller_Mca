@@ -372,7 +372,7 @@ async function loadCostCentersForBudget() {
   if (!select) return;
 
   try {
-    const res = await fetch('/finance/accounting/cost-centers', { headers: authHeaders() });
+    const res = await fetch('/finance/contabilidad/centros-costo/arbol', { headers: authHeaders() });
     const data = await res.json();
     const centers = Array.isArray(data) ? data : (data.tree || []);
     select.innerHTML = centers.map(c =>

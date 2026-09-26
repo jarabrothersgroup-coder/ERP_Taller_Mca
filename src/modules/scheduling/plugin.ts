@@ -19,6 +19,9 @@ export async function schedulingPlugin(app: FastifyInstance): Promise<void> {
   app.addHook("onRequest", resolveTenant);
   app.addHook("onRequest", resolveProfile);
 
-  await app.register(schedulingRoutes, { prefix: "/scheduling" });
+  // schedulingRoutes declara las rutas con la raíz completa
+  // (/scheduling/appointments, …). El prefijo aquí duplicaba la raíz
+  // (/scheduling/scheduling/*) y rompía el contrato con la FE.
+  await app.register(schedulingRoutes);
   app.log.info("Scheduling plugin registered (/scheduling)");
 }

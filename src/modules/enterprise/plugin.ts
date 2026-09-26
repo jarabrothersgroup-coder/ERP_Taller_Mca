@@ -12,6 +12,7 @@
 import type { FastifyInstance } from "fastify";
 import { resolveTenant } from "../../shared/middleware/tenant-resolver.js";
 import { enterpriseAuditRoutes } from "./routes/audit-enterprise.routes.js";
+import { enterpriseRoutes } from "./routes/enterprise.routes.js";
 import { twoFactorRoutes } from "./routes/two-factor.routes.js";
 import { ssoRoutes } from "./routes/sso.routes.js";
 
@@ -29,6 +30,11 @@ async function enterprisePlugin(app: FastifyInstance): Promise<void> {
   // All enterprise routes require tenant context + admin role
   await app.register(async function enterpriseScopedRoutes(enterpriseApp) {
     enterpriseApp.addHook("onRequest", resolveTenant);
+
+    // Enterprise settings (SSO, white-label, data-retention). El archivo
+    // declara rutas con la raíz completa (/enterprise/…), así que se registra
+    // sin prefix; antes quedaba huérfano y la UI de Enterprise devolvía 404.
+    await enterpriseApp.register(enterpriseRoutes);
 
     // Enterprise audit routes — admin-only
     await enterpriseApp.register(enterpriseAuditRoutes, { prefix: "/audit" });

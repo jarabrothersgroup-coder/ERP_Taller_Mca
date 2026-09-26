@@ -526,11 +526,6 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  deleteInventoryItem: (id: string) =>
-    request<{ success: boolean }>(`/inventory/repuestos/${id}`, {
-      method: "DELETE",
-    }),
-
   /* ── Inventory: Barcode Lookup ──────────────── */
 
   /**
@@ -981,9 +976,6 @@ export const api = {
 
   listWhatsAppTemplates: () =>
     request<WhatsAppTemplate[]>("/whatsapp/templates"),
-
-  getWhatsAppStats: () =>
-    request<WhatsAppStats>("/whatsapp/stats"),
 
   /* ── CRM ───────────────────────────────────── */
 

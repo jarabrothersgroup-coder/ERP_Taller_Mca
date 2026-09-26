@@ -323,7 +323,7 @@ async function webhookSubPlugin(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post("/webhook", {
+  app.post("/billing/webhook", {
     schema: {
       tags: ["Billing"],
       summary: "Recibir webhook de Stripe",

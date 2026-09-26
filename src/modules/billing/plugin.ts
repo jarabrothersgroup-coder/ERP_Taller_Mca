@@ -35,7 +35,11 @@ async function billingPlugin(app: FastifyInstance): Promise<void> {
     await resolveProfile(request, reply);
   });
 
-  await app.register(billingRoutes, { prefix: "/billing" });
+  // Nota: stripe.routes.ts declara rutas con la raíz completa
+  // (/billing/plans, /billing/checkout, /billing/webhook, …). Registrar con
+  // `{ prefix: "/billing" }` producía rutas duplicadas (/billing/billing/*)
+  // y 404 para la FE. Fuente única de verdad del path: el archivo de rutas.
+  await app.register(billingRoutes);
   app.log.info("Billing module registered (/billing/*)");
 }
 

@@ -18,7 +18,11 @@ export async function crmPlugin(app: FastifyInstance): Promise<void> {
   app.addHook("onRequest", resolveTenant);
   app.addHook("onRequest", resolveProfile);
 
+  // crmRoutes declara rutas relativas (/status, /stats, /retry, /sync/:ordenId)
+  // → necesita el prefijo. deals.routes.ts declara la raíz completa
+  // (/crm/stages, /crm/deals) → registrarla con prefijo duplicaba la raíz
+  // (/crm/crm/*) y devolvía 404 a toda la UI de pipeline.
   await app.register(crmRoutes, { prefix: "/crm" });
-  await app.register(dealsRoutes, { prefix: "/crm" });
+  await app.register(dealsRoutes);
   app.log.info("CRM plugin registered (/crm — sync + pipeline)");
 }
