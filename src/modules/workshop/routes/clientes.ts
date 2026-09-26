@@ -13,6 +13,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import { createClient, updateClient, deleteClient, listClients, getClient } from "../services/client.service.js";
 import { getClientHistory } from "../services/history.service.js";
 
@@ -153,10 +154,11 @@ export async function clientesRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── DELETE /workshop/clientes/:id — Delete client ──
+  // ── DELETE /workshop/clientes/:id — Delete client (destructivo → manager+) ──
   app.delete<{ Params: ParamsWithId }>(
     "/workshop/clientes/:id",
     {
+      preHandler: requireManager,
       schema: {
         params: {
           type: "object",

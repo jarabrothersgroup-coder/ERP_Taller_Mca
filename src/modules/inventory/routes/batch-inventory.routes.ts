@@ -13,6 +13,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import {
   bulkImportRepuestos,
   bulkUpdatePrices,
@@ -23,8 +24,8 @@ import {
 } from "../services/batch-inventory.service.js";
 
 export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> {
-  // ── POST /inventory/bulk/import — CSV bulk import ──
-  app.post("/inventory/bulk/import", async (request, reply) => {
+  // ── POST /inventory/bulk/import — CSV bulk import (masivo → manager+) ──
+  app.post("/inventory/bulk/import", { preHandler: requireManager }, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const { rows } = request.body as { rows: Array<{
       codigo?: string;
@@ -46,8 +47,8 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     reply.send(result);
   });
 
-  // ── POST /inventory/bulk/price-update — Bulk price update ──
-  app.post("/inventory/bulk/price-update", async (request, reply) => {
+  // ── POST /inventory/bulk/price-update — Bulk price update (masivo → manager+) ──
+  app.post("/inventory/bulk/price-update", { preHandler: requireManager }, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const { ids, field, percentageChange } = request.body as {
       ids: string[];
@@ -63,8 +64,8 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     reply.send(result);
   });
 
-  // ── POST /inventory/bulk/stock-adjust — Bulk stock adjustment ──
-  app.post("/inventory/bulk/stock-adjust", async (request, reply) => {
+  // ── POST /inventory/bulk/stock-adjust — Bulk stock adjustment (masivo → manager+) ──
+  app.post("/inventory/bulk/stock-adjust", { preHandler: requireManager }, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const { adjustments } = request.body as {
       adjustments: Array<{ repuestoId: string; cantidad: number; motivo: string }>;

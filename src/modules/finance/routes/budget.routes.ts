@@ -37,6 +37,7 @@ import { convertPresupuestoToOT } from "../../workshop/services/orden.service.js
 import { db } from "../../../shared/database/drizzle.js";
 import { eq } from "drizzle-orm";
 import { presupuestos } from "../schema/budget.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 
 export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // ─── Listar presupuestos ────────────────────────
@@ -86,13 +87,17 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Eliminar presupuesto ───────────────────────
-  app.delete("/finance/presupuestos/:id", async (request, reply) => {
-    const tenantSlug = request.tenantSlug;
-    const { id } = request.params as { id: string };
+  app.delete(
+    "/finance/presupuestos/:id",
+    { preHandler: requireManager },
+    async (request, reply) => {
+      const tenantSlug = request.tenantSlug;
+      const { id } = request.params as { id: string };
 
-    await deletePresupuesto(id, tenantSlug);
-    return reply.status(204).send();
-  });
+      await deletePresupuesto(id, tenantSlug);
+      return reply.status(204).send();
+    },
+  );
 
   // ─── Agregar ítem ───────────────────────────────
   app.post("/finance/presupuestos/:id/items", async (request, reply) => {
@@ -123,13 +128,17 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // ─── Eliminar ítem ──────────────────────────────
-  app.delete("/finance/presupuestos/items/:itemId", async (request, reply) => {
-    const tenantSlug = request.tenantSlug;
-    const { itemId } = request.params as { itemId: string };
+  app.delete(
+    "/finance/presupuestos/items/:itemId",
+    { preHandler: requireManager },
+    async (request, reply) => {
+      const tenantSlug = request.tenantSlug;
+      const { itemId } = request.params as { itemId: string };
 
-    await deletePresupuestoItem(itemId, tenantSlug);
-    return reply.status(204).send();
-  });
+      await deletePresupuestoItem(itemId, tenantSlug);
+      return reply.status(204).send();
+    },
+  );
 
   // ─── Comparativa real vs presupuestado ──────────
   app.get("/finance/presupuestos/:id/comparativa", async (request, reply) => {

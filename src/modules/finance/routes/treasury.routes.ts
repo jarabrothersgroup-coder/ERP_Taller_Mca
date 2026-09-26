@@ -47,6 +47,7 @@ import {
   pagarFacturaProveedor,
 } from "../services/treasury/treasury.service.js";
 import { tesoreriaConfigurator } from "../services/accounting/tesoreria.configurator.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 
 export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
   // ─── Cuentas Bancarias ─────────────────────
@@ -135,7 +136,10 @@ export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(201).send(movimiento);
   });
 
-  app.post("/finance/treasury/transferencias", async (request, reply) => {
+  app.post(
+    "/finance/treasury/transferencias",
+    { preHandler: requireManager },
+    async (request, reply) => {
     const tenantSlug = request.headers["x-tenant-slug"] as string;
     if (!tenantSlug) {
       return reply.status(400).send({ error: "X-Tenant-Slug header required" });

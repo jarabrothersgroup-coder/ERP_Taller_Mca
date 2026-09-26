@@ -14,6 +14,7 @@ import { db } from "../../../shared/database/drizzle.js";
 import { ordenesTrabajo, type EstadoOrden } from "../schema/index.js";
 import { eq, and, inArray } from "drizzle-orm";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 
 // ─── Types ──────────────────────────────────────
 
@@ -31,10 +32,11 @@ const VALID_STATUSES: EstadoOrden[] = ["Presupuestado", "Aprobado", "En_Proceso"
 // ─── Routes ─────────────────────────────────────
 
 export async function bulkOperationsRoutes(app: FastifyInstance): Promise<void> {
-  // ── POST /workshop/ordenes/batch/status — Batch status change ──
+  // ── POST /workshop/ordenes/batch/status — Batch status change (manager+) ──
   app.post<{ Body: BatchStatusBody }>(
     "/workshop/ordenes/batch/status",
     {
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",
@@ -82,10 +84,11 @@ export async function bulkOperationsRoutes(app: FastifyInstance): Promise<void> 
     },
   );
 
-  // ── POST /workshop/ordenes/batch/delete — Batch soft-delete ──
+  // ── POST /workshop/ordenes/batch/delete — Batch soft-delete (destructivo → manager+) ──
   app.post<{ Body: BatchDeleteBody }>(
     "/workshop/ordenes/batch/delete",
     {
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",

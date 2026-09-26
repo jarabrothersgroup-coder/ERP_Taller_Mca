@@ -45,6 +45,7 @@ import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
 import { sifenSyncLog } from "../schema/fiscal-docs.js";
 import { emitirNotaCredito } from "../services/sifen/nota-credito.service.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import {
   guardarEnContingencia,
   reenviarContingencia,
@@ -423,10 +424,11 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /finance/sifen/anular — Cancel a DTE ──
+  // ── POST /finance/sifen/anular — Cancel a DTE (fiscal destructivo → manager+) ──
   app.post<{ Body: { cdc: string; motivo: string } }>(
     "/finance/sifen/anular",
     {
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",

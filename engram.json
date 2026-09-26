@@ -48,7 +48,7 @@
       "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
       "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
       "verified_on": "2026-09-26",
-      "baseline": "tsc root+web PASS · eslint 0 err · drizzle-kit check OK · backend 1865 (1861 PASS / 4 skip) incl. 8 tests de contrato T-00, 12 E2E Fase 1 y 10 T-21b · web 111/111",
+      "baseline": "tsc root+web PASS · eslint 0 err · drizzle-kit check OK · backend 1879 (1875 PASS / 4 skip) incl. 8 tests de contrato T-00, 12 E2E Fase 1, 10 T-21b y 14 T-21c · web 111/111",
       "phases": {
         "fase_0_contrato": {
           "status": "COMPLETADO",
@@ -89,13 +89,13 @@
           ]
         },
         "fase_2_seguridad": {
-          "status": "2/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
+          "status": "3/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
           "done": [
             "T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción",
-            "T-21b SEG-03 backup fail-closed: migración 0025_two_factor_secrets (secret cifrado AES-256-GCM con TOKEN_SECRET vía encryptBuffer, backup codes scrypt, unique tenant_slug+profile_id, FK profiles ON DELETE CASCADE); POST /2fa/setup ahora persiste el enrolamiento, GET /2fa/status expone enabled, POST /2fa/verify acepta secret o enrolamiento persistido; guards requireAdmin+TOTP en /backup/execute|restore|purge (sin enrolamiento → 403 accionable apuntando a /2fa/setup, código inválido/faltante → 403, backup codes de uso único) — tests/security-two-factor-backup.test.ts (10 it) · rutas reales /2fa/* y /backup/*"
+            "T-21b SEG-03 backup fail-closed: migración 0025_two_factor_secrets (secret cifrado AES-256-GCM con TOKEN_SECRET vía encryptBuffer, backup codes scrypt, unique tenant_slug+profile_id, FK profiles ON DELETE CASCADE); POST /2fa/setup ahora persiste el enrolamiento, GET /2fa/status expone enabled, POST /2fa/verify acepta secret o enrolamiento persistido; guards requireAdmin+TOTP en /backup/execute|restore|purge (sin enrolamiento → 403 accionable apuntando a /2fa/setup, código inválido/faltante → 403, backup codes de uso único) — tests/security-two-factor-backup.test.ts (10 it) · rutas reales /2fa/* y /backup/*",
+            "T-21c SEG-04 roles en destructivos: requireManager en DELETE /workshop/clientes/:id, POST /workshop/ordenes/batch/{status,delete}, /inventory/bulk/{import,price-update,stock-adjust}, /finance/treasury/transferencias, /finance/contabilidad/asientos/:id/anular, /finance/sifen/anular, DELETE /finance/presupuestos(/items/:itemId), /finance/contabilidad/devengamiento/ajustes; requireAdmin en /finance/contabilidad/cerrar-periodo y /cron/cierre-mensual — tests/security-role-matrix.test.ts (14 it: 403 CSRF sin sesión, 401 token inválido, 403 user/mechanic, 403 manager en guards admin, pass-through manager/admin donde el handler es seguro)"
           ],
           "pending": [
-            "T-21c SEG-04 requireManager con 0 usos; destructivos sin rol",
             "T-21d SEG-02 rls.ts set_config(...,false) session-scoped, ENABLE_REQUEST_TENANT_CONTEXT default false, INV-05 lookups sin tenant confirmados"
           ],
           "found_and_fixed": [

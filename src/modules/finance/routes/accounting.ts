@@ -33,6 +33,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireAdmin, requireManager } from "../../../shared/middleware/rbac.js";
 import {
   createCuenta,
   updateCuenta,
@@ -388,9 +389,10 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /finance/contabilidad/asientos/:id/anular — Cancel entry ──
+  // ── POST /finance/contabilidad/asientos/:id/anular — Cancel entry (destructivo → manager+) ──
   app.post<{ Params: { id: string }; Body: { motivo?: string } }>(
     "/finance/contabilidad/asientos/:id/anular",
+    { preHandler: requireManager },
     async (request, reply) => {
       // ── Immutability: check asiento is modifiable + period is open ──
       await assertAsientoModificable(request.params.id);
@@ -545,6 +547,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: AjustesPeriodoRequest }>(
     "/finance/contabilidad/devengamiento/ajustes",
     {
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",
@@ -1001,10 +1004,11 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   // CAPA 4: Compliance, Inmutabilidad, Auditoría
   // ════════════════════════════════════════════════
 
-  // ── POST /finance/contabilidad/cerrar-periodo — Close a period ──
+  // ── POST /finance/contabilidad/cerrar-periodo — Close a period (admin) ──
   app.post<{ Body: { hastaMes: number } }>(
     "/finance/contabilidad/cerrar-periodo",
     {
+      preHandler: requireAdmin,
       schema: {
         body: {
           type: "object",
@@ -1498,9 +1502,10 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /finance/contabilidad/cron/cierre-mensual — Monthly closure cron ──
+  // ── POST /finance/contabilidad/cron/cierre-mensual — Monthly closure cron (admin) ──
   app.post<{ Body: { anho: number; mes: number } }>(
     "/finance/contabilidad/cron/cierre-mensual",
+    { preHandler: requireAdmin },
     async (request, reply) => {
       const { anho, mes } = request.body;
 
