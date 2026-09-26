@@ -85,7 +85,7 @@ export default function ReimpresionPage() {
       const params = new URLSearchParams();
       if (searchTerm) params.set("search", searchTerm);
       if (tipoFilter !== "Todos") params.set("tipo", tipoFilter);
-      const res = await fetch(`/api/label-printing/reimpresiones?${params}`, { headers: authHeaders() });
+      const res = await fetch(`/label-printing/reimpresiones?${params}`, { headers: authHeaders() });
       const data = await res.json();
       setInvoices(data.data || []);
     } catch (err) {
@@ -102,7 +102,7 @@ export default function ReimpresionPage() {
   const handleReprint = async (invoiceId: string, protocol: string = protocolo, numCopias: number = copias) => {
     setPrinting(invoiceId);
     try {
-      const res = await fetch(`/api/label-printing/reimpresiones/${invoiceId}`, {
+      const res = await fetch(`/label-printing/reimpresiones/${invoiceId}`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ protocolo: protocol, copias: numCopias }),
@@ -129,7 +129,7 @@ export default function ReimpresionPage() {
   const handleShowHistory = async (invoiceId: string) => {
     setHistoryInvoiceId(invoiceId);
     try {
-      const res = await fetch(`/api/label-printing/reimpresiones/${invoiceId}`, { headers: authHeaders() });
+      const res =      await fetch(`/label-printing/reimpresiones/${invoiceId}`, { headers: authHeaders() });
       const data = await res.json();
       setPrintHistory(data.printHistory || []);
     } catch (err) {

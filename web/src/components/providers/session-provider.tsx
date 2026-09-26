@@ -52,7 +52,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        return { error: data.error || "Credenciales inválidas" };
+        // Backend envía { error: <clase>, message: <mensaje legible> } —
+        // mostrar el mensaje, no el nombre de la clase (p.ej. "ValidationError").
+        return { error: data.message || "Credenciales inválidas" };
       }
       const authUser: AuthUser = {
         id: data.profile.id,

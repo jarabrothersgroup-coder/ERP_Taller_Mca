@@ -1,8 +1,13 @@
 /**
  * SSE (Server-Sent Events) hook for real-time notifications.
  *
- * Connects to the /workshop/notifications/sse/stream endpoint
- * and receives real-time push notifications from the backend.
+ * Connects to /api/notifications/stream and receives real-time push
+ * notifications from the backend.
+ *
+ * Uses fetch() + ReadableStream instead of EventSource: EventSource cannot
+ * send the Authorization / X-Tenant-Slug headers the API requires (the
+ * backend only reads the JWT from the Authorization header), so a plain
+ * EventSource connection would be rejected with 401.
  *
  * Features:
  * - Auto-reconnect with exponential backoff
@@ -16,6 +21,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
+import { authHeaders } from "@/lib/api";
 
 export interface SseNotification {
   id: string;
@@ -31,7 +37,7 @@ export interface SseNotification {
 export type SseConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
 interface UseSseOptions {
-  /** SSE endpoint URL (default: /workshop/notifications/sse/stream) */
+  /** SSE endpoint URL (default: /api/notifications/stream) */
   url?: string;
   /** Callback when a notification is received */
   onNotification?: (notification: SseNotification) => void;
@@ -58,22 +64,33 @@ interface UseSseReturn {
   clearNotifications: () => void;
 }
 
-const DEFAULT_URL = "/workshop/notifications/sse/stream";
+const DEFAULT_URL = "/api/notifications/stream";
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30000;
 const HEARTBEAT_TIMEOUT_MS = 60000;
 
-/**
- * Hook for subscribing to Server-Sent Events for real-time notifications.
- *
- * @example
- * ```tsx
- * const { status, notifications, lastNotification } = useSse({
- *   onNotification: (n) => toast.info(n.titulo),
- * });
- * ```
- */
+/** Extract a SseNotification from a backend `data:` payload. */
+function parseNotification(payload: unknown): SseNotification | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  // Backend frame: { type: "notification", data: {...}, timestamp }
+  const inner = (obj.type === "notification" && obj.data && typeof obj.data === "object"
+    ? obj.data
+    : obj) as Record<string, unknown>;
+  if (typeof inner.id !== "string" || typeof inner.titulo !== "string") return null;
+  return {
+    id: inner.id,
+    tipo: String(inner.tipo ?? "info"),
+    titulo: inner.titulo,
+    mensaje: String(inner.mensaje ?? ""),
+    entityType: inner.entityType ? String(inner.entityType) : undefined,
+    entityId: inner.entityId ? String(inner.entityId) : undefined,
+    priority: String(inner.priority ?? "media"),
+    timestamp: String(inner.timestamp ?? new Date().toISOString()),
+  };
+}
+
 export function useSse(options: UseSseOptions = {}): UseSseReturn {
   const {
     url = DEFAULT_URL,
@@ -87,16 +104,22 @@ export function useSse(options: UseSseOptions = {}): UseSseReturn {
   const [lastNotification, setLastNotification] = useState<SseNotification | null>(null);
   const [notifications, setNotifications] = useState<SseNotification[]>([]);
 
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
-  const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const stoppedRef = useRef(false);
+  /** Monotonic connection epoch — stale read loops must not reconnect. */
+  const epochRef = useRef(0);
+  // connect() is referenced by scheduleReconnect before it is defined — keep
+  // it in a ref so the backoff timer always calls the latest implementation.
+  const connectRef = useRef<() => void>(() => {});
 
-  // Stable callback refs
+  // Stable callback refs so connect() doesn't churn across renders
   const onNotificationRef = useRef(onNotification);
-  const onStatusChangeRef = useRef(onStatusChange);
   onNotificationRef.current = onNotification;
+  const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
 
   const updateStatus = useCallback((newStatus: SseConnectionStatus) => {
@@ -105,14 +128,11 @@ export function useSse(options: UseSseOptions = {}): UseSseReturn {
   }, []);
 
   const resetHeartbeat = useCallback(() => {
-    if (heartbeatTimerRef.current) {
-      clearTimeout(heartbeatTimerRef.current);
-    }
+    if (heartbeatTimerRef.current) clearTimeout(heartbeatTimerRef.current);
     heartbeatTimerRef.current = setTimeout(() => {
-      // No heartbeat received — connection might be stale
-      console.warn("[SSE] Heartbeat timeout, reconnecting...");
-      eventSourceRef.current?.close();
-      // Will auto-reconnect via onerror
+      // No heartbeat within the window — connection is stale, abort and let
+      // the read loop fall through to scheduleReconnect().
+      abortRef.current?.abort();
     }, HEARTBEAT_TIMEOUT_MS);
   }, []);
 
@@ -125,77 +145,102 @@ export function useSse(options: UseSseOptions = {}): UseSseReturn {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    abortRef.current?.abort();
+    abortRef.current = null;
   }, []);
+
+  const scheduleReconnect = useCallback((epoch: number) => {
+    if (!mountedRef.current || stoppedRef.current) return;
+    if (epoch !== epochRef.current) return; // a newer connection superseded this one
+    if (retryCountRef.current >= maxRetries) {
+      updateStatus("error");
+      return;
+    }
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const delay = Math.min(
+      BASE_DELAY_MS * Math.pow(2, retryCountRef.current),
+      MAX_DELAY_MS,
+    );
+    retryCountRef.current += 1;
+    retryTimerRef.current = setTimeout(() => {
+      if (mountedRef.current && !stoppedRef.current) connectRef.current?.();
+    }, delay);
+  }, [maxRetries, updateStatus]);
 
   const connect = useCallback(() => {
     cleanup();
+    if (!mountedRef.current || stoppedRef.current) return;
 
-    if (!mountedRef.current) return;
-
+    const epoch = ++epochRef.current;
     updateStatus("connecting");
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    try {
-      const es = new EventSource(url);
-      eventSourceRef.current = es;
+    const run = async (): Promise<void> => {
+      try {
+        const res = await fetch(url, {
+          headers: authHeaders(),
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) throw new Error(`SSE ${res.status}`);
+        if (epoch !== epochRef.current) return;
 
-      es.onopen = () => {
-        if (!mountedRef.current) return;
         retryCountRef.current = 0;
         updateStatus("connected");
         resetHeartbeat();
-      };
 
-      es.addEventListener("notification", (event) => {
-        if (!mountedRef.current) return;
-        resetHeartbeat();
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-        try {
-          const notification: SseNotification = JSON.parse(event.data);
-          setLastNotification(notification);
-          setNotifications((prev) => [notification, ...prev].slice(0, 100)); // Keep last 100
-          onNotificationRef.current?.(notification);
-        } catch (err) {
-          console.error("[SSE] Failed to parse notification:", err);
-        }
-      });
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          resetHeartbeat();
+          buffer += decoder.decode(value, { stream: true });
 
-      es.addEventListener("heartbeat", () => {
-        resetHeartbeat();
-      });
+          // SSE frames are separated by a blank line
+          let sep: number;
+          while ((sep = buffer.indexOf("\n\n")) !== -1) {
+            const frame = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            const dataLine = frame
+              .split("\n")
+              .find((l) => l.startsWith("data:"));
+            if (!dataLine) continue; // heartbeat comment (:heartbeat …) or malformed
 
-      es.onerror = () => {
-        if (!mountedRef.current) return;
-        es.close();
-        eventSourceRef.current = null;
-
-        if (retryCountRef.current < maxRetries) {
-          updateStatus("disconnected");
-          const delay = Math.min(
-            BASE_DELAY_MS * Math.pow(2, retryCountRef.current),
-            MAX_DELAY_MS,
-          );
-          retryCountRef.current++;
-
-          retryTimerRef.current = setTimeout(() => {
-            if (mountedRef.current) {
-              connect();
+            let payload: unknown;
+            try {
+              payload = JSON.parse(dataLine.slice(5).trim());
+            } catch {
+              continue; // malformed frame — ignore
             }
-          }, delay);
-        } else {
-          updateStatus("error");
+            const parsed = parseNotification(payload);
+            if (!parsed) continue; // "connected" ping or unknown frame
+
+            setLastNotification(parsed);
+            setNotifications((prev) => [parsed, ...prev].slice(0, 100)); // Keep last 100
+            onNotificationRef.current?.(parsed);
+          }
         }
-      };
-    } catch (err) {
-      console.error("[SSE] Failed to create EventSource:", err);
-      updateStatus("error");
-    }
-  }, [url, maxRetries, cleanup, updateStatus, resetHeartbeat]);
+
+        // Server closed the stream (restart / max-age rotation) — reconnect
+        if (!controller.signal.aborted) scheduleReconnect(epoch);
+      } catch {
+        if (!mountedRef.current || stoppedRef.current) return;
+        if (epoch !== epochRef.current) return; // superseded by a newer connect()
+        if (controller.signal.aborted && retryTimerRef.current) return; // manual cleanup
+        scheduleReconnect(epoch);
+      }
+    };
+
+    void run();
+  }, [cleanup, url, updateStatus, resetHeartbeat, scheduleReconnect]);
+
+  connectRef.current = connect;
 
   const disconnect = useCallback(() => {
+    stoppedRef.current = true;
     cleanup();
     updateStatus("disconnected");
     retryCountRef.current = maxRetries; // Prevent auto-reconnect
@@ -210,6 +255,8 @@ export function useSse(options: UseSseOptions = {}): UseSseReturn {
   useEffect(() => {
     mountedRef.current = true;
     if (enabled) {
+      stoppedRef.current = false;
+      retryCountRef.current = 0;
       connect();
     }
     return () => {
@@ -222,7 +269,11 @@ export function useSse(options: UseSseOptions = {}): UseSseReturn {
     status,
     lastNotification,
     notifications,
-    connect,
+    connect: () => {
+      stoppedRef.current = false;
+      retryCountRef.current = 0;
+      connect();
+    },
     disconnect,
     clearNotifications,
   };

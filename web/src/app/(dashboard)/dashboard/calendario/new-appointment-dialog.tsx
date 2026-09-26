@@ -26,23 +26,18 @@ interface AppointmentForm {
   vehiculoId: string;
   fecha: string;
   horaInicio: string;
-  horaFin: string;
   tipoServicio: string;
-  estado: string;
   notas: string;
 }
 
+/**
+ * Backend contract (POST /scheduling/appointments) requires denormalized
+ * client/vehicle data and the RAPIDO/PESADO service enum — the selected
+ * client/vehicle are resolved into that payload below.
+ */
 const tiposServicio = [
-  "Service General",
-  "Cambio de Aceite",
-  "Frenos",
-  "Diagnóstico DTC",
-  "Revisión Eléctrica",
-  "Mantenimiento Preventivo",
-  "Reparación Motor",
-  "Suspensión",
-  "Climatización",
-  "Otro",
+  { value: "RAPIDO", label: "Rápido — diagnóstico, aceite, frenos, eléctrico" },
+  { value: "PESADO", label: "Pesado — motor, transmisión, suspensión, clima" },
 ];
 
 export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) {
@@ -55,30 +50,40 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
     vehiculoId: "",
     fecha: new Date().toISOString().split("T")[0],
     horaInicio: "08:00",
-    horaFin: "09:00",
-    tipoServicio: "Service General",
-    estado: "PROGRAMADO",
+    tipoServicio: "RAPIDO",
     notas: "",
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof AppointmentForm, string>>>({});
 
   const createMutation = useMutation({
     mutationFn: async (data: AppointmentForm) => {
-      const res = await fetch("/workshop/citas", {
+      const cliente = clientes.find((c) => c.id === data.clienteId);
+      const vehiculo = vehiculos.find((v) => v.id === data.vehiculoId);
+      if (!cliente) throw new Error("Seleccioná un cliente con teléfono registrado");
+      if (!vehiculo) throw new Error("Seleccioná un vehículo");
+      if (!cliente.phone) throw new Error(`El cliente "${cliente.name}" no tiene teléfono registrado`);
+
+      const res = await fetch("/scheduling/appointments", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          clienteId: data.clienteId || null,
-          vehiculoId: data.vehiculoId || null,
-          fecha: data.fecha,
-          horaInicio: data.horaInicio,
-          horaFin: data.horaFin,
+          clienteNombre: cliente.name,
+          clientePhone: cliente.phone,
+          ...(cliente.email ? { clienteEmail: cliente.email } : {}),
+          vehiculoChapa: vehiculo.plate || vehiculo.vin || "S/PLACA",
+          vehiculoMarca: vehiculo.brand,
+          vehiculoModelo: vehiculo.model,
+          ...(vehiculo.vin ? { vehiculoVin: vehiculo.vin } : {}),
+          fechaTurno: data.fecha,
+          horaTurno: data.horaInicio,
           tipoServicio: data.tipoServicio,
-          estado: data.estado,
-          notas: data.notas || null,
+          ...(data.notas ? { notas: data.notas } : {}),
         }),
       });
-      if (!res.ok) throw new Error("Error creando turno");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || body.error || "Error creando turno");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -86,17 +91,21 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
       setForm({
         clienteId: "", vehiculoId: "",
         fecha: new Date().toISOString().split("T")[0],
-        horaInicio: "08:00", horaFin: "09:00",
-        tipoServicio: "Service General", estado: "PROGRAMADO", notas: "",
+        horaInicio: "08:00", tipoServicio: "RAPIDO", notas: "",
       });
       setErrors({});
       setOpen(false);
       onCreated?.();
     },
+    onError: () => {
+      // Error is rendered inline above the footer (createMutation.error)
+    },
   });
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof AppointmentForm, string>> = {};
+    if (!form.clienteId) newErrors.clienteId = "El cliente es obligatorio";
+    if (!form.vehiculoId) newErrors.vehiculoId = "El vehículo es obligatorio";
     if (!form.fecha) newErrors.fecha = "La fecha es obligatoria";
     if (!form.horaInicio) newErrors.horaInicio = "La hora de inicio es obligatoria";
     if (!form.tipoServicio.trim()) newErrors.tipoServicio = "El tipo de servicio es obligatorio";
@@ -139,7 +148,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <FormField label="Cliente" htmlFor="ap-cliente">
+            <FormField label="Cliente" htmlFor="ap-cliente" required error={errors.clienteId}>
               <Select
                 id="ap-cliente"
                 value={form.clienteId}
@@ -155,7 +164,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
               </Select>
             </FormField>
 
-            <FormField label="Vehículo" htmlFor="ap-vehiculo">
+            <FormField label="Vehículo" htmlFor="ap-vehiculo" required error={errors.vehiculoId}>
               <Select
                 id="ap-vehiculo"
                 value={form.vehiculoId}
@@ -181,7 +190,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
               />
             </FormField>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <FormField label="Hora Inicio" htmlFor="ap-hora-inicio" required error={errors.horaInicio}>
                 <Input
                   id="ap-hora-inicio"
@@ -189,15 +198,6 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
                   value={form.horaInicio}
                   onChange={(e) => updateField("horaInicio", e.target.value)}
                   hasError={!!errors.horaInicio}
-                />
-              </FormField>
-
-              <FormField label="Hora Fin" htmlFor="ap-hora-fin">
-                <Input
-                  id="ap-hora-fin"
-                  type="time"
-                  value={form.horaFin}
-                  onChange={(e) => updateField("horaFin", e.target.value)}
                 />
               </FormField>
             </div>
@@ -210,7 +210,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
                 hasError={!!errors.tipoServicio}
               >
                 {tiposServicio.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </Select>
             </FormField>
@@ -225,6 +225,12 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
               />
             </FormField>
           </div>
+
+          {createMutation.isError && (
+            <p className="text-sm text-destructive" role="alert">
+              {createMutation.error?.message || "Error creando turno"}
+            </p>
+          )}
 
           <DialogFooter>
             <DialogClose asChild>

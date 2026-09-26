@@ -34,6 +34,20 @@ export interface ListParams {
   [key: string]: string | number | undefined;
 }
 
+/** Technician entry for the Operations Hub filter dropdown */
+export interface Tecnico {
+  id: string;
+  nombre: string;
+  activo: boolean;
+}
+
+/** Aggregated Operations Hub board payload (GET /workshop/hub/board) */
+export interface HubBoardPayload {
+  ordenes: WorkOrder[];
+  tecnicos: Tecnico[];
+  generatedAt: string;
+}
+
 export interface WorkOrder {
   id: string;
   vehicleId: string;
@@ -45,9 +59,14 @@ export interface WorkOrder {
   dtcCodes: string[] | null;
   createdAt: string;
   updatedAt: string;
+  assignedTo: string | null;
   vehiculo: string | null;
   plate: string | null;
   cliente: string | null;
+  /** Present on detail payloads; null on list payloads */
+  diagnosis?: string | null;
+  /** Present on detail payloads; null on list payloads */
+  totalCost?: string | null;
 }
 
 export interface InventoryItem {
@@ -235,6 +254,20 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
+/**
+ * Joins free-text notes + provider name into the backend `observaciones` field
+ * (the stock endpoints have no dedicated `proveedor` column).
+ */
+function buildObservaciones(
+  notas?: string,
+  proveedor?: string,
+): { observaciones?: string } {
+  const merged = [notas, proveedor ? `Proveedor: ${proveedor}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+  return merged ? { observaciones: merged } : {};
+}
+
 /* ── Work Orders (Taller) ───────────────────── */
 
 export const api = {
@@ -357,11 +390,14 @@ export const api = {
 
   listWorkOrders: (params?: {
     status?: string;
+    /** Comma-separated statuses to exclude (e.g. "Finalizado_Retirado") */
+    excludeStatus?: string;
     limit?: number;
     offset?: number;
   }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
+    if (params?.excludeStatus) qs.set("excludeStatus", params.excludeStatus);
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.offset) qs.set("offset", String(params.offset));
     const query = qs.toString();
@@ -398,6 +434,21 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+
+  assignWorkOrder: (id: string, mechanicId: string | null) =>
+    request<{ id: string; assignedTo: string | null }>(`/workshop/ordenes/${id}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ mechanicId }),
+    }),
+
+  /**
+   * Aggregated Operations Hub board: open OTs (vehicle/client pre-joined)
+   * + active technicians in a single request. Replaces the 3-request fan-out.
+   */
+  getHubBoard: (params?: { excludeStatus?: string }) => {
+    const qs = params?.excludeStatus ? "?excludeStatus=" + encodeURIComponent(params.excludeStatus) : "";
+    return request<HubBoardPayload>("/workshop/hub/board" + qs);
+  },
 
   deleteWorkOrder: (id: string) =>
     request<{ success: boolean }>(`/workshop/ordenes/${id}`, {
@@ -487,32 +538,58 @@ export const api = {
    * Uses the backend endpoint with BarcodeDetector integration.
    */
   lookupByBarcode: (barcode: string) =>
-    request<InventoryItem>(`/inventory/repuestos/barcode/${encodeURIComponent(barcode)}`),
+    request<PaginatedResponse<InventoryItem>>(
+      `/inventory/repuestos?search=${encodeURIComponent(barcode)}&limit=10`,
+    ).then((r) => {
+      // No dedicated barcode route — `search` matches codigo/codigo_barras/descripcion
+      const items = r.items || [];
+      const exact =
+        items.find((i) => i.codigo === barcode || i.codigoBarras === barcode) ??
+        items[0];
+      if (!exact) throw new Error("Producto no encontrado");
+      return exact;
+    }),
 
   /* ── Inventory: Stock Operations ───────────── */
 
   stockEntrada: (body: {
     repuestoId: string;
     cantidad: number;
+    /** Backend enum: Compra | Devolución | Ajuste | Transferencia | Otro */
+    motivo: string;
     precioUnitario?: number;
     proveedor?: string;
     ordenTrabajoId?: string;
     notas?: string;
   }) =>
-    request<StockMovement>("/inventory/stock/entrada", {
+    request<StockMovement>(`/inventory/repuestos/${body.repuestoId}/ingreso`, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        cantidad: body.cantidad,
+        motivo: body.motivo,
+        ...(body.precioUnitario ? { costoUnitario: body.precioUnitario } : {}),
+        // Backend has no `proveedor` column on ingresos — keep the data in the notes
+        ...buildObservaciones(body.notas, body.proveedor),
+      }),
     }),
 
   stockSalida: (body: {
     repuestoId: string;
     cantidad: number;
+    /** Backend enum: Venta | Uso en OT | Ajuste | Vencimiento | Robo | Otro */
+    motivo: string;
     ordenTrabajoId?: string;
     notas?: string;
   }) =>
-    request<StockMovement>("/inventory/stock/salida", {
+    request<StockMovement>("/inventory/repuestos/salida", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        repuestoId: body.repuestoId,
+        cantidad: body.cantidad,
+        motivo: body.motivo,
+        ...(body.ordenTrabajoId ? { ordenTrabajoId: body.ordenTrabajoId } : {}),
+        ...(body.notas ? { observaciones: body.notas } : {}),
+      }),
     }),
 
   listStockMovements: (params?: ListParams & { repuestoId?: string; tipo?: string }) => {
@@ -574,11 +651,17 @@ export const api = {
     requiereReparacion?: boolean;
     costoReparacion?: number;
     notas?: string;
-  }) =>
-    request<ToolLoan>(`/inventory/tool-loans/return`, {
+  }) => {
+    const { loanId, condicionRetorno, costoReparacion, notas } = body;
+    return request<ToolLoan>(`/inventory/tool-loans/${loanId}/return`, {
       method: "POST",
-      body: JSON.stringify(body),
-    }),
+      body: JSON.stringify({
+        condicionRetorno,
+        ...(costoReparacion !== undefined ? { costoReparacion } : {}),
+        ...(notas ? { observaciones: notas } : {}),
+      }),
+    });
+  },
 
   /* ── Finance: Invoices ─────────────────────── */
 
@@ -816,13 +899,12 @@ export const api = {
 
   getBreakEven: () => request<BreakEvenData>("/api/v1/finance/dashboard/break-even"),
 
-  calculatePayroll: (params?: { anho?: number; mes?: number }) => {
-    const qs = new URLSearchParams();
-    if (params?.anho) qs.set("anho", String(params.anho));
-    if (params?.mes) qs.set("mes", String(params.mes));
-    const query = qs.toString();
-    return request<PayrollResult>(`/finance/payroll/calculate${query ? `?${query}` : ""}`);
-  },
+  calculatePayroll: (params?: { anho?: number; mes?: number }) =>
+    request<PayrollResult>("/api/v1/finance/payroll/calculate", {
+      method: "POST",
+      // Backend reads `{ month, year }` from the JSON body (defaults to current period)
+      body: JSON.stringify({ month: params?.mes, year: params?.anho }),
+    }),
 
   /* ── Scheduling ────────────────────────────── */
 
@@ -1000,7 +1082,7 @@ export const api = {
   },
 
   createUser: (body: {
-    name: string;
+    fullName: string;
     email: string;
     role: string;
     password?: string;
@@ -1011,9 +1093,9 @@ export const api = {
     }),
 
   updateUser: (id: string, body: Partial<{
-    name: string;
+    fullName: string;
     role: string;
-    active: boolean;
+    isActive: boolean;
   }>) =>
     request<UserProfile>(`/api/profiles/${id}`, {
       method: "PATCH",

@@ -84,15 +84,16 @@ export default function AlmacenesPage() {
   // ── Fetch repuestos for selector ──
   const { data: repuestos = [] } = useQuery<Repuesto[]>({
     queryKey: ["repuestos-selector"],
-    queryFn: () => api.request<any>("/inventory/repuestos?limit=200").then((r: any) => r.items || r || []),
+    queryFn: () => api.request<any>("/inventory/repuestos?limit=100").then((r: any) => r.items || r || []),
   });
 
   // ── Fetch transferencias (paralelo, sin esperar almacenes/repuestos) ──
   const { data: transferencias = [], isLoading: transLoading } = useQuery<Transferencia[]>({
     queryKey: ["transferencias"],
     queryFn: async () => {
-      const data = await api.request<any[]>("/inventory/stock-movements?tipo=TRANSFERENCIA&limit=50");
-      return (data || []).map((t: any) => ({
+      const data = await api.request<any>("/inventory/stock-movements?tipo=TRANSFERENCIA&limit=50");
+      const items = data.items || (Array.isArray(data) ? data : []);
+      return (items as any[]).map((t: any) => ({
         ...t,
         almacenOrigenNombre: almacenes.find((a) => a.id === t.almacenOrigen)?.nombre || t.almacenOrigen?.slice(0, 8) || "Stock general",
         almacenDestinoNombre: almacenes.find((a) => a.id === t.almacenDestino)?.nombre || t.almacenDestino?.slice(0, 8) || "—",

@@ -49,7 +49,7 @@ export function NewAccountDialog({ onCreated }: { onCreated?: () => void }) {
 
   const createMutation = useMutation({
     mutationFn: async (data: AccountForm) => {
-      const res = await fetch("/finance/accounting/cuentas", {
+      const res = await fetch("/finance/contabilidad/cuentas", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({

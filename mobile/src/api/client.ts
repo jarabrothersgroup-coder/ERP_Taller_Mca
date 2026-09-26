@@ -237,8 +237,22 @@ export const api = {
   logout: () =>
     request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
 
-  // Dashboard
-  getDashboard: () => request<DashboardStats>("/intelligence/dashboard"),
+  // Dashboard — workshop KPIs (nested payload mapped to the flat mobile stats)
+  getDashboard: () =>
+    request<{
+      ordenes?: { totalMes?: number; completadasHoy?: number };
+      finanzas?: { ingresosMes?: number };
+      taller?: { facturacionPromedioOT?: number };
+    }>("/workshop/analytics/dashboard").then((k) => ({
+      totalIngresos: Number(k.finanzas?.ingresosMes ?? 0),
+      totalOrdenes: Number(k.ordenes?.totalMes ?? 0),
+      ordenesCompletadas: Number(k.ordenes?.completadasHoy ?? 0),
+      productividad: 0,
+      clientesAtendidos: 0,
+      margenBruto: 0,
+      ticketPromedio: Number(k.taller?.facturacionPromedioOT ?? 0),
+      mesActual: new Date().toLocaleDateString("es-PY", { month: "long", year: "numeric" }),
+    })),
 
   // Accounting Reports
   getBalanceGeneral: (fecha: string) => request<BalanceGeneral>(`/finance/contabilidad/balance-general/${fecha}`),
@@ -278,8 +292,29 @@ export const api = {
 
   getVehicle: (id: string) => request<Vehicle>(`/workshop/vehiculos/${id}`),
 
-  // Appointments
-  listAppointments: () => request<Appointment[]>("/scheduling/citas"),
+  // Appointments (backend returns a paginated { items, total, … } payload
+  // keyed by fechaTurno/horaTurno — mapped to the mobile UI contract)
+  listAppointments: () =>
+    request<{ items?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+      "/scheduling/appointments",
+    ).then((res) => {
+      const rows = Array.isArray(res) ? res : (res.items ?? []);
+      return rows.map((a) => {
+        const dur = Number(a.duracionHoras ?? 1);
+        const [hh, mm] = String(a.horaTurno ?? "00:00").split(":").map(Number);
+        const endMin = ((hh || 0) * 60 + (mm || 0) + dur * 60) % (24 * 60);
+        const horaFin =
+          a.horaFin ??
+          `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+        return {
+          ...a,
+          fecha: a.fecha ?? a.fechaTurno,
+          horaInicio: a.horaInicio ?? a.horaTurno,
+          horaFin,
+          notas: a.notas ?? a.observaciones ?? null,
+        } as unknown as Appointment;
+      });
+    }),
 
   // Mutations
   createWorkOrder: (data: { vehicleId: string; clientId: string; description?: string; status?: string }) =>
@@ -290,7 +325,7 @@ export const api = {
 
   // HV Safety lockout signing (mandatory before EV/HEV work completion)
   signHvLockout: (ordenId: string, mechanicId: string) =>
-    request<WorkOrder>(`/workshop/ordenes/${ordenId}/hv-lockout`, {
+    request<WorkOrder>(`/workshop/ordenes/${ordenId}/sign-lockout`, {
       method: "POST",
       body: JSON.stringify({ mechanicId }),
     }),
@@ -345,14 +380,49 @@ export const api = {
     }),
 
   // ── Barcode / Stock (Sprint 82) ─────────────
-  lookupByBarcode: (barcode: string) =>
-    request<{ repuesto: any }>(`/inventory/repuestos/barcode/${encodeURIComponent(barcode)}`),
+  lookupByBarcode: async (barcode: string) => {
+    // There is no dedicated barcode route — reuse the list endpoint, whose
+    // `search` matches codigo / codigo_barras / descripcion (ILIKE).
+    const res = await request<{ items?: any[] }>(
+      `/inventory/repuestos?search=${encodeURIComponent(barcode)}&limit=10`,
+    );
+    const items = res.items ?? [];
+    const repuesto =
+      items.find((i) => i.codigo === barcode || i.codigoBarras === barcode) ??
+      items[0];
+    if (!repuesto) throw new Error("Producto no encontrado");
+    return { repuesto };
+  },
 
-  recordStockMovement: (data: { repuestoId: string; tipo: "ENTRADA" | "SALIDA"; cantidad: number; notas?: string }) =>
-    request<{ success: boolean }>("/inventory/stock/movement", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  recordStockMovement: async (data: {
+    repuestoId: string;
+    tipo: "ENTRADA" | "SALIDA";
+    cantidad: number;
+    notas?: string;
+  }): Promise<{ success: boolean }> => {
+    const observaciones = data.notas ? { observaciones: data.notas } : {};
+    if (data.tipo === "ENTRADA") {
+      await request(`/inventory/repuestos/${data.repuestoId}/ingreso`, {
+        method: "POST",
+        body: JSON.stringify({
+          cantidad: data.cantidad,
+          motivo: "Ajuste",
+          ...observaciones,
+        }),
+      });
+    } else {
+      await request("/inventory/repuestos/salida", {
+        method: "POST",
+        body: JSON.stringify({
+          repuestoId: data.repuestoId,
+          cantidad: data.cantidad,
+          motivo: "Ajuste",
+          ...observaciones,
+        }),
+      });
+    }
+    return { success: true };
+  },
 
   // ── Notifications (Sprint 82) ──────────────────
   listNotifications: (params?: { leido?: boolean; tipo?: string; limit?: number }) => {

@@ -239,10 +239,9 @@ export default function OrdenDetailPage() {
       }
       if (firmaRetiroData) {
         timeline.push({ fecha: ot.updatedAt, estado: "Entregado", usuario: "Sistema", descripcion: "Vehículo entregado al cliente" });
-      }
-
-      return {
+      }        return {
         ...ot,
+        assignedTo: (ot as unknown as { assignedTo?: string | null }).assignedTo ?? null,
         clienteEmail: (clientHistory as any)?.client?.email ?? null,
         clientePhone: (clientHistory as any)?.client?.phone ?? null,
         servicios: servicios ?? [],
@@ -1159,7 +1158,7 @@ function TrabajoTerceroCard({
           {adjuntos.map((a: any) => (
             <a
               key={a.path}
-              href={`/api/storage/${encodeURIComponent(a.path)}`}
+              href={`/storage/trabajo-tercero-adjuntos/${a.path}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded border bg-muted/50 px-2 py-0.5 text-[10px] hover:bg-muted transition-colors"

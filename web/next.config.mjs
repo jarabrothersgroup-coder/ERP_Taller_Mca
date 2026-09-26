@@ -49,6 +49,14 @@ const nextConfig = {
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/finance/:path*`,
       },
       {
+        source: '/analytics/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/analytics/:path*`,
+      },
+      {
+        source: '/storage/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/storage/:path*`,
+      },
+      {
         source: '/health/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/health/:path*`,
       },

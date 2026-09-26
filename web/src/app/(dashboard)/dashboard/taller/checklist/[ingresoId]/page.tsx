@@ -783,7 +783,7 @@ export default function ChecklistPage() {
             {fotos.map((foto, idx) => (
               <div key={idx} className="relative group rounded-lg border overflow-hidden">
                 <img
-                  src={`/uploads/${foto.path}`}
+                  src={`/storage/ingreso-photos/${foto.path}`}
                   alt={foto.name}
                   className="w-full h-32 object-cover"
                 />

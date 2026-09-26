@@ -81,6 +81,8 @@ export default function StockMovementsPage() {
   const [formPrecio, setFormPrecio] = React.useState<number>(0);
   const [formProveedor, setFormProveedor] = React.useState("");
   const [formNotas, setFormNotas] = React.useState("");
+  // Backend requires an enum motivo per direction (see repuestos.routes.ts)
+  const [formMotivo, setFormMotivo] = React.useState("Ajuste");
 
   // Fetch movements
   const { data: movements, isLoading } = useQuery<StockMovement[]>({
@@ -89,14 +91,15 @@ export default function StockMovementsPage() {
       const qs = new URLSearchParams();
       if (tipoFilter) qs.set("tipo", tipoFilter);
       qs.set("limit", "100");
-      return api.request<StockMovement[]>(`/inventory/stock-movements?${qs.toString()}`);
+      const res = await api.request<any>(`/inventory/stock-movements?${qs.toString()}`);
+      return res.items || (Array.isArray(res) ? res : []) as StockMovement[];
     },
   });
 
   // Fetch repuestos for select
   const { data: repuestos = [] } = useQuery<Repuesto[]>({
     queryKey: ["repuestos-lista"],
-    queryFn: () => api.request<any>("/inventory/repuestos?limit=200").then((r: any) => r.items || []),
+    queryFn: () => api.request<any>("/inventory/repuestos?limit=100").then((r: any) => r.items || []),
   });
 
   // Register movement mutation
@@ -105,6 +108,7 @@ export default function StockMovementsPage() {
       const body = {
         repuestoId: formRepuestoId,
         cantidad: formCantidad,
+        motivo: formMotivo,
         ...(formPrecio > 0 ? { precioUnitario: formPrecio } : {}),
         ...(formProveedor ? { proveedor: formProveedor } : {}),
         ...(formNotas ? { notas: formNotas } : {}),
@@ -134,6 +138,7 @@ export default function StockMovementsPage() {
     setFormPrecio(0);
     setFormProveedor("");
     setFormNotas("");
+    setFormMotivo("Ajuste");
   };
 
   const filtered = search
@@ -343,6 +348,23 @@ export default function StockMovementsPage() {
                 </FormField>
               )}
             </div>
+
+            <FormField label="Motivo" htmlFor="motivo">
+              <select
+                id="motivo"
+                value={formMotivo}
+                onChange={(e) => setFormMotivo(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                required
+              >
+                {(registerTipo === "ENTRADA"
+                  ? ["Compra", "Devolución", "Ajuste", "Transferencia", "Otro"]
+                  : ["Venta", "Uso en OT", "Ajuste", "Vencimiento", "Robo", "Otro"]
+                ).map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </FormField>
 
             {registerTipo === "ENTRADA" && (
               <FormField label="Proveedor" htmlFor="proveedor">

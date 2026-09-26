@@ -163,7 +163,7 @@ export default function InvoiceConfiguratorPage() {
 
   // Load config
   useEffect(() => {
-    fetch("/api/label-printing/config", { headers: authHeaders() })
+    fetch("/label-printing/config", { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         setConfig({
@@ -214,7 +214,7 @@ export default function InvoiceConfiguratorPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch("/api/label-printing/config", {
+      await fetch("/label-printing/config", {
         method: "PUT",
         headers: authHeaders(),
         body: JSON.stringify(config),
@@ -229,7 +229,7 @@ export default function InvoiceConfiguratorPage() {
   const handlePreview = async () => {
     setPreviewLoading(true);
     try {
-      const res = await fetch("/api/label-printing/config/preview", {
+      const res = await fetch("/label-printing/config/preview", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({ config }),

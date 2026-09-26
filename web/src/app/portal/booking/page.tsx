@@ -144,10 +144,10 @@ export default function PortalBookingPage() {
         const sessionToken = getSession();
         const clientPhone = sessionToken
           ? await api
-              .request<{ phone: string }>("/portal/profile", {
+              .request<{ phone?: string | null }>("/portal/summary", {
                 headers: { "X-Portal-Session": sessionToken },
               })
-              .then((r) => r.phone)
+              .then((r) => r.phone ?? undefined)
               .catch(() => undefined)
           : undefined;
 
