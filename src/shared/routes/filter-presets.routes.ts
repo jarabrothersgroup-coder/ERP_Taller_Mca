@@ -50,7 +50,7 @@ export async function filterPresetRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request: FastifyRequest<{ Body: CreatePresetBody }>, reply: FastifyReply) => {
       const { name, entity, filters } = request.body;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       if (!name || name.trim().length === 0) {
         throw new BadRequestError("Nombre del preset requerido");
@@ -71,7 +71,7 @@ export async function filterPresetRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: ListPresetsQuery }>(
     "/presets",
     async (request: FastifyRequest<{ Querystring: ListPresetsQuery }>, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { entity } = request.query;
       const presets = listPresets(tenantSlug, entity);
       return reply.send({ presets, total: presets.length });

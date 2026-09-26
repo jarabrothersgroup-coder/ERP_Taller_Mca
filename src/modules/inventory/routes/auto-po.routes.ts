@@ -19,7 +19,7 @@ export async function autoPORoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/inventory/auto-po/generate",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const results = await generateAutoPOs(tenantSlug);
       return reply.send({
         generated: results.length,
@@ -32,7 +32,7 @@ export async function autoPORoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/inventory/auto-po/pending",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       const pending = await db()
         .select({

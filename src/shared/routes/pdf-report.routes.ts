@@ -56,7 +56,7 @@ export async function pdfReportRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const { id } = request.params;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         // Fetch OT data (dynamic import to avoid circular deps)

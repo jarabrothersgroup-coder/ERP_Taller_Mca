@@ -87,7 +87,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const body = request.body as {
         name: string;
         scopes?: ApiScope[];
@@ -160,7 +160,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const keys = await listApiKeys(tenantSlug);
       return reply.send({ keys });
     },
@@ -180,7 +180,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params as { id: string };
 
       const key = await getApiKey(tenantSlug, id);
@@ -213,7 +213,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params as { id: string };
 
       const revoked = await revokeApiKey(tenantSlug, id);
@@ -240,7 +240,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params as { id: string };
 
       const stats = await getApiKeyUsage(tenantSlug, id);

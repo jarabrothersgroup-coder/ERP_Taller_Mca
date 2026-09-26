@@ -25,7 +25,7 @@ export async function exportRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { table: string }; Querystring: { from?: string; to?: string } }>(
     "/export/:table",
     async (request: FastifyRequest<{ Params: { table: string }; Querystring: { from?: string; to?: string } }>, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { table } = request.params;
       const { from, to } = request.query;
 

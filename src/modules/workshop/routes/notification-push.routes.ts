@@ -26,7 +26,7 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /api/notifications — List ──
   app.get(prefix, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { leido, tipo, limit, offset } = request.query as {
       leido?: string;
       tipo?: string;
@@ -46,14 +46,14 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /api/notifications/count — Unread count ──
   app.get(`${prefix}/count`, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const count = await getUnreadCount(tenantSlug);
     reply.send({ count });
   });
 
   // ── PATCH /api/notifications/:id/read — Mark read ──
   app.patch(`${prefix}/:id/read`, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
     const updated = await markAsRead(id, tenantSlug);
     if (!updated) return reply.status(404).send({ error: "Not found" });
@@ -62,21 +62,21 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /api/notifications/read-all — Mark all read ──
   app.post(`${prefix}/read-all`, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     await markAllAsRead(tenantSlug);
     reply.send({ ok: true });
   });
 
   // ── GET /api/notifications/ws/status — WS status ──
   app.get(`${prefix}/ws/status`, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const connected = getConnectionCount(tenantSlug);
     reply.send({ connected, timestamp: new Date().toISOString() });
   });
 
   // ── POST /api/notifications — Create + push ──
   app.post(prefix, async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const body = request.body as {
       tipo: string;
       titulo: string;

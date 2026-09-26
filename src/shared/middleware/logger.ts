@@ -35,7 +35,7 @@ export async function requestTimingHook(request: FastifyRequest, reply: FastifyR
   reply.raw.on("finish", () => {
     const durationNs = Number(process.hrtime.bigint() - startTime);
     const durationMs = (durationNs / 1_000_000).toFixed(1);
-    const tenantSlug = (request as any).tenantSlug || "—";
+    const tenantSlug = request.tenantSlug || "—";
     const userEmail = (request.headers["x-user-email"] as string) || "—";
     const contentLength = reply.getHeader("content-length") || 0;
     const level = reply.statusCode >= 500 ? "error" : reply.statusCode >= 400 ? "warn" : "info";
@@ -138,7 +138,7 @@ export function recordRequest(statusCode: number, tenantSlug?: string) {
  */
 export async function metricsHook(request: FastifyRequest, reply: FastifyReply) {
   reply.raw.on("finish", () => {
-    const tenantSlug = (request as any).tenantSlug;
+    const tenantSlug = request.tenantSlug;
     recordRequest(reply.statusCode, tenantSlug);
   });
 }

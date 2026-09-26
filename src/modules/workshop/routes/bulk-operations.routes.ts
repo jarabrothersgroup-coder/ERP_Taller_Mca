@@ -48,7 +48,7 @@ export async function bulkOperationsRoutes(app: FastifyInstance): Promise<void> 
     },
     async (request: FastifyRequest<{ Body: BatchStatusBody }>, reply: FastifyReply) => {
       const { ids, status } = request.body;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       if (!ids || ids.length === 0) {
         throw new BadRequestError("Se requiere al menos un ID");
@@ -98,7 +98,7 @@ export async function bulkOperationsRoutes(app: FastifyInstance): Promise<void> 
     },
     async (request: FastifyRequest<{ Body: BatchDeleteBody }>, reply: FastifyReply) => {
       const { ids } = request.body;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       if (!ids || ids.length === 0) {
         throw new BadRequestError("Se requiere al menos un ID");

@@ -60,7 +60,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/whatsapp/instance/create",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const result = await createInstance(tenantSlug);
@@ -76,7 +76,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/whatsapp/qr",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const qr = await getQRCode(tenantSlug);
@@ -92,7 +92,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/whatsapp/status",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const status = await getConnectionStatus(tenantSlug);
@@ -129,8 +129,8 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: SendMessageRequest }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
-      const userEmail = (request as any).userEmail as string || "system";
+      const tenantSlug = request.tenantSlug;
+      const userEmail = request.userEmail || "system";
       const { ordenId, estadoSolicitado, customMessage, pdfUrl } = request.body;
 
       // ── 1. Fetch order + client + vehicle data ──
@@ -308,7 +308,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: { phone: string; message: string } }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { phone, message } = request.body;
 
       try {
@@ -325,7 +325,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { ordenId?: string; page?: string; limit?: string } }>(
     "/whatsapp/log",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { ordenId, page: pageStr, limit: limitStr } = request.query;
       const page = pageStr ? parseInt(pageStr, 10) : 1;
       const limit = limitStr ? parseInt(limitStr, 10) : 20;
@@ -369,7 +369,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/whatsapp/disconnect",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         await disconnectInstance(tenantSlug);
@@ -385,7 +385,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.delete(
     "/whatsapp/instance",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         await deleteInstance(tenantSlug);
@@ -401,7 +401,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { page?: string; limit?: string } }>(
     "/whatsapp/errors",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { page: pageStr, limit: limitStr } = request.query;
       const page = pageStr ? parseInt(pageStr, 10) : 1;
       const limit = limitStr ? parseInt(limitStr, 10) : 20;
@@ -444,7 +444,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const userEmail = (request as any).userEmail as string || "system";
+      const userEmail = request.userEmail || "system";
       const { errorId } = request.params;
       const { notes } = request.body || {};
 
@@ -462,7 +462,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/whatsapp/queue/process",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const result = await processPendingMessages(tenantSlug);
@@ -478,7 +478,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/whatsapp/queue/retry",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const result = await retryFailedMessages(tenantSlug);
@@ -494,7 +494,7 @@ export async function whatsappRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/whatsapp/queue/stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const stats = await getQueueStats(tenantSlug);

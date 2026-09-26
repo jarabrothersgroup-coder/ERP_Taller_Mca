@@ -20,15 +20,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../database/drizzle.js";
 import { whiteLabelConfig } from "../database/schema/index.js";
 
-/**
- * Decorates Fastify request with tenant context.
- */
-declare module "fastify" {
-  interface FastifyRequest {
-    /** Resolved tenant slug for the current request */
-    tenantSlug: string;
-  }
-}
+// FastifyRequest.tenantSlug is declared canonically in src/types/fastify-request.d.ts
 
 const SLUG_RE = /^[a-zA-Z0-9_-]+$/;
 

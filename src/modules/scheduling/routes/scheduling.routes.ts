@@ -82,8 +82,8 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: CreateAgendamientoRequest }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
-      const userEmail = (request as any).userEmail as string || "system";
+      const tenantSlug = request.tenantSlug;
+      const userEmail = request.userEmail || "system";
 
       try {
         const result = await createAgendamiento(
@@ -123,7 +123,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/scheduling/appointments",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { page, limit, fecha, estado, search } = request.query;
 
       try {
@@ -158,7 +158,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params;
 
       try {
@@ -216,7 +216,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params;
       const { estado, ...otherFields } = request.body;
 
@@ -288,8 +288,8 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: CheckInRequest }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
-      const userEmail = (request as any).userEmail as string || "system";
+      const tenantSlug = request.tenantSlug;
+      const userEmail = request.userEmail || "system";
 
       try {
         const result = await checkIn(request.body, tenantSlug, userEmail);
@@ -324,7 +324,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: CheckAvailabilityRequest }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { fecha, hora, tipoServicio } = request.body;
 
       try {
@@ -346,7 +346,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/scheduling/cron/reminders",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const result = await executeReminderCron(tenantSlug);
@@ -389,7 +389,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { phone, message } = request.body;
 
       try {
@@ -409,7 +409,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/scheduling/stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const stats = await getSchedulingStats(tenantSlug);
@@ -449,7 +449,7 @@ export async function schedulingRoutes(app: FastifyInstance): Promise<void> {
       }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { date, tipoServicio, clientePhone } = request.query;
 
       try {

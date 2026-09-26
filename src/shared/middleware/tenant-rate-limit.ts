@@ -86,9 +86,9 @@ export function tenantRateLimit(config?: Partial<RateLimitConfig>) {
     }
 
     // Get tenant and client identifiers
-    const tenantSlug = (request as any).tenantSlug || "anonymous";
+    const tenantSlug = request.tenantSlug || "anonymous";
     const clientIp = request.ip || (request.headers["x-forwarded-for"] as string) || "unknown";
-    const apiKeyId = (request as any).apiKeyId;
+    const apiKeyId = request.apiKeyId;
 
     // Build rate limit key (tenant + IP or API key)
     const rateLimitKey = apiKeyId

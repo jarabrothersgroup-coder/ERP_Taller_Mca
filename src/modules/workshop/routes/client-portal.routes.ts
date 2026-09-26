@@ -39,7 +39,7 @@ export async function clientPortalRoutes(app: FastifyInstance): Promise<void> {
     "/portal/client/:clientId/summary",
     async (request: FastifyRequest<{ Params: ClientParams }>, reply: FastifyReply) => {
       const { clientId } = request.params;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       // Get client info
       const [client] = await db()
@@ -116,7 +116,7 @@ export async function clientPortalRoutes(app: FastifyInstance): Promise<void> {
     "/portal/client/:clientId/vehicles",
     async (request: FastifyRequest<{ Params: ClientParams }>, reply: FastifyReply) => {
       const { clientId } = request.params;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       const vehicles = await db()
         .select({
@@ -170,7 +170,7 @@ export async function clientPortalRoutes(app: FastifyInstance): Promise<void> {
     "/portal/client/:clientId/invoices",
     async (request: FastifyRequest<{ Params: ClientParams }>, reply: FastifyReply) => {
       const { clientId } = request.params;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       // Get client's work order IDs first
       const clientOrdenes = await db()

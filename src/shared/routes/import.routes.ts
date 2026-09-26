@@ -162,7 +162,7 @@ export async function importRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Params: { table: string }; Body: { csv: string } }>, reply: FastifyReply) => {
       const { table } = request.params;
       const { csv } = request.body;
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       const config = IMPORT_CONFIGS[table];
       if (!config) {

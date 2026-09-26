@@ -42,7 +42,7 @@ import {
 export async function portalRoutes(app: FastifyInstance): Promise<void> {
   // ── POST /portal/auth/magic — Generate magic link ──
   app.post("/portal/auth/magic", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { email } = request.body as { email: string };
 
     if (!email) return reply.status(400).send({ error: "email is required" });
@@ -64,7 +64,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
 
   // ── POST /portal/auth/pin — Generate PIN ──
   app.post("/portal/auth/pin", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { clientId } = request.body as { clientId: string };
 
     if (!clientId) return reply.status(400).send({ error: "clientId is required" });
@@ -75,7 +75,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
 
   // ── POST /portal/auth/pin/validate — Validate PIN ──
   app.post("/portal/auth/pin/validate", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { clientId, pin } = request.body as { clientId: string; pin: string };
 
     if (!clientId || !pin) {

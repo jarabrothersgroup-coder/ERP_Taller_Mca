@@ -33,7 +33,7 @@ export async function notificationSseRoutes(app: FastifyInstance): Promise<void>
    */
   app.get(`${prefix}/stream`, async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantSlug = (request.query as any).tenant ||
-      (request as any).tenantSlug || "";
+      request.tenantSlug || "";
 
     if (!tenantSlug) {
       return reply.status(400).send({ error: "Missing 'tenant' query parameter" });
@@ -87,7 +87,7 @@ export async function notificationSseRoutes(app: FastifyInstance): Promise<void>
    * Returns immediately if there are pending notifications.
    */
   app.get(`${prefix}/poll`, async (request: FastifyRequest, _reply: FastifyReply) => {
-    const tenantSlug = (request as any).tenantSlug || "";
+    const tenantSlug = request.tenantSlug || "";
 
     // Return current count as a quick check
     const { getUnreadCount } = await import("../services/notification-push.service.js");

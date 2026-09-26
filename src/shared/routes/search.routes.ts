@@ -22,7 +22,7 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Querystring: { q?: string; limit?: string } }>,
       _reply: FastifyReply,
     ): Promise<SearchResponse> => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { q, limit: limitStr } = request.query;
 
       if (!q || q.trim().length === 0) {

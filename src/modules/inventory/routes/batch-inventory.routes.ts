@@ -25,7 +25,7 @@ import {
 export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> {
   // ── POST /inventory/bulk/import — CSV bulk import ──
   app.post("/inventory/bulk/import", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { rows } = request.body as { rows: Array<{
       codigo?: string;
       descripcion: string;
@@ -48,7 +48,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
 
   // ── POST /inventory/bulk/price-update — Bulk price update ──
   app.post("/inventory/bulk/price-update", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { ids, field, percentageChange } = request.body as {
       ids: string[];
       field: "precioVenta" | "precioCompra";
@@ -65,7 +65,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
 
   // ── POST /inventory/bulk/stock-adjust — Bulk stock adjustment ──
   app.post("/inventory/bulk/stock-adjust", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { adjustments } = request.body as {
       adjustments: Array<{ repuestoId: string; cantidad: number; motivo: string }>;
     };
@@ -80,14 +80,14 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
 
   // ── GET /inventory/analytics/turnover — Turnover ──
   app.get("/inventory/analytics/turnover", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const turnover = await getInventoryTurnover(tenantSlug);
     reply.send({ turnover, count: turnover.length });
   });
 
   // ── GET /inventory/analytics/dead-stock — Dead stock ──
   app.get("/inventory/analytics/dead-stock", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const deadStock = await getDeadStock(tenantSlug);
     const totalValue = deadStock.reduce((sum, d) => sum + d.valorTotal, 0);
     reply.send({ deadStock, count: deadStock.length, totalValue });
@@ -95,7 +95,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
 
   // ── GET /inventory/analytics/reorder — Reorder predictions ──
   app.get("/inventory/analytics/reorder", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const predictions = await getReorderPredictions(tenantSlug);
     const critico = predictions.filter((p) => p.urgencia === "CRITICO").length;
     reply.send({ predictions, count: predictions.length, critico });

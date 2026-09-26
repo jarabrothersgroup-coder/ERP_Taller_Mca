@@ -41,7 +41,7 @@ import { presupuestos } from "../schema/budget.js";
 export async function budgetRoutes(app: FastifyInstance): Promise<void> {
   // ─── Listar presupuestos ────────────────────────
   app.get("/finance/presupuestos", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { periodo, estado } = request.query as {
       periodo?: string;
       estado?: string;
@@ -56,7 +56,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Crear presupuesto ──────────────────────────
   app.post("/finance/presupuestos", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const body = request.body as { periodo: string; descripcion?: string };
 
     const presupuesto = await createPresupuesto(tenantSlug, body);
@@ -65,7 +65,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Obtener presupuesto + ítems ────────────────
   app.get("/finance/presupuestos/:id", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
 
     const result = await getPresupuesto(id, tenantSlug);
@@ -74,7 +74,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Actualizar presupuesto ─────────────────────
   app.put("/finance/presupuestos/:id", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
     const body = request.body as {
       descripcion?: string;
@@ -87,7 +87,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Eliminar presupuesto ───────────────────────
   app.delete("/finance/presupuestos/:id", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
 
     await deletePresupuesto(id, tenantSlug);
@@ -96,7 +96,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Agregar ítem ───────────────────────────────
   app.post("/finance/presupuestos/:id/items", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
     const body = request.body as {
       centroCostoId: string;
@@ -111,7 +111,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Actualizar ítem ────────────────────────────
   app.put("/finance/presupuestos/items/:itemId", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { itemId } = request.params as { itemId: string };
     const body = request.body as {
       montoPresupuestado?: number;
@@ -124,7 +124,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Eliminar ítem ──────────────────────────────
   app.delete("/finance/presupuestos/items/:itemId", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { itemId } = request.params as { itemId: string };
 
     await deletePresupuestoItem(itemId, tenantSlug);
@@ -133,7 +133,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Comparativa real vs presupuestado ──────────
   app.get("/finance/presupuestos/:id/comparativa", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
 
     const comparativa = await getComparativa(id, tenantSlug);
@@ -142,7 +142,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Recalcular montos reales ───────────────────
   app.post("/finance/presupuestos/:id/refresh", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
 
     await refreshMontoReal(id, tenantSlug);
@@ -151,7 +151,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
 
   // ─── Todas las alertas de desvío ────────────────
   app.get("/finance/presupuestos/alertas", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
 
     const alertas = await getAllAlertas(tenantSlug);
     return reply.send(alertas);
@@ -177,7 +177,7 @@ export async function budgetRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { id } = request.params as { id: string };
       const { accion, metodoAprobacion } = request.body as { accion?: string; metodoAprobacion?: string };
 

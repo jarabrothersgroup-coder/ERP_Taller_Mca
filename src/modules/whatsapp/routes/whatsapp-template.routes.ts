@@ -36,7 +36,7 @@ import {
 export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /whatsapp/templates — List templates ──
   app.get("/whatsapp/templates", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const templates = await listTemplates(tenantSlug);
     reply.send(templates);
   });
@@ -48,7 +48,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /whatsapp/templates/:key — Get template ──
   app.get("/whatsapp/templates/:key", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { key } = request.params as { key: string };
     const template = await getTemplate(tenantSlug, key);
     if (!template) return reply.status(404).send({ error: "Template not found" });
@@ -57,7 +57,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /whatsapp/templates — Create/update ──
   app.post("/whatsapp/templates", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const body = request.body as {
       key: string;
       name: string;
@@ -78,7 +78,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── DELETE /whatsapp/templates/:key — Delete ──
   app.delete("/whatsapp/templates/:key", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { key } = request.params as { key: string };
     await deleteTemplate(tenantSlug, key);
     reply.send({ success: true });
@@ -101,14 +101,14 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /whatsapp/templates/seed — Seed defaults ──
   app.post("/whatsapp/templates/seed", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const seeded = await seedDefaultTemplates(tenantSlug);
     reply.send({ seeded, message: `${seeded} templates created` });
   });
 
   // ── POST /whatsapp/followups — Schedule follow-up ──
   app.post("/whatsapp/followups", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const body = request.body as {
       templateKey: string;
       ordenId?: string;
@@ -134,7 +134,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── POST /whatsapp/followups/auto — Schedule auto-follow-up ──
   app.post("/whatsapp/followups/auto", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const body = request.body as {
       triggerEvent: string;
       ordenId: string;
@@ -152,7 +152,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /whatsapp/followups — List follow-ups ──
   app.get("/whatsapp/followups", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { status, ordenId, limit } = request.query as {
       status?: string;
       ordenId?: string;
@@ -170,14 +170,14 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
 
   // ── GET /whatsapp/followups/stats — Stats ──
   app.get("/whatsapp/followups/stats", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const stats = await getFollowupStats(tenantSlug);
     reply.send(stats);
   });
 
   // ── POST /whatsapp/followups/:id/cancel — Cancel ──
   app.post("/whatsapp/followups/:id/cancel", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
     await cancelFollowup(id, tenantSlug);
     reply.send({ success: true });

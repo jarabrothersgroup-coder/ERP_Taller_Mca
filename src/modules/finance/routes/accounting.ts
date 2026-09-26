@@ -442,7 +442,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const { anho, mes, usarSaldosAcumulados } = request.body;
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       if (usarSaldosAcumulados && tenantSlug) {
         const result = await generarAperturaConSaldos(anho, mes, tenantSlug);
         return reply.status(201).send(result);
@@ -500,7 +500,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await generarDevengamientoIngresos(tenantSlug, anho, mes);
       return reply.send(result);
@@ -610,7 +610,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await runMonthlyDepreciation(tenantSlug, anho, mes);
       return reply.send(result);
@@ -639,7 +639,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await createFixedAsset(tenantSlug, request.body);
       return reply.status(201).send(result);
     },
@@ -649,7 +649,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/finance/contabilidad/depreciacion/activos",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await listFixedAssets(tenantSlug);
       return reply.send(result);
     },
@@ -659,7 +659,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>(
     "/finance/contabilidad/depreciacion/activos/:id",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await getFixedAsset(request.params.id, tenantSlug);
       if (!result) return reply.status(404).send({ error: "Activo fijo no encontrado" });
       return reply.send(result);
@@ -682,7 +682,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await centralizeSales(tenantSlug, anho, mes);
       return reply.send(result);
@@ -705,7 +705,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await centralizePurchases(tenantSlug, anho, mes);
       return reply.send(result);
@@ -728,7 +728,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await runMonthEndCentralization(tenantSlug, anho, mes);
       return reply.send(result);
@@ -760,7 +760,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await setExchangeRate(tenantSlug, request.body);
       return reply.status(201).send(result);
     },
@@ -770,7 +770,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { moneda?: string } }>(
     "/finance/contabilidad/tipos-cambio/actual",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const rate = await getLatestRate(tenantSlug, request.query.moneda ?? "USD");
       return reply.send(rate);
     },
@@ -780,7 +780,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { fecha: string }; Querystring: { moneda?: string } }>(
     "/finance/contabilidad/tipos-cambio/:fecha",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const rate = await getRateAtDate(tenantSlug, request.query.moneda ?? "USD", new Date(request.params.fecha));
       return reply.send(rate);
     },
@@ -790,7 +790,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: { moneda?: string; limit?: string } }>(
     "/finance/contabilidad/tipos-cambio",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await listExchangeRates(
         tenantSlug,
         request.query.moneda,
@@ -816,7 +816,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { anho, mes } = request.body;
       const result = await generateFxAdjustment(tenantSlug, anho, mes);
       return reply.send(result);
@@ -841,7 +841,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await revaluarActivo(tenantSlug, request.body);
       return reply.send(result);
     },
@@ -884,7 +884,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const result = await constituirReservaLegal(tenantSlug, request.body);
       return reply.send(result);
     },
@@ -937,7 +937,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { anho: string; mes: string } }>(
     "/finance/contabilidad/libro-inventario/:anho/:mes",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const anho = parseInt(request.params.anho, 10);
       const mes = parseInt(request.params.mes, 10);
       const result = await generarLibroInventario(anho, mes, tenantSlug);
@@ -956,7 +956,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/finance/rg90/ventas/:anho/:mes",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const anho = parseInt(request.params.anho, 10);
       const mes = parseInt(request.params.mes, 10);
       const formato = (request.query.formato?.toUpperCase() ?? "JSON") as "JSON" | "TXT" | "CSV";
@@ -972,7 +972,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/finance/rg90/compras/:anho/:mes",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const anho = parseInt(request.params.anho, 10);
       const mes = parseInt(request.params.mes, 10);
       const formato = (request.query.formato?.toUpperCase() ?? "JSON") as "JSON" | "TXT" | "CSV";
@@ -988,7 +988,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   }>(
     "/finance/rg90/retenciones/:anho/:mes",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const anho = parseInt(request.params.anho, 10);
       const mes = parseInt(request.params.mes, 10);
       const formato = (request.query.formato?.toUpperCase() ?? "JSON") as "JSON" | "TXT" | "CSV";
@@ -1578,7 +1578,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   } }>(
     "/finance/contabilidad/validar",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { modulo, tipoEvento, subTipo, monto, centroCostoId, centrosCostoRequeridos } = request.body;
 
       const result = await validarPreTransaccion({
@@ -1609,7 +1609,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   } }>(
     "/finance/contabilidad/nota-credito-debito",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const { facturaOriginalId, tipo, motivo, monto, reversalAsientoId } = request.body;
 
       if (!facturaOriginalId || !tipo || !motivo) {
@@ -1661,7 +1661,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       if (!tenantSlug) {
         return reply.status(400).send({ error: "X-Tenant-Slug header requerido" });
       }
@@ -1678,7 +1678,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/finance/contabilidad/grupos",
     async (request, reply) => {
-      const tenantSlug = (request as any).tenantSlug;
+      const tenantSlug = request.tenantSlug;
       const groups = await listTenantGroups(tenantSlug);
       return reply.send(groups);
     },

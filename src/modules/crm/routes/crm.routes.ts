@@ -43,8 +43,8 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Params: { ordenId: string } }>,
       reply: FastifyReply,
     ) => {
-      const tenantSlug = (request as any).tenantSlug as string;
-      const userEmail = (request as any).userEmail as string || "system";
+      const tenantSlug = request.tenantSlug;
+      const userEmail = request.userEmail || "system";
       const { ordenId } = request.params;
 
       try {
@@ -98,7 +98,7 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const stats = await getSyncStats(tenantSlug);
@@ -114,7 +114,7 @@ export async function crmRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/retry",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
 
       try {
         const result = await retryFailedSyncs(tenantSlug);

@@ -75,7 +75,7 @@ export async function auditExportRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Querystring: AuditExportQuery }>(
     "/export/audit-log",
     async (request: FastifyRequest<{ Querystring: AuditExportQuery }>, reply: FastifyReply) => {
-      const tenantSlug = (request as any).tenantSlug as string;
+      const tenantSlug = request.tenantSlug;
       const { from, to, entidad, accion, limit } = request.query;
 
       const filter: any = {

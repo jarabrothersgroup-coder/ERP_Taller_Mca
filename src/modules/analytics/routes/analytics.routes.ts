@@ -40,7 +40,7 @@ function getDefaultRange() {
 export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /analytics/kpis — All KPIs ──
   app.get("/analytics/kpis", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
 
@@ -56,7 +56,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/kpis/revenue ──
   app.get("/analytics/kpis/revenue", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getRevenueKPI(tenantSlug, range);
@@ -65,7 +65,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/kpis/ots ──
   app.get("/analytics/kpis/ots", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getOTCountKPI(tenantSlug, range);
@@ -74,7 +74,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/kpis/avg-value ──
   app.get("/analytics/kpis/avg-value", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getAvgOrderValueKPI(tenantSlug, range);
@@ -83,7 +83,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/kpis/completion ──
   app.get("/analytics/kpis/completion", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getCompletionRateKPI(tenantSlug, range);
@@ -92,7 +92,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/trends/revenue ──
   app.get("/analytics/trends/revenue", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const trend = await getDailyRevenueTrend(tenantSlug, range);
@@ -101,7 +101,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/trends/ots ──
   app.get("/analytics/trends/ots", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const trend = await getDailyOTTrend(tenantSlug, range);
@@ -110,7 +110,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/distribution — Status distribution ──
   app.get("/analytics/distribution", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const distribution = await getOTStatusDistribution(tenantSlug, range);
@@ -119,7 +119,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── GET /analytics/mechanics — Top mechanics ──
   app.get("/analytics/mechanics", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const { from, to, limit } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const mechanics = await getTopMechanics(tenantSlug, range, limit ? parseInt(limit) : 5);
@@ -128,7 +128,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── POST /analytics/report — Custom report ──
   app.post("/analytics/report", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const config = request.body as {
       type: string;
       from: string;
@@ -153,7 +153,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
   // ── POST /analytics/report/csv — Export CSV ──
   app.post("/analytics/report/csv", async (request, reply) => {
-    const tenantSlug = (request as any).tenantSlug as string;
+    const tenantSlug = request.tenantSlug;
     const config = request.body as {
       type: string;
       from: string;
