@@ -43,11 +43,14 @@ import type {
  * Creates a new spare part (repuesto) in inventory.
  *
  * @param data - The spare part payload
+ * @param tenantSlug - Owning tenant (T-21d/INV-05: stamped on insert so the
+ *                     row never falls back to the column default)
  * @returns The created repuesto record
  * @throws {ConflictError} If the codigo or codigo_barras already exists
  */
 export async function createRepuesto(
   data: CreateRepuestoRequest,
+  tenantSlug: string,
 ): Promise<StockMovimientoResponse["repuesto"]> {
   // ── 1. Validate uniqueness of codigo and codigo_barras ──
   const conditions: ReturnType<typeof eq>[] = [
@@ -86,6 +89,7 @@ export async function createRepuesto(
       categoria: data.categoria ?? null,
       precioCosto: costoInicial,
       costoPromedio: costoInicial, // Initial PPP = purchase cost
+      tenantSlug,
       precioVenta: data.precioVenta
         ? String(data.precioVenta)
         : null,
@@ -116,14 +120,16 @@ export async function createRepuesto(
  * Retrieves a single spare part by ID.
  *
  * @param id - Repuesto UUID
+ * @param tenantSlug - Owning tenant (T-21d/INV-05: lookup is tenant-scoped —
+ *                     a foreign id yields NotFoundError, never the row)
  * @returns The repuesto record
  * @throws {NotFoundError} If the repuesto is not found
  */
-export async function getRepuestoById(id: string) {
+export async function getRepuestoById(id: string, tenantSlug: string) {
   const [repuesto] = await db()
     .select()
     .from(repuestos)
-    .where(eq(repuestos.id, id))
+    .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
     .limit(1);
 
   if (!repuesto) {
@@ -150,12 +156,16 @@ export async function listRepuestos(options: {
   activo?: boolean;
   page?: number;
   limit?: number;
+  tenantSlug: string;
 }) {
-  const { search, categoria, activo, page = 1, limit = 20 } = options;
+  const { search, categoria, activo, page = 1, limit = 20, tenantSlug } = options;
   const offset = (page - 1) * limit;
 
   // ── Build WHERE clause dynamically ──
   const conditions: ReturnType<typeof eq>[] = [];
+
+  // T-21d/INV-05: always tenant-scoped — the list never cross-tenant leaks
+  conditions.push(eq(repuestos.tenantSlug, tenantSlug));
 
   if (search) {
     const pattern = `%${search}%`;
@@ -211,9 +221,10 @@ export async function listRepuestos(options: {
 export async function updateRepuesto(
   id: string,
   data: UpdateRepuestoRequest,
+  tenantSlug: string,
 ) {
-  // ── 1. Verify existence ──
-  const existing = await getRepuestoById(id);
+  // ── 1. Verify existence (tenant-scoped — T-21d/INV-05) ──
+  const existing = await getRepuestoById(id, tenantSlug);
 
   // ── 2. Check uniqueness if codigo or codigo_barras changed ──
   if (data.codigo && data.codigo !== existing.codigo) {
@@ -307,7 +318,7 @@ export async function updateRepuesto(
   const [updated] = await db()
     .update(repuestos)
     .set(updatePayload)
-    .where(eq(repuestos.id, id))
+    .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
     .returning();
 
   return updated;
@@ -352,6 +363,7 @@ export async function salidaStock(
     .where(
       and(
         eq(repuestos.id, repuestoId),
+        eq(repuestos.tenantSlug, tenantSlug), // T-21d/INV-05: tenant-scoped
         sql`${repuestos.stockActual} >= ${cantidad}`,  // Atomic guard: fail if insufficient
       ),
     )
@@ -359,7 +371,7 @@ export async function salidaStock(
 
   if (!updated) {
     // Either repuesto not found OR stock insufficient — check which
-    const repuesto = await getRepuestoById(repuestoId);
+    const repuesto = await getRepuestoById(repuestoId, tenantSlug);
     throw new ValidationError(
       `Stock insuficiente. Actual: ${repuesto.stockActual}, solicitado: ${cantidad}`,
     );
@@ -487,8 +499,8 @@ export async function ingresoStock(
     throw new ValidationError("La cantidad debe ser mayor a cero");
   }
 
-  // ── 2. Fetch repuesto and check max stock ──
-  const repuesto = await getRepuestoById(id);
+  // ── 2. Fetch repuesto (tenant-scoped) and check max stock ──
+  const repuesto = await getRepuestoById(id, tenantSlug);
   const stockAnterior = repuesto.stockActual;
 
   if (repuesto.stockMaximo !== null) {
@@ -515,7 +527,7 @@ export async function ingresoStock(
     const [updated] = await db()
       .select()
       .from(repuestos)
-      .where(eq(repuestos.id, id))
+      .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
       .limit(1);
 
     if (!updated) throw new NotFoundError(`Repuesto ${id} no encontrado`);
@@ -584,7 +596,7 @@ export async function ingresoStock(
       stockActual: sql`${repuestos.stockActual} + ${cantidad}`,
       updatedAt: sql`NOW()`,
     })
-    .where(eq(repuestos.id, id))
+    .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
     .returning();
 
   // Persist movement
@@ -635,6 +647,7 @@ export async function listStockMovements(options: {
   ordenTrabajoId?: string;
   page?: number;
   limit?: number;
+  tenantSlug: string;
 }) {
   const {
     repuestoId,
@@ -642,10 +655,14 @@ export async function listStockMovements(options: {
     ordenTrabajoId,
     page = 1,
     limit = 50,
+    tenantSlug,
   } = options;
   const offset = (page - 1) * limit;
 
   const conditions: ReturnType<typeof eq>[] = [];
+
+  // T-21d: movements are tenant-scoped — history never leaks cross-tenant
+  conditions.push(eq(stockMovements.tenantSlug, tenantSlug));
 
   if (repuestoId) {
     conditions.push(eq(stockMovements.repuestoId, repuestoId));

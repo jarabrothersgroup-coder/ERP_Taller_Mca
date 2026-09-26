@@ -28,7 +28,9 @@ interface EnvConfig {
    *  sets `app.current_tenant` session-scoped on it (overwritten every request
    *  and reset before release). This closes the pooled-connection RLS leak
    *  where a session-scoped setting on the shared singleton could carry a
-   *  previous tenant into a later request. Off by default. */
+   *  previous tenant into a later request. On by default — set to "false"
+   *  only if you deliberately accept app-filtered isolation (RLS then fails
+   *  closed to zero rows; see shared/middleware/rls.ts). */
   ENABLE_REQUEST_TENANT_CONTEXT: boolean;
   /** Prefix for tenant PostgreSQL schemas */
   TENANT_SCHEMA_PREFIX: string;
@@ -140,7 +142,7 @@ export const env: EnvConfig = {
   PORT: parseInt(process.env["PORT"] ?? "3000", 10),
   HOST: process.env["HOST"] ?? "0.0.0.0",
   NODE_ENV: (process.env["NODE_ENV"] as EnvConfig["NODE_ENV"]) ?? "development",
-  ENABLE_REQUEST_TENANT_CONTEXT: process.env["ENABLE_REQUEST_TENANT_CONTEXT"] === "true",
+  ENABLE_REQUEST_TENANT_CONTEXT: process.env["ENABLE_REQUEST_TENANT_CONTEXT"] !== "false",
   TENANT_SCHEMA_PREFIX: process.env["TENANT_SCHEMA_PREFIX"] ?? "tenant_",
   SYNC_INTERVAL_MS: parseInt(process.env["SYNC_INTERVAL_MS"] ?? "30000", 10),
   LOG_LEVEL: process.env["LOG_LEVEL"] ?? "info",

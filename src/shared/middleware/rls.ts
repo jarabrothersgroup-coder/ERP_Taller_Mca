@@ -1,8 +1,22 @@
 /**
  * Row Level Security (RLS) Middleware — PostgreSQL tenant context enforcement.
  *
- * Sets the PostgreSQL session variable `app.current_tenant` on every request
- * so that RLS policies can enforce tenant isolation at the database level.
+ * Delegates `app.current_tenant` to the per-request transaction-context
+ * middleware (transaction-context.ts) when ENABLE_REQUEST_TENANT_CONTEXT is
+ * on (the default). When it is explicitly off, this hook sets NOTHING:
+ *
+ * T-21d / SEG-02 FIX — this hook used to run a session-scoped
+ * `set_config('app.current_tenant', ..., false)` on the SHARED singleton
+ * pool, so a pooled connection that served tenant A could carry A's context
+ * into a later request (the pooled-connection leak). The per-request reserved
+ * connection is the only sanctioned way to set the context; the shared pool
+ * is never mutated here.
+ *
+ * With the context off, RLS policies see `current_setting(...)` = NULL and
+ * (FORCE ROW LEVEL SECURITY, fail-closed) hide all rows, while tenant
+ * isolation relies on application-level `tenant_slug` filtering —
+ * audited by scripts/audit-tenant-filters.mjs and
+ * tests/tenant-filter-audit.test.ts.
  *
  * This is a defense-in-depth layer on top of application-level tenant_slug filtering.
  * Even if a service accidentally omits the tenant_slug filter, RLS will block
@@ -14,24 +28,19 @@
  */
 
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { getDb } from "../database/connection.js";
 import { env } from "../../config/env.js";
 
 /**
- * Fastify onRequest hook that sets the PostgreSQL tenant context.
+ * Fastify preHandler hook that defers tenant-context enforcement.
  *
  * Must run AFTER resolveTenant (needs `request.tenantSlug`).
  *
- * Uses `SET LOCAL` to set `app.current_tenant` within the current transaction.
- * Since each Fastify request gets its own connection from the pool, the setting
- * is scoped to that request's transaction and does not leak to other requests.
- *
- * For connection pooling with `SET LOCAL`:
- *   - The `postgres` library uses transactions per request by default
- *   - `SET LOCAL` is transaction-scoped, so it auto-resets on connection release
- *   - This is safe for serverless PostgreSQL (Neon/Supabase)
+ * - ENABLE_REQUEST_TENANT_CONTEXT on (default): no-op — transaction-context.ts
+ *   sets `app.current_tenant` on a per-request reserved connection.
+ * - Explicitly off: warn once and set nothing (never mutate the shared pool).
  *
  * @see 0019_rls_security.sql for the RLS policies that consume this setting
+ * @see transaction-context.ts for the sanctioned context mechanism
  */
 export async function rlsTenantContext(
   request: FastifyRequest,
@@ -53,28 +62,24 @@ export async function rlsTenantContext(
   // defer to it.
   if (env.ENABLE_REQUEST_TENANT_CONTEXT) return;
 
-  try {
-    const sql = getDb();
-    // SET LOCAL is transaction-scoped — safe for connection pooling
-    // The app.current_tenant setting is consumed by RLS policies
-    // ALTO-02 FIX: Use parameterized query instead of sql.unsafe()
-    const safeSlug = tenantSlug.replace(/[^a-zA-Z0-9_-]/g, "");
-    // NOTE: session-scoped (false) so the setting survives on the acquired
-    // connection for the request's subsequent queries. Every request overwrites
-    // this at start, so stale values from a previous request are cleared.
-    // For strict per-request isolation under connection pooling, wrap request
-    // DB work in sql.begin() (see docs/RUNBOOK_ONPREM.md — "Seguridad multi-tenant").
-    await sql`SELECT set_config('app.current_tenant', ${safeSlug}, false)`;
-  } catch (err) {
-    // C-01 FIX: If SET LOCAL fails, BLOCK the request (fail-closed)
-    // Previously this was a silent warn — allowing RLS bypass via NULL
-    console.error(
-      `[RLS] CRITICAL: Failed to set tenant context for ${tenantSlug} — BLOCKING request`,
-      err instanceof Error ? err.message : err,
-    );
-    // Throw to prevent request from proceeding without tenant context
-    throw new Error("Tenant context setup failed — request blocked for security");
-  }
+  // T-21d / SEG-02 FIX: the flag is explicitly off. Do NOT fall back to a
+  // session-scoped set_config on the shared pool — that is the leak this
+  // hook existed to warn about. RLS stays fail-closed (NULL context hides
+  // rows under FORCE ROW LEVEL SECURITY) and tenant isolation relies on
+  // app-level filters, which the tenant-filter audit enforces.
+  warnContextDisabledOnce();
+}
+
+let contextDisabledWarned = false;
+
+function warnContextDisabledOnce(): void {
+  if (contextDisabledWarned) return;
+  contextDisabledWarned = true;
+  console.warn(
+    "[RLS] ENABLE_REQUEST_TENANT_CONTEXT is off: app.current_tenant is NOT set " +
+      "(RLS policies fail closed to zero rows). Tenant isolation relies on " +
+      "app-level tenant_slug filters — see scripts/audit-tenant-filters.mjs.",
+  );
 }
 
 /**

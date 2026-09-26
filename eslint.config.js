@@ -29,6 +29,16 @@ export default tseslint.config(
     },
   },
   {
+    // Node.js CLI scripts (operan sobre el repo, imprimen reportes)
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     // Legacy vanilla-JS frontend served from src/shared/public
     // Global-scope app: todos los scripts comparten globals (api, fmt, render*)
     // via <script defer> — no-undef da falsos positivos entre archivos.

@@ -149,7 +149,7 @@ export async function repuestosRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: CreateBody }>,
       reply: FastifyReply,
     ) => {
-      const result = await createRepuesto(request.body);
+      const result = await createRepuesto(request.body, request.tenantSlug);
       return reply.status(201).send(result);
     },
   );
@@ -194,6 +194,7 @@ export async function repuestosRoutes(app: FastifyInstance): Promise<void> {
         activo: activo !== undefined ? activo === "true" : undefined,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 20,
+        tenantSlug: request.tenantSlug,
       });
       return reply.send(result);
     },
@@ -244,7 +245,7 @@ export async function repuestosRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Params: IdParams }>,
       reply: FastifyReply,
     ) => {
-      const result = await getRepuestoById(request.params.id);
+      const result = await getRepuestoById(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );
@@ -287,7 +288,7 @@ export async function repuestosRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Params: IdParams; Body: UpdateBody }>,
       reply: FastifyReply,
     ) => {
-      const result = await updateRepuesto(request.params.id, request.body);
+      const result = await updateRepuesto(request.params.id, request.body, request.tenantSlug);
       return reply.send(result);
     },
   );

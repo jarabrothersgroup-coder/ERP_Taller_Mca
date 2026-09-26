@@ -76,6 +76,7 @@ export async function stockMovementsRoutes(
         ordenTrabajoId,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 50,
+        tenantSlug: request.tenantSlug,
       });
       return reply.send(result);
     },
