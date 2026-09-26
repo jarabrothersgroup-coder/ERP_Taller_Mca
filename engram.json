@@ -48,39 +48,101 @@
       "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
       "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
       "verified_on": "2026-09-26",
-      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1835/1835 · web 111/111",
+      "baseline": "tsc root+web PASS · eslint 0 err/824 warn · drizzle-kit check OK · backend 1843 (1839 PASS / 4 skip) incl. 8 tests de contrato T-00 · web 111/111",
       "phases": {
         "fase_0_contrato": {
-          "status": "PENDIENTE",
-          "pending": ["T-00 test de contrato FE↔BE en CI", "T-01 config única de rewrites (matar next.config.mjs raíz, alinear vercel.json, quitar CORS *)"]
+          "status": "COMPLETADO",
+          "pending": [
+            "Seguimiento deploy Vercel (fuera de alcance de T-01): vercel.json declara outputDirectory .next e installCommand npm install de la raíz, pero la app construye en web/ y no instala web/package.json — validar que el deploy exista antes de depender de los rewrites de web/next.config.mjs"
+          ],
+          "done": [
+            "T-00 tests/contract/fe-be-contract.test.ts (5 asserts) + scripts/dump-routes.ts: 343 llamadas FE verificadas contra las rutas reales de Fastify (path, método, cubiertas por rewrite, sin prefijo duplicado) — corre en CI con el resto del suite",
+            "T-01 next.config.mjs raíz eliminado; vercel.json sin rewrites propios ni Access-Control-Allow-Origin * (SEG-05); web/next.config.mjs es la única fuente (26 rewrites, BACKEND_HOST/PORT vía env) — guardado por tests/contract/single-rewrite-config.test.ts"
+          ],
+          "found_and_fixed": [
+            "CRM: dealsRoutes se registraba con prefix /crm y declaraba /crm/* → /crm/crm/* (pipeline 404)",
+            "Scheduling: schedulingRoutes con prefix /scheduling → /scheduling/scheduling/* (citas 404)",
+            "Billing: billingRoutes con prefix /billing → /billing/billing/* (checkout/portal 404); /webhook relativo ahora es /billing/webhook absoluto",
+            "Enterprise: enterprise.routes.ts (GET/PUT /enterprise/sso|white-label|data-retention) estaba exportado y nunca registrado → ahora en enterprise/plugin.ts",
+            "web/api.ts: borrados getWhatsAppStats (/whatsapp/stats no existe) y deleteInventoryItem (DELETE /inventory/repuestos/:id no existe; ambos sin consumidores)",
+            "SPA legacy budget.js: /finance/accounting/cost-centers → /finance/contabilidad/centros-costo/arbol"
+          ]
         },
         "fase_1_reconexion": {
           "status": "COMPLETADO_EN_CODIGO",
-          "done": ["T-11 citas→scheduling/appointments", "T-12 SSE→/api/notifications/stream", "T-13 rewrite /analytics", "T-14 stock→repuestos/:id/ingreso + /salida", "T-15 tool-loans/:id/return", "T-16 payroll /api/v1", "T-17 cuentas→contabilidad", "T-18 label-printing ×6", "T-19 fotos→/storage/:bucket/*", "T-20 mobile sign-lockout + rutas movil", "T-21 portal →/portal/summary"],
-          "pending": ["E2E con asserts de datos para los 12 flujos (criterio de éxito sin cubrir)"]
+          "done": [
+            "T-11 citas→scheduling/appointments",
+            "T-12 SSE→/api/notifications/stream",
+            "T-13 rewrite /analytics",
+            "T-14 stock→repuestos/:id/ingreso + /salida",
+            "T-15 tool-loans/:id/return",
+            "T-16 payroll /api/v1",
+            "T-17 cuentas→contabilidad",
+            "T-18 label-printing ×6",
+            "T-19 fotos→/storage/:bucket/*",
+            "T-20 mobile sign-lockout + rutas movil",
+            "T-21 portal →/portal/summary"
+          ],
+          "pending": [
+            "E2E con asserts de datos para los 12 flujos (criterio de éxito sin cubrir)"
+          ]
         },
         "fase_2_seguridad": {
-          "status": "1/5",
-          "done": ["T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción"],
-          "pending": ["T-21b SEG-03 backup/restore/purge sin requireAdmin ni validación TOTP real", "T-21c SEG-04 requireManager con 0 usos; destructivos sin rol", "T-21d SEG-02 rls.ts set_config(...,false) session-scoped, ENABLE_REQUEST_TENANT_CONTEXT default false, INV-05 lookups sin tenant confirmados", "T-21e SEG-05 vercel.json Access-Control-Allow-Origin *"]
+          "status": "1/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
+          "done": [
+            "T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción"
+          ],
+          "pending": [
+            "T-21b SEG-03 backup/restore/purge sin requireAdmin ni validación TOTP real",
+            "T-21c SEG-04 requireManager con 0 usos; destructivos sin rol",
+            "T-21d SEG-02 rls.ts set_config(...,false) session-scoped, ENABLE_REQUEST_TENANT_CONTEXT default false, INV-05 lookups sin tenant confirmados"
+          ]
         },
         "fase_3_integridad": {
           "status": "0/4",
-          "pending": ["T-31 updateOrdenStatus sin transacción (try/catch + console.error en orden.service.ts:434-457)", "T-32 salidaStock/ingresoStock sin transaction", "T-33 auditoría de clientes/vehículos/stock + historial OT dentro de transacción", "T-34 deleteClient sin guarda de OT/facturas (cascada)"]
+          "pending": [
+            "T-31 updateOrdenStatus sin transacción (try/catch + console.error en orden.service.ts:434-457)",
+            "T-32 salidaStock/ingresoStock sin transaction",
+            "T-33 auditoría de clientes/vehículos/stock + historial OT dentro de transacción",
+            "T-34 deleteClient sin guarda de OT/facturas (cascada)"
+          ]
         },
         "fase_4_crud": {
           "status": "2/7",
-          "done": ["T-41 PATCH /workshop/proveedores/:id", "PATCH /inventory/almacenes/:id", "desasignación OT vía setAssignedTo(null)"],
-          "pending": ["T-42 DELETE mecánicos/campañas/flotas/DVI", "T-43 ficha de próximos mantenimientos (no existe tabla mantenimientos_programados)", "T-44 CRUD manual de Órdenes de Compra", "T-45 anulación de factura manual + CRUD staff/payroll-summary", "T-46 escritura de fidelización + respuesta de reseñas", "T-47 inventario/estado de los 316 endpoints sin consumidor"]
+          "done": [
+            "T-41 PATCH /workshop/proveedores/:id",
+            "PATCH /inventory/almacenes/:id",
+            "desasignación OT vía setAssignedTo(null)"
+          ],
+          "pending": [
+            "T-42 DELETE mecánicos/campañas/flotas/DVI",
+            "T-43 ficha de próximos mantenimientos (no existe tabla mantenimientos_programados)",
+            "T-44 CRUD manual de Órdenes de Compra",
+            "T-45 anulación de factura manual + CRUD staff/payroll-summary",
+            "T-46 escritura de fidelización + respuesta de reseñas",
+            "T-47 inventario/estado de los 316 endpoints sin consumidor"
+          ]
         },
         "fase_5_ui": {
           "status": "1/5",
-          "done": ["T-52 parcial: Hub no sobreescribe una OT ya asignada"],
-          "pending": ["T-51 sidebar en cascada + badges dinámicos (WhatsApp \"3\"/\"Nuevo\" hardcodeados) + colapsado en localStorage", "T-52 eliminar auto-asignación silenciosa con catch() en hub/page.tsx:85", "T-53 manejo de error: 7/31 páginas", "T-54 componente FilterSelect", "T-55 feedback de éxito/error en mutaciones (39 toast.error)"]
+          "done": [
+            "T-52 parcial: Hub no sobreescribe una OT ya asignada"
+          ],
+          "pending": [
+            "T-51 sidebar en cascada + badges dinámicos (WhatsApp \"3\"/\"Nuevo\" hardcodeados) + colapsado en localStorage",
+            "T-52 eliminar auto-asignación silenciosa con catch() en hub/page.tsx:85",
+            "T-53 manejo de error: 7/31 páginas",
+            "T-54 componente FilterSelect",
+            "T-55 feedback de éxito/error en mutaciones (39 toast.error)"
+          ]
         },
         "fase_6_calidad": {
           "status": "0/3",
-          "pending": ["T-61 tests de comportamiento vía app.inject (12 archivos)", "T-62 E2E con asserts de datos", "T-63 contrato + chequeo de lookups sin tenant en CI"]
+          "pending": [
+            "T-61 tests de comportamiento vía app.inject (12 archivos)",
+            "T-62 E2E con asserts de datos",
+            "T-63 contrato + chequeo de lookups sin tenant en CI"
+          ]
         }
       }
     },
@@ -89,17 +151,38 @@
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
-      "services": ["postgres", "redis", "erp", "web", "grafana (profile observability)"],
-      "ports": {"web": 3100, "api": 3000, "api_alias_dev": 4000, "postgres": 5434, "redis": 6380, "grafana": 3300},
+      "services": [
+        "postgres",
+        "redis",
+        "erp",
+        "web",
+        "grafana (profile observability)"
+      ],
+      "ports": {
+        "web": 3100,
+        "api": 3000,
+        "api_alias_dev": 4000,
+        "postgres": 5434,
+        "redis": 6380,
+        "grafana": 3300
+      },
       "status": "UP",
       "health": "all healthy",
       "grafana": {
         "provisioning": "deploy/grafana/provisioning (datasource parametrizado PG_DATASOURCE_URL, dashboards planos)",
         "role": "grafana_reader (solo lectura, RLS aislada)",
-        "dashboards": ["erp-financial", "erp-monitoring"],
+        "dashboards": [
+          "erp-financial",
+          "erp-monitoring"
+        ],
         "alerts": {
           "contact_point": "webhook (ALERT_WEBHOOK_URL, default no vacío)",
-          "rules": ["PostgreSQL caído (critical)", "Backend sin actividad", "Facturas vencidas", "Saldo bancario bajo"],
+          "rules": [
+            "PostgreSQL caído (critical)",
+            "Backend sin actividad",
+            "Facturas vencidas",
+            "Saldo bancario bajo"
+          ],
           "note": "Umbrales fijos en rules.yml (Grafana no expande env vars en reglas, grafana#54984); verificadas en vivo (7 vencidas → pending)"
         },
         "admin_password": "GRAFANA_ADMIN_PASSWORD en .env (24 chars, aplicada vía API)",
@@ -226,7 +309,9 @@
           "name": "Sidebar — Hub link + Panel de Control → ejecutivo",
           "status": "COMPLETED",
           "description": "Hub de Operaciones como primer ítem del menú Principal con badge 'Nuevo', Panel de Control redirigido a /dashboard/ejecutivo",
-          "files_modified": ["web/src/components/dashboard/sidebar.tsx"]
+          "files_modified": [
+            "web/src/components/dashboard/sidebar.tsx"
+          ]
         },
         {
           "id": "S96-4",
@@ -243,7 +328,10 @@
           "name": "Deploy a PCSERVER y PC01Tmca",
           "status": "COMPLETED",
           "description": "Git push → PCSERVER git pull → PC01Tmca git pull + npm install + next build (success)",
-          "servers": ["PCSERVER (<REDACTED_IP_TAILSCALE>): git reset --hard origin/main ✅", "PC01Tmca (<REDACTED_IP_PC01Tmca>): next build success ✅"]
+          "servers": [
+            "PCSERVER (<REDACTED_IP_TAILSCALE>): git reset --hard origin/main ✅",
+            "PC01Tmca (<REDACTED_IP_PC01Tmca>): next build success ✅"
+          ]
         }
       ],
       "results": {
@@ -263,21 +351,30 @@
           "name": "Cycle count module (schema, service, routes, frontend, tests)",
           "status": "COMPLETED",
           "description": "Migration 0012 creates cycle_counts + cycle_count_items tables; service with create, complete, list, getItems, addItem; routes; frontend page at /dashboard/inventario/conteo; 17 sprint94 tests",
-          "files_created": ["src/shared/database/migrations/0012_cycle_counts.sql", "tests/sprint94.test.ts", "web/src/app/(dashboard)/dashboard/inventario/conteo/page.tsx", "web/src/types/dnd-kit.d.ts"]
+          "files_created": [
+            "src/shared/database/migrations/0012_cycle_counts.sql",
+            "tests/sprint94.test.ts",
+            "web/src/app/(dashboard)/dashboard/inventario/conteo/page.tsx",
+            "web/src/types/dnd-kit.d.ts"
+          ]
         },
         {
           "id": "S94-2",
           "name": "CRM drag-and-drop Kanban (@dnd-kit)",
           "status": "COMPLETED",
           "description": "Replaced ChevronLeft/ChevronRight navigation with DndContext + useDraggable/useDroppable + DragOverlay visual feedback",
-          "files_modified": ["web/src/app/(dashboard)/dashboard/crm/page.tsx"]
+          "files_modified": [
+            "web/src/app/(dashboard)/dashboard/crm/page.tsx"
+          ]
         },
         {
           "id": "S94-3",
           "name": "Ejecutivo dashboard recharts enhancements",
           "status": "COMPLETED",
           "description": "Added recharts dependency, enhanced ejecutivo dashboard with charts",
-          "files_modified": ["web/src/app/(dashboard)/dashboard/ejecutivo/page.tsx"]
+          "files_modified": [
+            "web/src/app/(dashboard)/dashboard/ejecutivo/page.tsx"
+          ]
         },
         {
           "id": "S94-4",
@@ -302,7 +399,12 @@
       "results": {
         "root_tests": "1757/1757 pass (79 files)",
         "web_typescript": "0 errors",
-        "npm_packages_added": ["@dnd-kit/core@6.3.1", "@dnd-kit/sortable@10.0.0", "@dnd-kit/utilities@3.2.2", "recharts"]
+        "npm_packages_added": [
+          "@dnd-kit/core@6.3.1",
+          "@dnd-kit/sortable@10.0.0",
+          "@dnd-kit/utilities@3.2.2",
+          "recharts"
+        ]
       }
     },
     "sprint_91_tier2": {
@@ -384,12 +486,42 @@
       "status": "6/6 COMPLETED",
       "completed_date": "2026-07-25",
       "gaps": [
-        { "id": "G-12", "name": "CRM pipeline visual (Kanban)", "status": "COMPLETED", "note": "crm/page.tsx 550L + backend module" },
-        { "id": "G-13", "name": "Recordatorios calendario", "status": "COMPLETED", "note": "calendario/page.tsx + reminder.cron.ts + WhatsApp" },
-        { "id": "G-14", "name": "Transferencias inter-almacen", "status": "COMPLETED", "note": "almacenes/page.tsx 461L + POST /almacenes/transferir" },
-        { "id": "G-15", "name": "Facturación recurrente flotas", "status": "COMPLETED", "note": "fleet_contracts schema + recurring-billing service + cron + fleet plugin updated" },
-        { "id": "G-16", "name": "Catálogo proveedores", "status": "COMPLETED", "note": "Schema + routes + frontend page" },
-        { "id": "G-17", "name": "Adjuntos trabajos terceros", "status": "COMPLETED", "note": "Service + routes registered" }
+        {
+          "id": "G-12",
+          "name": "CRM pipeline visual (Kanban)",
+          "status": "COMPLETED",
+          "note": "crm/page.tsx 550L + backend module"
+        },
+        {
+          "id": "G-13",
+          "name": "Recordatorios calendario",
+          "status": "COMPLETED",
+          "note": "calendario/page.tsx + reminder.cron.ts + WhatsApp"
+        },
+        {
+          "id": "G-14",
+          "name": "Transferencias inter-almacen",
+          "status": "COMPLETED",
+          "note": "almacenes/page.tsx 461L + POST /almacenes/transferir"
+        },
+        {
+          "id": "G-15",
+          "name": "Facturación recurrente flotas",
+          "status": "COMPLETED",
+          "note": "fleet_contracts schema + recurring-billing service + cron + fleet plugin updated"
+        },
+        {
+          "id": "G-16",
+          "name": "Catálogo proveedores",
+          "status": "COMPLETED",
+          "note": "Schema + routes + frontend page"
+        },
+        {
+          "id": "G-17",
+          "name": "Adjuntos trabajos terceros",
+          "status": "COMPLETED",
+          "note": "Service + routes registered"
+        }
       ]
     },
     "tier4_status": {
@@ -397,9 +529,24 @@
       "status": "COMPLETED",
       "completed_date": "2026-07-25",
       "gaps": [
-        { "id": "G-18", "name": "Mobile App React Native", "status": "COMPLETED", "note": "22 screens, 11 tabs, auth, API client 386L, offline-first. Fixed 2 TS errors (DVIInspection type + createAsyncStoragePersister import)." },
-        { "id": "G-19", "name": "Automatización marketing (secuencias)", "status": "COMPLETED", "note": "marketing_sequences schema + sequence service + routes + cron + plugin updated" },
-        { "id": "G-20", "name": "Dashboard financiero avanzado (RT)", "status": "COMPLETED", "note": "financial-ws.ts WebSocket route + financial-realtime service + useFinancialWebSocket hook + ejecutivo page RT toggle" }
+        {
+          "id": "G-18",
+          "name": "Mobile App React Native",
+          "status": "COMPLETED",
+          "note": "22 screens, 11 tabs, auth, API client 386L, offline-first. Fixed 2 TS errors (DVIInspection type + createAsyncStoragePersister import)."
+        },
+        {
+          "id": "G-19",
+          "name": "Automatización marketing (secuencias)",
+          "status": "COMPLETED",
+          "note": "marketing_sequences schema + sequence service + routes + cron + plugin updated"
+        },
+        {
+          "id": "G-20",
+          "name": "Dashboard financiero avanzado (RT)",
+          "status": "COMPLETED",
+          "note": "financial-ws.ts WebSocket route + financial-realtime service + useFinancialWebSocket hook + ejecutivo page RT toggle"
+        }
       ]
     },
     "deployment": {
@@ -410,7 +557,12 @@
         "tailscale_ip": "<REDACTED_IP_TAILSCALE>",
         "repo_path": "/data/ERP_Taller_Mca",
         "backup_path": "/data/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
-        "services": ["erp-taller.service (Fastify :3000)", "nginx (:80)", "dirsrv@erp-taller (389)", "postgresql (5432)"],
+        "services": [
+          "erp-taller.service (Fastify :3000)",
+          "nginx (:80)",
+          "dirsrv@erp-taller (389)",
+          "postgresql (5432)"
+        ],
         "db_migrations": "15/15 applied (0012_cycle_counts.sql)",
         "status": "ACTIVE"
       },
@@ -419,7 +571,10 @@
         "repo_path": "/home/jarabro/Proyectos/ERP_Taller_Mca",
         "web_path": "/home/jarabro/Proyectos/ERP_Taller_Mca/web",
         "backup_path": "/home/jarabro/backups/ERP_Taller_Mca_20260725_094148.tar.gz",
-        "services": ["next-server (:3000)", "dirsrv@erp-taller (389)"],
+        "services": [
+          "next-server (:3000)",
+          "dirsrv@erp-taller (389)"
+        ],
         "nextjs_build": "SUCCESS (Sprint 96 — Hub de Operaciones refactored to 4 components)",
         "status": "ACTIVE"
       }
@@ -490,7 +645,10 @@
       "results": {
         "backend_typescript": "0 errors (1 pre-existing in connection.ts)",
         "web_typescript": "0 errors",
-        "npm_packages_added": ["qrcode", "@types/qrcode"]
+        "npm_packages_added": [
+          "qrcode",
+          "@types/qrcode"
+        ]
       }
     },
     "sprint_89_progress": {
@@ -504,28 +662,39 @@
           "name": "TOKEN_SECRET hardcoded fallback — REMOVED",
           "status": "FIXED",
           "description": "Removed insecure hardcoded fallback string from hardware-fingerprint.service.ts. Now throws fatal error if TOKEN_SECRET env var is not set or < 32 chars (fail-closed)",
-          "files": ["src/modules/security-hw/services/hardware-fingerprint.service.ts"]
+          "files": [
+            "src/modules/security-hw/services/hardware-fingerprint.service.ts"
+          ]
         },
         {
           "id": "C-02",
           "name": "USB_DONGLE_PATH configurable — HARDENED",
           "status": "FIXED",
           "description": "Removed process.env.USB_DONGLE_PATH fallback. USB path is now hardcoded to /media/usb to prevent env var tampering attacks",
-          "files": ["src/modules/security-hw/services/hardware-fingerprint.service.ts"]
+          "files": [
+            "src/modules/security-hw/services/hardware-fingerprint.service.ts"
+          ]
         },
         {
           "id": "ALTO-09",
           "name": "Docker resource limits + healthchecks",
           "status": "FIXED",
           "description": "Added PostgreSQL deploy.resources.limits (512M mem, 1.0 CPU) and ERP healthcheck via /health endpoint (30s interval, 40s start_period)",
-          "files": ["docker-compose.yml"]
+          "files": [
+            "docker-compose.yml"
+          ]
         },
         {
           "id": "TS-CLEANUP",
           "name": "Pre-existing TypeScript errors fixed",
           "status": "FIXED",
           "description": "Fixed 10 pre-existing TS errors across 4 files: budget.routes.ts (unused imports + unused var), consolidated-report.service.ts (4x unknown→string casts), review.routes.ts (query type), ingreso-checklist.ts (unused import)",
-          "files": ["src/modules/finance/routes/budget.routes.ts", "src/modules/finance/services/accounting/consolidated-report.service.ts", "src/modules/marketing/routes/review.routes.ts", "src/shared/database/schema/ingreso-checklist.ts"]
+          "files": [
+            "src/modules/finance/routes/budget.routes.ts",
+            "src/modules/finance/services/accounting/consolidated-report.service.ts",
+            "src/modules/marketing/routes/review.routes.ts",
+            "src/shared/database/schema/ingreso-checklist.ts"
+          ]
         }
       ],
       "results": {
@@ -560,7 +729,9 @@
           "name": "Consolidación Multi-tenant Frontend",
           "status": "COMPLETED",
           "note": "Created /dashboard/finance/consolidation with group CRUD, member management, consolidated Balance & P&L reports",
-          "files": ["web/src/app/(dashboard)/dashboard/finance/consolidation/page.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/finance/consolidation/page.tsx"
+          ]
         },
         {
           "id": "GAP-ANALYTICS",
@@ -573,7 +744,12 @@
           "name": "Google Reviews + Loyalty Frontend",
           "status": "COMPLETED",
           "note": "Created backend routes (GET /marketing/reviews, /marketing/reviews/stats, /marketing/loyalty/:id, /marketing/rewards). Enhanced marketing page with 3 tabs: Campañas, Reseñas, Fidelización",
-          "files": ["src/modules/marketing/routes/review.routes.ts", "src/modules/marketing/routes/loyalty.routes.ts", "src/modules/marketing/plugin.ts", "web/src/app/(dashboard)/dashboard/marketing/page.tsx"]
+          "files": [
+            "src/modules/marketing/routes/review.routes.ts",
+            "src/modules/marketing/routes/loyalty.routes.ts",
+            "src/modules/marketing/plugin.ts",
+            "web/src/app/(dashboard)/dashboard/marketing/page.tsx"
+          ]
         }
       ],
       "results": {
@@ -602,42 +778,54 @@
           "name": "Fix sprint87 route string assertions",
           "description": "Updated services-catalog.routes.ts comment format from `// ── POST /ruta ──` to `// ── POST \"/ruta\" ──` to match the test's toContain pattern with quotes around paths",
           "status": "COMPLETED",
-          "files": ["src/modules/workshop/routes/services-catalog.routes.ts"]
+          "files": [
+            "src/modules/workshop/routes/services-catalog.routes.ts"
+          ]
         },
         {
           "id": "S87-TEST-2",
           "name": "Fix sprint45-46 portal route count",
           "description": "Updated expected portal route count from 12 to 14 (2 new routes: /portal/invoices/:id/pay and /portal/orders/:id)",
           "status": "COMPLETED",
-          "files": ["tests/sprint45-46.test.ts"]
+          "files": [
+            "tests/sprint45-46.test.ts"
+          ]
         },
         {
           "id": "S87-TS-1",
           "name": "Fix ejecutivo page KpisResponse type",
           "description": "Added KpiMetric interface and KpisResponse type to api.ts matching the structure the ejecutivo dashboard expects (revenue, orderCount, avgOrderValue, completionRate with current/previous/change)",
           "status": "COMPLETED",
-          "files": ["web/src/lib/api.ts"]
+          "files": [
+            "web/src/lib/api.ts"
+          ]
         },
         {
           "id": "S87-TS-2",
           "name": "Fix useWorkshopAnalytics KpisResponse→AnalyticsKpis[] conversion",
           "description": "Added kpisArray conversion in use-data.ts that maps KpisResponse metrics to AnalyticsKpis[] array format for the analytics page",
           "status": "COMPLETED",
-          "files": ["web/src/hooks/use-data.ts"]
+          "files": [
+            "web/src/hooks/use-data.ts"
+          ]
         },
         {
           "id": "S87-TS-3",
           "name": "Fix recepcion page createIngreso type",
           "description": "Added descripcionTrabajo and crearOrden optional fields to createIngreso body type in api.ts",
           "status": "COMPLETED",
-          "files": ["web/src/lib/api.ts"]
+          "files": [
+            "web/src/lib/api.ts"
+          ]
         },
         {
           "id": "S87-TS-4",
           "name": "Fix servicios page sonner→useToast + native Select",
           "description": "Replaced sonner toast with useToast hook; replaced Radix-style Select compound components with native Select using options prop (sonner not installed, @radix-ui/react-select also not installed)",
           "status": "COMPLETED",
-          "files": ["web/src/app/(dashboard)/dashboard/servicios/page.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/servicios/page.tsx"
+          ]
         }
       ],
       "results": {
@@ -664,42 +852,56 @@
           "name": "Predictive ML Frontend Page",
           "description": "Nueva página con 3 tabs: predicción por vehículo (búsqueda + risk score + servicios predichos), flota (vehículos alto riesgo), estadísticas ML (patrones de training data). Conecta a GET /workshop/predictions/ml/:vehiculoId, GET /workshop/predictions/ml, GET /workshop/predictions/ml/training-data",
           "status": "COMPLETED",
-          "files": ["web/src/app/(dashboard)/dashboard/taller/predictive-ml/page.tsx", "web/src/components/ui/progress.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/taller/predictive-ml/page.tsx",
+            "web/src/components/ui/progress.tsx"
+          ]
         },
         {
           "id": "P3.4",
           "name": "TecDoc Frontend Search Page",
           "description": "Nueva página con 2 modos de búsqueda: VIN (17 caracteres) y Marca/Modelo/Año. Muestra resultados con DataTable paginado, precios y disponibilidad. Conecta a GET /inventory/tecdoc/search/*",
           "status": "COMPLETED",
-          "files": ["web/src/app/(dashboard)/dashboard/inventario/tecdoc/page.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/inventario/tecdoc/page.tsx"
+          ]
         },
         {
           "id": "P3.3",
           "name": "DVI Before/After Comparison",
           "description": "Enhancement de la página DVI con comparador before/after (slider con soporte mouse + touch), score de salud, galería de fotos, badges de severidad",
           "status": "COMPLETED",
-          "files": ["web/src/app/(dashboard)/dashboard/dvi/page.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/dvi/page.tsx"
+          ]
         },
         {
           "id": "P3.5",
           "name": "AI DTC Assistant + Thinkcar Enhancement",
           "description": "Enhancement de la página Thinkcar con 3 tabs (Dashboard, DTC Assistant, Importaciones). Asistente IA para búsqueda de códigos DTC con descripción, causas, acciones recomendadas",
           "status": "COMPLETED",
-          "files": ["web/src/app/(dashboard)/dashboard/thinkcar/page.tsx"]
+          "files": [
+            "web/src/app/(dashboard)/dashboard/thinkcar/page.tsx"
+          ]
         },
         {
           "id": "S85-SIDEBAR",
           "name": "Sidebar: Almacenes, TecDoc, Mant. Predictivo links",
           "description": "Agregados links a Almacenes, TecDoc en sección Inventario + nueva sección Inteligencia con Mant. Predictivo",
           "status": "COMPLETED",
-          "files": ["web/src/components/dashboard/sidebar.tsx"]
+          "files": [
+            "web/src/components/dashboard/sidebar.tsx"
+          ]
         },
         {
           "id": "S85-TESTS",
           "name": "Unit tests for new pages",
           "description": "10 tests: Predictive ML page (6 tests) + TecDoc page (5 tests) con mocked API y QueryClientProvider",
           "status": "COMPLETED",
-          "files": ["web/tests/components/predictive-ml.test.tsx", "web/tests/components/tecdoc.test.tsx"]
+          "files": [
+            "web/tests/components/predictive-ml.test.tsx",
+            "web/tests/components/tecdoc.test.tsx"
+          ]
         }
       ],
       "files_created": [
@@ -720,7 +922,10 @@
       "source": "Auditoría Integral verificada código por código",
       "total_gaps_p1": 7,
       "gaps_actually_need_dev": 5,
-      "gaps_already_complete": ["P1.6 Stock+OC (4 páginas 1315L)", "P1.7 SIFEN (636L)"],
+      "gaps_already_complete": [
+        "P1.6 Stock+OC (4 páginas 1315L)",
+        "P1.7 SIFEN (636L)"
+      ],
       "execution_order": [
         {
           "id": "P1.1",
@@ -819,21 +1024,29 @@
           "name": "White-label DB migration + schema barrel",
           "description": "Migration 0005 creates white_label_config, sso_config, data_retention_policy with RLS; registered in main schema barrel",
           "status": "COMPLETED",
-          "files": ["src/shared/database/migrations/0005_white_label.sql", "src/shared/database/schema/index.ts"]
+          "files": [
+            "src/shared/database/migrations/0005_white_label.sql",
+            "src/shared/database/schema/index.ts"
+          ]
         },
         {
           "id": "S77-2",
           "name": "Hostname-based tenant resolution",
           "description": "tenant-resolver resolves tenant via X-Tenant-Slug header → custom domain (white_label_config.customDomain) → subdomain slug; reserved subdomains ignored",
           "status": "COMPLETED",
-          "files": ["src/shared/middleware/tenant-resolver.ts"]
+          "files": [
+            "src/shared/middleware/tenant-resolver.ts"
+          ]
         },
         {
           "id": "S77-3",
           "name": "Frontend white-label injection",
           "description": "applyWhiteLabel() in theme.js sets accent/secondary colors, favicon, title, footer; app.js fetches /enterprise/white-label on enterApp and applies company name + logo",
           "status": "COMPLETED",
-          "files": ["src/shared/public/js/theme.js", "src/shared/public/app.js"]
+          "files": [
+            "src/shared/public/js/theme.js",
+            "src/shared/public/app.js"
+          ]
         }
       ],
       "deferred": [
@@ -844,8 +1057,16 @@
         "Per-tenant branding (colors, logo, favicon, company name, footer) applied on boot",
         "Migration + schema compile; 16 sprint77 tests passing"
       ],
-      "files_created": ["src/shared/database/migrations/0005_white_label.sql", "tests/sprint77.test.ts"],
-      "files_modified": ["src/shared/database/schema/index.ts", "src/shared/middleware/tenant-resolver.ts", "src/shared/public/js/theme.js", "src/shared/public/app.js"]
+      "files_created": [
+        "src/shared/database/migrations/0005_white_label.sql",
+        "tests/sprint77.test.ts"
+      ],
+      "files_modified": [
+        "src/shared/database/schema/index.ts",
+        "src/shared/middleware/tenant-resolver.ts",
+        "src/shared/public/js/theme.js",
+        "src/shared/public/app.js"
+      ]
     },
     "sprint_76_progress": {
       "goal": "Data Export + Import + Migration Tools (Enterprise)",
@@ -858,21 +1079,29 @@
           "name": "Data Export Service",
           "description": "data-export.service.ts — generateCsvExport, formatCellValue, validateExportOptions; supports work_orders, invoices, clients, vehicles, inventory, treasury",
           "status": "COMPLETED",
-          "files": ["src/modules/enterprise/services/data-export.service.ts"]
+          "files": [
+            "src/modules/enterprise/services/data-export.service.ts"
+          ]
         },
         {
           "id": "S76-2",
           "name": "Enterprise audit migration",
           "description": "Migration 0004 creates enterprise audit tables; registered in schema barrel",
           "status": "COMPLETED",
-          "files": ["src/shared/database/migrations/0004_enterprise_audit.sql"]
+          "files": [
+            "src/shared/database/migrations/0004_enterprise_audit.sql"
+          ]
         }
       ],
       "success_criteria": [
         "Export service supports all 6 entity types",
         "Migration 0004 compiles; 11 sprint76 tests passing"
       ],
-      "files_created": ["src/modules/enterprise/services/data-export.service.ts", "src/shared/database/migrations/0004_enterprise_audit.sql", "tests/sprint76.test.ts"],
+      "files_created": [
+        "src/modules/enterprise/services/data-export.service.ts",
+        "src/shared/database/migrations/0004_enterprise_audit.sql",
+        "tests/sprint76.test.ts"
+      ],
       "note": "Backfilled 2026-07-16 — engram previously jumped 69→77, omitting this entry."
     },
     "sprint_78_progress": {
@@ -887,49 +1116,70 @@
           "name": "Backend mobile module (push tokens)",
           "description": "mobilePushTokens schema already existed; added mobile.routes.ts (POST/DELETE/GET /mobile/push-token, GET /mobile/health) with resolveTenant hook, mobile.plugin.ts, schema barrel export, registered in app.ts",
           "status": "COMPLETED",
-          "files": ["src/modules/mobile/routes/mobile.routes.ts", "src/modules/mobile/plugin.ts", "src/shared/database/schema/index.ts", "src/app.ts"]
+          "files": [
+            "src/modules/mobile/routes/mobile.routes.ts",
+            "src/modules/mobile/plugin.ts",
+            "src/shared/database/schema/index.ts",
+            "src/app.ts"
+          ]
         },
         {
           "id": "S78-2",
           "name": "Mobile client push API + wiring",
           "description": "api.registerPushToken/unregisterPushToken/listPushTokens added; push.ts registers token on login (expo-notifications/device/application), unregisters on logout; LoginScreen + AuthContext wired",
           "status": "COMPLETED",
-          "files": ["mobile/src/api/client.ts", "mobile/src/notifications/push.ts", "mobile/src/screens/LoginScreen.tsx", "mobile/src/auth/AuthContext.tsx", "mobile/package.json"]
+          "files": [
+            "mobile/src/api/client.ts",
+            "mobile/src/notifications/push.ts",
+            "mobile/src/screens/LoginScreen.tsx",
+            "mobile/src/auth/AuthContext.tsx",
+            "mobile/package.json"
+          ]
         },
         {
           "id": "S78-3",
           "name": "Sprint 78 tests",
           "description": "tests/sprint78.test.ts — 9 tests: schema barrel export, plugin/routes existence, tenant isolation, upsert behavior",
           "status": "COMPLETED",
-          "files": ["tests/sprint78.test.ts"]
+          "files": [
+            "tests/sprint78.test.ts"
+          ]
         },
         {
           "id": "S78-4",
           "name": "DVI camera capture screen (Expo Camera)",
           "description": "DVICameraScreen.tsx — Captura fotos durante inspección DVI con expo-camera, overlay guide, photo strip, preview/retake, auto-advance labels. Upload individual de fotos al backend.",
           "status": "COMPLETED",
-          "files": ["mobile/src/screens/DVICameraScreen.tsx"]
+          "files": [
+            "mobile/src/screens/DVICameraScreen.tsx"
+          ]
         },
         {
           "id": "S78-5",
           "name": "Thinkcar OBD2 Bluetooth connection screen",
           "description": "ThinkcarOBD2Screen.tsx — Escaneo Bluetooth, conexión a dispositivo OBD2, lectura DTCs con lookups al API, severidad por colores, guardado en servidor.",
           "status": "COMPLETED",
-          "files": ["mobile/src/screens/ThinkcarOBD2Screen.tsx"]
+          "files": [
+            "mobile/src/screens/ThinkcarOBD2Screen.tsx"
+          ]
         },
         {
           "id": "S78-6",
           "name": "Barcode stock scanning (Almacén)",
           "description": "BarcodeScannerScreen.tsx — Escáner de códigos de barras/QR con 4 modos: búsqueda, entrada, salida, conteo inventario. Integración con API de lookup y movements.",
           "status": "COMPLETED",
-          "files": ["mobile/src/screens/BarcodeScannerScreen.tsx"]
+          "files": [
+            "mobile/src/screens/BarcodeScannerScreen.tsx"
+          ]
         },
         {
           "id": "S78-7",
           "name": "Push notification handler + OT assignment screen",
           "description": "PushNotificationsScreen.tsx — Notificaciones push en tiempo real (WebSocket + polling 30s), OT assignments, mark read/all read, prioridad por color, toggle push.",
           "status": "COMPLETED",
-          "files": ["mobile/src/screens/PushNotificationsScreen.tsx"]
+          "files": [
+            "mobile/src/screens/PushNotificationsScreen.tsx"
+          ]
         }
       ],
       "success_criteria": [
@@ -937,8 +1187,20 @@
         "Mobile app logs in, registers push token, lists OTs, signs HV lockout",
         "9 sprint78 backend tests passing; mobile typechecks"
       ],
-      "files_created": ["src/modules/mobile/routes/mobile.routes.ts", "src/modules/mobile/plugin.ts", "mobile/src/notifications/push.ts", "tests/sprint78.test.ts"],
-      "files_modified": ["src/shared/database/schema/index.ts", "src/app.ts", "mobile/src/api/client.ts", "mobile/src/screens/LoginScreen.tsx", "mobile/src/auth/AuthContext.tsx", "mobile/package.json"]
+      "files_created": [
+        "src/modules/mobile/routes/mobile.routes.ts",
+        "src/modules/mobile/plugin.ts",
+        "mobile/src/notifications/push.ts",
+        "tests/sprint78.test.ts"
+      ],
+      "files_modified": [
+        "src/shared/database/schema/index.ts",
+        "src/app.ts",
+        "mobile/src/api/client.ts",
+        "mobile/src/screens/LoginScreen.tsx",
+        "mobile/src/auth/AuthContext.tsx",
+        "mobile/package.json"
+      ]
     },
     "sprint_80_progress": {
       "goal": "Accounting Configurators & Integration Dashboard — 3 nuevos configuradores modulares + auto-reversal + React dashboard",
@@ -951,21 +1213,29 @@
           "name": "InventarioConfigurator",
           "description": "Nuevo configurador para INVENTARIO con handlers onEntradaStock, onSalidaStock, onAjusteStock, onTransferenciaStock. Mappings para ENTRADA (1.1.3.01→5.1.1.01), SALIDA (5.1.1.01→1.1.3.01), AJUSTE positivo/negativo, TRANSFERENCIA. Reemplaza llamadas directas a emit() en stock.service.ts",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/inventario.configurator.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/inventario.configurator.ts"
+          ]
         },
         {
           "id": "S80-2",
           "name": "WorkshopConfigurator (reconocimiento de ingresos)",
           "description": "Nuevo configurador para WORKSHOP con handlers onOTCompletada, onOTCancelada. Reconocimiento de ingresos multi-línea al pasar OT a 'Listo' (Debe: CLIENTES, Haber: INGRESO_MO). Integrado en orden.service.ts",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/workshop.configurator.ts", "src/modules/workshop/services/orden.service.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/workshop.configurator.ts",
+            "src/modules/workshop/services/orden.service.ts"
+          ]
         },
         {
           "id": "S80-3",
           "name": "AutoReversalService",
           "description": "Servicio de reversión automática de asientos: intercambia Debe↔Haber, marca original como ANULADO, genera audit trail. Métodos autoReversal(), hasReversal(), getAsientosByReferencia(). Endpoint POST /finance/contabilidad/reversar",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/auto-reversal.service.ts", "src/modules/finance/routes/accounting.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/auto-reversal.service.ts",
+            "src/modules/finance/routes/accounting.ts"
+          ]
         },
         {
           "id": "S80-4",
@@ -996,14 +1266,18 @@
           "name": "Migration 0008 — RLS for accounting config tables",
           "description": "Migration 0008: RLS policies (SELECT/INSERT/UPDATE/DELETE) para configurador_modulo y cuenta_mapping con tenant isolation via app.current_tenant",
           "status": "COMPLETED",
-          "files": ["src/shared/database/migrations/0008_contabilidad_rls.sql"]
+          "files": [
+            "src/shared/database/migrations/0008_contabilidad_rls.sql"
+          ]
         },
         {
           "id": "S80-7",
           "name": "Fix integration dashboard endpoints",
           "description": "Bugfix: listModulosActivos() devolvía string[] pero el handler esperaba objetos. Creado listModulosActivosDetalle(). Corregido asientos iteration (asientos.items) y nombres de campo en health check (cuentaDebeId/cuentaHaberId). Endpoints: GET /integracion/resumen, GET /integracion/check/:modulo, GET /audit-log/:entidad/:entidadId",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/routes/accounting.ts"]
+          "files": [
+            "src/modules/finance/routes/accounting.ts"
+          ]
         },
         {
           "id": "S80-8",
@@ -1021,14 +1295,18 @@
           "name": "Frontend vanilla JS 'Integración' tab",
           "description": "Nueva pestaña 'Integración' en CONTABILIDAD_TABS del frontend vanilla (contabilidad.js). Muestra dashboard de estado de configuradores con módulos, mappings, asientos automáticos y auditoría reciente",
           "status": "COMPLETED",
-          "files": ["src/shared/public/js/contabilidad.js"]
+          "files": [
+            "src/shared/public/js/contabilidad.js"
+          ]
         },
         {
           "id": "S80-10",
           "name": "Monthly closure cron endpoint",
           "description": "POST /finance/contabilidad/cron/cierre-mensual — dispara AccountingClosureService.executeMonthlyClosure(), sigue el patrón POST /scheduling/cron/reminders",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/routes/accounting.ts"]
+          "files": [
+            "src/modules/finance/routes/accounting.ts"
+          ]
         }
       ],
       "success_criteria": [
@@ -1078,70 +1356,99 @@
           "name": "Pre-transaction validator service",
           "description": "Valida antes de emitir asientos: verifica mapping exista, cuentas activas, centro costo válido, monto positivo. Retorna errores/advertencias detallados.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/pre-transaction-validator.service.ts", "src/modules/finance/routes/accounting.ts", "src/modules/finance/services/index.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/pre-transaction-validator.service.ts",
+            "src/modules/finance/routes/accounting.ts",
+            "src/modules/finance/services/index.ts"
+          ]
         },
         {
           "id": "GAP-02",
           "name": "Credit/Debit notes auto-generation",
           "description": "Genera Notas de Crédito/Débito automáticas al revertir facturas. Resuelve cuentas desde cuenta_mapping o fallback por defecto. Vincula NC/ND al asiento de reversión.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/credit-debit-note.service.ts", "src/modules/finance/routes/accounting.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/credit-debit-note.service.ts",
+            "src/modules/finance/routes/accounting.ts"
+          ]
         },
         {
           "id": "GAP-03a",
           "name": "Cash Flow Statement (Estado de Flujo de Efectivo)",
           "description": "Método indirecto: utilidad neta → ajustes no efectivo → capital trabajo → inversión → financiamiento. Verificación con saldos de caja.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/cash-flow.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/flujo-efectivo/page.tsx"]
+          "files": [
+            "src/modules/finance/services/accounting/cash-flow.service.ts",
+            "web/src/app/(dashboard)/dashboard/contabilidad/flujo-efectivo/page.tsx"
+          ]
         },
         {
           "id": "GAP-03b",
           "name": "Equity Statement (Estado de Evolución del Patrimonio)",
           "description": "Capital, reservas y resultados con saldos inicial/final por cuenta. Incluye resultado del ejercicio y variación patrimonial.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/equity-statement.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/evolucion-patrimonio/page.tsx"]
+          "files": [
+            "src/modules/finance/services/accounting/equity-statement.service.ts",
+            "web/src/app/(dashboard)/dashboard/contabilidad/evolucion-patrimonio/page.tsx"
+          ]
         },
         {
           "id": "GAP-03c",
           "name": "Financial Notes (Notas a los Estados Financieros)",
           "description": "11 notas automáticas: base preparación, políticas contables, efectivo, CxC, inventarios, activos fijos, CxP, patrimonio, ingresos/gastos, contingencias, balance. Datos reales con fallback graceful.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/financial-notes.service.ts", "web/src/app/(dashboard)/dashboard/contabilidad/notas-financieras/page.tsx"]
+          "files": [
+            "src/modules/finance/services/accounting/financial-notes.service.ts",
+            "web/src/app/(dashboard)/dashboard/contabilidad/notas-financieras/page.tsx"
+          ]
         },
         {
           "id": "GAP-04",
           "name": "Conciliación bancaria (verificación)",
           "description": "Ya existente en treasury.service.ts con iniciarConciliacion/cerrarConciliacion/listConciliaciones. Verificado y documentado.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/treasury/treasury.service.ts", "src/modules/finance/schema/treasury.ts"]
+          "files": [
+            "src/modules/finance/services/treasury/treasury.service.ts",
+            "src/modules/finance/schema/treasury.ts"
+          ]
         },
         {
           "id": "GAP-05",
           "name": "Libros IVA Compras y Ventas",
           "description": "Libro de Compras IVA (desde facturas_proveedor) y Libro de Ventas IVA (desde facturas). Cálculo de IVA 10%. Formato JSON/CSV.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/libro-compras-iva.service.ts", "src/modules/finance/services/accounting/libro-ventas-iva.service.ts", "src/modules/finance/routes/accounting.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/libro-compras-iva.service.ts",
+            "src/modules/finance/services/accounting/libro-ventas-iva.service.ts",
+            "src/modules/finance/routes/accounting.ts"
+          ]
         },
         {
           "id": "GAP-06",
           "name": "Depreciación mensual automática (verificación)",
           "description": "Ya existente en depreciation.service.ts con runMonthlyDepreciation, generateToolDepreciation, generateFixedAssetDepreciation, createDepreciationAsiento. Opera independientemente del cierre mensual.",
           "status": "COMPLETED",
-          "files": ["src/modules/finance/services/accounting/depreciation.service.ts"]
+          "files": [
+            "src/modules/finance/services/accounting/depreciation.service.ts"
+          ]
         },
         {
           "id": "S81-SIDEBAR",
           "name": "Sidebar menu actualizado",
           "description": "3 nuevos ítems en sidebar: Flujo Efectivo, Patrimonio, Notas EE.FF. con iconos TrendingUp, Landmark, ScrollText.",
           "status": "COMPLETED",
-          "files": ["web/src/components/dashboard/sidebar.tsx"]
+          "files": [
+            "web/src/components/dashboard/sidebar.tsx"
+          ]
         },
         {
           "id": "S81-TESTS",
           "name": "Tests para GAP services",
           "description": "sprint81-gap.test.ts: 19 tests estructurales/behaviorales para libro-compras-iva, libro-ventas-iva, pre-transaction-validator, credit-debit-note, cash-flow, equity-statement.",
           "status": "COMPLETED",
-          "files": ["tests/sprint81-gap.test.ts"]
+          "files": [
+            "tests/sprint81-gap.test.ts"
+          ]
         }
       ],
       "success_criteria": [
@@ -1186,21 +1493,32 @@
           "name": "Billing Module Enhancement",
           "description": "Complete Stripe integration with subscription plans, customer portal, and webhook handling",
           "status": "COMPLETED",
-          "files": ["src/modules/billing/*", "src/shared/utils/tenant-email.ts", "tests/sprint69.test.ts"]
+          "files": [
+            "src/modules/billing/*",
+            "src/shared/utils/tenant-email.ts",
+            "tests/sprint69.test.ts"
+          ]
         },
         {
           "id": "S69-2",
           "name": "API Documentation",
           "description": "Swagger/OpenAPI documentation for all billing endpoints with schemas, security, and examples",
           "status": "COMPLETED",
-          "files": ["src/app.ts", "src/modules/billing/routes/stripe.routes.ts", "src/modules/email/routes/billing-email.routes.ts"]
+          "files": [
+            "src/app.ts",
+            "src/modules/billing/routes/stripe.routes.ts",
+            "src/modules/email/routes/billing-email.routes.ts"
+          ]
         },
         {
           "id": "S69-3",
           "name": "Email Transaccional",
           "description": "Email service (Resend + SMTP) with billing notification templates and webhook-triggered emails",
           "status": "COMPLETED",
-          "files": ["src/modules/email/*", "src/modules/billing/services/billing-notifications.service.ts"]
+          "files": [
+            "src/modules/email/*",
+            "src/modules/billing/services/billing-notifications.service.ts"
+          ]
         }
       ],
       "success_criteria": [
@@ -3460,7 +3778,7 @@
                 }
               },
               "sprint_54_progress": {
-      "status": "COMPLETED",
+                "status": "COMPLETED",
                 "name": "Help Sidebar + FAQ + Landing SEO + Docs Update",
                 "modules": {
                   "help_sidebar": {

@@ -19,7 +19,7 @@ import { healthCheckPlugin } from "./plugins/health-check.js";
 import { syncPlugin } from "./plugins/sync.js";
 import { errorHandler } from "./shared/middleware/error-handler.js";
 
-async function buildApp() {
+export async function buildApp() {
   // Use pino-pretty transport only if installed, fall back to plain JSON
   let transportOpt = undefined;
   if (env.NODE_ENV !== "production") {
