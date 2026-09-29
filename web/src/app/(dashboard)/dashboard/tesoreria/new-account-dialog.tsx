@@ -66,6 +66,7 @@ export function NewBankAccountDialog({ onCreated }: { onCreated?: () => void }) 
       if (!res.ok) throw new Error("Error creando cuenta bancaria");
       return res.json();
     },
+    meta: { successMessage: "Cuenta bancaria creada" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.bankAccounts });
       setForm({ nombre: "", codigo: "", banco: "", tipoCuenta: "Corriente", moneda: "PYG", saldoInicial: "0", observaciones: "" });

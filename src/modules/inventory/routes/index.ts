@@ -17,6 +17,7 @@ import { toolDepreciationRoutes } from "./tool-depreciation.js";
 import { stockMovementsRoutes } from "./stock-movements.js";
 import { initialLoadRoutes } from "./initial-load.js";
 import { autoPORoutes } from "./auto-po.routes.js";
+import { purchaseOrderRoutes } from "./purchase-orders.routes.js";
 import { tecdocRoutes } from "./tecdoc.routes.js";
 import { batchInventoryRoutes } from "./batch-inventory.routes.js";
 import { almacenRoutes } from "./almacenes.js";
@@ -39,6 +40,8 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   await app.register(stockMovementsRoutes);
   await app.register(initialLoadRoutes);
   await app.register(autoPORoutes);
+  // T-44: CRUD manual de Órdenes de Compra (crear/editar/recibir/cancelar/borrar)
+  await app.register(purchaseOrderRoutes);
   await app.register(tecdocRoutes);
   await app.register(batchInventoryRoutes);
   await app.register(almacenRoutes);

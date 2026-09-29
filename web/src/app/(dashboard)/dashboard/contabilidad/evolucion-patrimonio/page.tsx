@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { api, type EquityStatement, type EquityAccountGroup, type EquityLine } from "@/lib/api";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 /* ── Helpers ────────────────────────────────── */
 
@@ -218,6 +219,9 @@ export default function EvolucionPatrimonioPage() {
     queryFn: () => api.getEquityStatement(anho, mes, acumulado),
     enabled: !!anho && !!mes,
   });
+
+  // T-53: feedback visible al fallar la carga (la UI de error ya existe)
+  useErrorToast(isError, "la evolución del patrimonio");
 
   if (isLoading) return <PageSkeleton />;
 

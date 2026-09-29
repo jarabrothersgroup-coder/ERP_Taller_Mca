@@ -15,6 +15,7 @@ import { db } from "../../../shared/database/drizzle.js";
 import {
   herramientas,
   controlHerramientas,
+  toolInstances,
 } from "../schema/index.js";
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import {
@@ -33,15 +34,23 @@ import type {
  * Creates a new tool in the master catalog.
  *
  * @param data - Tool payload
+ * @param tenantSlug - Owning tenant (tools are created per tenant)
  * @returns The created herramienta
- * @throws {ConflictError} If the codigo already exists
+ * @throws {ConflictError} If the codigo already exists (within the tenant)
  */
-export async function createHerramienta(data: CreateHerramientaRequest) {
+export async function createHerramienta(
+  data: CreateHerramientaRequest,
+  tenantSlug?: string,
+) {
   // Validate unique codigo
+  const codigoConditions = [eq(herramientas.codigo, data.codigo)];
+  if (tenantSlug) {
+    codigoConditions.push(eq(herramientas.tenantSlug, tenantSlug));
+  }
   const existing = await db()
     .select({ id: herramientas.id })
     .from(herramientas)
-    .where(eq(herramientas.codigo, data.codigo))
+    .where(and(...codigoConditions))
     .limit(1);
 
   if (existing.length > 0) {
@@ -67,6 +76,7 @@ export async function createHerramienta(data: CreateHerramientaRequest) {
       categoriaContableId: data.categoriaContableId ?? null,
       activo: data.activo ?? true,
       imagenUrl: data.imagenUrl ?? null,
+      ...(tenantSlug ? { tenantSlug } : {}),
     })
     .returning();
 
@@ -77,14 +87,20 @@ export async function createHerramienta(data: CreateHerramientaRequest) {
  * Retrieves a single tool by ID.
  *
  * @param id - Herramienta UUID
+ * @param tenantSlug - Optional tenant scope (used by tenant-aware routes)
  * @returns The herramienta record
- * @throws {NotFoundError} If not found
+ * @throws {NotFoundError} If not found (or owned by another tenant)
  */
-export async function getHerramientaById(id: string) {
+export async function getHerramientaById(id: string, tenantSlug?: string) {
+  const conditions = [eq(herramientas.id, id)];
+  if (tenantSlug) {
+    conditions.push(eq(herramientas.tenantSlug, tenantSlug));
+  }
+
   const [tool] = await db()
     .select()
     .from(herramientas)
-    .where(eq(herramientas.id, id))
+    .where(and(...conditions))
     .limit(1);
 
   if (!tool) {
@@ -165,17 +181,23 @@ export async function listHerramientas(options: {
 export async function updateHerramienta(
   id: string,
   data: UpdateHerramientaRequest,
+  tenantSlug?: string,
 ) {
-  const existing = await getHerramientaById(id);
+  const existing = await getHerramientaById(id, tenantSlug);
 
   // Check codigo uniqueness if changed
   if (data.codigo && data.codigo !== existing.codigo) {
+    const conflictConditions = [
+      eq(herramientas.codigo, data.codigo),
+      sql`${herramientas.id} != ${id}`,
+    ];
+    if (tenantSlug) {
+      conflictConditions.push(eq(herramientas.tenantSlug, tenantSlug));
+    }
     const conflict = await db()
       .select({ id: herramientas.id })
       .from(herramientas)
-      .where(
-        and(eq(herramientas.codigo, data.codigo), sql`${herramientas.id} != ${id}`),
-      )
+      .where(and(...conflictConditions))
       .limit(1);
 
     if (conflict.length > 0) {
@@ -209,13 +231,78 @@ export async function updateHerramienta(
 
   updatePayload["updated_at"] = sql`NOW()`;
 
+  const whereConditions = [eq(herramientas.id, id)];
+  if (tenantSlug) {
+    whereConditions.push(eq(herramientas.tenantSlug, tenantSlug));
+  }
+
   const [updated] = await db()
     .update(herramientas)
     .set(updatePayload)
-    .where(eq(herramientas.id, id))
+    .where(and(...whereConditions))
     .returning();
 
   return updated;
+}
+
+/**
+ * Deactivates a tool (baja lógica — T-42).
+ *
+ * The SKU row is preserved (`activo = false`); no history is deleted.
+ * Blocked while the tool has units checked out to a mechanic.
+ *
+ * @param id - Herramienta UUID
+ * @param tenantSlug - Owning tenant
+ * @throws {NotFoundError} If not found (or owned by another tenant)
+ * @throws {ConflictError} If any unit is currently on loan
+ */
+export async function bajaHerramienta(id: string, tenantSlug: string) {
+  await getHerramientaById(id, tenantSlug);
+
+  const activeLoans = await db()
+    .select({ id: controlHerramientas.id })
+    .from(controlHerramientas)
+    .where(
+      and(
+        eq(controlHerramientas.herramientaId, id),
+        eq(controlHerramientas.estado, "Asignado"),
+        eq(controlHerramientas.tenantSlug, tenantSlug),
+      ),
+    )
+    .limit(1);
+
+  if (activeLoans.length > 0) {
+    throw new ConflictError(
+      "No se puede dar de baja: hay unidades prestadas. Devuélvalas antes de dar de baja la herramienta.",
+    );
+  }
+
+  const lentInstances = await db()
+    .select({ id: toolInstances.id })
+    .from(toolInstances)
+    .where(
+      and(
+        eq(toolInstances.herramientaId, id),
+        eq(toolInstances.estadoActual, "PRESTADA"),
+        eq(toolInstances.tenantSlug, tenantSlug),
+      ),
+    )
+    .limit(1);
+
+  if (lentInstances.length > 0) {
+    throw new ConflictError(
+      "No se puede dar de baja: hay unidades de esta herramienta en préstamo.",
+    );
+  }
+
+  await db()
+    .update(herramientas)
+    .set({ activo: false, updatedAt: new Date() })
+    .where(
+      and(eq(herramientas.id, id), eq(herramientas.tenantSlug, tenantSlug)),
+    );
+
+  return { deleted: true, activo: false };
 }
 
 // ─── Tool Checkout / Return (LEGACY — redirected to tool-loan.service) ──

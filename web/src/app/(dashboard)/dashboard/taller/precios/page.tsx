@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -123,7 +125,7 @@ export default function PricingMatrixPage() {
   }, [resolveOpen]);
 
   // ── Fetch rules ──
-  const { data: rules = [], isLoading } = useQuery<ServicePricingRule[]>({
+  const { data: rules = [], isLoading, isError, error, refetch } = useQuery<ServicePricingRule[]>({
     queryKey: ["pricing-rules", servicioFilter, vehicleFilter],
     queryFn: async () => {
       const qs = new URLSearchParams();
@@ -133,6 +135,20 @@ export default function PricingMatrixPage() {
       return api.request<ServicePricingRule[]>(`/workshop/pricing-rules?${qs.toString()}`);
     },
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las reglas de precios");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los precios"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // ── Fetch reference data ──
   const { data: vehicleTypes = [] } = useQuery<VehicleType[]>({

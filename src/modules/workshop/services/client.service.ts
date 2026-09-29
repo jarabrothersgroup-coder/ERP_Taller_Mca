@@ -9,8 +9,10 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { clients } from "../../../shared/database/schema/clients.js";
-import { eq, desc, and } from "drizzle-orm";
-import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+import { eq, desc, and, count } from "drizzle-orm";
+import { ConflictError, NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+import { ordenesTrabajo } from "../schema/index.js";
+import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 import type { Client, NewClient } from "../../../shared/database/schema/clients.js";
 
 /**
@@ -91,6 +93,15 @@ export async function createClient(
     .values(insertData)
     .returning();
 
+  await logEntityAudit({
+    tenantSlug: insertData.tenantSlug,
+    accion: "CREATE",
+    entidad: "clients",
+    entidadId: client.id,
+    valorNuevo: client as unknown as Record<string, unknown>,
+    descripcion: `Cliente creado: ${client.name}`,
+  });
+
   return client;
 }
 
@@ -112,8 +123,9 @@ export async function updateClient(
   if (tenantSlug) {
     conditions.push(eq(clients.tenantSlug, tenantSlug));
   }
+  // Full row: it becomes `valorAnterior` of the T-33 audit entry.
   const [existing] = await db()
-    .select({ id: clients.id })
+    .select()
     .from(clients)
     .where(and(...conditions))
     .limit(1);
@@ -167,6 +179,16 @@ export async function updateClient(
     .where(and(...updateConditions))
     .returning();
 
+  await logEntityAudit({
+    tenantSlug: tenantSlug ?? "default",
+    accion: "UPDATE",
+    entidad: "clients",
+    entidadId: id,
+    valorAnterior: existing as unknown as Record<string, unknown>,
+    valorNuevo: updated as unknown as Record<string, unknown>,
+    descripcion: `Cliente actualizado: ${Object.keys(updateData).join(", ")}`,
+  });
+
   return updated!;
 }
 
@@ -174,23 +196,50 @@ export async function updateClient(
  * Deletes a client with tenant isolation.
  * For soft-delete scenarios, use update with a status flag.
  *
+ * T-34 (CRM-01): a client with workshop history cannot be deleted. Every
+ * invoice references a work order (`facturas.orden_id`, FK ON DELETE RESTRICT
+ * added by migration 0026), so refusing deletion whenever the client owns
+ * work orders also protects the fiscal trail from orphaning.
+ *
  * @param id - Client UUID
  * @param tenantSlug - Tenant slug for multi-tenant isolation
  * @throws {NotFoundError} If the client does not exist or tenant mismatch
+ * @throws {ConflictError} If the client still owns work orders / invoices
  */
 export async function deleteClient(id: string, tenantSlug?: string): Promise<{ deleted: boolean }> {
   const conditions = [eq(clients.id, id)];
   if (tenantSlug) {
     conditions.push(eq(clients.tenantSlug, tenantSlug));
   }
+  // Full row: it becomes `valorAnterior` of the T-33 audit entry.
   const [existing] = await db()
-    .select({ id: clients.id })
+    .select()
     .from(clients)
     .where(and(...conditions))
     .limit(1);
 
   if (!existing) {
     throw new NotFoundError(`Cliente con ID ${id} no encontrado o no pertenece al taller`);
+  }
+
+  // ── T-34 (CRM-01): guard referencial antes del borrado ──
+  // Filtro de tenant inline (visible para scripts/audit-tenant-filters.mjs).
+  const [ordenes] = await db()
+    .select({ total: count() })
+    .from(ordenesTrabajo)
+    .where(
+      and(
+        eq(ordenesTrabajo.clientId, id),
+        ...(tenantSlug ? [eq(ordenesTrabajo.tenantSlug, tenantSlug)] : []),
+      ),
+    )
+    .limit(1);
+
+  if (ordenes && Number(ordenes.total) > 0) {
+    throw new ConflictError(
+      `No se puede eliminar el cliente: posee ${ordenes.total} orden(es) de trabajo ` +
+      `con facturas asociadas. Anule o archive las órdenes antes de borrar el cliente.`,
+    );
   }
 
   const delConditions = [eq(clients.id, id)];
@@ -200,6 +249,15 @@ export async function deleteClient(id: string, tenantSlug?: string): Promise<{ d
   await db()
     .delete(clients)
     .where(and(...delConditions));
+
+  await logEntityAudit({
+    tenantSlug: tenantSlug ?? "default",
+    accion: "DELETE",
+    entidad: "clients",
+    entidadId: id,
+    valorAnterior: existing as unknown as Record<string, unknown>,
+    descripcion: `Cliente eliminado: ${existing.name ?? id}`,
+  });
 
   return { deleted: true };
 }

@@ -1,0 +1,197 @@
+# T-47 · Inventario y clasificación de rutas sin consumidor
+
+> Estado: **completo**. Auditoría de superficie de la API, ejecutada contra la app real.
+> Método: `app.printRoutes()` sobre la app arrancada (no parsing de fuentes) + cruce
+> contra consumidores + **sonda HTTP autenticada contra un servidor real**.
+
+## Método y por qué este
+
+Tres pasadas, de la más fiable a la menos:
+
+1. **Inventario real** — `app.printRoutes({ commonPrefix: false })` con la app
+   arrancada. Da 635 rutas (excluyendo `HEAD` y `OPTIONS`). Es la verdad de lo que
+   Fastify tiene registrado; leer los ficheros de rutas se equivoca por los
+   `register()` anidados.
+2. **Consumidores** — cada ruta se convierte en un patrón y se busca en `web/src/**` y
+   `src/shared/public/**` (260 ficheros). Después en `tests/**`, en el backend
+   no-ruta (llamadas internas) y en `Docs/`.
+3. **Sonda de vida** — se inyectó cada GET huérfano con un tenant admin real y se
+   registró el status. Esto es lo que separa "infumada" de "rota".
+
+> **Por qué la sonda HTTP y no el análisis estático de tablas:** la primera versión
+> de este análisis cruzó `FROM|JOIN|INTO` contra `information_schema` y reportó 176
+> rutas "rotas", incluidas `/finance/invoices/:id/void`, que T-45 acaba de hacer
+> pasar con 37/37 tests. La regex leía prosa en comentarios (`...FROM a table`) y
+> confundía palabras inglesas con nombres de tabla. **Descartado por falsos positivos.**
+> La sonda HTTP no puede equivocarse: o devuelve 500 o no.
+
+## Resultado 1 — Volumen
+
+| | Rutas |
+|---|---|
+| Registradas en Fastify | **635** |
+| Con consumidor en frontend | 305 |
+| **Sin consumidor en frontend** | **330** |
+| └─ cubiertas por tests | 64 |
+| └─ usadas internamente | 9 |
+| └─ documentadas | 2 |
+| └─ **sin ningún consumidor** | **255** |
+
+La auditoría original estimaba 316; son 330 porque el backend creció desde entonces.
+
+**255 rutas no las llama nadie** — ni la UI, ni un test, ni otra ruta. Por método:
+
+| Método | Rutas | Riesgo |
+|---|---|---|
+| POST | 106 | **Alto** — mutación sin ejercitar, imposible de detectar por UI |
+| GET | 107 | Medio — 6 de ellas rotas (ver abajo) |
+| PATCH | 21 | Alto |
+| DELETE | 19 | Alto |
+| PUT | 2 | Alto |
+
+Distribución: `finance` 89, `workshop` 44, `inventory` 35, `marketing` 16,
+`dvi` 12, `intelligence` 11, `fleet` 9, `email` 8, `thinkcar` 7, `whatsapp` 7.
+
+**El hallazgo estructural**: 148 rutas de escritura (POST+PATCH+PUT+DELETE) que
+nadie invoca. Es la misma clase de fallo que el bug de T-46
+(`uuid = text` → 500 permanente): código que compila, tipa y se registra, pero que
+nadie ejecuta, así que nadie lo prueba. Un GET sin consumidor se nota cuando
+alguien lo abre; un POST sin consumidor **solo se nota cuando corrompe datos**.
+
+## Resultado 2 — Las 6 rotas de verdad
+
+Sondeados los 143 GET huérfanos contra un servidor real (`tsx src/app.ts`, puerto
+4999, token JWT firmado con el mismo secreto). 135 responden correctamente
+(2xx/4xx); 8 dan 5xx. Dos de esas 8 **no son bugs**, y 6 sí:
+
+| Ruta | Causa raíz verificada |
+|---|---|
+| `GET /workshop/signatures/:ordenId` | `42P01` — **la tabla `digital_signatures` no existe**. `signature.service.ts:53,90` inserta y consulta en ella. 2 rutas rotas (esta + el POST). |
+| `GET /finance/contabilidad/tipos-cambio/:fecha` | `ERR_INVALID_ARG_TYPE` — `getRateAtDate` (`exchange-rate.service.ts:112`) interpola un `Date` dentro de `sql\`DATE(${fecha})\``; postgres.js exige string. |
+| `GET /api/v1/migration/tables` | `42601 syntax error at or near "="` — `TABLE_CONFIGS.plan_cuentas` es `tenantScoped: true` pero `plan_cuentas` **no tiene columna `tenant_slug`**. Drizzle emite `undefined = $1`. |
+| `GET /api/v1/migration/preview` | mismo `42601` (ambas llaman a `getExportPreview`, que itera `plan_cuentas`). |
+| `GET /finance/contabilidad/consolidado/balance/:groupId/:anho/:mes` | `throw new Error("Grupo ... no encontrado")` — **`Error` plano en vez de `AppError`**, así que el handler lo devuelve como 500 genérico en lugar de 404. |
+| `GET /finance/contabilidad/consolidado/pnl/:groupId/:anho/:mes` | idéntico. |
+
+No son bugs (descartados):
+- `GET /health/deep` → 503 **por diseño**: Redis no configurado. Comportamiento correcto.
+- `GET /ws/notifications` → la sonda HTTP no puede hablar WebSocket;
+  `socket.close is not a function` es artefacto del sondeo, no un defecto.
+
+### Nota sobre falsos positivos del entorno de test
+
+Cinco rutas dar 500 bajo vitest con `TypeError: sql is not a function` y funcionan
+bien en el servidor real. Es un artefacto de la transformación SSR de vitest, no
+un bug. Conclusión práctica: **para decidir si una ruta está rota hay que sondear un
+servidor real, no `app.inject`** — `inject` no reproduce este caso.
+
+## Clasificación propuesta
+
+| Clase | Nº | Qué hacer |
+|---|---|---|
+| **A. Rota** | 6 | Arreglar. `digital_signatures` falta de la BD (migración nueva); los otros 5 son defectos de código. |
+| **B. Cubierta por tests, sin UI** | 64 | Legítimo. API para clientes externos (móvil, portal, integraciones) o scripts. Se deja. |
+| **C. Consumida internamente** | 9 | Legítimo. |
+| **D. Muerta** | 148 escritura | Decidir por ruta: conectar a la UI o eliminar. Riesgo de corrupción si alguien la descubre. |
+| **E. Muerta** | 107 lectura (101 sanas) | Prioridad baja. Considerar exponer en UI o documentar como API pública. |
+
+## Lo que NO se hizo (y por qué)
+
+- **No se borró ninguna ruta.** 255 rutas sin consumidor no autorizan borrado en
+  bloque: varias son superficie de API pensada para clientes que no están en este
+  repo (el cliente móvil Expo consume `/api/v1/*`, p. ej. `mobile/src/api/client.ts`
+  tipa `EstadoResultados`). Borrar a ciegas rompería esos clientes.
+- **No se arreglaron las 6 rotas.** Son cambios de comportamiento fuera del alcance
+  de T-47 (que es inventario). Quedan documentadas con causa raíz precisa.
+- **No se sondearon las rutas de escritura por HTTP.** Habrían mutado datos reales;
+  la clasificación de escritura es estática, apoyada en la ausencia total de
+  consumidores.
+
+## Siguiente paso recomendado
+
+Crear **T-48 · Sanear superficie de API**, en tres sub-tareas:
+- 48a: migración `0034` creando `digital_signatures` (cierra el `42P01`).
+- 48b: corregir `getRateAtDate` ( castear la fecha a string) y el
+  `planCuentas.tenantScoped` de `TABLE_CONFIGS`.
+- 48c: `Error` → `NotFoundError` en los consolidados, para que un grupo inexistente
+  devuelva 404 y no 500.
+
+---
+
+## Cierre — T-48 (2026-09-28)
+
+Las 6 rutas quedaron arregladas y blindadas en `tests/fase4-t48-superficie-api.test.ts`
+(6/6 verdes; verificado primero contra servidor real con `curl`, luego como regresión):
+
+| Defecto | Fix |
+|---|---|
+| `digital_signatures` inexistente (42P01, 2 rutas) | Migración `0034_digital_signatures.sql` (aplicada, idx 34 en journal) |
+| `getRateAtDate` interpolaba un `Date` (`ERR_INVALID_ARG_TYPE`) | Conversión a ISO `YYYY-MM-DD` antes de interpolar |
+| `TABLE_CONFIGS.plan_cuentas.tenantScoped: true` (42601, 2 rutas) | `tenantScoped: false` — `plan_cuentas` no tiene `tenant_slug` |
+| `Error` plano en consolidados (2 rutas) | `NotFoundError` → 404 |
+| FK violada → 500 opaco | `error-handler.ts` mapea PostgreSQL `23503` → 422 |
+
+**Bug adicional (nº 7) cazado por la regresión:** el happy path de
+`POST /workshop/signatures` devolvía 500 — `row.created_at?.toISOString is not a
+function`. postgres.js entrega `timestamptz` como **string**, no `Date`, y el
+servicio serializaba sin parsear. Ningún sondeo lo había visto: el GET con lista
+vacía y el 422 por FK no pasan por esa línea. Fix: `new Date(row.created_at)
+`.toISOString()` en `signature.service.ts`. Enseñanza: la sonda HTTP detecta
+“ruta rota de origen”, pero solo un test del happy path detecta “ruta rota en el
+camino feliz”.
+
+Residuos: cero (`e2e-t48%` purgado de la BD; script temporal y servidor de
+sondeo en :4997 eliminados).
+
+## Guard sistémico — T-63 (2026-09-28)
+
+Para que las clases D/E no vuelvan a crecer sin que nadie se entere:
+
+- `scripts/route-consumer-scan.mjs` — cruza el inventario real de rutas
+  (`scripts/dump-routes.ts`) contra literales de URL de consumidores
+  (web/mobile/public/scripts/backend no-ruta) y de tests (`tests/`, `web/e2e`).
+- Baseline congelado: **528 rutas · 293 sin consumidor · 383 sin test**
+  (por path; T-47 contaba 635 por método).
+- `tests/contract/route-consumer-guard.test.ts` — techos 293/383, bajar con cada fix, jamás subir.
+- `.github/workflows/ci.yml` — gates `--max-orphan 293 --max-untested 383` (T-63)
+  y `audit-tenant-filters.mjs --max 372` (techo de lookups sin tenant, T-21d).
+- El chequeo de tenant ya corría como test (`tests/tenant-filter-audit.test.ts`,
+  CEILING 372); el contrato T-00 ya corría (`tests/contract/`). T-63 los hizo
+  explícitos como gates de CI y añadió la pata de rutas sin consumidor/test.
+- Corrección del matcher (mismo día): la primera versión del escáner nunca
+  convertía `:param` a comodín — toda ruta parametrizada contaba como huérfana
+  (293/383 falsos). Con el matcher por segmentos el baseline real es
+  **197 sin consumidor · 334 sin test**, y el guard congeló también
+  **184 escritura-sin-test** (proxy del backlog T-61, incluye rutas ya
+  consumidas por la UI) y **92 de clase D** (escritura ∧ sin consumidor ∧ sin test).
+- Materialización del triaje (mismo día): `EXCLUDED` en el escáner saca del
+  conteo de huérfanas las ~25 externas + ~11 internas por diseño de la tabla
+  de abajo (38 rutas concretas; una ya tenía consumidor). `sinConsumidor`
+  197 → **160**, clase D 92 → **61**; `sinTest` (334) y escritura-sin-test
+  (184) NO bajan — un webhook externo necesita test igual que una ruta de UI.
+  El guard añadió un piso `excluded ≥ 36` para que la lista no se pudra:
+  si una ruta excluida desaparece, hay que justificarlo en esta tabla.
+
+## Triaje de la clase D (2026-09-28)
+
+La clase D real son **92 rutas de escritura** que ni UI, ni script, ni backend,
+ni test ejercitan. Disposición acordada por familia (de nada sirve "decidir por
+ruta" 92 veces sin criterio compartido):
+
+| Disposición | ~N | Familias | Criterio |
+|---|---|---|---|
+| **Conectar a UI** | ~30 | Contabilidad de cierre (`apertura`, `cerrar-periodo`, `devengamiento/*`, `centralizacion/*`, `depreciacion/calcular`, `diferencia-cambio`, `reserva-legal`, `revaluo`, `reversar`, `refundir`, `nota-credito-debito`, `tipos-cambio`), inventario (`adjustments` + approve/reject, `herramientas/prestar`, `control/:id/devolver`, `initial-load`), tesorería (`transferencias`, `PATCH cuentas/:id`), DVI (`items/:id/status`, `photos/:id/markup`), config (`sucursales`), presupuestos (`items`, `refresh`) | Son operaciones que el taller necesita hacer desde la pantalla; hoy solo existen por API. Candidatas a sprints de UI futuros (mismo espíritu que T-55: exponer lo que ya existe). |
+| **Externa: documentar como API pública y excluirla** | ~20 | `portal/auth/pin`, `portal/feedback`, `sso/*` (4), `2fa/verify`, `email/send*` (3), `email/billing/*` (4 webhooks del proveedor de suscripciones), `intelligence/*` (7: OCR, DTC, safety), `api-keys` (2) | Superficie para clientes fuera de este repo (móvil, portal del cliente, webhooks entrantes). El criterio de T-47 se aplica: no se borra lo que un cliente externo puede consumir; se documenta y se excluye del conteo. |
+| **Interna por diseño: excluir** | ~12 | `fleet/billing/run`, `scheduling/cron/reminders`, `whatsapp/queue/process`, `whatsapp/followups/auto|process`, `enterprise/data-retention/cleanup`, `marketing/sequences/run`, `whatsapp/templates/preview`, `crm/retry` | Disparadas por cron/hook/evento, o herramientas de administración interna. La ausencia de consumidor es correcta. |
+| **Legado/duplicado: revisar y probablemente eliminar** | ~6 | `intelligence/parse-dtc` (duplica `dtc/parse`), `thinkcar/import` (convive con `ingest/*` ya consumidos), `thinkcar/imports/:id/link|retry-link|pending/:id/assign` (flujo de apareamiento sin UI), `fleet/contracts*` (CRUD sin página), `PATCH /dvi/photos/:photoId/markup` vs flujo real | Se elimina solo con verificación de que ningún cliente externo las usa (el mismo cuidado de "lo que NO se hizo" de arriba, ahora por ruta). |
+| **Decidir caso por caso** | ~24 | Resto: CRM (`deals/:id/close|move`, `stages`), marketing (`sequences/:id/enroll`), WHA (`errors/:id/resolve`, `instance`, `followups/:id/cancel`), compras varias, `workshop/service-brand-map`, `servicios/:id/clock-in|out`, etc. | Necesitan una decisión de producto: ¿el taller lo hace desde WhatsApp/teléfono o desde la UI? |
+
+Cómo baja el techo: cada ruta conectada a la UI deja de contar en `withoutConsumer`;
+cada ruta con test deja de contar en `withoutTest` y en clase D; cada ruta borrada
+baja todas las métricas. **Las filas "Externa" e "Interna por diseño" están ya
+materializadas** como lista `EXCLUDED` en `scripts/route-consumer-scan.mjs`
+(con patrón exacto o prefijo `familia/*`): salen del conteo de huérfanas y de
+clase D, pero siguen contando en `sinTest` — la exclusión cubre la ausencia
+de consumidor, nunca la falta de prueba. Las filas "Legado" y "Decisión"
+permanecen visibles a propósito: una exclusión prematura escondería superficie
+muerta detrás de una etiqueta.

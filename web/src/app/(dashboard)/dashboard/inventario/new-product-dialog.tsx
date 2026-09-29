@@ -81,6 +81,7 @@ export function NewProductDialog({ onCreated }: { onCreated?: () => void }) {
       if (!res.ok) throw new Error("Error creando producto");
       return res.json();
     },
+    meta: { successMessage: "Producto creado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.inventory });
       setForm({

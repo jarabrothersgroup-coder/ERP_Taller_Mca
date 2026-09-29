@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { FilterSelect } from "@/components/ui/filter-select";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   TrendingUp,
   Calculator,
@@ -301,13 +304,27 @@ function PersonalTab() {
     commissionRate: 10,
   });
 
-  const { data: profiles = [], isLoading } = useQuery<
+  const { data: profiles = [], isLoading, isError, error, refetch } = useQuery<
     MechanicProfileRecord[],
     Error
   >({
     queryKey: ["mechanic-profiles"],
     queryFn: () => api.listMechanicProfiles(),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los perfiles de mecánicos");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la nómina"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: typeof form) => api.createMechanicProfile(data),
@@ -528,21 +545,17 @@ function NominaMensualTab() {
       {/* Actions Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <label className="text-sm font-medium">Mes:</label>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {String(i + 1).padStart(2, "0")} —{" "}
-                [
-                {new Date(2000, i).toLocaleString("es-PY", { month: "long" })}
-                ]
-              </option>
-            ))}
-          </select>
+          {/* T-54: FilterSelect (opciones estáticas del año) */}
+          <FilterSelect
+            label="Mes"
+            value={String(month)}
+            onChange={(v) => setMonth(Number(v))}
+            options={Array.from({ length: 12 }, (_, i) => ({
+              value: String(i + 1),
+              label: `${String(i + 1).padStart(2, "0")} — ${new Date(2000, i).toLocaleString("es-PY", { month: "long" })}`,
+            }))}
+            className="[&>select]:h-10 [&>select]:text-sm"
+          />
           <label className="text-sm font-medium">Año:</label>
           <Input
             type="number"

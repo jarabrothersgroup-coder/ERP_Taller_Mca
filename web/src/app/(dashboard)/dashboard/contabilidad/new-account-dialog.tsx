@@ -65,6 +65,7 @@ export function NewAccountDialog({ onCreated }: { onCreated?: () => void }) {
       if (!res.ok) throw new Error("Error creando cuenta");
       return res.json();
     },
+    meta: { successMessage: "Cuenta contable creada" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.accounts });
       setForm({ codigo: "", nombre: "", tipo: "ACTIVO", nivel: "3", aceptaMovimientos: true, moneda: "PYG", descripcion: "" });

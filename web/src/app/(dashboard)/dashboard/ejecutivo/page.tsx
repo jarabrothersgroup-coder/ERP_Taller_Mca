@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   TrendingUp,
   DollarSign,
@@ -420,10 +422,24 @@ export default function EjecutivoPage() {
   const [showPeriodPicker, setShowPeriodPicker] = React.useState(false);
   const ws = useFinancialWebSocket(["kpis", "cashflow", "invoices"], realTime);
 
-  const { data: kpis, isLoading: loadingKpis } = useQuery({
+  const { data: kpis, isLoading: loadingKpis, isError, error, refetch } = useQuery({
     queryKey: ["ejecutivo-kpis"],
     queryFn: () => api.getAnalyticsKpis(),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los KPIs ejecutivos");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar el dashboard ejecutivo"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const { data: revenueTrend, isLoading: loadingRevenue } = useQuery({
     queryKey: ["ejecutivo-revenue-trend"],

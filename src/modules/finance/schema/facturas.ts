@@ -23,6 +23,9 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { asientosContables } from "./accounting.js";
+// Fase 3 · T-34 (CRM-01): la factura referencia su OT — FK ON DELETE RESTRICT
+// (migración 0026) para que ningún registro fiscal quede huérfano.
+import { ordenesTrabajo } from "../../workshop/schema/ordenes-trabajo.js";
 
 // ─── Enums ─────────────────────────────────────
 
@@ -71,8 +74,15 @@ export const facturas = pgTable(
     /** Tenant slug for multi-tenant isolation */
     tenantSlug: text("tenant_slug").notNull(),
 
-    /** Work order that generated this invoice. NULL for fleet billing / manual imports. */
-    ordenId: uuid("orden_id"),
+    /**
+     * Work order that generated this invoice. NULL for fleet billing / manual imports.
+     * Fase 3 · T-34: FK a `ordenes_trabajo` con `ON DELETE RESTRICT` — una
+     * factura no puede sobrevivir (ni perder) a la OT que la originó.
+     */
+    ordenId: uuid("orden_id").references(
+      () => ordenesTrabajo.id,
+      { onDelete: "restrict" },
+    ),
 
     /** Hybrid engine branch: MANUAL | ELECTRONICA */
     tipo: tipoFacturacionEnum("tipo").notNull(),

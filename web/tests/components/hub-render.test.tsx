@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 
@@ -61,6 +61,7 @@ vi.mock("lucide-react", () => ({
   ExternalLink: MockIcon,
   Star: MockIcon,
   ChevronRight: MockIcon,
+  ChevronDown: MockIcon,
   Camera: MockIcon,
   ClipboardCheck: MockIcon,
   Printer: MockIcon,
@@ -76,6 +77,8 @@ vi.mock("lucide-react", () => ({
   Calendar: MockIcon,
   GitBranch: MockIcon,
   GripVertical: MockIcon,
+  Inbox: MockIcon,
+  RefreshCw: MockIcon,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -88,6 +91,7 @@ vi.mock("@/lib/api", () => ({
     createClient: vi.fn(),
     createVehicle: vi.fn(),
     updateWorkOrderStatus: vi.fn(),
+    assignWorkOrder: vi.fn(),
     issueInvoice: vi.fn(),
     sendWhatsAppMessage: vi.fn(),
   },
@@ -99,9 +103,14 @@ vi.mock("@/lib/utils", () => ({
 
 // Mock child components to simplify render test (we already have integration tests)
 vi.mock("@/components/hub/hub-sidebar", () => ({
-  HubSidebar: ({ ordenes, selectedId }: any) =>
+  HubSidebar: ({ ordenes, selectedId, onSelect }: any) =>
     React.createElement("div", { "data-testid": "hub-sidebar" },
-      React.createElement("span", null, `Sidebar: ${ordenes.length} OTs, selected: ${selectedId || "none"}`)
+      React.createElement("span", null, `Sidebar: ${ordenes.length} OTs, selected: ${selectedId || "none"}`),
+      ordenes.length > 0 && React.createElement(
+        "button",
+        { "data-testid": "select-ot", onClick: () => onSelect?.(ordenes[0]) },
+        "select"
+      )
     ),
 }));
 
@@ -147,6 +156,13 @@ describe("Operations Hub — Render Tests", () => {
   });
 
   it("renders the HubSidebar component", async () => {
+    mockGetHubBoard.mockResolvedValue({
+      ordenes: [
+        { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "100000", createdAt: new Date().toISOString() },
+      ],
+      tecnicos: [],
+      generatedAt: new Date().toISOString(),
+    });
     renderHub();
     await waitFor(() => {
       expect(screen.getByTestId("hub-sidebar")).toBeInTheDocument();
@@ -228,10 +244,40 @@ describe("Operations Hub — Render Tests", () => {
     });
   });
 
+  it("T-52: seleccionar una OT NO la asigna automáticamente", async () => {
+    mockGetHubBoard.mockResolvedValue({
+      ordenes: [
+        // Asignada a m1 para que sea visible bajo el filtro de técnico
+        { id: "ot-1", vehicleId: "v1", clientId: "c1", status: "En_Proceso", description: "Test", totalCost: "100000", assignedTo: "m1", createdAt: new Date().toISOString() },
+      ],
+      tecnicos: [{ id: "m1", nombre: "Mecánico 1", activo: true }],
+      generatedAt: new Date().toISOString(),
+    });
+
+    const { api } = await import("@/lib/api");
+    renderHub();
+    await waitFor(() => {
+      expect(screen.getByTestId("select-ot")).toBeInTheDocument();
+    });
+
+    // Filtrar por técnico m1 (dispara el viejo auto-assign si regresara)
+    const filterSelect = screen.getByRole("combobox");
+    fireEvent.change(filterSelect, { target: { value: "m1" } });
+
+    fireEvent.click(screen.getByTestId("select-ot"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ot-detail-panel")).toBeInTheDocument();
+    });
+
+    // Criterio T-52: 0 asignaciones fantasma al seleccionar
+    expect(api.assignWorkOrder).not.toHaveBeenCalled();
+  });
+
   it("handles empty OT list gracefully", async () => {
     renderHub();
     await waitFor(() => {
-      expect(screen.getByText(/Sidebar: 0 OTs/)).toBeInTheDocument();
+      // T-52: estado vacío explícito en la columna de OTs (no skeleton, no sidebar)
+      expect(screen.getByText("Sin órdenes abiertas")).toBeInTheDocument();
     });
   });
 });

@@ -17,9 +17,19 @@ import { api } from "@/lib/api";
 
 export default function InventoryPage() {
   const { toast: { success: toastSuccess, error: toastError }, ToastContainer } = useToast();
-  const { data: allItems = [], isLoading: loading, refetch } = useInventory();
+  // T-54: filtros server-side (search/categoria viajan al backend)
   const [search, setSearch] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("");
+  // debounce: cada pulsación dispara una petición al backend
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+  const { data: allItems = [], isLoading: loading, refetch } = useInventory({
+    search: debouncedSearch || undefined,
+    categoria: categoryFilter || undefined,
+  });
 
   // Handle barcode scan — search by barcode
   const handleBarcodeScan = React.useCallback(
@@ -38,22 +48,8 @@ export default function InventoryPage() {
     [toastSuccess, toastError],
   );
 
-  const filtered = React.useMemo(() => {
-    let result = allItems;
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          item.code.toLowerCase().includes(q) ||
-          item.brand.toLowerCase().includes(q)
-      );
-    }
-    if (categoryFilter) {
-      result = result.filter((item) => item.category === categoryFilter);
-    }
-    return result;
-  }, [allItems, search, categoryFilter]);
+  // T-54: el filtrado ocurre en el servidor; la lista ya llega filtrada
+  const filtered = allItems;
 
   const criticalItems = filtered.filter((i) => i.status === "critical");
 

@@ -886,10 +886,17 @@ export async function fetchWorkOrders(
 export async function fetchInventoryItems(
   getMockInventory: () => UIMappedInventoryItem[],
   tenantSlug?: string,
+  /** T-54: filtros server-side (el backend los soporta en /inventory/repuestos) */
+  params?: { search?: string; categoria?: string; page?: number },
 ): Promise<UIMappedInventoryItem[]> {
+  const qs = new URLSearchParams({ limit: "100" });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.categoria) qs.set("categoria", params.categoria);
+  if (params?.page) qs.set("page", String(params.page));
+  const hasFilter = Boolean(params?.search || params?.categoria);
   const { data, source } = await fetchOrMock(
     async (slug, token) => {
-      const res = await fetch("/inventory/repuestos?limit=100", {
+      const res = await fetch(`/inventory/repuestos?${qs.toString()}`, {
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -897,7 +904,8 @@ export async function fetchInventoryItems(
       const items: Record<string, unknown>[] = json.items ?? json;
       return items.map(mapInventoryFromApi);
     },
-    getMockInventory,
+    // Con filtro activo el mock devolvería una lista que no respeta el filtro
+    hasFilter ? () => [] : getMockInventory,
   );
 
   if (source === "api") {

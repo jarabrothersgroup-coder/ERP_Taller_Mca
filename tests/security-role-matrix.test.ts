@@ -170,6 +170,64 @@ const MATRIX: MatrixRow[] = [
     guard: "admin",
     exec: false, // ejecutaría el cierre mensual real
   },
+  // ── Fase 4 · T-42 — destructivos nuevos (matriz CRUD por módulo) ──
+  {
+    name: "DELETE /workshop/mechanic-profiles/:id",
+    method: "DELETE",
+    url: `/workshop/mechanic-profiles/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /workshop/proveedores/:id",
+    method: "DELETE",
+    url: `/workshop/proveedores/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /inventory/almacenes/:id",
+    method: "DELETE",
+    url: `/inventory/almacenes/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "POST /inventory/almacenes/transferir",
+    method: "POST",
+    url: "/inventory/almacenes/transferir",
+    payload: { repuestoId: FAKE_UUID, cantidad: 1, almacenDestinoId: FAKE_UUID_2 },
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /inventory/herramientas/:id",
+    method: "DELETE",
+    url: `/inventory/herramientas/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /marketing/campaigns/:id",
+    method: "DELETE",
+    url: `/marketing/campaigns/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /fleet/:id",
+    method: "DELETE",
+    url: `/fleet/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "DELETE /dvi/:id",
+    method: "DELETE",
+    url: `/dvi/${FAKE_UUID}`,
+    guard: "manager",
+    exec: true,
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────

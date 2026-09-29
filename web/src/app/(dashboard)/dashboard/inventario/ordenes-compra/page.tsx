@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,11 +72,25 @@ export default function PurchaseOrdersPage() {
   const [alertsOpen, setAlertsOpen] = React.useState(false);
 
   // Fetch pending reorder alerts as purchase orders
-  const { data: alertsData, isLoading } = useQuery<{ total: number; items: ReorderAlert[] }>({
+  const { data: alertsData, isLoading, isError, error, refetch } = useQuery<{ total: number; items: ReorderAlert[] }>({
     queryKey: ["reorder-alerts"],
     queryFn: () => api.request<{ total: number; items: ReorderAlert[] }>("/inventory/auto-po/pending"),
     refetchInterval: 10000,
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las órdenes de compra");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las órdenes de compra"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Transform alerts to display format
   const orders: PurchaseOrder[] = React.useMemo(() => {

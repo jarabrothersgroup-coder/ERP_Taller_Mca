@@ -17,7 +17,9 @@
  * @module inventory/services/stock.service
  */
 
+import { randomUUID } from "node:crypto";
 import { db } from "../../../shared/database/drizzle.js";
+import { withTransaction } from "../../../shared/database/transaction.js";
 import {
   repuestos,
   stockMovements,
@@ -38,6 +40,7 @@ import type {
   IngresoStockRequest,
   StockMovimientoResponse,
 } from "../types.js";
+import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 
 /**
  * Creates a new spare part (repuesto) in inventory.
@@ -344,132 +347,157 @@ export async function salidaStock(
   data: SalidaStockRequest,
   tenantSlug: string,
 ): Promise<StockMovimientoResponse> {
-  const { repuestoId, cantidad, motivo, ordenTrabajoId, centroCostoId, observaciones } = data;
+  return withTransaction(async () => {
+    const { repuestoId, cantidad, motivo, ordenTrabajoId, centroCostoId, observaciones } = data;
 
-  // ── 1. Validate cantidad ──
-  if (!cantidad || cantidad <= 0) {
-    throw new ValidationError("La cantidad debe ser mayor a cero");
-  }
-
-  // ── 2. C-02 FIX: Atomic stock check + reduction (prevents TOCTOU race) ──
-  // Instead of: read → check → update (3 steps, race window)
-  // Use: UPDATE with WHERE stock >= cantidad → 0 rows = insufficient stock
-  const [updated] = await db()
-    .update(repuestos)
-    .set({
-      stockActual: sql`${repuestos.stockActual} - ${cantidad}`,
-      updatedAt: sql`NOW()`,
-    })
-    .where(
-      and(
-        eq(repuestos.id, repuestoId),
-        eq(repuestos.tenantSlug, tenantSlug), // T-21d/INV-05: tenant-scoped
-        sql`${repuestos.stockActual} >= ${cantidad}`,  // Atomic guard: fail if insufficient
-      ),
-    )
-    .returning();
-
-  if (!updated) {
-    // Either repuesto not found OR stock insufficient — check which
-    const repuesto = await getRepuestoById(repuestoId, tenantSlug);
-    throw new ValidationError(
-      `Stock insuficiente. Actual: ${repuesto.stockActual}, solicitado: ${cantidad}`,
-    );
-  }
-
-  // ── 3. Get current PPP for valuation (after atomic update) ──
-  const ppVigente = updated.costoPromedio
-    ? Number(updated.costoPromedio)
-    : 0;
-  const costoTotalSalida = ppVigente * cantidad;
-
-  // ── 4. Stock already reduced atomically in step 2 ──
-  const stockAnterior = Number(updated.stockActual) + Number(cantidad);
-
-  // ── 5. Generate accounting entry via InventarioConfigurator ──
-  let asientoId: string | null = null;
-  if (costoTotalSalida > 0) {
-    const result = await inventarioConfigurator.onSalidaStock({
-      tenantSlug,
-      movimientoId: repuestoId,
-      repuestoDescripcion: updated.descripcion,
-      cantidad,
-      costoTotal: costoTotalSalida,
-      ordenTrabajoId: ordenTrabajoId ?? undefined,
-      centroCostoId: centroCostoId ?? undefined,
-      motivo: motivo ?? "uso en OT",
-    });
-    if (result.success && result.asientoId) {
-      asientoId = result.asientoId;
+    // ── 1. Validate cantidad ──
+    if (!cantidad || cantidad <= 0) {
+      throw new ValidationError("La cantidad debe ser mayor a cero");
     }
-  }
 
-  // ── 6. Persist stock movement ──
-  const [movimiento] = await db()
-    .insert(stockMovements)
-    .values({
-      repuestoId,
-      tipo: "SALIDA",
-      cantidad,
-      stockAnterior,
-      stockPosterior: updated.stockActual,
-      costoUnitario: ppVigente > 0 ? String(ppVigente) : null,
-      costoTotal: costoTotalSalida > 0 ? String(costoTotalSalida) : null,
-      ordenTrabajoId: ordenTrabajoId ?? null,
-      asientoId,
-      motivo,
-      observaciones: observaciones ?? null,
-      tenantSlug,
-    })
-    .returning();
-
-  // ── 7. Check reorder point ──
-  if (
-    updated.puntoReorden !== null &&
-    updated.stockActual <= updated.puntoReorden
-  ) {
-    // Check if there's already a pending alert for this repuesto
-    const existingAlert = await db()
-      .select({ id: reorderAlerts.id })
-      .from(reorderAlerts)
+    // ── 2. C-02 FIX: Atomic stock check + reduction (prevents TOCTOU race) ──
+    // Instead of: read → check → update (3 steps, race window)
+    // Use: UPDATE with WHERE stock >= cantidad → 0 rows = insufficient stock
+    const [updated] = await db()
+      .update(repuestos)
+      .set({
+        stockActual: sql`${repuestos.stockActual} - ${cantidad}`,
+        updatedAt: sql`NOW()`,
+      })
       .where(
         and(
-          eq(reorderAlerts.repuestoId, repuestoId),
-          eq(reorderAlerts.estado, "PENDIENTE"),
-          eq(reorderAlerts.tenantSlug, tenantSlug),
+          eq(repuestos.id, repuestoId),
+          eq(repuestos.tenantSlug, tenantSlug), // T-21d/INV-05: tenant-scoped
+          sql`${repuestos.stockActual} >= ${cantidad}`,  // Atomic guard: fail if insufficient
         ),
       )
-      .limit(1);
+      .returning();
 
-    if (existingAlert.length === 0) {
-      await db().insert(reorderAlerts).values({
+    if (!updated) {
+      // Either repuesto not found OR stock insufficient — check which
+      const repuesto = await getRepuestoById(repuestoId, tenantSlug);
+      throw new ValidationError(
+        `Stock insuficiente. Actual: ${repuesto.stockActual}, solicitado: ${cantidad}`,
+      );
+    }
+
+    // ── 3. Get current PPP for valuation (after atomic update) ──
+    const ppVigente = updated.costoPromedio
+      ? Number(updated.costoPromedio)
+      : 0;
+    const costoTotalSalida = ppVigente * cantidad;
+
+    // ── 4. Stock already reduced atomically in step 2 ──
+    const stockAnterior = Number(updated.stockActual) + Number(cantidad);
+
+    // ── 5. Generate accounting entry via InventarioConfigurator ──
+    let asientoId: string | null = null;
+    // Id único por evento: el asiento usa `movimiento_stock:<id>` como
+    // documentoRef y el índice único parcial (documento_ref, modulo_origen)
+    // rechazaría la 2ª salida del mismo repuesto si usáramos su id (T-44).
+    const movimientoId = randomUUID();
+    if (costoTotalSalida > 0) {
+      const result = await inventarioConfigurator.onSalidaStock({
+        tenantSlug,
+        movimientoId,
+        repuestoDescripcion: updated.descripcion,
+        cantidad,
+        costoTotal: costoTotalSalida,
+        ordenTrabajoId: ordenTrabajoId ?? undefined,
+        centroCostoId: centroCostoId ?? undefined,
+        motivo: motivo ?? "uso en OT",
+      });
+      if (result.success && result.asientoId) {
+        asientoId = result.asientoId;
+      }
+    }
+
+    // ── 6. Persist stock movement ──
+    const [movimiento] = await db()
+      .insert(stockMovements)
+      .values({
+        id: movimientoId,
+        repuestoId,
+        tipo: "SALIDA",
+        cantidad,
+        stockAnterior,
+        stockPosterior: updated.stockActual,
+        costoUnitario: ppVigente > 0 ? String(ppVigente) : null,
+        costoTotal: costoTotalSalida > 0 ? String(costoTotalSalida) : null,
+        ordenTrabajoId: ordenTrabajoId ?? null,
+        asientoId,
+        motivo,
+        observaciones: observaciones ?? null,
+        tenantSlug,
+      })
+      .returning();
+
+    // ── T-33: trazabilidad del movimiento (quién / cuándo / antes-después) ──
+    await logEntityAudit({
+      tenantSlug,
+      accion: "CREATE",
+      entidad: "stock_movements",
+      entidadId: movimiento.id,
+      valorAnterior: { repuestoId, stockActual: stockAnterior },
+      valorNuevo: {
         repuestoId,
         stockActual: updated.stockActual,
-        puntoReorden: updated.puntoReorden,
-        estado: "PENDIENTE",
-        tenantSlug,
-      });
-    }
-  }
+        cantidad,
+        tipo: "SALIDA",
+        asientoId,
+      },
+      descripcion: `Salida de stock: ${cantidad} × ${updated.descripcion}`,
+    });
 
-  // ── 8. Return DTO ──
-  return {
-    repuesto: {
-      id: updated.id,
-      codigo: updated.codigo,
-      descripcion: updated.descripcion,
-      stockActual: updated.stockActual,
-      stockAnterior,
-    },
-    movimiento: {
-      id: movimiento.id,
-      tipo: "salida",
-      cantidad,
-      motivo,
-      ordenTrabajoId: ordenTrabajoId ?? null,
-      costoUnitario: ppVigente > 0 ? ppVigente : null,
-    },
-  };
+    // ── 7. Check reorder point ──
+    if (
+      updated.puntoReorden !== null &&
+      updated.stockActual <= updated.puntoReorden
+    ) {
+      // Check if there's already a pending alert for this repuesto
+      const existingAlert = await db()
+        .select({ id: reorderAlerts.id })
+        .from(reorderAlerts)
+        .where(
+          and(
+            eq(reorderAlerts.repuestoId, repuestoId),
+            eq(reorderAlerts.estado, "PENDIENTE"),
+            eq(reorderAlerts.tenantSlug, tenantSlug),
+          ),
+        )
+        .limit(1);
+
+      if (existingAlert.length === 0) {
+        await db().insert(reorderAlerts).values({
+          repuestoId,
+          stockActual: updated.stockActual,
+          puntoReorden: updated.puntoReorden,
+          estado: "PENDIENTE",
+          tenantSlug,
+        });
+      }
+    }
+
+    // ── 8. Return DTO ──
+    return {
+      repuesto: {
+        id: updated.id,
+        codigo: updated.codigo,
+        descripcion: updated.descripcion,
+        stockActual: updated.stockActual,
+        stockAnterior,
+      },
+      movimiento: {
+        id: movimiento.id,
+        tipo: "salida",
+        cantidad,
+        motivo,
+        ordenTrabajoId: ordenTrabajoId ?? null,
+        costoUnitario: ppVigente > 0 ? ppVigente : null,
+        asientoId,
+      },
+    };
+  });
 }
 
 /**
@@ -492,67 +520,146 @@ export async function ingresoStock(
   data: IngresoStockRequest,
   tenantSlug: string,
 ): Promise<StockMovimientoResponse> {
-  const { cantidad, motivo, costoUnitario, observaciones } = data;
-
-  // ── 1. Validate cantidad ──
-  if (!cantidad || cantidad <= 0) {
-    throw new ValidationError("La cantidad debe ser mayor a cero");
-  }
-
-  // ── 2. Fetch repuesto (tenant-scoped) and check max stock ──
-  const repuesto = await getRepuestoById(id, tenantSlug);
-  const stockAnterior = repuesto.stockActual;
-
-  if (repuesto.stockMaximo !== null) {
-    const nuevoStock = repuesto.stockActual + cantidad;
-    if (nuevoStock > repuesto.stockMaximo) {
-      throw new ValidationError(
-        `El stock superaría el máximo permitido (${repuesto.stockMaximo}). ` +
-        `Actual: ${repuesto.stockActual}, agregando: ${cantidad}`,
-      );
-    }
-  }
-
-  // ── 4. Update stock and optionally recalculate PPP ──
-  if (costoUnitario && costoUnitario > 0) {
-    // Recalculate PPP via costing service (also increases stock)
-    await recalcularPPP(
-      id,
+  return withTransaction(async () => {
+    const {
       cantidad,
+      motivo,
       costoUnitario,
-      tenantSlug,
-    );
+      observaciones,
+      purchaseOrderId,
+      proveedorNombre,
+    } = data;
 
-    // Stock was already increased by recalcularPPP
-    const [updated] = await db()
-      .select()
-      .from(repuestos)
-      .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
-      .limit(1);
+    // ── 1. Validate cantidad ──
+    if (!cantidad || cantidad <= 0) {
+      throw new ValidationError("La cantidad debe ser mayor a cero");
+    }
 
-    if (!updated) throw new NotFoundError(`Repuesto ${id} no encontrado`);
+    // ── 2. Fetch repuesto (tenant-scoped) and check max stock ──
+    const repuesto = await getRepuestoById(id, tenantSlug);
+    const stockAnterior = repuesto.stockActual;
 
-    const costoUnitarioActual = costoUnitario!; // Non-null: verified > 0 above
-
-    // Try to generate journal entry via InventarioConfigurator
-    let asientoId: string | null = null;
-    const costoTotalEntrada = costoUnitarioActual * cantidad;
-    if (costoTotalEntrada > 0) {
-      const result = await inventarioConfigurator.onEntradaStock({
-        tenantSlug,
-        movimientoId: id,
-        repuestoDescripcion: repuesto.descripcion,
-        cantidad,
-        costoTotal: costoTotalEntrada,
-        tipoEntrada: "COMPRA",
-        proveedorNombre: "",
-      });
-      if (result.success && result.asientoId) {
-        asientoId = result.asientoId;
+    if (repuesto.stockMaximo !== null) {
+      const nuevoStock = repuesto.stockActual + cantidad;
+      if (nuevoStock > repuesto.stockMaximo) {
+        throw new ValidationError(
+          `El stock superaría el máximo permitido (${repuesto.stockMaximo}). ` +
+          `Actual: ${repuesto.stockActual}, agregando: ${cantidad}`,
+        );
       }
     }
 
-    // Update the movement with the asiento ID
+    // ── 4. Update stock and optionally recalculate PPP ──
+    if (costoUnitario && costoUnitario > 0) {
+      // Recalculate PPP via costing service (also increases stock)
+      await recalcularPPP(
+        id,
+        cantidad,
+        costoUnitario,
+        tenantSlug,
+      );
+
+      // Stock was already increased by recalcularPPP
+      const [updated] = await db()
+        .select()
+        .from(repuestos)
+        .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
+        .limit(1);
+
+      if (!updated) throw new NotFoundError(`Repuesto ${id} no encontrado`);
+
+      const costoUnitarioActual = costoUnitario!; // Non-null: verified > 0 above
+
+      // Try to generate journal entry via InventarioConfigurator
+      let asientoId: string | null = null;
+      const costoTotalEntrada = costoUnitarioActual * cantidad;
+      // Id único por evento — ver nota en salidaStock (T-44): evita 23505
+      // en uq_asientos_documento_ref_contabilizado con la 2ª entrada.
+      const movimientoId = randomUUID();
+      if (costoTotalEntrada > 0) {
+        const result = await inventarioConfigurator.onEntradaStock({
+          tenantSlug,
+          movimientoId,
+          repuestoDescripcion: repuesto.descripcion,
+          cantidad,
+          costoTotal: costoTotalEntrada,
+          tipoEntrada: "COMPRA",
+          proveedorNombre: proveedorNombre ?? "",
+        });
+        if (result.success && result.asientoId) {
+          asientoId = result.asientoId;
+        }
+      }
+
+      // Update the movement with the asiento ID
+      const [movimiento] = await db()
+        .insert(stockMovements)
+        .values({
+          id: movimientoId,
+          repuestoId: id,
+          tipo: "ENTRADA",
+          cantidad,
+          stockAnterior,
+          stockPosterior: updated.stockActual,
+          costoUnitario: String(costoUnitarioActual),
+          costoTotal: String(costoTotalEntrada),
+          asientoId,
+          motivo,
+          observaciones: observaciones ?? null,
+          purchaseOrderId: purchaseOrderId ?? null,
+          tenantSlug,
+        })
+        .returning();
+
+      // ── T-33: trazabilidad del movimiento (quién / cuándo / antes-después) ──
+      await logEntityAudit({
+        tenantSlug,
+        accion: "CREATE",
+        entidad: "stock_movements",
+        entidadId: movimiento.id,
+        valorAnterior: { repuestoId: id, stockActual: stockAnterior },
+        valorNuevo: {
+          repuestoId: id,
+          stockActual: updated.stockActual,
+          cantidad,
+          tipo: "ENTRADA",
+          costoUnitario: costoUnitarioActual,
+          asientoId,
+        },
+        descripcion: `Entrada de stock: ${cantidad} × ${repuesto.descripcion}`,
+      });
+
+      return {
+        repuesto: {
+          id: updated.id,
+          codigo: updated.codigo,
+          descripcion: updated.descripcion,
+          stockActual: updated.stockActual,
+          stockAnterior,
+        },
+      movimiento: {
+        id: movimiento.id,
+        tipo: "entrada",
+        cantidad,
+        motivo,
+        ordenTrabajoId: null,
+        costoUnitario: costoUnitarioActual,
+        asientoId,
+      },
+      };
+    }
+
+    // ── 5. Simple stock increase (no PPP change, no asiento) ──
+    const [updated] = await db()
+      .update(repuestos)
+      .set({
+        stockActual: sql`${repuestos.stockActual} + ${cantidad}`,
+        updatedAt: sql`NOW()`,
+      })
+      .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
+      .returning();
+
+    // Persist movement
     const [movimiento] = await db()
       .insert(stockMovements)
       .values({
@@ -561,14 +668,30 @@ export async function ingresoStock(
         cantidad,
         stockAnterior,
         stockPosterior: updated.stockActual,
-        costoUnitario: String(costoUnitarioActual),
-        costoTotal: String(costoTotalEntrada),
-        asientoId,
+        costoUnitario: null,
+        costoTotal: null,
         motivo,
         observaciones: observaciones ?? null,
+        purchaseOrderId: purchaseOrderId ?? null,
         tenantSlug,
       })
       .returning();
+
+    // ── T-33: trazabilidad del movimiento (quién / cuándo / antes-después) ──
+    await logEntityAudit({
+      tenantSlug,
+      accion: "CREATE",
+      entidad: "stock_movements",
+      entidadId: movimiento.id,
+      valorAnterior: { repuestoId: id, stockActual: stockAnterior },
+      valorNuevo: {
+        repuestoId: id,
+        stockActual: updated.stockActual,
+        cantidad,
+        tipo: "ENTRADA",
+      },
+      descripcion: `Entrada de stock: ${cantidad} × ${repuesto.descripcion}`,
+    });
 
     return {
       repuesto: {
@@ -584,55 +707,12 @@ export async function ingresoStock(
         cantidad,
         motivo,
         ordenTrabajoId: null,
-        costoUnitario: costoUnitarioActual,
+        costoUnitario: null,
+        // Sin costo unitario no hay re-cálculo de PPP ni asiento contable.
+        asientoId: null,
       },
     };
-  }
-
-  // ── 5. Simple stock increase (no PPP change, no asiento) ──
-  const [updated] = await db()
-    .update(repuestos)
-    .set({
-      stockActual: sql`${repuestos.stockActual} + ${cantidad}`,
-      updatedAt: sql`NOW()`,
-    })
-    .where(and(eq(repuestos.id, id), eq(repuestos.tenantSlug, tenantSlug)))
-    .returning();
-
-  // Persist movement
-  const [movimiento] = await db()
-    .insert(stockMovements)
-    .values({
-      repuestoId: id,
-      tipo: "ENTRADA",
-      cantidad,
-      stockAnterior,
-      stockPosterior: updated.stockActual,
-      costoUnitario: null,
-      costoTotal: null,
-      motivo,
-      observaciones: observaciones ?? null,
-      tenantSlug,
-    })
-    .returning();
-
-  return {
-    repuesto: {
-      id: updated.id,
-      codigo: updated.codigo,
-      descripcion: updated.descripcion,
-      stockActual: updated.stockActual,
-      stockAnterior,
-    },
-    movimiento: {
-      id: movimiento.id,
-      tipo: "entrada",
-      cantidad,
-      motivo,
-      ordenTrabajoId: null,
-      costoUnitario: null,
-    },
-  };
+  });
 }
 
 /**

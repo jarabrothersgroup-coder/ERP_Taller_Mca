@@ -129,9 +129,12 @@ export function useVehicles() {
 /* ── Inventory Hooks ────────────────────────── */
 
 export function useInventory(params?: { search?: string; categoria?: string; page?: number }) {
+  // T-54: filtros server-side — el backend (/inventory/repuestos) soporta
+  // search/categoria/page; con filtro activo se desactiva el mock para no
+  // filtrar en cliente sobre una lista limitada a 100 ítems.
   return useQuery<UIMappedInventoryItem[], Error>({
     queryKey: [...queryKeys.inventory, params],
-    queryFn: () => fetchInventoryItems(() => []),
+    queryFn: () => fetchInventoryItems(() => [], undefined, params),
   });
 }
 
@@ -264,6 +267,11 @@ export function useWorkshopAnalytics(from?: string, to?: string) {
     distribution: distribution.data?.distribution ?? [],
     mechanics: mechanics.data?.mechanics ?? [],
     isLoading: kpis.isLoading || revenueTrend.isLoading || otTrend.isLoading,
+    // T-53: exposición del estado de error para que la página pueda mostrar
+    // <ErrorState onRetry={refetch}/> en vez de quedarse en skeleton.
+    isError: kpis.isError || revenueTrend.isError || otTrend.isError,
+    error: kpis.error,
+    refetch: () => Promise.all([kpis.refetch(), revenueTrend.refetch(), otTrend.refetch()]),
     range: kpis.data?.range,
   };
 }
@@ -412,6 +420,7 @@ export function useExecuteBackup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.executeBackup(),
+    meta: { successMessage: "Backup iniciado" },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["backups"] }),
   });
 }

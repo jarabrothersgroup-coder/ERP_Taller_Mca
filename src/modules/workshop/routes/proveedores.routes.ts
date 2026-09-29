@@ -12,6 +12,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import {
   listProveedores,
   getProveedorById,
@@ -91,10 +92,11 @@ export async function proveedoresRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── DELETE /workshop/proveedores/:id — Delete ──
+  // ── DELETE /workshop/proveedores/:id — Delete (destructivo → manager+) ──
   app.delete<{ Params: { id: string } }>(
     "/workshop/proveedores/:id",
     {
+      preHandler: requireManager,
       schema: {
         params: {
           type: "object",

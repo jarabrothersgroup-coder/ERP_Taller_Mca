@@ -52,6 +52,7 @@ export function NewClientDialog({ onCreated }: { onCreated?: () => void }) {
         address: data.address || undefined,
         notes: data.notes || undefined,
       }),
+    meta: { successMessage: "Cliente creado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.clients });
       setForm({ name: "", email: "", phone: "", ruc: "", address: "", notes: "" });

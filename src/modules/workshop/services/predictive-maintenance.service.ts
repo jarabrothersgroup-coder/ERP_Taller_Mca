@@ -9,8 +9,10 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { eq, and, desc } from "drizzle-orm";
+import { NotFoundError } from "../../../shared/errors/app-error.js";
 import { vehiculos } from "../schema/vehiculos.js";
 import { ordenesTrabajo } from "../schema/ordenes-trabajo.js";
+import { mantenimientosProgramados } from "../schema/mantenimientos-programados.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -29,8 +31,19 @@ export interface VehiclePrediction {
   placa: string;
   kmActual: number;
   kmPorMes: number;
+  /** true si `kmActual` salió del odómetro real (vehiculos.kilometraje) */
+  kmReal: boolean;
   serviciosPredichos: PredictedService[];
   proximoServicio: PredictedService | null;
+  /** Ficha persistida (mantenimientos_programados) — T-43 */
+  programados: Array<{
+    id: string;
+    servicio: string;
+    kmObjetivo: number | null;
+    fechaObjetivo: string | null;
+    estado: string;
+    origen: string;
+  }>;
 }
 
 // ─── Service Intervals ────────────────────────
@@ -59,7 +72,8 @@ export async function predictMaintenance(
   vehiculoId: string,
   tenantSlug: string,
 ): Promise<VehiclePrediction> {
-  // Get vehicle info
+  // Get vehicle info — TENANT-SCOPED (T-43: antes un UUID ajeno devolvía
+  // predicciones de otro tenant; ahora es 404)
   const [vehicle] = await db()
     .select({
       id: vehiculos.id,
@@ -67,13 +81,19 @@ export async function predictMaintenance(
       model: vehiculos.model,
       plate: vehiculos.plate,
       year: vehiculos.year,
+      kilometraje: vehiculos.kilometraje,
     })
     .from(vehiculos)
-    .where(eq(vehiculos.id, vehiculoId))
+    .where(
+      and(
+        eq(vehiculos.id, vehiculoId),
+        eq(vehiculos.tenantSlug, tenantSlug),
+      ),
+    )
     .limit(1);
 
   if (!vehicle) {
-    throw new Error(`Vehículo ${vehiculoId} no encontrado`);
+    throw new NotFoundError(`Vehículo ${vehiculoId} no encontrado`);
   }
 
   // Get recent OTs to estimate km usage
@@ -109,8 +129,35 @@ export async function predictMaintenance(
     }
   }
 
-  const kmActual = kmPorMes * 12; // Estimate current km
+  // ── T-43 (SRV-03): km REAL del odómetro cuando existe ──
+  // Antes: kmActual = kmPorMes * 12 (inventado). Ahora el odómetro de
+  // `vehiculos.kilometraje` (alimentado por cada ingreso) manda; el cálculo
+  // por visita solo queda como fallback para vehículos sin km registrado.
+  const kmEstimado = kmPorMes * 12;
+  const kmActual = vehicle.kilometraje ?? kmEstimado;
+  const kmReal = vehicle.kilometraje !== null;
   const now = new Date();
+
+  // Ficha persistida (T-43): mantenimientos programados PENDIENTES
+  const programadosRows = await db()
+    .select({
+      id: mantenimientosProgramados.id,
+      servicio: mantenimientosProgramados.servicio,
+      kmObjetivo: mantenimientosProgramados.kmObjetivo,
+      fechaObjetivo: mantenimientosProgramados.fechaObjetivo,
+      estado: mantenimientosProgramados.estado,
+      origen: mantenimientosProgramados.origen,
+    })
+    .from(mantenimientosProgramados)
+    .where(
+      and(
+        eq(mantenimientosProgramados.vehiculoId, vehiculoId),
+        eq(mantenimientosProgramados.tenantSlug, tenantSlug),
+        eq(mantenimientosProgramados.estado, "PENDIENTE"),
+      ),
+    )
+    .orderBy(mantenimientosProgramados.fechaObjetivo)
+    .limit(50);
 
   // Predict services
   const serviciosPredichos: PredictedService[] = [];
@@ -136,7 +183,53 @@ export async function predictMaintenance(
     });
   }
 
-  // Sort by urgency and km
+  // ── T-43: la ficha persistida manda sobre la predicción genérica ──
+  // Un mantenimiento programado con su objetivo real entra primero y con
+  // urgencia calculada contra el km actual / fecha de hoy.
+  for (const p of programadosRows) {
+    const kmRestante =
+      p.kmObjetivo !== null ? Math.max(p.kmObjetivo - kmActual, 0) : null;
+    const diasRestantes = p.fechaObjetivo
+      ? Math.ceil(
+          (new Date(`${p.fechaObjetivo}T12:00:00`).getTime() - now.getTime()) /
+            86400000,
+        )
+      : null;
+
+    let urgencia: "alta" | "media" | "baja" = "baja";
+    if (
+      (kmRestante !== null && kmRestante <= 500) ||
+      (diasRestantes !== null && diasRestantes <= 7)
+    ) {
+      urgencia = "alta";
+    } else if (
+      (kmRestante !== null && kmRestante <= 2000) ||
+      (diasRestantes !== null && diasRestantes <= 30)
+    ) {
+      urgencia = "media";
+    }
+
+    const mesesEstimados =
+      kmRestante !== null && kmPorMes > 0
+        ? Math.round(kmRestante / kmPorMes)
+        : diasRestantes !== null
+          ? Math.round(diasRestantes / 30)
+          : 0;
+    const fechaEstimada = new Date(now);
+    fechaEstimada.setMonth(fechaEstimada.getMonth() + mesesEstimados);
+
+    serviciosPredichos.unshift({
+      servicio: p.servicio,
+      kmEstimado: p.kmObjetivo ?? kmActual,
+      fechaEstimada: (p.fechaObjetivo ?? fechaEstimada.toISOString().split("T")[0])!,
+      urgencia,
+      costoEstimado:
+        SERVICE_INTERVALS.find((i) => p.servicio.toLowerCase().includes(i.servicio.toLowerCase()))
+          ?.costoEstimado ?? 150000,
+      descripcion: `Programado (${p.origen === "OT_COMPLETADA" ? "generado por OT" : p.origen.toLowerCase()})`,
+    });
+  }
+
   serviciosPredichos.sort((a, b) => {
     const urgenciaOrder = { alta: 0, media: 1, baja: 2 };
     return urgenciaOrder[a.urgencia] - urgenciaOrder[b.urgencia];
@@ -148,8 +241,10 @@ export async function predictMaintenance(
     placa: vehicle.plate || "S/N",
     kmActual,
     kmPorMes,
+    kmReal,
     serviciosPredichos,
     proximoServicio: serviciosPredichos[0] || null,
+    programados: programadosRows,
   };
 }
 

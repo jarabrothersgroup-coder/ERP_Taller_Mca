@@ -38,6 +38,13 @@ export type { Proveedor, NewProveedor } from "./proveedores.js";
 export { ordenEstadoHistorial } from "./orden-estado-historial.js";
 export type { OrdenEstadoHistorial, NewOrdenEstadoHistorial } from "./orden-estado-historial.js";
 
+// ─── Mantenimientos Programados (T-43) ────────
+export { mantenimientosProgramados } from "./mantenimientos-programados.js";
+export type {
+  MantenimientoProgramado,
+  NewMantenimientoProgramado,
+} from "./mantenimientos-programados.js";
+
 export { serviciosCatalogo } from "./servicios-catalogo.js";
 export type { ServicioCatalogo, NewServicioCatalogo } from "./servicios-catalogo.js";
 

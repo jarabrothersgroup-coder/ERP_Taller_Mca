@@ -101,6 +101,13 @@ export async function getLatestRate(tenantSlug: string, moneda: string) {
 
 /** Obtiene tipo de cambio en una fecha específica */
 export async function getRateAtDate(tenantSlug: string, moneda: string, fecha: Date) {
+  // `tiposCambio.fecha` y el parámetro se comparan con DATE(...), así que la
+  // fecha se pasa como string ISO-YYYY-MM-DD. Interpolar el objeto Date
+  // directamente hacía fallar postgres.js con ERR_INVALID_ARG_TYPE
+  // ("string argument ... Received an instance of Date") y la ruta
+  // GET /finance/contabilidad/tipos-cambio/:fecha devolvía 500 siempre.
+  const fechaIso = fecha.toISOString().slice(0, 10);
+
   const [tc] = await db()
     .select()
     .from(tiposCambio)
@@ -108,7 +115,7 @@ export async function getRateAtDate(tenantSlug: string, moneda: string, fecha: D
       and(
         eq(tiposCambio.tenantSlug, tenantSlug),
         eq(tiposCambio.moneda, moneda as any),
-        eq(sql`DATE(${tiposCambio.fecha})`, sql`DATE(${fecha})`),
+        eq(sql`DATE(${tiposCambio.fecha})`, sql`DATE(${fechaIso}::date)`),
       ),
     )
     .orderBy(desc(tiposCambio.createdAt))

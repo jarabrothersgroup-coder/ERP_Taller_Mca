@@ -67,6 +67,7 @@ export function NewMovementDialog({ onCreated }: { onCreated?: () => void }) {
       if (!res.ok) throw new Error("Error creando movimiento");
       return res.json();
     },
+    meta: { successMessage: "Movimiento registrado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.movements });
       qc.invalidateQueries({ queryKey: queryKeys.bankAccounts });

@@ -1,16 +1,19 @@
 import { db } from "../../../shared/database/drizzle.js";
+import { withTransaction } from "../../../shared/database/transaction.js";
 import { getSettings, invalidateCache } from "../../config/services/TenantConfigService.js";
 import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial, estadoOrdenEnum } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc, notInArray } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
+import { generarMantenimientosDeOT } from "./mantenimiento-programado.service.js";
 import { presupuestos } from "../../finance/schema/budget.js";
 import { workshopConfigurator } from "../../finance/services/index.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
 import { crearNotificacionPush } from "./notification-push.service.js";
 import { broadcastBoardChanged } from "./hub-board.service.js";
+import { resolveAuditActor } from "../../../shared/audit/audit-context.js";
 
 // ─── Tenant settings (per-tenant, global fallback) ─────────────
 
@@ -392,77 +395,88 @@ export async function updateOrdenStatus(
     throw new ValidationError(`Estado inválido: ${newStatus}`);
   }
 
-  const selectConditions = [eq(ordenesTrabajo.id, ordenId)];
-  if (tenantSlug) {
-    selectConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
-  }
-  const [orden] = await db()
-    .select({
-      id: ordenesTrabajo.id,
-      status: ordenesTrabajo.status,
-      hvAlert: ordenesTrabajo.hvAlert,
-      hvLockoutSigned: ordenesTrabajo.hvLockoutSigned,
-    })
-    .from(ordenesTrabajo)
-    .where(and(...selectConditions));
+  // ── T-31 (SRV-04): estado + historial + consumo de stock + asiento
+  //    comparten UNA sola transacción. Cualquier fallo (stock insuficiente,
+  //    asiento contable, historial) revierte TODO: nunca queda una OT en
+  //    "Listo" con stock desfasado ni un cambio de estado sin historial.
+  //    Los efectos no críticos (WhatsApp/e-mail/TV/HUB) se disparan DESPUÉS
+  //    del COMMIT — si se programaran dentro, heredarían el handle transaccional.
+  let orden!: {
+    id: string;
+    status: EstadoOrden;
+    hvAlert: boolean;
+    hvLockoutSigned: boolean;
+  };
 
-  if (!orden) throw new NotFoundError(`Orden de trabajo ${ordenId} no encontrada`);
+  const updated = await withTransaction(async () => {
+    const selectConditions = [eq(ordenesTrabajo.id, ordenId)];
+    if (tenantSlug) {
+      selectConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
+    }
+    const [row] = await db()
+      .select({
+        id: ordenesTrabajo.id,
+        status: ordenesTrabajo.status,
+        hvAlert: ordenesTrabajo.hvAlert,
+        hvLockoutSigned: ordenesTrabajo.hvLockoutSigned,
+      })
+      .from(ordenesTrabajo)
+      .where(and(...selectConditions));
 
-  if (newStatus === "Listo" && orden.hvAlert && !orden.hvLockoutSigned) {
-    throw new ValidationError(
-      "No se puede finalizar la orden: el vehículo es HEV/BEV y el protocolo de " +
-      "Lockout/Tagout de alta tensión no ha sido firmado. " +
-      "Use POST /workshop/ordenes/:id/sign-lockout para firmarlo.",
-    );
-  }
+    if (!row) throw new NotFoundError(`Orden de trabajo ${ordenId} no encontrada`);
+    orden = row;
 
-  const updateConditions = [eq(ordenesTrabajo.id, ordenId)];
-  if (tenantSlug) {
-    updateConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
-  }
-  const [updated] = await db()
-    .update(ordenesTrabajo)
-    .set({ status: newStatus as EstadoOrden, updatedAt: new Date() })
-    .where(and(...updateConditions))
-    .returning({ id: ordenesTrabajo.id, status: ordenesTrabajo.status });
+    if (newStatus === "Listo" && orden.hvAlert && !orden.hvLockoutSigned) {
+      throw new ValidationError(
+        "No se puede finalizar la orden: el vehículo es HEV/BEV y el protocolo de " +
+        "Lockout/Tagout de alta tensión no ha sido firmado. " +
+        "Use POST /workshop/ordenes/:id/sign-lockout para firmarlo.",
+      );
+    }
 
-  if (!updated) {
-    throw new Error(`Error al actualizar orden ${ordenId}`);
-  }
+    const updateConditions = [eq(ordenesTrabajo.id, ordenId)];
+    if (tenantSlug) {
+      updateConditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
+    }
+    const [updatedRow] = await db()
+      .update(ordenesTrabajo)
+      .set({ status: newStatus as EstadoOrden, updatedAt: new Date() })
+      .where(and(...updateConditions))
+      .returning({ id: ordenesTrabajo.id, status: ordenesTrabajo.status });
 
-  // ── G-02: Registrar historial de cambio de estado (CRÍTICO — auditoría) ──
-  try {
+    if (!updatedRow) {
+      throw new Error(`Error al actualizar orden ${ordenId}`);
+    }
+
+    // ── G-02: historial de cambio de estado (auditoría) — dentro de la tx ──
+    // Antes se tragaba el error y el estado quedaba cambiado sin registro;
+    // ahora un fallo aquí revierte toda la transacción.
+    const actor = resolveAuditActor();
     await db()
       .insert(ordenEstadoHistorial)
       .values({
         ordenTrabajoId: ordenId,
         estadoAnterior: orden.status,
         estadoNuevo: newStatus,
+        // T-33: quién hizo el cambio (perfil de la request; null en cron/CLI)
+        usuarioId: isRealActor(actor.usuarioId) ? actor.usuarioId : null,
         observaciones: null,
       });
-  } catch (histErr) {
-    // Audit trail failure is logged but doesn't block — order status already updated
-    console.error(
-      `[orden] CRÍTICO — Error registrando historial de estado para OT ${ordenId}:`,
-      histErr instanceof Error ? histErr.message : histErr,
-    );
-  }
 
-  // ── Auto-consume inventory stock when OT is completed ──
-  if (newStatus === "Listo" && tenantSlug) {
-    // Stock consumption is critical — await it to prevent inventory drift
-    try {
+    // ── Consumo automático de stock al completar la OT ──
+    if (newStatus === "Listo" && tenantSlug) {
+      // consumeStockOnOTClose propaga el error dentro de una transacción:
+      // una sola pieza sin stock revierte también el cambio de estado.
       await consumeStockOnOTClose(ordenId, tenantSlug);
-    } catch (stockErr) {
-      console.error(
-        `[orden] CRÍTICO — Error consumiendo stock en OT ${ordenId}:`,
-        stockErr instanceof Error ? stockErr.message : stockErr,
-      );
-    }
 
-    // ── Revenue recognition via WorkshopConfigurator ──
-    try {
-      const [orden] = await db()
+      // ── T-43 (SRV-03): ficha de próximos mantenimientos ──
+      // Genera/actualiza el próximo mantenimiento de cada servicio realizado.
+      // Dentro de la misma tx: si la ficha no se puede escribir, la OT no
+      // queda "Listo" sin su siguiente servicio programado (T-31).
+      await generarMantenimientosDeOT(ordenId, tenantSlug);
+
+      // ── Reconocimiento de ingreso (asiento contable) ──
+      const [otRow] = await db()
         .select({
           clientId: ordenesTrabajo.clientId,
           totalCost: ordenesTrabajo.totalCost,
@@ -474,16 +488,17 @@ export async function updateOrdenStatus(
         ))
         .limit(1);
 
-      if (orden) {
+      if (otRow) {
         const [client] = await db()
           .select({ name: clients.name })
           .from(clients)
-          .where(eq(clients.id, orden.clientId))
+          .where(eq(clients.id, otRow.clientId))
           .limit(1);
 
-        const total = Number(orden.totalCost ?? 0);
+        const total = Number(otRow.totalCost ?? 0);
 
         if (total > 0) {
+          // emit() relanza el error dentro de una transacción → rollback total
           await workshopConfigurator.onOTCompletada({
             tenantSlug,
             ordenId,
@@ -495,13 +510,12 @@ export async function updateOrdenStatus(
           });
         }
       }
-    } catch (acctErr) {
-      console.error(
-        `[orden] CRÍTICO — Error generando asiento contable para OT completada ${ordenId}:`,
-        acctErr instanceof Error ? acctErr.message : acctErr,
-      );
     }
-  }
+
+    return updatedRow;
+  });
+
+  // ─── COMMIT realizado — efectos no críticos (T-31) ──────────────
 
   // ── Notificaciones automáticas para TODOS los cambios de estado ──
   if (tenantSlug) {
@@ -517,7 +531,7 @@ export async function updateOrdenStatus(
   if (newStatus === "Listo" && tenantSlug) {
     (async () => {
       try {
-        const [orden] = await db()
+        const [ordenEmail] = await db()
           .select({
             clientId: ordenesTrabajo.clientId,
             description: ordenesTrabajo.description,
@@ -528,19 +542,19 @@ export async function updateOrdenStatus(
           .where(and(eq(ordenesTrabajo.id, ordenId), eq(ordenesTrabajo.tenantSlug, tenantSlug)))
           .limit(1);
 
-        if (!orden?.clientId) return;
+        if (!ordenEmail?.clientId) return;
 
         const [client] = await db()
           .select({ email: clients.email, name: clients.name })
           .from(clients)
-          .where(eq(clients.id, orden.clientId))
+          .where(eq(clients.id, ordenEmail.clientId))
           .limit(1);
 
         if (!client?.email) return;
 
         // Fetch vehicle info for the email
         let vehiculoDesc = "";
-        if (orden.vehicleId) {
+        if (ordenEmail.vehicleId) {
           const [v] = await db()
             .select({
               brand: vehiculos.brand,
@@ -548,16 +562,16 @@ export async function updateOrdenStatus(
               plate: vehiculos.plate,
             })
             .from(vehiculos)
-            .where(eq(vehiculos.id, orden.vehicleId))
+            .where(eq(vehiculos.id, ordenEmail.vehicleId))
             .limit(1);
           if (v) vehiculoDesc = `${v.brand} ${v.model} (${v.plate ?? "sin chapa"})`;
         }
 
-        const totalVal = Number(orden.totalCost ?? 0);
+        const totalVal = Number(ordenEmail.totalCost ?? 0);
         const html = orderCompletedTemplate({
           cliente: client.name,
           vehiculo: vehiculoDesc || "Vehículo del taller",
-          serviciosRealizados: orden.description ?? "Servicio completado",
+          serviciosRealizados: ordenEmail.description ?? "Servicio completado",
           total: totalVal.toLocaleString("es-PY", { minimumFractionDigits: 0 }),
           tallerNombre: tenantSlug,
           tallerDireccion: await getWorkshopAddress(tenantSlug),
@@ -840,4 +854,9 @@ export async function convertPresupuestoToOT(
       estado: "aprobado",
     },
   };
+}
+
+/** True when `usuarioId` identifies a real profile (not system/anonymous). */
+function isRealActor(usuarioId: string): boolean {
+  return usuarioId !== "system" && usuarioId !== "anonymous";
 }

@@ -72,7 +72,9 @@ export async function saveSignature(
     firmaBase64: row.firma_base64,
     clienteNombre: row.cliente_nombre,
     clienteDocumento: row.cliente_documento,
-    createdAt: row.created_at?.toISOString() || new Date().toISOString(),
+    // postgres.js devuelve timestamptz como string (no Date): hay que
+    // parsear antes de serializar a ISO. `new Date(string|Date)` cubre ambos.
+    createdAt: new Date(row.created_at).toISOString(),
   };
 }
 
@@ -103,6 +105,7 @@ export async function getSignaturesByOrden(
     firmaBase64: row.firma_base64,
     clienteNombre: row.cliente_nombre,
     clienteDocumento: row.cliente_documento,
-    createdAt: row.created_at?.toISOString() || new Date().toISOString(),
+    // Mismo caso que saveSignature: el driver no instancia Date.
+    createdAt: new Date(row.created_at).toISOString(),
   }));
 }

@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useWorkshopAnalytics } from "@/hooks/use-data";
 import type { AnalyticsKpis } from "@/lib/api";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 /* ── Helpers ──────────────────────────────────── */
 
@@ -342,7 +344,21 @@ function DateRangePicker({ from, to, onChange }: {
 
 export default function AnalyticsPage() {
   const [range, setRange] = React.useState(getDefaultRange);
-  const { kpis, revenueTrend, otTrend, distribution, mechanics, isLoading } = useWorkshopAnalytics(range.from, range.to);
+  const { kpis, revenueTrend, otTrend, distribution, mechanics, isLoading, isError, error, refetch } = useWorkshopAnalytics(range.from, range.to);
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las analíticas del taller");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las analíticas del taller"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
+
 
   if (isLoading) {
     return (

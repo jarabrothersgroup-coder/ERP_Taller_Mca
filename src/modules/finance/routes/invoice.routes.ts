@@ -3,6 +3,7 @@
  *
  * Dual-engine invoice endpoint:
  *   POST /finance/invoices/issue
+ *   POST /finance/invoices/:id/void   (T-45 · anulación manual + reverso)
  *
  * - **MANUAL** branch: registers a pre-printed invoice number, stores CDC=null
  *   for later retroactive conversion when DNIT homologation is approved.
@@ -31,6 +32,8 @@ import { emit, resolveAccount } from "../services/index.js";
 import { AccountingBusCodes } from "./accounting-bus-codes.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { invoiceReadyTemplate } from "../../email/templates/index.js";
+import { voidInvoice, type VoidInvoiceInput } from "../services/invoice-void.service.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 
 // ─── Request body type ─────────────────────────
 
@@ -506,6 +509,44 @@ export async function invoiceRoutes(fastify: FastifyInstance): Promise<void> {
         lineItems,
         orden,
       });
+    },
+  );
+
+  // ── POST /finance/invoices/:id/void — Anulación manual (T-45 · FIN-04) ──
+  // Requisito de manager+: anular un documento fiscal es irreversible para el
+  // taller y mueve el juego de asientos contables.
+  fastify.post<{ Params: { id: string }; Body: VoidInvoiceInput }>(
+    "/finance/invoices/:id/void",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        body: {
+          type: "object",
+          required: ["motivo"],
+          properties: {
+            // `minLength` NO se fija: el service valida y devuelve 422 con
+            // mensaje descriptivo, igual que el resto de reglas de negocio.
+            motivo: { type: "string" },
+            sifenAnulado: { type: "boolean" },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Params: { id: string }; Body: VoidInvoiceInput }>,
+      reply: FastifyReply,
+    ) => {
+      const result = await voidInvoice(
+        request.params.id,
+        request.body,
+        request.tenantSlug,
+      );
+      return reply.send({ success: true, data: result });
     },
   );
 }

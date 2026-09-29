@@ -50,6 +50,7 @@ export function NewInvoiceDialog({ onCreated }: { onCreated?: () => void }) {
         tipoFacturacion: data.tipoFacturacion,
         numeroFacturaManual: data.tipoFacturacion === "MANUAL" ? data.numeroFacturaManual : undefined,
       }),
+    meta: { successMessage: "Factura emitida" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.invoices });
       setForm({ ordenId: "", tipoFacturacion: "ELECTRONICA", numeroFacturaManual: "" });

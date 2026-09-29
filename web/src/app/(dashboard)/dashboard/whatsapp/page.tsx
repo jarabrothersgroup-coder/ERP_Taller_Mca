@@ -5,13 +5,28 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { useWhatsAppMessages } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { WAMessageStats, ConnectionStatus, statusConfig } from "./stats";
 import { columns } from "./columns";
 import { SendMessageDialog } from "./send-message-dialog";
 import type { UIMappedWhatsAppMessage as WAMessageRecord } from "@/lib/data-service";
 
 export default function WhatsAppPage() {
-  const { data: messages = [], isLoading: loading } = useWhatsAppMessages();
+  const { data: messages = [], isLoading: loading, isError, error, refetch } = useWhatsAppMessages();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los mensajes de WhatsApp");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los mensajes de WhatsApp"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("");
 

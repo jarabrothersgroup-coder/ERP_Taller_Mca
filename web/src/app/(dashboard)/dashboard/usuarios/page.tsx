@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { useUsers } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import type { UIMappedUser } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
@@ -183,7 +185,9 @@ const columns: Column<UserRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function UsuariosPage() {
-  const { data: users = [], isLoading: loading } = useUsers();
+  const { data: users = [], isLoading: loading, isError, error, refetch } = useUsers();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los usuarios");
   const [search, setSearch] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<string>("");
 
@@ -203,6 +207,17 @@ export default function UsuariosPage() {
     }
     return result;
   }, [users, search, roleFilter]);
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los usuarios"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

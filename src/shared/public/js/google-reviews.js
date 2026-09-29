@@ -142,13 +142,13 @@ async function loadReviewStats() {
 
   el.innerHTML = `
     <div class="text-center mb-4">
-      <p class="text-4xl font-bold text-yellow-400">${data.promedio || '—'}</p>
-      <p class="text-xs text-gray-500 mt-1">Promedio de ${data.total || 0} reseñas</p>
+      <p class="text-4xl font-bold text-yellow-400">${data.averageRating || '—'}</p>
+      <p class="text-xs text-gray-500 mt-1">Promedio de ${data.totalReviews || 0} reseñas</p>
     </div>
     <div class="space-y-1">
       ${[5,4,3,2,1].map(star => {
-        const count = data.distribution?.[star] || 0;
-        const pct = data.total ? (count / data.total) * 100 : 0;
+        const count = data.ratingDistribution?.[star] || 0;
+        const pct = data.totalReviews ? (count / data.totalReviews) * 100 : 0;
         return `<div class="flex items-center gap-2 text-xs">
           <span class="text-yellow-400 w-3">${star}★</span>
           <div class="flex-1 bg-gray-800 rounded-full h-2"><div class="bg-yellow-500 rounded-full h-2" style="width:${pct}%"></div></div>

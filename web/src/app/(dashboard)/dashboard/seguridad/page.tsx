@@ -7,12 +7,27 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useAuditLog } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { AuditStats, actionConfig } from "./stats";
 import { columns } from "./columns";
 import type { UIMappedAuditEntry as AuditRecord } from "@/lib/data-service";
 
 export default function SeguridadPage() {
-  const { data: entries = [], isLoading: loading } = useAuditLog();
+  const { data: entries = [], isLoading: loading, isError, error, refetch } = useAuditLog();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "el registro de auditoría");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar el registro de auditoría"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
   const [search, setSearch] = React.useState("");
   const [actionFilter, setActionFilter] = React.useState("");
 

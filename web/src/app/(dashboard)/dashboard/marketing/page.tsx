@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,10 +127,24 @@ export default function MarketingPage() {
   const [selectedClienteId, setSelectedClienteId] = React.useState<string | null>(null);
 
   // Campaigns
-  const { data: campaigns = [], isLoading: loadingCampaigns } = useQuery<Campaign[]>({
+  const { data: campaigns = [], isLoading: loadingCampaigns, isError, error, refetch } = useQuery<Campaign[]>({
     queryKey: ["campaigns"],
     queryFn: () => api.request<Campaign[]>("/marketing/campaigns"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las campañas de marketing");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar marketing"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Reviews
   const { data: reviews = [], isLoading: loadingReviews } = useQuery<GoogleReview[]>({

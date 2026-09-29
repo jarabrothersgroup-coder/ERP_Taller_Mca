@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   LayoutDashboard, Wrench, Package, Receipt, MessageCircle,
-  Send, DollarSign, Car, User, Phone, ExternalLink,
+  Send, DollarSign, Car, User, UserCheck, Phone, ExternalLink,
   ChevronRight, Camera, Printer, X, Building2, PackageCheck,
 } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import { STATUS_FLOW, TERMINAL_STATUS, getStatusConfig, formatCurrency, type KanbanOT } from "./types";
 
 /* ── Cobro Actions (Invoice + Payment) ───── */
@@ -81,11 +82,15 @@ function CobroActions({ ordenId, total, onRefresh }: { ordenId: string; total: n
 
 interface OTDetailPanelProps {
   orden: KanbanOT | null;
+  /** Técnicos activos del tablero (para asignación explícita) */
+  tecnicos?: { id: string; nombre: string; activo: boolean }[];
+  /** Se ejecuta tras una asignación (invalida el tablero) */
+  onAssigned?: () => void;
   onClose: () => void;
   onRefresh: () => void;
 }
 
-export function OTDetailPanel({ orden, onClose, onRefresh }: OTDetailPanelProps) {
+export function OTDetailPanel({ orden, tecnicos, onAssigned, onClose, onRefresh }: OTDetailPanelProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [addingRepuesto, setAddingRepuesto] = React.useState(false);
@@ -96,6 +101,23 @@ export function OTDetailPanel({ orden, onClose, onRefresh }: OTDetailPanelProps)
   const [terceroProveedor, setTerceroProveedor] = React.useState("");
   const [terceroDescripcion, setTerceroDescripcion] = React.useState("");
   const [terceroCosto, setTerceroCosto] = React.useState(0);
+  const [tecnicoSel, setTecnicoSel] = React.useState("");
+
+  // T-52: asignación EXPLÍCITA — seleccionar una OT ya no la asigna sola
+  const asignarTecnico = useMutation({
+    mutationFn: (mechanicId: string) => {
+      if (!orden) throw new Error("No hay orden seleccionada");
+      return api.assignWorkOrder(orden.id, mechanicId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hub-board"] });
+      qc.invalidateQueries({ queryKey: ["hub-orden-detail", orden?.id] });
+      onAssigned?.();
+      setTecnicoSel("");
+      toast.success("Técnico asignado correctamente");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   // Fetch full detail
   const { data: fullOrden, isLoading } = useQuery<any>({
@@ -248,6 +270,46 @@ export function OTDetailPanel({ orden, onClose, onRefresh }: OTDetailPanelProps)
           )}
         </div>
       </div>
+
+      {/* Asignación explícita de técnico (T-52: nunca automática) */}
+      {(tecnicos?.length ?? 0) > 0 && (
+        <div className="flex items-center justify-between gap-2 py-2 border-b shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+            <UserCheck className="h-3.5 w-3.5 shrink-0" />
+            <span className="shrink-0">Técnico:</span>
+            <span className="font-medium text-foreground truncate">
+              {orden.assignedTo
+                ? tecnicos?.find((t) => t.id === orden.assignedTo)?.nombre ?? "Asignado"
+                : "Sin asignar"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Select
+              value={tecnicoSel}
+              onChange={(e) => setTecnicoSel(e.target.value)}
+              className="h-7 w-36 text-xs"
+              aria-label="Seleccionar técnico"
+            >
+              <option value="">Elegir técnico…</option>
+              {tecnicos!
+                .filter((t) => t.activo)
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+            </Select>
+            <Button
+              size="sm"
+              className="h-7 text-xs px-2"
+              disabled={!tecnicoSel || asignarTecnico.isPending}
+              onClick={() => asignarTecnico.mutate(tecnicoSel)}
+            >
+              {orden.assignedTo ? "Cambiar" : "Asignar"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto py-3 space-y-3">

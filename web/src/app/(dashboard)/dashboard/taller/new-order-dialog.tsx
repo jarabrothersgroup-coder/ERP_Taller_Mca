@@ -55,6 +55,7 @@ export function NewOrderDialog({ onCreated }: { onCreated: () => void }) {
       });
       return order;
     },
+    meta: { successMessage: "Orden de trabajo creada" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.workOrders });
       qc.invalidateQueries({ queryKey: queryKeys.clients });

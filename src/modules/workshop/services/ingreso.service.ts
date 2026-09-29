@@ -19,6 +19,7 @@ import { vehiculos, ingresos, ordenesTrabajo } from "../schema/index.js";
 import { ingresoChecklist } from "../../../shared/database/schema/index.js";
 import { eq, sql, and } from "drizzle-orm";
 import { NotFoundError } from "../../../shared/errors/app-error.js";
+import { propagarKilometraje } from "./mantenimiento-programado.service.js";
 import type { CreateIngresoRequest, CreateIngresoResponse, RecepcionChecklist } from "../types.js";
 
 /**
@@ -173,6 +174,22 @@ export async function createIngreso(
       observaciones: observaciones ?? null,
     })
     .returning();
+
+  // ── T-43 (TRN-08): propagar odómetro al vehículo ──
+  // El km capturado en el checklist alimenta vehiculos.kilometraje
+  // (base del mantenimiento predictivo y de flotas). Solo avanza:
+  // un km menor al registrado nunca degrada el valor real.
+  if (typeof kilometraje === "number" && kilometraje >= 0) {
+    try {
+      await propagarKilometraje(vehicleId, kilometraje, tenantSlug);
+    } catch (kmErr) {
+      // No bloquea el alta del ingreso por un fallo de propagación
+      console.warn(
+        `[ingreso] No se pudo propagar km ${kilometraje} al vehículo ${vehicleId}:`,
+        kmErr instanceof Error ? kmErr.message : kmErr,
+      );
+    }
+  }
 
   let ordenTrabajoResult = null;
 

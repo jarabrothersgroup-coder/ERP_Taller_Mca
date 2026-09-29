@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api, authHeadersMultipart } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -189,7 +191,7 @@ export default function OrdenDetailPage() {
   });
 
   // Fetch OT detail
-  const { data: orden, isLoading } = useQuery<OrdenDetalle>({
+  const { data: orden, isLoading, isError, error, refetch } = useQuery<OrdenDetalle>({
     queryKey: ["orden-detail", id],
     queryFn: async () => {
       const [ot, servicios, repuestos, terceros] = await Promise.all([
@@ -304,6 +306,20 @@ export default function OrdenDetailPage() {
     onSuccess: () => toast.success("Mensaje enviado por WhatsApp"),
     onError: (err: Error) => toast.error(err.message || "Error al enviar WhatsApp"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "la orden de trabajo");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la orden de trabajo"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   if (isLoading) {
     return (

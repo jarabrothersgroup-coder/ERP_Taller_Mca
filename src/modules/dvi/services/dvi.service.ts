@@ -69,6 +69,34 @@ export interface DviWithDetails {
 // ─── CRUD Operations ──────────────────────────
 
 /**
+ * Deletes a DVI inspection (photos + items cascade with it).
+ *
+ * @param id - DVI UUID
+ * @param tenantSlug - Tenant identifier
+ * @throws {NotFoundError} If DVI not found (or owned by another tenant)
+ */
+export async function deleteDvi(
+  id: string,
+  tenantSlug: string,
+): Promise<{ deleted: true }> {
+  const rows = await db()
+    .delete(dviInspections)
+    .where(
+      and(
+        eq(dviInspections.id, id),
+        eq(dviInspections.tenantSlug, tenantSlug),
+      ),
+    )
+    .returning({ id: dviInspections.id });
+
+  if (rows.length === 0) {
+    throw new NotFoundError(`DVI ${id} no encontrado`);
+  }
+
+  return { deleted: true };
+}
+
+/**
  * Creates a new DVI inspection.
  *
  * @param data - DVI creation payload

@@ -6,14 +6,20 @@
  *   2. Deducts stock via salidaStock() for each part
  *   3. Creates reorder alerts when stock drops below punto_reorden
  *
- * Non-blocking: if a single part fails (e.g. insufficient stock), it logs
- * the error and continues with the remaining parts. The OT status change
- * is never blocked by inventory issues.
+ * Non-blocking outside a transaction: if a single part fails (e.g.
+ * insufficient stock), it logs the error and continues with the remaining
+ * parts. The OT status change is never blocked by inventory issues.
+ *
+ * Blocking inside a transaction (Fase 3 · T-31): when called from
+ * `updateOrdenStatus()` a failed part rethrows, so the OT status change and
+ * the stock deduction commit together or roll back together — no "Listo" with
+ * unconsumed stock.
  *
  * @module inventory/services/ot-stock-consumer
  */
 
 import { db } from "../../../shared/database/drizzle.js";
+import { inTransaction } from "../../../shared/database/tx-context.js";
 import { ordenRepuestos } from "../../workshop/schema/orden-repuestos.js";
 import { eq, and } from "drizzle-orm";
 import { salidaStock } from "./stock.service.js";
@@ -111,6 +117,11 @@ export async function consumeStockOnOTClose(
         success: false,
         error: err instanceof Error ? err.message : "Error desconocido",
       });
+
+      // Inside a transaction (updateOrdenStatus → "Listo") a failed part must
+      // abort the whole unit of work: the OT cannot commit as completed while
+      // part of its stock remains unconsumed (Fase 3 · T-31).
+      if (inTransaction()) throw err;
 
       // Log but don't block — continue with remaining parts
       console.warn(

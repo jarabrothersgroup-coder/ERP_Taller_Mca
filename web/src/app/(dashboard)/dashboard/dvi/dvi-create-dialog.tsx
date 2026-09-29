@@ -52,6 +52,7 @@ export function DVICreateDialog({ onCreated }: { onCreated?: () => void }) {
         observaciones: data.observaciones || undefined,
       });
     },
+    meta: { successMessage: "Inspección DVI creada" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dvi-inspections"] });
       setForm({ ordenTrabajoId: "", inspector: "", observaciones: "" });

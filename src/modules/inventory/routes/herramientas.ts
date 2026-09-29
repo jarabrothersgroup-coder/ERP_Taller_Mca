@@ -7,6 +7,7 @@
  *   GET    /inventory/herramientas/disponibles        — List available tools
  *   GET    /inventory/herramientas/:id                — Get tool by ID
  *   PATCH  /inventory/herramientas/:id                — Update tool
+ *   DELETE /inventory/herramientas/:id                — Baja lógica de la herramienta (manager+)
  *   POST   /inventory/herramientas/prestar            — Lend tool to mechanic for OT
  *   POST   /inventory/herramientas/control/:id/devolver — Return tool
  *   GET    /inventory/herramientas/control            — List checkout records (filtered)
@@ -17,11 +18,13 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import {
   createHerramienta,
   getHerramientaById,
   listHerramientas,
   updateHerramienta,
+  bajaHerramienta,
   prestarHerramienta,
   devolverHerramienta,
   listControlHerramientas,
@@ -152,7 +155,7 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: CreateBody }>,
       reply: FastifyReply,
     ) => {
-      const result = await createHerramienta(request.body);
+      const result = await createHerramienta(request.body, request.tenantSlug);
       return reply.status(201).send(result);
     },
   );
@@ -243,7 +246,7 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Params: IdParams }>,
       reply: FastifyReply,
     ) => {
-      const result = await getHerramientaById(request.params.id);
+      const result = await getHerramientaById(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );
@@ -284,7 +287,29 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Params: IdParams; Body: UpdateBody }>,
       reply: FastifyReply,
     ) => {
-      const result = await updateHerramienta(request.params.id, request.body);
+      const result = await updateHerramienta(request.params.id, request.body, request.tenantSlug);
+      return reply.send(result);
+    },
+  );
+
+  // ── DELETE /inventory/herramientas/:id — Baja lógica (destructivo → manager+) ──
+  app.delete<{ Params: IdParams }>(
+    "/inventory/herramientas/:id",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Params: IdParams }>,
+      reply: FastifyReply,
+    ) => {
+      const result = await bajaHerramienta(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );

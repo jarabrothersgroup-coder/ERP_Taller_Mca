@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,10 +67,24 @@ export default function TecDocPage() {
   const [brandSearch, setBrandSearch] = React.useState<{ brand: string; model: string; year: string; q: string } | null>(null);
 
   // Status
-  const { data: status } = useQuery<TecDocStatus>({
+  const { data: status, isError: statusError, error: statusErr, refetch: refetchStatus } = useQuery<TecDocStatus>({
     queryKey: ["tecdoc-status"],
     queryFn: () => api.request("/inventory/tecdoc/status"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(statusError, "el catálogo TecDoc");
+
+  if (statusError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar el catálogo TecDoc"
+        message={statusErr instanceof Error ? statusErr.message : undefined}
+        onRetry={refetchStatus}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // VIN search
   const vinSearchQuery = useQuery<{ parts: TecDocPart[]; total: number; source: string }>({

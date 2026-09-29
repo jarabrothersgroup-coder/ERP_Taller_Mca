@@ -83,6 +83,10 @@ export interface IngresoStockRequest {
   costoUnitario?: number | null;
   /** Optional notes */
   observaciones?: string | null;
+  /** Purchase order that originated this entry (recepción de OC) */
+  purchaseOrderId?: string | null;
+  /** Supplier name shown in the accounting entry description */
+  proveedorNombre?: string | null;
 }
 
 /** Response after stock operation */
@@ -103,6 +107,12 @@ export interface StockMovimientoResponse {
     motivo: string;
     ordenTrabajoId: string | null;
     costoUnitario: number | null;
+    /**
+     * Journal entry generated for the movement (T-44).
+     * `null` when no entry applies: no unit cost (no PPP change) or the
+     * accounting plan rejected the entry (degraded, stock already moved).
+     */
+    asientoId: string | null;
   };
 }
 

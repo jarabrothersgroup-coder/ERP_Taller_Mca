@@ -72,6 +72,9 @@ function mockDelete() {
 describe("Client Service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // T-33: every mutation writes an entity audit row → default insert chain
+    // so logEntityAudit() resolves without per-test configuration.
+    mockDb.insert.mockReturnValue(mockInsert([]));
   });
 
   describe("createClient", () => {
@@ -93,7 +96,8 @@ describe("Client Service", () => {
 
       const result = await createClient({ name: "Juan Pérez" });
 
-      expect(mockDb.insert).toHaveBeenCalledTimes(1);
+      // 2 inserts: the client row + its T-33 audit entry
+      expect(mockDb.insert).toHaveBeenCalledTimes(2);
       expect(result).toMatchObject({ id: "c-001", name: "Juan Pérez" });
     });
 

@@ -9,6 +9,7 @@
  */
 
 import { db, sql } from "../../../../shared/database/drizzle.js";
+import { NotFoundError } from "../../../../shared/errors/app-error.js";
 
 // ─── Types ──────────────────────────────────────
 
@@ -253,7 +254,7 @@ export async function getConsolidatedBalance(
   );
 
   if (!groupRows || groupRows.length === 0) {
-    throw new Error(`Grupo de tenants ${groupId} no encontrado`);
+    throw new NotFoundError(`Grupo de tenants ${groupId} no encontrado`);
   }
 
   const groupName = (groupRows[0] as any).name as string;
@@ -347,7 +348,7 @@ export async function getConsolidatedPnL(
   );
 
   if (!groupRows2 || groupRows2.length === 0) {
-    throw new Error(`Grupo de tenants ${groupId} no encontrado`);
+    throw new NotFoundError(`Grupo de tenants ${groupId} no encontrado`);
   }
 
   const groupName = (groupRows2[0] as any).name as string;

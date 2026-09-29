@@ -1,4 +1,4 @@
-import { integer, numeric, pgEnum, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, numeric, pgEnum, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 import { profiles } from "../../../shared/database/schema/profiles.js";
 
 export const mecanicoCategoriaEnum = pgEnum("mecanico_categoria", [
@@ -11,6 +11,8 @@ export const mechanicProfiles = pgTable("mechanic_profiles", {
   category: mecanicoCategoriaEnum("category").notNull(),
   baseSalary: integer("base_salary").notNull(),
   commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }).notNull(),
+  /** Baja lógica (T-42): el perfil de la persona y sus comisiones se conservan */
+  activo: boolean("activo").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

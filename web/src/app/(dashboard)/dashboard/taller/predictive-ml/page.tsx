@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,6 +129,20 @@ export default function PredictiveMLPage() {
     queryKey: ["predictive-ml-all"],
     queryFn: () => api.request("/workshop/predictions/ml?umbral=40"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(allPredQuery.isError, "las predicciones predictivas");
+
+  if (allPredQuery.isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las predicciones"
+        message={allPredQuery.error instanceof Error ? allPredQuery.error.message : undefined}
+        onRetry={() => allPredQuery.refetch()}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Fetch training data
   const trainingQuery = useQuery<MlTrainingData>({

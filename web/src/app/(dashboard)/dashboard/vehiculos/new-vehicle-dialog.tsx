@@ -64,6 +64,7 @@ export function NewVehicleDialog({ onCreated }: { onCreated?: () => void }) {
       if (!res.ok) throw new Error("Error creando vehículo");
       return res.json();
     },
+    meta: { successMessage: "Vehículo creado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.vehicles });
       setForm({ plate: "", vin: "", brand: "", model: "", year: "", engineType: "Nafta", kilometraje: "" });

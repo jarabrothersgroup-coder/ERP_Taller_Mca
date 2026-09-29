@@ -11,14 +11,17 @@
  *   PATCH  /dvi/items/:itemId/status  — Update item status
  *   POST   /dvi/:id/calculate-score   — Recalculate health score
  *   POST   /dvi/:id/share             — Share via WhatsApp
+ *   DELETE /dvi/:id                   — Delete inspection (destructivo → manager+)
  *
  * @module dvi/routes/dvi.routes
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import {
   createDvi,
   getDviById,
+  deleteDvi,
   listDviByOrden,
   listDviInspections,
   updatePhotoMarkup,
@@ -129,6 +132,25 @@ export async function dviRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request: FastifyRequest<{ Params: DviParams }>, reply: FastifyReply) => {
       const result = await getDviById(request.params.id, request.tenantSlug);
+      return reply.send(result);
+    },
+  );
+
+  // ── DELETE /dvi/:id — Delete inspection (destructivo → manager+) ──
+  app.delete<{ Params: DviParams }>(
+    "/dvi/:id",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: DviParams }>, reply: FastifyReply) => {
+      const result = await deleteDvi(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );

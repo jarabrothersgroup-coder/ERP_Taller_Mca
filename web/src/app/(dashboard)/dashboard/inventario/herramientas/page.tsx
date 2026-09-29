@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,7 +135,7 @@ export default function HerramientasPage() {
   const [returnCondicion, setReturnCondicion] = React.useState("BUENO");
 
   // ── Fetch catalog ──
-  const { data: catalogData, isLoading: catLoading } = useQuery<{ items: Herramienta[]; total: number }>({
+  const { data: catalogData, isLoading: catLoading, isError, error, refetch } = useQuery<{ items: Herramienta[]; total: number }>({
     queryKey: ["herramientas", categoriaFilter],
     queryFn: async () => {
       const qs = new URLSearchParams();
@@ -142,6 +144,20 @@ export default function HerramientasPage() {
       return api.request(`/inventory/herramientas?${qs.toString()}`) as any;
     },
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las herramientas");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las herramientas"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // ── Fetch instances ──
   const { data: instancesData, isLoading: instLoading } = useQuery<{ items: ToolInstance[]; total: number }>({

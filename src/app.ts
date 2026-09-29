@@ -137,6 +137,14 @@ export async function buildApp() {
   app.addHook("preHandler", authGate);
   app.log.info("Global authentication gate registered (preHandler)");
 
+  // ─── Audit Actor Context (T-33) ─────────────────
+  // Publishes { usuarioId, ip } for entity-level audit writes (clients,
+  // vehicles, stock). Registered right after authGate so request.profile
+  // is already resolved when the actor is captured.
+  const { registerAuditContext } = await import("./shared/audit/audit-context.js");
+  registerAuditContext(app);
+  app.log.info("Audit actor context registered (preHandler)");
+
   // ─── RLS Tenant Context (PostgreSQL) ─────────
   // Sets app.current_tenant session variable for Row Level Security
   // Must run AFTER resolveTenant (needs request.tenantSlug)

@@ -244,8 +244,13 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, body.error ?? body.message ?? "Error de red");
+    const body = await res.json().catch(() => ({}));
+    // T-55: `message` es el texto humano ("Una de las referencias enviadas no
+    // existe"); `error` es el nombre de la clase ("ValidationError") — ese
+    // solo se muestra si no hay nada mejor.
+    const message =
+      body.message ?? body.error ?? body.detail ?? res.statusText ?? "Error de red";
+    throw new ApiError(res.status, message);
   }
 
   // Handle 204 No Content
@@ -341,6 +346,50 @@ export const api = {
   },
 
   getVehicle: (id: string) => request<Vehicle>(`/workshop/vehiculos/${id}`),
+
+  /* ── Mantenimientos programados (T-43 ficha) ── */
+
+  /** Ficha de próximos mantenimientos de un vehículo (404 si es ajeno) */
+  getVehicleMaintenance: (vehicleId: string) =>
+    request<MaintenanceFicha>(`/workshop/mantenimientos/vehiculo/${vehicleId}`),
+
+  listMantenimientos: (params?: { vehiculoId?: string; estado?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.vehiculoId) qs.set("vehiculoId", params.vehiculoId);
+    if (params?.estado) qs.set("estado", params.estado);
+    const query = qs.toString();
+    return request<{ total: number; items: Mantenimiento[] }>(
+      `/workshop/mantenimientos${query ? `?${query}` : ""}`,
+    );
+  },
+
+  createMantenimiento: (body: {
+    vehiculoId: string;
+    servicio: string;
+    kmObjetivo?: number;
+    fechaObjetivo?: string;
+  }) =>
+    request<Mantenimiento>("/workshop/mantenimientos", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateMantenimiento: (
+    id: string,
+    body: Partial<{
+      servicio: string;
+      kmObjetivo: number | null;
+      fechaObjetivo: string | null;
+      estado: "PENDIENTE" | "REALIZADO" | "CANCELADO";
+    }>,
+  ) =>
+    request<Mantenimiento>(`/workshop/mantenimientos/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteMantenimiento: (id: string) =>
+    request<void>(`/workshop/mantenimientos/${id}`, { method: "DELETE" }),
 
   createVehicle: (body: {
     clientId: string;
@@ -977,6 +1026,12 @@ export const api = {
   listWhatsAppTemplates: () =>
     request<WhatsAppTemplate[]>("/whatsapp/templates"),
 
+  /** T-51: contador real del badge del sidebar (pendientes en cola) */
+  getWhatsAppQueueStats: () =>
+    request<{ pending: number; sent: number; failed: number; totalRetries: number }>(
+      "/whatsapp/queue/stats",
+    ),
+
   /* ── CRM ───────────────────────────────────── */
 
   syncCrm: (ordenId: string) =>
@@ -1254,6 +1309,29 @@ export interface VehicleHistory {
   ordenes: WorkOrder[];
   facturas: Invoice[];
   totalFacturado: number;
+}
+
+/** Mantenimiento programado (T-43 — ficha de próximos mantenimientos) */
+export interface Mantenimiento {
+  id: string;
+  vehiculoId: string;
+  ordenTrabajoId: string | null;
+  servicio: string;
+  kmObjetivo: number | null;
+  fechaObjetivo: string | null;
+  estado: "PENDIENTE" | "REALIZADO" | "CANCELADO";
+  origen: "OT_COMPLETADA" | "MANUAL" | "PREDICCION";
+  recordatorioEnviado: boolean;
+  tenantSlug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Ficha por vehículo: km real + mantenimientos programados */
+export interface MaintenanceFicha {
+  vehiculoId: string;
+  kilometraje: number | null;
+  items: Mantenimiento[];
 }
 
 export interface VinDecodeResult {

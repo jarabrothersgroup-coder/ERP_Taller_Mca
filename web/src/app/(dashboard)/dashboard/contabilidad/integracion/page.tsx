@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { api, type IntegracionDashboard, type IntegracionDashboardModulo } from "@/lib/api";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 /* ── Constants ──────────────────────────────── */
 
@@ -358,6 +359,9 @@ export default function IntegracionPage() {
     queryFn: () => api.getIntegracionDashboard(),
     refetchInterval: 30_000, // Auto-refresh every 30s
   });
+
+  // T-53: feedback visible al fallar la carga (la UI de error ya existe)
+  useErrorToast(isError, "el dashboard de integración");
 
   const mappingsData = React.useMemo<MappingRow[]>(() => {
     if (!dashboardData?.mappingsPorModulo) return [];

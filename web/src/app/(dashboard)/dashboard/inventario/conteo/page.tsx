@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   ClipboardCheck,
   Plus,
@@ -85,10 +87,24 @@ export default function CycleCountPage() {
   const [countingValue, setCountingValue] = React.useState<Record<string, number>>({});
 
   // Fetch data
-  const { data: counts = [], isLoading } = useQuery<CycleCount[]>({
+  const { data: counts = [], isLoading, isError, error, refetch } = useQuery<CycleCount[]>({
     queryKey: ["cycle-counts"],
     queryFn: () => api.request("/inventory/cycle-counts"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los conteos de inventario");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los conteos de inventario"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const { data: stats } = useQuery<Stats>({
     queryKey: ["cycle-counts-stats"],
@@ -113,6 +129,7 @@ export default function CycleCountPage() {
         method: "POST",
         body: JSON.stringify({ almacenId, observaciones: observaciones || undefined }),
       }),
+    meta: { successMessage: "Conteo creado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
       qc.invalidateQueries({ queryKey: ["cycle-counts-stats"] });
@@ -128,6 +145,7 @@ export default function CycleCountPage() {
         method: "POST",
         body: JSON.stringify({ autoPopulate: true }),
       }),
+    meta: { successMessage: "Conteo iniciado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
       qc.invalidateQueries({ queryKey: ["cycle-count-detail"] });
@@ -140,6 +158,7 @@ export default function CycleCountPage() {
         method: "POST",
         body: JSON.stringify({ itemId, stockReal }),
       }),
+    meta: { successMessage: "Conteo registrado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-count-detail"] });
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
@@ -149,6 +168,7 @@ export default function CycleCountPage() {
   const completeMut = useMutation({
     mutationFn: (id: string) =>
       api.request(`/inventory/cycle-counts/${id}/complete`, { method: "POST" }),
+    meta: { successMessage: "Conteo completado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
       qc.invalidateQueries({ queryKey: ["cycle-count-detail"] });
@@ -162,6 +182,7 @@ export default function CycleCountPage() {
         method: "POST",
         body: JSON.stringify({ generateAsiento: true }),
       }),
+    meta: { successMessage: "Ajustes aplicados al inventario" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
       qc.invalidateQueries({ queryKey: ["cycle-count-detail"] });
@@ -172,6 +193,7 @@ export default function CycleCountPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
       api.request(`/inventory/cycle-counts/${id}`, { method: "DELETE" }),
+    meta: { successMessage: "Conteo eliminado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cycle-counts"] });
       qc.invalidateQueries({ queryKey: ["cycle-counts-stats"] });

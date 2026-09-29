@@ -9,6 +9,7 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { sql } from "drizzle-orm";
+import { ConflictError, NotFoundError } from "../../../shared/errors/app-error.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -95,6 +96,37 @@ export async function listCampaigns(
     enviados: row.enviados,
     fallidos: row.fallidos,
   }));
+}
+
+/**
+ * Deletes a campaign (soft rule: ENVIADA campaigns are kept as history).
+ *
+ * @param id - Campaign UUID
+ * @param tenantSlug - Current tenant
+ * @throws {NotFoundError} If the campaign does not belong to the tenant
+ * @throws {ConflictError} If the campaign was already sent
+ */
+export async function deleteCampaign(id: string, tenantSlug: string): Promise<void> {
+  const rows = await db().execute(sql`
+    SELECT id, estado FROM marketing_campaigns
+    WHERE id = ${id} AND tenant_slug = ${tenantSlug}
+  `);
+
+  if (rows.length === 0) {
+    throw new NotFoundError("Campaña no encontrada");
+  }
+
+  const estado = (rows[0] as { estado?: string }).estado;
+  if (estado === "ENVIADA") {
+    throw new ConflictError(
+      "No se puede eliminar una campaña ya enviada; cancélela para conservar el historial de envíos.",
+    );
+  }
+
+  await db().execute(sql`
+    DELETE FROM marketing_campaigns
+    WHERE id = ${id} AND tenant_slug = ${tenantSlug}
+  `);
 }
 
 /**

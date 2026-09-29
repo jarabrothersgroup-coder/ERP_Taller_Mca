@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   Users,
   Wrench,
@@ -63,10 +65,24 @@ export default function MecanicosPage() {
   const [newProfile, setNewProfile] = React.useState({ email: "", fullName: "", role: "mechanic" });
 
   // ── Fetch all profiles ──
-  const { data: rawProfiles = [], isLoading } = useQuery<any[]>({
+  const { data: rawProfiles = [], isLoading, isError, error, refetch } = useQuery<any[]>({
     queryKey: ["profiles"],
     queryFn: () => api.request<any[]>("/api/profiles"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los mecánicos");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los mecánicos"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // ── Filter to mechanics only ──
   const mechanics: MechanicProfile[] = React.useMemo(() => {

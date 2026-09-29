@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +87,7 @@ export default function StockMovementsPage() {
   const [formMotivo, setFormMotivo] = React.useState("Ajuste");
 
   // Fetch movements
-  const { data: movements, isLoading } = useQuery<StockMovement[]>({
+  const { data: movements, isLoading, isError, error, refetch } = useQuery<StockMovement[]>({
     queryKey: ["stock-movements", tipoFilter],
     queryFn: async () => {
       const qs = new URLSearchParams();
@@ -95,6 +97,20 @@ export default function StockMovementsPage() {
       return res.items || (Array.isArray(res) ? res : []) as StockMovement[];
     },
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los movimientos de stock");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los movimientos de stock"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Fetch repuestos for select
   const { data: repuestos = [] } = useQuery<Repuesto[]>({

@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -131,10 +133,24 @@ export default function SifenDashboardPage() {
   }, []);
 
   // Fetch dashboard data
-  const { data: dashboard, isLoading: dashLoading } = useQuery<SifenDashboardData>({
+  const { data: dashboard, isLoading: dashLoading, isError, error, refetch } = useQuery<SifenDashboardData>({
     queryKey: ["sifen-dashboard"],
     queryFn: () => api.request<SifenDashboardData>("/finance/sifen/dashboard"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "el dashboard SIFEN");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar SIFEN"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Fetch documents list
   const { data: docsData, isLoading: docsLoading } = useQuery<{ items: FiscalDocument[]; total: number }>({

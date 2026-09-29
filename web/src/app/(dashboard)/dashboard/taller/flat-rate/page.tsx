@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   Clock,
   PlayCircle,
@@ -64,11 +66,25 @@ export default function FlatRatePage() {
   const [clockInDialog, setClockInDialog] = React.useState<{ servicioId: string } | null>(null);
   const [clockInTecnicoId, setClockInTecnicoId] = React.useState("");
 
-  const { data: servicios = [], isLoading: loadingServicios, refetch: refetchServicios } = useQuery({
+  const { data: servicios = [], isLoading: loadingServicios, refetch: refetchServicios, isError: serviciosError, error: serviciosErr } = useQuery({
     queryKey: ["orden-servicios", ordenId],
     queryFn: () => api.request<ServicioItem[]>(`/workshop/ordenes/${ordenId}/servicios`),
     enabled: ordenId.length > 0,
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(serviciosError, "los servicios de la orden");
+
+  if (serviciosError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los servicios de la orden"
+        message={serviciosErr instanceof Error ? serviciosErr.message : undefined}
+        onRetry={refetchServicios}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const clockInMut = useMutation({
     mutationFn: (params: { servicioId: string; tecnicoId: string }) =>

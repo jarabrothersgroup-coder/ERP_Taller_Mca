@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { api, type CashFlowStatement, type CashFlowSection, type CashFlowLine } from "@/lib/api";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 /* ── Helpers ────────────────────────────────── */
 
@@ -168,6 +169,9 @@ export default function FlujoEfectivoPage() {
     queryFn: () => api.getCashFlowStatement(anho, mes, acumulado),
     enabled: !!anho && !!mes,
   });
+
+  // T-53: feedback visible al fallar la carga (la UI de error ya existe)
+  useErrorToast(isError, "el flujo de efectivo");
 
   if (isLoading) return <PageSkeleton />;
 

@@ -2,15 +2,24 @@
  * Fleet Routes — B2B fleet management endpoints.
  *
  * Endpoints:
- *   POST /fleet         — Create fleet client
- *   GET  /fleet         — List fleet clients
- *   GET  /fleet/:id     — Get fleet by ID
+ *   POST   /fleet      — Create fleet client
+ *   GET    /fleet      — List fleet clients
+ *   GET    /fleet/:id  — Get fleet by ID
+ *   PATCH  /fleet/:id  — Update fleet client
+ *   DELETE /fleet/:id  — Deactivate fleet client (soft delete → manager+)
  *
  * @module fleet/routes/fleet.routes.ts
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createFleet, listFleets, getFleetById } from "../services/fleet.service.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
+import {
+  createFleet,
+  listFleets,
+  getFleetById,
+  updateFleet,
+  deleteFleet,
+} from "../services/fleet.service.js";
 
 interface CreateBody {
   nombre: string;
@@ -20,6 +29,17 @@ interface CreateBody {
   email?: string;
   ruc: string;
   contratoTipo: string;
+  descuentoPorcentaje?: number;
+}
+
+interface UpdateBody {
+  nombre?: string;
+  empresa?: string;
+  contacto?: string;
+  telefono?: string;
+  email?: string;
+  ruc?: string;
+  contratoTipo?: string;
   descuentoPorcentaje?: number;
 }
 
@@ -79,6 +99,63 @@ export async function fleetRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
       const result = await getFleetById(request.params.id, request.tenantSlug);
       if (!result) return reply.status(404).send({ error: "Flota no encontrada" });
+      return reply.send(result);
+    },
+  );
+
+  // ── PATCH /fleet/:id — Update fleet ──
+  app.patch<{ Params: IdParams; Body: UpdateBody }>(
+    "/fleet/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+        body: {
+          type: "object",
+          properties: {
+            nombre: { type: "string", maxLength: 200 },
+            empresa: { type: "string", maxLength: 200 },
+            contacto: { type: "string", maxLength: 200 },
+            telefono: { type: "string", maxLength: 50 },
+            email: { type: "string", format: "email", maxLength: 200 },
+            ruc: { type: "string", maxLength: 30 },
+            contratoTipo: { type: "string", maxLength: 50 },
+            descuentoPorcentaje: { type: "number", minimum: 0, maximum: 100 },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Params: IdParams; Body: UpdateBody }>,
+      reply: FastifyReply,
+    ) => {
+      const result = await updateFleet(
+        request.params.id,
+        request.body,
+        request.tenantSlug,
+      );
+      return reply.send(result);
+    },
+  );
+
+  // ── DELETE /fleet/:id — Deactivate fleet (soft delete → manager+) ──
+  app.delete<{ Params: IdParams }>(
+    "/fleet/:id",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
+      const result = await deleteFleet(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );

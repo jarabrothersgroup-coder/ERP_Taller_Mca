@@ -87,6 +87,22 @@ export async function errorHandler(
     return;
   }
 
+  // PostgreSQL foreign-key violation (23503) — the client referenced a row
+  // that does not exist: an OT, un cliente, un producto. Without this branch
+  // every such request returns an opaque 500 and looks like a server fault,
+  // when in fact it is a client error — a bad id in the body or the URL.
+  // T-48 lo detectó con POST /workshop/signatures apuntando a una OT
+  // inexistente; la FK hacía lo correcto, el mapeo no.
+  // 422 y no 404: el recurso referenciado es inválido dentro de la petición,
+  // no es lo que se pidió consultar.
+  if (driver?.code === "23503") {
+    reply.status(422).send({
+      error: "ValidationError",
+      message: "Una de las referencias enviadas no existe",
+    });
+    return;
+  }
+
   // BAJO-04 FIX: Generic fallback — NEVER leak internals
   reply.status(500).send({
     error: "InternalServerError",

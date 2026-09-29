@@ -86,6 +86,7 @@ export function NewAppointmentDialog({ onCreated }: { onCreated?: () => void }) 
       }
       return res.json();
     },
+    meta: { successMessage: "Turno creado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.appointments });
       setForm({

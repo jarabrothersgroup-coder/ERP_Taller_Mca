@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { FilterSelect } from "@/components/ui/filter-select";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   Plus,
   DollarSign,
@@ -206,7 +209,7 @@ export default function TesoreriaPage() {
 
       {/* ── Tab: Conciliación Bancaria ──────────── */}
       {activeTab === "conciliacion" && (
-        <ConciliacionTab cuentas={cuentas} />
+        <ConciliacionTab cuentas={cuentas} cuentasLoading={cuentasLoading} />
       )}
     </div>
   );
@@ -227,7 +230,13 @@ interface ConciliacionRow {
   createdAt: string;
 }
 
-function ConciliacionTab({ cuentas }: { cuentas: CUentaRecord[] }) {
+function ConciliacionTab({
+  cuentas,
+  cuentasLoading,
+}: {
+  cuentas: CUentaRecord[];
+  cuentasLoading: boolean;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedCuentaId, setSelectedCuentaId] = React.useState("");
@@ -244,11 +253,25 @@ function ConciliacionTab({ cuentas }: { cuentas: CUentaRecord[] }) {
   const [formSaldoFinal, setFormSaldoFinal] = React.useState("");
 
   // Fetch conciliaciones
-  const { data: conciliaciones = [], isLoading } = useQuery<ConciliacionRow[]>({
+  const { data: conciliaciones = [], isLoading, isError, error, refetch } = useQuery<ConciliacionRow[]>({
     queryKey: ["conciliaciones", selectedCuentaId],
     queryFn: () => api.listConciliaciones(selectedCuentaId),
     enabled: !!selectedCuentaId,
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las conciliaciones");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la tesorería"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Crear conciliación
   const createMut = useMutation({
@@ -357,16 +380,18 @@ function ConciliacionTab({ cuentas }: { cuentas: CUentaRecord[] }) {
           <p className="text-sm text-muted-foreground">Conciliación mensual por cuenta bancaria</p>
         </div>
         <div className="flex gap-2">
-          <select
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+          {/* T-54: FilterSelect con opciones dinámicas de las cuentas */}
+          <FilterSelect
+            label="Cuenta"
             value={selectedCuentaId}
-            onChange={(e) => setSelectedCuentaId(e.target.value)}
-          >
-            <option value="">Seleccionar cuenta…</option>
-            {cuentas.filter((c) => c.activo).map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre} ({c.codigo})</option>
-            ))}
-          </select>
+            onChange={setSelectedCuentaId}
+            options={cuentas
+              .filter((c) => c.activo)
+              .map((c) => ({ value: c.id, label: `${c.nombre} (${c.codigo})` }))}
+            isLoading={cuentasLoading}
+            emptyText="Sin cuentas activas"
+            className="[&>select]:h-9 [&>select]:text-sm"
+          />
           <Button
             size="sm"
             className="gap-1.5"

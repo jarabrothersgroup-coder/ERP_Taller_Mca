@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { ErrorState } from "@/components/ui/error-state";
 import { useClients } from "@/hooks/use-data";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewClientDialog } from "./new-client-dialog";
 
 /* ── Types ──────────────────────────────────── */
@@ -182,7 +184,8 @@ const columns: Column<ClientRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function ClientsPage() {
-  const { data: rawClients = [], isLoading: loading } = useClients();
+  const { data: rawClients = [], isLoading: loading, isError, error, refetch } = useClients();
+  useErrorToast(isError, "los clientes");
   const [search, setSearch] = React.useState("");
 
   // Map API data to local ClientRecord shape
@@ -229,6 +232,17 @@ export default function ClientsPage() {
     monthStart.setHours(0, 0, 0, 0);
     return created >= monthStart;
   }).length;
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los clientes"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

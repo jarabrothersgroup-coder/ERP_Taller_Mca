@@ -34,6 +34,7 @@ import { ingresoQRRoutes } from "./ingreso-qr.routes.js";
 import { pricingSuggestRoutes } from "./pricing-suggest.routes.js";
 import { proveedoresRoutes } from "./proveedores.routes.js";
 import { trabajoTerceroAdjuntosRoutes } from "./trabajo-tercero-adjuntos.routes.js";
+import { mantenimientosProgramadosRoutes } from "./mantenimientos-programados.routes.js";
 
 /**
  * Registers all workshop routes on the given Fastify instance.
@@ -72,6 +73,10 @@ import { trabajoTerceroAdjuntosRoutes } from "./trabajo-tercero-adjuntos.routes.
  *   - /workshop/predictions/ml/:vehiculoId    (GET) — ML-based prediction
  *   - /workshop/predictions/ml                (GET) — All high-risk predictions
  *   - /workshop/predictions/ml/training-data  (GET) — ML training statistics
+ *   - /workshop/mantenimientos                (GET, POST)
+ *   - /workshop/mantenimientos/:id            (GET, PATCH, DELETE manager+)
+ *   - /workshop/mantenimientos/vehiculo/:vehiculoId (GET)
+ *   - /workshop/cron/mantenimientos-recordatorios   (POST)
  *
  * @param app - Fastify instance
  */
@@ -111,4 +116,6 @@ export async function workshopRoutes(app: FastifyInstance): Promise<void> {
   await app.register(proveedoresRoutes);
   // G-17: Adjuntos en trabajos terceros
   await app.register(trabajoTerceroAdjuntosRoutes);
+  // T-43: Ficha de próximos mantenimientos + recordatorio WhatsApp
+  await app.register(mantenimientosProgramadosRoutes);
 }

@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { api, type FinancialNotesReport } from "@/lib/api";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 /* ── Helpers ────────────────────────────────── */
 
@@ -154,6 +155,9 @@ export default function NotasFinancierasPage() {
     queryFn: () => api.getFinancialNotes(anho, mes, acumulado),
     enabled: !!anho && !!mes,
   });
+
+  // T-53: feedback visible al fallar la carga (la UI de error ya existe)
+  useErrorToast(isError, "las notas financieras");
 
   const handlePrint = React.useCallback(() => {
     window.print();

@@ -8,6 +8,7 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
+import { resolveAuditActor } from "../../../../shared/audit/audit-context.js";
 import { auditLog } from "../../schema/audit-log.js";
 import { eq, and, desc, gte, lte, count } from "drizzle-orm";
 import type { AuditAction, NewAuditLogEntry } from "../../schema/audit-log.js";
@@ -45,6 +46,36 @@ export async function logAudit(params: LogAuditParams): Promise<void> {
   };
 
   await db().insert(auditLog).values(entry);
+}
+
+/**
+ * Registra un evento de auditoría de una ENTIDAD de negocio (clientes,
+ * vehículos, stock) resolviendo automáticamente el actor de la request
+ * actual (T-33): quién (usuarioId) y desde qué IP.
+ *
+ * Uso en services — no requiere recibir el `request`:
+ * ```ts
+ * await logEntityAudit({
+ *   tenantSlug, accion: "UPDATE", entidad: "clients",
+ *   entidadId: client.id, valorAnterior: antes, valorNuevo: despues,
+ * });
+ * ```
+ *
+ * Se ejecuta dentro de la transacción activa (vía `db()`), por lo que la
+ * auditoría commita o revierte junto con el cambio que documenta.
+ *
+ * @throws Error si la inserción falla (nunca debe silenciarse)
+ */
+export async function logEntityAudit(
+  params: Omit<LogAuditParams, "usuarioId" | "ip"> &
+    Partial<Pick<LogAuditParams, "usuarioId" | "ip">>,
+): Promise<void> {
+  const actor = resolveAuditActor();
+  await logAudit({
+    ...params,
+    usuarioId: params.usuarioId ?? actor.usuarioId,
+    ip: params.ip ?? actor.ip ?? undefined,
+  });
 }
 
 // ─── Query ──────────────────────────────────────

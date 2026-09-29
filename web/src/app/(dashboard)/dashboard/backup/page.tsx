@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useBackups, useExecuteBackup } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +19,21 @@ function formatBytes(bytes: number): string {
 }
 
 export default function BackupPage() {
-  const { data: backups = [], isLoading } = useBackups();
+  const { data: backups = [], isLoading, isError, error, refetch } = useBackups();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los backups");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los backups"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
+
   const executeBackup = useExecuteBackup();
 
   if (isLoading) {

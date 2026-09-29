@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { useToast } from "@/hooks/use-toast";
 import { usePresupuestoAlertas } from "@/hooks/use-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,10 +49,24 @@ export default function PresupuestosPage() {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   // List presupuestos
-  const { data: presupuestos = [], isLoading } = useQuery<any[]>({
+  const { data: presupuestos = [], isLoading, isError, error, refetch } = useQuery<any[]>({
     queryKey: ["presupuestos"],
     queryFn: () => api.listPresupuestos(),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los presupuestos");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los presupuestos"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Detail presupuesto (when selected)
   const { data: detalle, isLoading: detLoading } = useQuery<{

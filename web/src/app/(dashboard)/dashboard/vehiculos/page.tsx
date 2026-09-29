@@ -18,7 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { useVehicles } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewVehicleDialog } from "./new-vehicle-dialog";
+import { MaintenanceFichaDialog } from "./maintenance-ficha-dialog";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -168,8 +171,12 @@ const columns: Column<VehicleRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function VehiclesPage() {
-  const { data: rawVehicles = [], isLoading: loading } = useVehicles();
+  const { data: rawVehicles = [], isLoading: loading, isError, error, refetch } = useVehicles();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los vehículos");
   const [search, setSearch] = React.useState("");
+  // T-43: ficha de próximos mantenimientos al hacer click en una fila
+  const [selectedVehicleId, setSelectedVehicleId] = React.useState<string | null>(null);
 
   // Map API data to local VehicleRecord shape
   const vehicles: VehicleRecord[] = React.useMemo(
@@ -204,6 +211,17 @@ export default function VehiclesPage() {
         v.vin?.toLowerCase().includes(q)
     );
   }, [vehicles, search]);
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los vehículos"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -241,13 +259,19 @@ export default function VehiclesPage() {
         onSearchChange={setSearch}
         className="shadow-sm"
         stickyHeader
-        onRowClick={(row) => console.log("Open vehicle:", row.id)}
+        onRowClick={(row) => setSelectedVehicleId(row.id || null)}
         actions={
           <Button variant="outline" size="sm" className="gap-1.5">
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Exportar
           </Button>
         }
+      />
+
+      {/* T-43: ficha de próximos mantenimientos */}
+      <MaintenanceFichaDialog
+        vehicleId={selectedVehicleId}
+        onClose={() => setSelectedVehicleId(null)}
       />
     </div>
   );

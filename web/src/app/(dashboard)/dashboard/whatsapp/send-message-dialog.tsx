@@ -48,6 +48,7 @@ export function SendMessageDialog({ onSent }: { onSent?: () => void }) {
     mutationFn: async (data: SendForm) => {
       return api.sendWhatsAppMessage({ phone: data.phone, message: data.message });
     },
+    meta: { successMessage: "Mensaje de WhatsApp enviado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.whatsappMessages });
       setForm({ phone: "", template: "", message: "" });

@@ -11,14 +11,22 @@
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
-import { sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { getDb } from "./connection.js";
 import { requestDbStorage } from "./request-context.js";
+import { currentTx } from "./tx-context.js";
 import * as schema from "./schema/index.js";
 
-// Re-export `sql` helper so all modules import from one place
-export { sql };
+// Re-export `sql` helper so all modules import from one place.
+// Se reexporta DIRECTAMENTE desde drizzle-orm, no `import { sql } ... export { sql }`:
+// con la forma import+export, el pipeline SSR de Vite deja el binding en
+// `undefined` cuando drizzle-orm está externalizado (es ESM-only), y todo módulo
+// que hace `import { db, sql } from ".../drizzle.js"` —migration.service,
+// consolidated-report, accounting— revienta con
+// "TypeError: sql is not a function" al llamar a la función. En producción
+// (tsx/Node) la forma antigua funcionaba, así que el bug era invisible fuera de
+// vitest y dejaba esa superficie de API intestable. T-48.
+export { sql } from "drizzle-orm";
 
 /**
  * Schema type for the Drizzle ORM instance.
@@ -41,6 +49,12 @@ let _db: PostgresJsDatabase<DbSchema> | null = null;
  * ```
  */
 export function db(): PostgresJsDatabase<DbSchema> {
+  // Fase 3 (T-31/T-32): an active `withTransaction()` transaction wins over
+  // everything else. Every `db()` call in the call stack — accounting bus,
+  // stock consumers, audit writes — then runs on the SAME connection inside
+  // the SAME transaction, so any throw rolls all of it back atomically.
+  const tx = currentTx();
+  if (tx) return tx;
   // When a request tenant context is active, return the connection-bound
   // Drizzle instance so all queries run on that request's dedicated
   // connection (and inherit its `app.current_tenant` RLS context). Outside a
@@ -53,3 +67,7 @@ export function db(): PostgresJsDatabase<DbSchema> {
   }
   return _db;
 }
+
+// NOTE: `withTransaction()` lives in ./transaction.js (not here) so that
+// unit tests which `vi.mock()` this module still get a working transaction
+// helper — the mock only ever provides `db()`.

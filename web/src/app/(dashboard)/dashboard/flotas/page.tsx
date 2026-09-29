@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import { useFleets } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import type { UIMappedFleet } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
@@ -173,7 +175,20 @@ const columns: Column<FleetRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function FlotasPage() {
-  const { data: fleets = [], isLoading: loading } = useFleets();
+  const { data: fleets = [], isLoading: loading, isError, error, refetch } = useFleets();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las flotas");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las flotas"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
   const [search, setSearch] = React.useState("");
   const [contractFilter, setContractFilter] = React.useState<string>("");
 

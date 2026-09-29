@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState, EmptyState } from "@/components/ui/error-state";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { LayoutDashboard, Zap, Filter } from "lucide-react";
@@ -31,7 +33,7 @@ export default function OperationsHubPage() {
   // Aggregated board: open OTs (pre-joined) + technicians in ONE request —
   // replaces the 3-request fan-out + client-side join of Sprint 96.
   // refetchInterval kept as a slow fallback in case SSE is blocked by a proxy.
-  const { data: board, isLoading, refetch } = useQuery({
+  const { data: board, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["hub-board"],
     queryFn: () => api.getHubBoard({ excludeStatus: TERMINAL_STATUS }),
     refetchInterval: 120_000,
@@ -79,15 +81,8 @@ export default function OperationsHubPage() {
   const handleSelectOT = (ot: KanbanOT) => {
     setSelectedOT(ot);
     setMobilePanel("detail");
-    // Keep the assignee in sync: only fill when unset (never overwrites a
-    // deliberate manual assignment)
-    if (tecnicoFilter && !ot.assignedTo) {
-      api.assignWorkOrder(ot.id, tecnicoFilter).then(() =>
-        qc.invalidateQueries({ queryKey: ["hub-board"] }),
-      ).catch(() => {
-        /* non-blocking: assignment is advisory for the filter */
-      });
-    }
+    // T-52: sin auto-asignación — seleccionar una OT nunca asigna técnicos.
+    // La asignación es una acción explícita en el panel de detalle.
   };
 
   const handleStatusChange = (ordenId: string, newStatus: string) => {
@@ -122,20 +117,17 @@ export default function OperationsHubPage() {
         </div>
       </div>
 
-      {/* Technician filter bar */}
+      {/* Technician filter bar (T-54: FilterSelect unificado) */}
       <div className="flex items-center gap-2 shrink-0">
         <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground mr-1">Filtrar por técnico:</span>
-        <select
+        <FilterSelect
+          label="Técnico"
           value={tecnicoFilter}
-          onChange={e => setTecnicoFilter(e.target.value)}
-          className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <option value="">Todos los técnicos</option>
-          {tecnicos.map((t: Tecnico) => (
-            <option key={t.id} value={t.id}>{t.nombre}</option>
-          ))}
-        </select>
+          onChange={setTecnicoFilter}
+          options={tecnicos.map((t: Tecnico) => ({ value: t.id, label: t.nombre }))}
+          allLabel="Todos los técnicos"
+          emptyText="Sin técnicos activos"
+        />
         {tecnicoFilter && (
           <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setTecnicoFilter("")}>
             Limpiar
@@ -160,6 +152,30 @@ export default function OperationsHubPage() {
             <CardContent className="px-3 pb-3">
               {isLoading ? (
                 <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16" />)}</div>
+              ) : isError ? (
+                <ErrorState
+                  compact
+                  title="No se pudieron cargar las OTs"
+                  message={error instanceof Error ? error.message : undefined}
+                  onRetry={() => refetch()}
+                />
+              ) : ordenes.length === 0 ? (
+                <EmptyState
+                  compact
+                  title={allOrdenes.length === 0 ? "Sin órdenes abiertas" : "Sin órdenes para este técnico"}
+                  message={
+                    allOrdenes.length === 0
+                      ? "Creá una OT rápida para empezar a trabajar."
+                      : `Ninguna OT abierta está asignada a ${tecnicos.find(t => t.id === tecnicoFilter)?.nombre ?? "ese técnico"}.`
+                  }
+                  action={
+                    allOrdenes.length > 0 && tecnicoFilter ? (
+                      <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setTecnicoFilter("")}>
+                        Limpiar filtro
+                      </Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <HubSidebar
                   ordenes={ordenes}
@@ -176,7 +192,13 @@ export default function OperationsHubPage() {
         <div className={cn("flex-1 min-w-0", mobilePanel === "list" && "hidden lg:block")}>
           <Card className="h-full border-0 shadow-sm bg-card">
             <CardContent className="p-4 h-full">
-              <OTDetailPanel orden={selectedOT} onClose={() => { setSelectedOT(null); setMobilePanel("list"); }} onRefresh={() => refetch()} />
+              <OTDetailPanel
+                orden={selectedOT}
+                tecnicos={tecnicos}
+                onAssigned={() => qc.invalidateQueries({ queryKey: ["hub-board"] })}
+                onClose={() => { setSelectedOT(null); setMobilePanel("list"); }}
+                onRefresh={() => refetch()}
+              />
             </CardContent>
           </Card>
         </div>

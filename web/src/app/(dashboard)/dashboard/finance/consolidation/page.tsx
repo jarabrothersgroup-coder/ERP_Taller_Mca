@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   Building2,
   Plus,
@@ -127,10 +129,24 @@ export default function ConsolidationPage() {
 
   // ─── Queries ─────────────────────────────────
 
-  const { data: groups = [], isLoading } = useQuery<TenantGroup[]>({
+  const { data: groups = [], isLoading, isError, error, refetch } = useQuery<TenantGroup[]>({
     queryKey: ["tenant-groups"],
     queryFn: () => api.request<TenantGroup[]>("/finance/contabilidad/grupos"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los grupos de consolidación");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la consolidación"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const { data: members = [], isLoading: loadingMembers } = useQuery<TenantGroupMember[]>({
     queryKey: ["tenant-group-members", selectedGroup],

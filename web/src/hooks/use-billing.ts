@@ -116,6 +116,7 @@ export function useBillingCheckout() {
       if (!res.ok) throw new Error("Error creating checkout session");
       return res.json() as Promise<{ url?: string; sessionId?: string }>;
     },
+    meta: { successMessage: "Sesión de pago creada" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: billingKeys.subscription() });
       qc.invalidateQueries({ queryKey: billingKeys.invoices() });

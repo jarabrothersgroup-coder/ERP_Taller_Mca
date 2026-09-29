@@ -62,6 +62,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
+  // T-51: persistir el colapsado global (lee post-mount para evitar mismatch de hidratación)
+  React.useEffect(() => {
+    try {
+      if (window.localStorage.getItem("so:sidebar:collapsed") === "1") {
+        setSidebarCollapsed(true);
+      }
+    } catch {
+      /* localStorage no disponible — estado en memoria */
+    }
+  }, []);
+
+  const toggleCollapsed = React.useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("so:sidebar:collapsed", next ? "1" : "0");
+      } catch {
+        /* best-effort */
+      }
+      return next;
+    });
+  }, []);
+
   // Sync tenant slug from auth session to data-service
   React.useEffect(() => {
     if (user?.tenantSlug) {
@@ -87,7 +110,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       >
         <DashboardSidebar
           collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggle={toggleCollapsed}
         />
       </aside>
 

@@ -21,6 +21,7 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Car,
   Building2,
   GitBranch,
@@ -49,13 +50,25 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/components/providers/session-provider";
+import { api } from "@/lib/api";
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
   badge?: string;
+  /**
+   * T-51: rol mínimo para ver el ítem (alineado a los guards del backend:
+   * requireManager / requireAdmin). Sin `minRole` → visible para todos.
+   * Se OCULTA (no se deshabilita) cuando el rol no alcanza.
+   */
+  minRole?: "manager" | "admin";
 }
+
+/** ROLE_HIERARCHY del backend (shared/middleware/rbac.ts) — reflejar cambios aquí */
+const ROLE_RANK: Record<string, number> = { user: 0, mechanic: 1, manager: 2, admin: 3 };
 
 /**
  * Sidebar reorganizado por FLUJO DE NEGOCIO de un taller automotriz:
@@ -84,11 +97,11 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Operaciones",
     items: [
-      { label: "Hub de Operaciones", href: "/dashboard/hub", icon: Zap, badge: "Nuevo" },
+      { label: "Hub de Operaciones", href: "/dashboard/hub", icon: Zap },
       { label: "Panel Ejecutivo", href: "/dashboard/ejecutivo", icon: LayoutDashboard },
       { label: "Recepción", href: "/dashboard/recepcion", icon: ClipboardCheck },
       { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
-      { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare, badge: "3" },
+      { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare },
     ],
   },
 
@@ -101,11 +114,11 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Precios", href: "/dashboard/taller/precios", icon: TrendingUp },
       { label: "Flat Rate", href: "/dashboard/taller/flat-rate", icon: Timer },
       { label: "Asignación OT", href: "/dashboard/taller/asignacion", icon: UserCheck },
-      { label: "Mecánicos", href: "/dashboard/taller/mecanicos", icon: Users },
+      { label: "Mecánicos", href: "/dashboard/taller/mecanicos", icon: Users, minRole: "manager" },
       { label: "DVI", href: "/dashboard/dvi", icon: ClipboardCheck },
       { label: "Thinkcar OBD2", href: "/dashboard/thinkcar", icon: Scan },
       { label: "Mant. Predictivo", href: "/dashboard/taller/predictive-ml", icon: Brain },
-      { label: "Proveedores", href: "/dashboard/taller/proveedores", icon: Truck },
+      { label: "Proveedores", href: "/dashboard/taller/proveedores", icon: Truck, minRole: "manager" },
     ],
   },
 
@@ -117,7 +130,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Stock General", href: "/dashboard/inventario", icon: Package },
       { label: "Movimientos", href: "/dashboard/inventario/movimientos", icon: RefreshCw },
       { label: "Órdenes Compra", href: "/dashboard/inventario/ordenes-compra", icon: ShoppingCart },
-      { label: "Almacenes", href: "/dashboard/inventario/almacenes", icon: Warehouse },
+      { label: "Almacenes", href: "/dashboard/inventario/almacenes", icon: Warehouse, minRole: "manager" },
       { label: "Herramientas", href: "/dashboard/inventario/herramientas", icon: Wrench },
       { label: "TecDoc", href: "/dashboard/inventario/tecdoc", icon: Search },
       { label: "Conteo Cíclico", href: "/dashboard/inventario/conteo", icon: ClipboardCheck },
@@ -132,13 +145,13 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Facturación", href: "/dashboard/facturacion", icon: DollarSign },
       { label: "Config. Impresión", href: "/dashboard/facturacion/configurador", icon: Settings },
       { label: "Reimpresión", href: "/dashboard/facturacion/reimpresion", icon: RotateCcw },
-      { label: "SIFEN", href: "/dashboard/finance/sifen", icon: FileText },
+      { label: "SIFEN", href: "/dashboard/finance/sifen", icon: FileText, minRole: "manager" },
       { label: "Presupuestos", href: "/dashboard/presupuestos", icon: PieChart },
-      { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt },
-      { label: "Contabilidad", href: "/dashboard/contabilidad", icon: Landmark },
-      { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign },
-      { label: "Nómina", href: "/dashboard/nomina", icon: Calculator },
-      { label: "Consolidación", href: "/dashboard/finance/consolidation", icon: Building2 },
+      { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt, minRole: "manager" },
+      { label: "Contabilidad", href: "/dashboard/contabilidad", icon: Landmark, minRole: "manager" },
+      { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign, minRole: "manager" },
+      { label: "Nómina", href: "/dashboard/nomina", icon: Calculator, minRole: "manager" },
+      { label: "Consolidación", href: "/dashboard/finance/consolidation", icon: Building2, minRole: "manager" },
     ],
   },
 
@@ -149,7 +162,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Clientes", href: "/dashboard/clientes", icon: Users },
       { label: "CRM Pipeline", href: "/dashboard/crm", icon: GitBranch },
-      { label: "Marketing", href: "/dashboard/marketing", icon: Megaphone },
+      { label: "Marketing", href: "/dashboard/marketing", icon: Megaphone, minRole: "manager" },
       { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     ],
   },
@@ -159,15 +172,15 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Administración",
     items: [
-      { label: "Nuevo Taller", href: "/onboarding", icon: Plus, badge: "Nuevo" },
-      { label: "Usuarios", href: "/dashboard/usuarios", icon: Users },
+      { label: "Nuevo Taller", href: "/onboarding", icon: Plus },
+      { label: "Usuarios", href: "/dashboard/usuarios", icon: Users, minRole: "admin" },
       { label: "Vehículos", href: "/dashboard/vehiculos", icon: Car },
-      { label: "Flotas", href: "/dashboard/flotas", icon: Truck },
-      { label: "Seguridad", href: "/dashboard/seguridad", icon: Shield },
+      { label: "Flotas", href: "/dashboard/flotas", icon: Truck, minRole: "manager" },
+      { label: "Seguridad", href: "/dashboard/seguridad", icon: Shield, minRole: "admin" },
       { label: "Seguridad HW", href: "/dashboard/security-hw", icon: Fingerprint },
-      { label: "Enterprise", href: "/dashboard/enterprise", icon: Building2 },
+      { label: "Enterprise", href: "/dashboard/enterprise", icon: Building2, minRole: "admin" },
       { label: "Impresión", href: "/dashboard/label-printing", icon: Printer },
-      { label: "Backup", href: "/dashboard/backup", icon: Database },
+      { label: "Backup", href: "/dashboard/backup", icon: Database, minRole: "admin" },
       { label: "Configuración", href: "/dashboard/config", icon: Settings },
     ],
   },
@@ -188,8 +201,104 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
+/** Evento custom para sincronizar el estado de secciones entre instancias (desktop + móvil) */
+const SECTIONS_EVENT = "so:sidebar:sections-change";
+
 export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  // ── T-51: filtrado por rol — menú = permisos ────────────────────
+  // rank null = sesión aún cargando (no filtrar, evita parpadeo);
+  // rol desconocido (p. ej. "supervisor") → -1, no supera ningún minRole
+  // (igual que el backend: ROLE_HIERARCHY[rol] undefined → 403).
+  const role = user?.role;
+  const rank = !role ? null : ROLE_RANK[role] ?? -1;
+
+  const visibleSections = React.useMemo(
+    () =>
+      navSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) =>
+            item.minRole === undefined || rank === null
+              ? true
+              : rank >= ROLE_RANK[item.minRole],
+          ),
+        }))
+        .filter((section) => section.items.length > 0),
+    [rank],
+  );
+
+  // ── T-51: secciones colapsables (estado persistente en localStorage) ──
+  const [closedSections, setClosedSections] = React.useState<string[]>([]);
+
+  const applySections = (next: string[]) => {
+    setClosedSections(next);
+    try {
+      window.localStorage.setItem("so:sidebar:sections", JSON.stringify(next));
+      // Sincroniza la segunda instancia (drawer móvil) en la misma página
+      window.dispatchEvent(new Event(SECTIONS_EVENT));
+    } catch {
+      /* sin localStorage — estado en memoria */
+    };
+  };
+
+  React.useEffect(() => {
+    const load = () => {
+      try {
+        const raw = window.localStorage.getItem("so:sidebar:sections");
+        setClosedSections(raw ? (JSON.parse(raw) as string[]) : []);
+      } catch {
+        setClosedSections([]);
+      }
+    };
+    load();
+    window.addEventListener(SECTIONS_EVENT, load);
+    window.addEventListener("storage", load);
+    return () => {
+      window.removeEventListener(SECTIONS_EVENT, load);
+      window.removeEventListener("storage", load);
+    };
+  }, []);
+
+  const toggleSection = (title: string) => {
+    applySections(
+      closedSections.includes(title)
+        ? closedSections.filter((t) => t !== title)
+        : [...closedSections, title],
+    );
+  };
+
+  const isActive = (href: string) =>
+    pathname === href ||
+    (href !== "/dashboard" && !!pathname && pathname.startsWith(href + "/"));
+
+  // Auto-expandir la sección que contiene la ruta activa
+  React.useEffect(() => {
+    const active = visibleSections.find((sec) =>
+      sec.items.some((item) => isActive(item.href)),
+    );
+    if (active && closedSections.includes(active.title)) {
+      applySections(closedSections.filter((t) => t !== active.title));
+    }
+  }, [pathname, visibleSections, closedSections]);
+
+  // ── T-51: badge WhatsApp dinámico (contador real de la cola) ────
+  const { data: waStats } = useQuery({
+    queryKey: ["whatsapp-queue-stats"],
+    queryFn: () => api.getWhatsAppQueueStats(),
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const badgeFor = (item: NavItem): string | undefined => {
+    if (item.href === "/dashboard/whatsapp") {
+      return waStats && waStats.pending > 0 ? String(waStats.pending) : undefined;
+    }
+    return item.badge;
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -212,13 +321,28 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {navSections.map((section) => (
+        {visibleSections.map((section) => {
+          const sectionClosed = !collapsed && closedSections.includes(section.title);
+          return (
           <div key={section.title}>
             {!collapsed && (
-              <h4 className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+              <button
+                type="button"
+                onClick={() => toggleSection(section.title)}
+                aria-expanded={!sectionClosed}
+                className="mb-2 flex w-full items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors"
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 shrink-0 transition-transform duration-150",
+                    sectionClosed && "-rotate-90",
+                  )}
+                  aria-hidden="true"
+                />
                 {section.title}
-              </h4>
+              </button>
             )}
+            {!sectionClosed && (
             <div className="space-y-1">
               {section.items.map((item) => {
                 const isActive =
@@ -250,9 +374,9 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                     {!collapsed && (
                       <>
                         <span className="flex-1">{item.label}</span>
-                        {item.badge && (
+                        {badgeFor(item) && (
                           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-bold text-white">
-                            {item.badge}
+                            {badgeFor(item)}
                           </span>
                         )}
                       </>
@@ -265,9 +389,9 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                         role="tooltip"
                       >
                         {item.label}
-                        {item.badge && (
+                        {badgeFor(item) && (
                           <span className="ml-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[9px] font-bold text-white">
-                            {item.badge}
+                            {badgeFor(item)}
                           </span>
                         )}
                       </div>
@@ -276,8 +400,10 @@ export function DashboardSidebar({ collapsed = false, onToggle }: SidebarProps) 
                 );
               })}
             </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Collapse toggle */}

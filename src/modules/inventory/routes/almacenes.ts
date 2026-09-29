@@ -7,6 +7,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import { listAlmacenes, getAlmacen, createAlmacen, updateAlmacen, deleteAlmacen, realizarTransferencia } from "../services/almacen.service.js";
 
 export async function almacenRoutes(app: FastifyInstance): Promise<void> {
@@ -43,18 +44,24 @@ export async function almacenRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── DELETE /inventory/almacenes/:id — Deactivate warehouse ──
+  // ── DELETE /inventory/almacenes/:id — Deactivate warehouse (destructivo → manager+) ──
   app.delete<{ Params: { id: string } }>(
     "/inventory/almacenes/:id",
+    {
+      preHandler: requireManager,
+    },
     async (request, reply) => {
       const result = await deleteAlmacen(request.params.id, request.tenantSlug);
       return reply.send(result);
     },
   );
 
-  // ── POST /inventory/almacenes/transferir — Transfer stock between warehouses ──
+  // ── POST /inventory/almacenes/transferir — Transfer stock between warehouses (destructivo → manager+) ──
   app.post<{ Body: { repuestoId: string; cantidad: number; almacenDestinoId: string; almacenOrigenId?: string; ordenTrabajoId?: string; motivo?: string } }>(
     "/inventory/almacenes/transferir",
+    {
+      preHandler: requireManager,
+    },
     async (request, reply) => {
       const result = await realizarTransferencia(request.body, request.tenantSlug);
       return reply.status(201).send(result);

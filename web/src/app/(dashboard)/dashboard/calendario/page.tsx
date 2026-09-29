@@ -4,7 +4,9 @@ import * as React from "react";
 import { Download, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { ErrorState } from "@/components/ui/error-state";
 import { useAppointments } from "@/hooks/use-data";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewAppointmentDialog } from "./new-appointment-dialog";
 import { ScheduleStats, statusConfig } from "./stats";
 import { columns } from "./columns";
@@ -14,7 +16,8 @@ import type { UIMappedAppointment as AppointmentRecord } from "@/lib/data-servic
 type ViewMode = "table" | "week";
 
 export default function CalendarioPage() {
-  const { data: appointments = [], isLoading: loading, refetch } = useAppointments();
+  const { data: appointments = [], isLoading: loading, isError, error, refetch } = useAppointments();
+  useErrorToast(isError, "las citas");
   const [viewMode, setViewMode] = React.useState<ViewMode>("week");
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("");
@@ -36,6 +39,17 @@ export default function CalendarioPage() {
     }
     return result;
   }, [appointments, search, statusFilter]);
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las citas"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

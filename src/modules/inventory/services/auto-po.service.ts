@@ -9,12 +9,16 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import {
-  repuestos,
-  reorderAlerts,
+  /*
+   * When stock drops below reorder point, automatically generates
+   * a purchase order to the preferred supplier.
+   */
   purchaseOrders,
   purchaseOrderItems,
+  repuestos,
+  reorderAlerts,
 } from "../schema/index.js";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, like, desc } from "drizzle-orm";
 
 // ─── Types ────────────────────────────────────
 
@@ -79,19 +83,18 @@ export async function generateAutoPOs(
   const results: AutoPOResult[] = [];
 
   for (const [supplier, alerts] of bySupplier) {
-    // Generate PO number
-    const poNumero = await generatePONumber(tenantSlug);
-
-    // Create PO
-    const [po] = await db()
-      .insert(purchaseOrders)
-      .values({
-        numero: poNumero,
-        proveedor: supplier,
-        estado: "PENDIENTE_APROB",
-        notas: `Generado automáticamente desde reorder alerts (${alerts.length} items)`,
-        tenantSlug,
-      })
+    // Generate PO number// 0013 CHECK permite BORRADOR, PENDIENTE y APROBADA; RECEpcionada/COMPLETADA/CANCELADA
+            // no emitidos por este código, así que PENDIENTE seguro.
+            const poNumero = await generatePONumber(tenantSlug);
+            const [po] = await db()
+              .insert(purchaseOrders)
+              .values({
+                numero: poNumero,
+                proveedor: supplier,
+                estado: "PENDIENTE",
+                notas: `Generado automáticamente desde reorder alerts (${alerts.length} items)`,
+                tenantSlug,
+              })
       .returning();
 
     // Create PO items
@@ -150,7 +153,7 @@ async function generatePONumber(tenantSlug: string): Promise<string> {
     .from(purchaseOrders)
     .where(
       and(
-        sql`${purchaseOrders.numero} LIKE ${prefix}%`,
+        like(purchaseOrders.numero, `${prefix}%`),
         eq(purchaseOrders.tenantSlug, tenantSlug),
       ),
     )

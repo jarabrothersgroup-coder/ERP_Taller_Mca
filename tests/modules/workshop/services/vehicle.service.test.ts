@@ -97,6 +97,9 @@ function makeVehicle(overrides: Record<string, unknown> = {}) {
 describe("Vehicle Service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // T-33: every mutation writes an entity audit row → default insert chain
+    // so logEntityAudit() resolves without per-test configuration.
+    mockDb.insert.mockReturnValue(mockInsert([]));
   });
 
   describe("createVehicle", () => {
@@ -111,7 +114,8 @@ describe("Vehicle Service", () => {
         clientId: "c-001",
       });
 
-      expect(mockDb.insert).toHaveBeenCalledTimes(1);
+      // 2 inserts: the vehicle row + its T-33 audit entry
+      expect(mockDb.insert).toHaveBeenCalledTimes(2);
       expect(result).toMatchObject({ brand: "Toyota", model: "Corolla" });
     });
 

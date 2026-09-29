@@ -14,11 +14,13 @@
  * request and always overwriting + resetting the setting, the context cannot
  * escape to another request.
  *
- * We deliberately use a session-scoped `SET` (not `SET LOCAL` inside a
- * transaction): it avoids the postgres.js/drizzle nested-transaction conflict
- * (a service-level `db().transaction()` would otherwise prematurely COMMIT the
- * outer transaction). The dedicated connection + overwrite + reset gives the
- * same isolation guarantee without that complexity.
+ * We deliberately use a session-scoped `SET` (not `SET LOCAL`): tenant RLS
+ * context therefore survives `BEGIN`/`COMMIT` on this connection, and it avoids
+ * the postgres.js/drizzle nested-transaction conflict (a service-level
+ * `db().transaction()` would otherwise prematurely COMMIT the outer
+ * transaction). Multi-statement atomicity is provided instead by
+ * `withTransaction()` (shared/database/transaction.ts), which drives BEGIN /
+ * COMMIT on this pinned connection and nests safely — see Fase 3 (T-31/T-32).
  *
  * `db()` (see drizzle.ts) reads the active connection from AsyncLocalStorage,
  * so handlers keep calling `db()` unchanged. Outside a request (cron/CLI) the
@@ -36,6 +38,7 @@ import { getDb } from "../database/connection.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../database/schema/index.js";
 import { requestDbStorage, type RequestDbContext } from "../database/request-context.js";
+import { patchPinnedTransaction } from "../database/transaction.js";
 import { env } from "../../config/env.js";
 
 /**
@@ -93,6 +96,10 @@ export async function registerRequestTransactions(
 
     ctx.tx = conn;
     ctx.drizzle = drizzle(conn as never, { schema, logger: false });
+    // Fase 3 (T-31/T-32): `sql.reserve()` has no `.begin()`, so drizzle's
+    // `transaction()` would throw on this handle. Patch it to drive BEGIN /
+    // COMMIT on the pinned connection and to reuse any active transaction.
+    patchPinnedTransaction(ctx);
   });
 
   // Reset the tenant context + release the connection when the request ends.

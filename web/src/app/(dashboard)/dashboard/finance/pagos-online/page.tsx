@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,10 +39,24 @@ export default function PagosOnlinePage() {
   const [linkResult, setLinkResult] = React.useState<PaymentLinkResult | null>(null);
 
   // Fetch pending invoices (CxC)
-  const { data: cxcItems = [], isLoading: loadingCxc, refetch: refetchCxc } = useQuery({
+  const { data: cxcItems = [], isLoading: loadingCxc, refetch: refetchCxc, isError, error } = useQuery({
     queryKey: ["pagos-online-cxc"],
     queryFn: () => api.listCxcPendientes(),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las facturas pendientes");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los pagos online"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetchCxc}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   const generateMutation = useMutation({
     mutationFn: async () => {

@@ -31,3 +31,29 @@ window.getComputedStyle = (elt: Element, pseudoElt?: string | null) => {
 //   if (typeof args[0] === "string" && args[0].includes("Warning:")) return;
 //   originalError.call(console, ...args);
 // };
+
+// jsdom sin localStorage (Node sin --localstorage-file) — polyfill en memoria.
+// Sin esto, window.localStorage es undefined y cualquier test que use
+// persistencia (p. ej. sidebar T-51) falla con "reading 'clear'".
+if (window.localStorage === undefined) {
+  const store = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => (store.has(k) ? (store.get(k) as string) : null),
+      setItem: (k: string, v: string) => {
+        store.set(k, String(v));
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+      clear: () => {
+        store.clear();
+      },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      get length() {
+        return store.size;
+      },
+    },
+  });
+}

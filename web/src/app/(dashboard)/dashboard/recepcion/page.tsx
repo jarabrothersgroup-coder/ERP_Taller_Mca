@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -242,10 +244,24 @@ export default function RecepcionPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Fetch vehicles for search
-  const { data: vehicles = [], isLoading: vLoading } = useQuery({
+  const { data: vehicles = [], isLoading: vLoading, isError, error, refetch } = useQuery({
     queryKey: ["vehicles-search"],
     queryFn: () => api.listVehicles({ limit: 50 }),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los vehículos en recepción");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la recepción"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // Filter vehicles by search
   const filteredVehicles = React.useMemo(() => {
@@ -267,6 +283,7 @@ export default function RecepcionPage() {
       descripcionTrabajo: descripcionTrabajo || undefined,
       crearOrden,
     }),
+    meta: { successMessage: "Ingreso creado" },
     onSuccess: (data: any) => {
       setIngresoId(data.ingreso?.id);
       setOrdenId(data.ordenTrabajo?.id);

@@ -14,6 +14,7 @@ import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, desc, ilike, and } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import type { Vehiculo, NewVehiculo, TipoMotor } from "../schema/index.js";
+import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 
 const VALID_ENGINE_TYPES: TipoMotor[] = ["Nafta", "Diésel", "HEV", "BEV"];
 
@@ -177,6 +178,15 @@ export async function createVehicle(
     .values(insertData)
     .returning();
 
+  await logEntityAudit({
+    tenantSlug: insertData.tenantSlug,
+    accion: "CREATE",
+    entidad: "vehiculos",
+    entidadId: vehicle.id,
+    valorNuevo: vehicle as unknown as Record<string, unknown>,
+    descripcion: `Vehículo creado: ${vehicle.brand} ${vehicle.model}`,
+  });
+
   return vehicle;
 }
 
@@ -199,8 +209,9 @@ export async function updateVehicle(
   if (tenantSlug) {
     conditions.push(eq(vehiculos.tenantSlug, tenantSlug));
   }
+  // Full row: it becomes `valorAnterior` of the T-33 audit entry.
   const [existing] = await db()
-    .select({ id: vehiculos.id })
+    .select()
     .from(vehiculos)
     .where(and(...conditions))
     .limit(1);
@@ -280,6 +291,16 @@ export async function updateVehicle(
     .where(and(...updateConditions))
     .returning();
 
+  await logEntityAudit({
+    tenantSlug: tenantSlug ?? "default",
+    accion: "UPDATE",
+    entidad: "vehiculos",
+    entidadId: id,
+    valorAnterior: existing as unknown as Record<string, unknown>,
+    valorNuevo: updated as unknown as Record<string, unknown>,
+    descripcion: `Vehículo actualizado: ${Object.keys(updateData).join(", ")}`,
+  });
+
   return updated!;
 }
 
@@ -295,8 +316,9 @@ export async function deleteVehicle(id: string, tenantSlug?: string): Promise<{ 
   if (tenantSlug) {
     conditions.push(eq(vehiculos.tenantSlug, tenantSlug));
   }
+  // Full row: it becomes `valorAnterior` of the T-33 audit entry.
   const [existing] = await db()
-    .select({ id: vehiculos.id })
+    .select()
     .from(vehiculos)
     .where(and(...conditions))
     .limit(1);
@@ -312,6 +334,15 @@ export async function deleteVehicle(id: string, tenantSlug?: string): Promise<{ 
   await db()
     .delete(vehiculos)
     .where(and(...delConditions));
+
+  await logEntityAudit({
+    tenantSlug: tenantSlug ?? "default",
+    accion: "DELETE",
+    entidad: "vehiculos",
+    entidadId: id,
+    valorAnterior: existing as unknown as Record<string, unknown>,
+    descripcion: `Vehículo eliminado: ${existing.brand ?? ""} ${existing.model ?? ""}`.trim(),
+  });
 
   return { deleted: true };
 }

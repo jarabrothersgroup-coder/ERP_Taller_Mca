@@ -30,6 +30,7 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
+import { inTransaction } from "../../../../shared/database/tx-context.js";
 import { planCuentas } from "../../schema/index.js";
 import { createAsiento } from "./ledger.service.js";
 import { logAudit } from "./audit-log.service.js";
@@ -258,7 +259,10 @@ export async function emit(
       entidad: "asientos_contables",
       entidadId: result.asiento.id,
       descripcion: `[AUTO] ${event.tipo}: ${event.descripcion}`,
-    }).catch(() => {
+    }).catch((auditErr) => {
+      // Inside a transaction the audit write is part of the same unit of work:
+      // letting it fail silently would leave a half-applied tx (Fase 3 · T-33).
+      if (inTransaction()) throw auditErr;
       /* silent — audit failure is non-critical */
     });
 
@@ -268,6 +272,10 @@ export async function emit(
       asientoNumero: result.asiento.numero,
     };
   } catch (err) {
+    // Inside an originating transaction, graceful degradation would commit a
+    // business change without its accounting entry → roll back instead
+    // (Fase 3 · T-31: "fallo en asiento → rollback total").
+    if (inTransaction()) throw err;
     const message = err instanceof Error ? err.message : "Error desconocido";
     console.warn(
       `[accounting-bus] Error al generar asiento para ${event.tipo} ` +
@@ -380,6 +388,8 @@ export async function emitFromTransaction(
       ordenTrabajoId: event.ordenTrabajoId,
     });
   } catch (err) {
+    // Same rule as emit(): propagate when the caller is inside a transaction.
+    if (inTransaction()) throw err;
     const message = err instanceof Error ? err.message : "Error desconocido";
     console.warn(
       `[accounting-bus] Error en emitFromTransaction para ${event.modulo}/` +

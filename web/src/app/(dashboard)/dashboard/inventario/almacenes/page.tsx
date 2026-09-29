@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,10 +78,24 @@ export default function AlmacenesPage() {
   const [activeTab, setActiveTab] = React.useState<"almacenes" | "transferencias">("almacenes");
 
   // ── Fetch almacenes ──
-  const { data: almacenes = [], isLoading } = useQuery<Almacen[]>({
+  const { data: almacenes = [], isLoading, isError, error, refetch } = useQuery<Almacen[]>({
     queryKey: ["almacenes"],
     queryFn: () => api.request<Almacen[]>("/inventory/almacenes"),
   });
+
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "los almacenes");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar los almacenes"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // ── Fetch repuestos for selector ──
   const { data: repuestos = [] } = useQuery<Repuesto[]>({

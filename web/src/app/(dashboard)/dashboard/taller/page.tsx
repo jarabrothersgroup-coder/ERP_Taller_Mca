@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { useWorkOrders } from "@/hooks/use-data";
 import { queryKeys } from "@/hooks/use-data";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { statusConfig } from "./status-config";
 import { columns } from "./columns";
 import { WorkshopStats } from "./stats";
@@ -19,7 +21,20 @@ import type { WorkOrder, OrderStatus } from "./types";
 
 export default function WorkshopPage() {
   const qc = useQueryClient();
-  const { data: orders = [], isLoading: loading } = useWorkOrders();
+  const { data: orders = [], isLoading: loading, isError, error, refetch } = useWorkOrders();
+  // T-53: feedback visible al fallar la carga
+  useErrorToast(isError, "las órdenes de trabajo");
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar las órdenes de trabajo"
+        message={error instanceof Error ? error.message : undefined}
+        onRetry={refetch}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("");
   const [selectedOrder, setSelectedOrder] = React.useState<WorkOrder | null>(null);

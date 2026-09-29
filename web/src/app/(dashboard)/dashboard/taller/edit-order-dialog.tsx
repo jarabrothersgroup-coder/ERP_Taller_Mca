@@ -53,6 +53,7 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
       };
       return api.updateWorkOrderStatus(id, statusMap[newStatus] || newStatus);
     },
+    meta: { successMessage: "Estado de la OT actualizado" },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.workOrders });
       onOpenChange(false);

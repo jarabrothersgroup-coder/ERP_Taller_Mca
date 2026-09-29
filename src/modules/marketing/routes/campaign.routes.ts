@@ -2,15 +2,22 @@
  * Marketing Campaign Routes — campaign management endpoints.
  *
  * Endpoints:
- *   POST /marketing/campaigns      — Create campaign
- *   GET  /marketing/campaigns      — List campaigns
- *   GET  /marketing/campaigns/stats — Campaign statistics
+ *   POST   /marketing/campaigns      — Create campaign
+ *   GET    /marketing/campaigns      — List campaigns
+ *   GET    /marketing/campaigns/stats — Campaign statistics
+ *   DELETE /marketing/campaigns/:id  — Delete campaign (destructivo → manager+)
  *
  * @module marketing/routes/campaign.routes.ts
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createCampaign, listCampaigns, getCampaignStats } from "../services/campaign.service.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
+import {
+  createCampaign,
+  listCampaigns,
+  getCampaignStats,
+  deleteCampaign,
+} from "../services/campaign.service.js";
 
 interface CreateBody {
   nombre: string;
@@ -18,6 +25,10 @@ interface CreateBody {
   mensaje: string;
   programadaAt?: string;
   segmento?: string;
+}
+
+interface IdParams {
+  id: string;
 }
 
 export async function campaignRoutes(app: FastifyInstance): Promise<void> {
@@ -60,6 +71,25 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const result = await getCampaignStats(request.tenantSlug);
       return reply.send(result);
+    },
+  );
+
+  // ── DELETE /marketing/campaigns/:id — Delete campaign (destructivo → manager+) ──
+  app.delete<{ Params: IdParams }>(
+    "/marketing/campaigns/:id",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
+      await deleteCampaign(request.params.id, request.tenantSlug);
+      return reply.send({ deleted: true });
     },
   );
 }

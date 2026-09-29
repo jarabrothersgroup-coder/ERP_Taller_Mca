@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorState } from "@/components/ui/error-state";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import {
   Users,
   Plus,
@@ -103,15 +105,29 @@ export default function CRMPage() {
   const [search, setSearch] = React.useState("");
 
   // ── Fetch stages + deals ──
-  const { data: stages = [] } = useQuery<PipelineStage[]>({
+  const { data: stages = [], isError: stagesError } = useQuery<PipelineStage[]>({
     queryKey: ["crm-stages"],
     queryFn: () => api.request<PipelineStage[]>("/crm/stages"),
   });
 
-  const { data: deals = [], isLoading } = useQuery<CrmDeal[]>({
+  const { data: deals = [], isLoading, isError: dealsError, error: dealsErr, refetch: refetchDeals } = useQuery<CrmDeal[]>({
     queryKey: ["crm-deals"],
     queryFn: () => api.request<CrmDeal[]>("/crm/deals"),
   });
+
+  // T-53: feedback visible al fallar la carga (un toast aunque fallen ambas)
+  useErrorToast(stagesError || dealsError, "el pipeline CRM");
+
+  if (stagesError || dealsError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar el pipeline CRM"
+        message={dealsErr instanceof Error ? dealsErr.message : undefined}
+        onRetry={refetchDeals}
+        className="min-h-[50vh] justify-center"
+      />
+    );
+  }
 
   // ── Seed default stages ──
   const seedStages = useMutation({

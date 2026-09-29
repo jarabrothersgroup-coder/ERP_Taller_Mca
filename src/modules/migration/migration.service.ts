@@ -46,9 +46,15 @@ interface TableConfig {
 }
 
 const TABLE_CONFIGS: Record<ExportableTable, TableConfig> = {
+  // El plan de cuentas es GLOBAL: la tabla no tiene columna de tenant
+  // (id, codigo, nombre, tipo, ..., updated_at — nada de tenant_slug). Marcarlo
+  // `tenantScoped: true` hacía que getExportPreview construyera el filtro
+  // `config.table.tenantSlug` → undefined, y Drizzle emitía `undefined = $1`:
+  // 42601 syntax error at or near "=". Eso tumbaba GET /api/v1/migration/tables
+  // y /preview, que iteran todas las tablas de esta lista. T-48.
   plan_cuentas: {
     table: planCuentas,
-    tenantScoped: true,
+    tenantScoped: false,
     matchColumns: ["codigo"],
   },
   servicios_catalogo: {
