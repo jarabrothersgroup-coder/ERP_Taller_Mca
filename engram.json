@@ -47,8 +47,8 @@
     "audit_gap_20260925": {
       "doc": "Docs/AUDITORIA_TECNICA_INTEGRAL_AutomotiveOS_2026-09-25.md",
       "scope": "7 dominios · ~50 gaps · plan de 6 fases (T-00..T-63) · esfuerzo estimado 40-48 d",
-      "verified_on": "2026-09-26",
-      "baseline": "tsc root+web PASS · eslint 0 err · drizzle-kit check OK · backend 1882 (1882 PASS / 4 skip) incl. 8 tests de contrato T-00, 12 E2E Fase 1, 10 T-21b, 14 T-21c y 7 T-21d · web 111/111 · re-verificado 2026-09-26",
+      "verified_on": "2026-09-28",
+      "baseline": "tsc root PASS · eslint 0 err (826 warn) · drizzle-kit check OK · backend 1922 (1922 PASS / 4 skip, 93 archivos) incl. 8 contrato T-00, 12 E2E Fase 1, T-21b/c/d, 90 seguridad, 6 tests integridad Fase 3, 26 tests fase4-crud (tests/fase4-crud.test.ts) y matriz rol×endpoint +8 T-42 · web 111/111 sin cambios · migraciones aplicadas = 0025..0027 + 0028_marketing_fleet_tables, 0029_mechanic_profiles_activo, 0030_feature_tables (psql -f) · diff esquema Drizzle ↔ BD público: sin faltantes · techo de lookups sin tenant 372 (inmutable) · re-verificado 2026-09-27 (Fase 1 + 2 + 3 verdes; Fase 4 T-41 + T-42 completos) · re-verificado 2026-09-28 contra el worktree (incluye T-43 y el arranque de T-54): backend 2053 PASS / 4 skip (100 ficheros) · web 129/129 (14 ficheros) · tsc raíz + web PASS · eslint src/ 0 errores (820 warnings) · guard de rutas con los techos de CI PASS (528 rutas · 160 sin consumidor · 334 sin test · 184 escritura-sin-test · 61 clase D · 38 excluidas) · lookups sin tenant 371 (≤ 372) · migraciones aplicadas incluye 0031_mantenimientos_programados",
       "phases": {
         "fase_0_contrato": {
           "status": "COMPLETADO",
@@ -89,7 +89,7 @@
           ]
         },
         "fase_2_seguridad": {
-          "status": "4/5 (SEG-05 cerrado por T-01, fuera de la fase 2)",
+          "status": "5/5 (SEG-05 cerrado por T-01; corregido de 4/5 el 2026-09-28 tras verificar que el CORS `*` y los rewrites de vercel.json ya no existen)",
           "done": [
             "T-21a SEG-01 profiles: requireAdmin + filtro tenant + whitelist + anti auto-promoción",
             "T-21b SEG-03 backup fail-closed: migración 0025_two_factor_secrets (secret cifrado AES-256-GCM con TOKEN_SECRET vía encryptBuffer, backup codes scrypt, unique tenant_slug+profile_id, FK profiles ON DELETE CASCADE); POST /2fa/setup ahora persiste el enrolamiento, GET /2fa/status expone enabled, POST /2fa/verify acepta secret o enrolamiento persistido; guards requireAdmin+TOTP en /backup/execute|restore|purge (sin enrolamiento → 403 accionable apuntando a /2fa/setup, código inválido/faltante → 403, backup codes de uso único) — tests/security-two-factor-backup.test.ts (10 it) · rutas reales /2fa/* y /backup/*",
@@ -102,55 +102,74 @@
           ]
         },
         "fase_3_integridad": {
-          "status": "0/4",
-          "pending": [
-            "T-31 updateOrdenStatus sin transacción (try/catch + console.error en orden.service.ts:434-457)",
-            "T-32 salidaStock/ingresoStock sin transaction",
-            "T-33 auditoría de clientes/vehículos/stock + historial OT dentro de transacción",
-            "T-34 deleteClient sin guarda de OT/facturas (cascada)"
+          "status": "COMPLETADO (4/4)",
+          "pending": [],
+          "done": [
+            "Base transaccional (habilita T-31/T-32): shared/database/tx-context.ts (ALS currentTx/inTransaction/runInTransaction) + shared/database/transaction.ts (withTransaction: BEGIN/COMMIT/ROLLBACK manual sobre la conexión reservada de sql.reserve(), que NO expone .begin(); nesting-safe — reutiliza la tx activa; degrada a fn(handle) si db() mockeado no tiene .transaction) + drizzle.ts db() prioriza la tx activa + transaction-context.ts parcha ctx.drizzle.transaction con reuso (sin COMMIT prematuro).",
+            "T-31 updateOrdenStatus: guard HV + update + historial (YA SIN try/catch) + consumeStockOnOTClose + onOTCompletada dentro de UNA transacción; notificaciones/email/board post-commit. tests/fase3-integrity.test.ts: consumo fallido → 422 y estado + historial + stock intactos; transición exitosa → historial con usuario_id del perfil autenticado.",
+            "T-32 salidaStock/ingresoStock envueltos in-situ con withTransaction (stock + movimiento + asiento + auditoría atómicos). Test: salida con orden_trabajo_id inexistente → FK revierte el descuento (stock intacto, 0 movimientos).",
+            "T-33 auditoría de entidades: shared/audit/audit-context.ts (ALS {usuarioId, ip} + preHandler en app.ts justo tras authGate) + logEntityAudit() en audit-log.service (actor de la request, fallback system); llamadas en client.service (CREATE/UPDATE/DELETE con la fila completa como valorAnterior), vehicle.service (idem) y stock.service (movimientos con antes/después, dentro de la tx).",
+            "T-33 historial OT: el INSERT de orden_estado_historial ahora guarda usuario_id desde el actor de la request (antes null).",
+            "T-34 deleteClient: guarda 409 si el cliente posee órdenes de trabajo (consulta tenant-scoped, condición inline) + FK facturas.orden_id → ordenes_trabajo ON DELETE RESTRICT (migración 0026_facturas_orden_fk: huérfanos → NULL, constraint idempotente).",
+            "Migración 0027_orden_estado_historial (+ journal idx 27) aplicada a la DB local: la tabla estaba en el esquema Drizzle pero nunca se migró.",
+            "Propagación de errores dentro de tx: accounting-bus.emit/emitFromTransaction y consumeStockOnOTClose relanzan si inTransaction() (fuera de tx mantienen la degradación silenciosa); onOTCompletada success:false NO se propaga (plan_cuentas vacío en local no debe romper la transición a Listo).",
+            "Tests: tests/fase3-integrity.test.ts (6 it, app real + DB, tenant e2e-fase3) + mocks de client/vehicle.service.test actualizados (insert por defecto en beforeEach, contadores 1→2 por la fila de auditoría)."
+          ],
+          "found_and_fixed": [
+            "orden_estado_historial existía en el esquema (workshop/schema/orden-estado-historial.ts) pero nunca se migró: el historial de cambios de estado se perdía silenciosamente (try/catch + console.error) — T-31 removió el catch y el E2E T-20 empezó a devolver 500 (42P01 relation does not exist). Migración 0027 creada y aplicada.",
+            "scripts/audit-tenant-filters.mjs: la guarda de T-34 filtraba tenantSlug vía variable (invisible para el análisis, como whereClause) y el @example de withTransaction contenía `.update(ordenesTrabajo)` (falso positivo) → condición inline + doc reescrito. Techo de lookups sin tenant sigue en 372 (no crece)."
           ]
         },
         "fase_4_crud": {
-          "status": "2/7",
+          "status": "8/8 (T-43 registrado el 2026-09-28: implementado y con 20 tests verdes, faltaba la anotación)",
           "done": [
             "T-41 PATCH /workshop/proveedores/:id",
             "PATCH /inventory/almacenes/:id",
-            "desasignación OT vía setAssignedTo(null)"
+            "desasignación OT vía setAssignedTo(null)",
+            "T-42 matriz CRUD por módulo: DELETE mecánicos (soft, activo=false; profiles/comisiones preservados), campañas (tenant-scoped, 409 si ENVIADA), flotas (soft activa=false + PATCH), DVI (hard + cascade fotos/items), herramientas (baja lógica con guarda de préstamo → 409)",
+            "T-42 guards: requireManager en DELETE proveedores/almacenes/herramientas/campañas/flotas/DVI + POST almacenes/transferir (extendido en tests/security-role-matrix, +8 filas)",
+            "T-42 fix fleet.service: mapFleetRow (snake_case→camelCase) + updateFleet/deleteFleet",
+            "T-42 fix: migración 0028 (11 tablas huérfanas marketing/fleet creadas) + 0029 (mechanic_profiles.activo)",
+            "T-42 fix: migración 0030 (7 tablas declaradas en Drizzle ausentes en BD: proveedores, billing_plans, billing_subscriptions, billing_invoices, crm_pipeline_stages, crm_deals, mobile_push_tokens) — bloqueaba POST/PATCH proveedores (500 relation does not exist)",
+            "T-41/T-42 tests: tests/fase4-crud.test.ts (26 tests: smoke 0028+0030, CRUD campañas/flotas/mecánicos/herramientas/DVI, guards, cross-tenant con tenant-B propio)",
+            "T-43 ficha de próximos mantenimientos (registrado 2026-09-28, ya implementado): migración 0031_mantenimientos_programados (origen OT_COMPLETADA|MANUAL|PREDICCION, estado PENDIENTE|REALIZADO|CANCELADO, FKs vehiculo cascade / orden set null, 3 índices); generarMantenimientosDesdeOT (idempotente por servicio+OT) enganchado al paso a Listo; ingresos.kilometraje → vehiculos.kilometraje (el odómetro solo avanza); predictMaintenance con km real + filtro de tenant (antes devolvía 200 con datos de otro tenant); CRUD /workshop/mantenimientos (requireManager en DELETE), ficha por vehículo, y cron POST /workshop/cron/mantenimientos-recordatorios con el template WhatsApp proximo_servicio (idempotente por recordatorio_enviado); UI web maintenance-ficha-dialog en detalle de vehículo + predictivo de flotas — tests/fase4-t43-mantenimientos.test.ts (20 tests, app real + DB, tenant propio)",
+            "T-44 CRUD manual de Órdenes de Compra + regresión auto-OC (tests/fase4-t44-purchase-orders.test.ts 32/32 + fase4-t44-auto-po-regress.test.ts 3/3) — numeración y validaciones corregidas",
+            "T-45 anulación de factura manual + CRUD staff/payroll-summary (tests/fase4-t45-factura-staff-payroll.test.ts, 37/37) — aislamiento tenant verificado",
+            "T-46 escritura de fidelización + respuesta de reseñas (tests/fase4-t46-marketing.test.ts, 28/28) — migraciones 0032 (loyalty cliente_id text→uuid + FKs) y 0033 (respuesta/trazabilidad reseñas); bug real corregido: GET loyalty ':clienteId' devolvía 500 por uuid=text; canje con FOR UPDATE; addPoints atómico; puntos no bajan de nivel",
+            "T-47 inventario/clasificación de endpoints sin consumidor — 635 rutas reales vía app.printRoutes(); 330 sin consumidor de UI, 255 sin NINGÚN consumidor (64 cubiertas por tests, 9 internas, 2 documentadas); sonda HTTP contra servidor real halló 6 rotas de origen (42P01 digital_signatures, ERR_INVALID_ARG_TYPE en getRateAtDate, 42601 TABLE_CONFIGS.plan_cuentas sin tenant_slug, 2× Error plano en consolidados que debería ser 404); doc: Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md",
+            "T-48 saneamiento de las 6 rutas rotas de T-47 + regresión (tests/fase4-t48-superficie-api.test.ts, 6/6): migración 0034 digital_signatures; getRateAtDate castea fecha a ISO YYYY-MM-DD; plan_cuentas.tenantScoped:false; consolidados Error→NotFoundError (404); 23503→422 en error-handler; bug nº7 cazado por la regresión: el happy path de POST /workshop/signatures devolvía 500 (postgres.js entrega timestamptz como string, no Date) → new Date(row.created_at).toISOString() en signature.service.ts; test idempotente (borra OT antes de insertar); residuos 0 (e2e-t48% purgado, server :4997 y scripts tmp eliminados)"
           ],
-          "pending": [
-            "T-42 DELETE mecánicos/campañas/flotas/DVI",
-            "T-43 ficha de próximos mantenimientos (no existe tabla mantenimientos_programados)",
-            "T-44 CRUD manual de Órdenes de Compra",
-            "T-45 anulación de factura manual + CRUD staff/payroll-summary",
-            "T-46 escritura de fidelización + respuesta de reseñas",
-            "T-47 inventario/estado de los 316 endpoints sin consumidor"
-          ]
+          "pending": []
         },
         "fase_5_ui": {
-          "status": "1/5",
+          "status": "4/5 — T-54 en curso (avance real medido 2026-09-28)",
           "done": [
-            "T-52 parcial: Hub no sobreescribe una OT ya asignada"
+            "T-52 parcial: Hub no sobreescribe una OT ya asignada",
+            "T-55 feedback de mutaciones (2026-09-28): red global vía MutationCache en query-provider.tsx — onError emite toast del mensaje humano del backend SOLO si la mutación no tiene onError propio (36 ficheros con manejo local: cero doble-toast); onSuccess emite solo con meta.successMessage explícito; lib/toast-bus.ts (store module-level, los callbacks del cache no tienen contexto React) + ToastViewport en el provider; api.ts prefiere body.message sobre body.error (el nombre de clase ValidationError ya no sale en toasts); offline navigator.onLine=false → mensaje explícito sin conexión; 19 mutaciones silenciosas etiquetadas en 12 ficheros (11 diálogos CRUD + 6 de conteo cíclico + ingreso de recepción + backup + checkout billing); tests web 125/125",
+            "T-53 manejo de error de carga (2026-09-28): 34 páginas migradas al patrón isError → useErrorToast (toast único) + <ErrorState onRetry={refetch}/> — vehiculos, usuarios, whatsapp, flotas, seguridad, analytics, backup, taller (list, [id], mecanicos, precios, proveedores, flat-rate, predictive-ml), recepcion, crm (toast combinado stages+deals), tesoreria, contabilidad (notas-financieras, flujo-efectivo, evolucion-patrimonio, integracion — ya tenían UI de error, se añadió el toast), inventario (almacenes, conteo, herramientas, movimientos, ordenes-compra, tecdoc), nomina, presupuestos, marketing, finance (consolidation, pagos-online, sifen), ejecutivo (toast combinado de 11 queries vía query principal kpis). useWorkshopAnalytics (use-data.ts) ahora expone isError/error/refetch aditivos. Excluidas por diseño: taller/checklist/[ingresoId] (retry:false, 404 inicial esperado), thinkcar (lookup bajo demanda con feedback propio), páginas sin queries de carga. Verificado: 0 páginas con queries sin manejo; web 125/125, tsc PASS, eslint 0 errores.",
+            "T-51 sidebar en cascada (2026-09-28, verificado y testeado — la implementación ya estaba en el worktree de una sesión previa sin verificar): web/src/components/dashboard/sidebar.tsx + shell.tsx. Grupos colapsables por sección (chevron, estado en localStorage \"so:sidebar:sections\" sincronizado entre instancias desktop+drawer móvil vía evento custom + evento storage), auto-expandir la sección de la ruta activa, colapsado total persistido (\"so:sidebar:collapsed\", leído post-mount para evitar mismatch de hidratación), badges dinámicos (WhatsApp con contador real de /whatsapp/queue/stats vía api.getWhatsAppQueueStats con staleTime 60s; eliminados \"Nuevo\" y el \"3\" hardcodeado), menú = permisos: items con minRole manager/admin se OCULTAN (no deshabilitan) alineado al ROLE_RANK del backend (user 0, mechanic 1, manager 2, admin 3; rol desconocido → -1, falla cerrado como el 403 del backend; rank null mientras carga la sesión para evitar parpadeo). Tests dedicados web/tests/components/sidebar.test.tsx: 8/8 (0 badges falsos, contador real, persistencia, auto-expandir, matriz de roles mechanic/manager/admin/supervisor).",
+            "T-52 Hub completo (2026-09-28, verificado — cierre del \"parcial\" anterior): (1) auto-asignación silenciosa eliminada — handleSelectOT ya no llama api.assignWorkOrder con catch() tragado; la asignación es una acción EXPLÍCITA en ot-detail-panel.tsx (select de técnicos activos + botón, useMutation con toast de éxito/error, invalida hub-board y hub-orden-detail vía onAssigned); (2) estados de error/vacío en la columna de OTs (ErrorState compact con retry + EmptyState con mensaje contextual y acción \"Limpiar filtro\" cuando el filtro de técnico no devuelve nada); (3) menú lateral global siempre visible en el Hub (montado a nivel shell, el Hub no lo oculta). Tests: web/tests/components/hub-render.test.tsx 9/9.",
+            "T-54 avance previo (2026-09-28, registrado ahora — la implementación ya estaba en el worktree sin anotar): componente web/src/components/ui/filter-select.tsx con tests web/tests/components/filter-select.test.tsx (4 tests) y ya en uso en 3 páginas (tesoreria, nomina, hub). web 129/129 tras el cambio"
           ],
           "pending": [
-            "T-51 sidebar en cascada + badges dinámicos (WhatsApp \"3\"/\"Nuevo\" hardcodeados) + colapsado en localStorage",
-            "T-52 eliminar auto-asignación silenciosa con catch() en hub/page.tsx:85",
-            "T-53 manejo de error: 7/31 páginas",
-            "T-54 componente FilterSelect",
-            "T-55 feedback de éxito/error en mutaciones (39 toast.error)"
+            "T-54 restante: migrar los 16 ficheros de web/src que aún usan <select> nativo al componente FilterSelect con opciones dinámicas + paginación server-side donde hoy se filtra en cliente"
           ]
         },
         "fase_6_calidad": {
-          "status": "0/3",
+          "status": "1/3",
+          "done": [
+            "T-63 contrato + chequeo de lookups sin tenant como gates de CI + guard sistémico de rutas sin consumidor: scripts/route-consumer-scan.mjs cruza el inventario real (dump-routes.ts) contra literales de URL de consumidores (web/mobile/public/scripts/backend no-ruta) y de tests (tests/ + web/e2e); baseline congelado 528 rutas · 293 sin consumidor · 383 sin test (por path; T-47 contaba 635 por método); techos en tests/contract/route-consumer-guard.test.ts y ci.yml (--max-orphan 293 --max-untested 383; tenant --max 372); ojo: el radix tree fusiona nodos paramétricos (:id|:inspectionId) y el regex de strings con backreference colgaba el scan",
+            "Triaje clase D materializado (2026-09-28): EXCLUDED en scripts/route-consumer-scan.mjs (~25 externas: portal/*, sso/*, 2fa/verify, email/send*, email/billing/*, intelligence OCR/DTC/safety, api-keys*; ~11 internas por diseño: fleet/billing/run, scheduling/cron/reminders, whatsapp queue/process + followups auto|process + templates/preview, enterprise/data-retention/cleanup, marketing/sequences/run, crm/retry, 2 cron de contabilidad y taller). 38 rutas excluidas; salen de sinConsumidor (197→160) y clase D (92→61) pero NO de sinTest (334) ni escritura-sin-test (184): un webhook externo necesita test igual. Guard: techos 160/334/184/61 + piso excluded≥36 (detecta rutas excluidas que desaparecen); ci.yml --max-orphan 160. Balde legado (parse-dtc, thinkcar/*, fleet/contracts*) queda visible a propósito. Docs/T47 actualizado."
+          ],
           "pending": [
             "T-61 tests de comportamiento vía app.inject (12 archivos)",
-            "T-62 E2E con asserts de datos",
-            "T-63 contrato + chequeo de lookups sin tenant en CI"
+            "T-62 E2E con asserts de datos"
           ]
         }
       }
     },
-    "current_sprint": "Sprint 102 — EN CURSO 2026-09-26: (1) higiene: 1167 archivos restaurados de 755 a 644, gitignore (.codegraph/, Docs/Llaves.txt, .env.example.local, web/test-results/, web/playwright-report/); (2) tests reparados: sprint101 (journal no debe fijar 0023 como último) y sprint90 (probe de conectividad en vez de asumir DB caída); (3) Fase 0 de la auditoría 2026-09-25: T-00 test de contrato FE↔BE + T-01 config única de rewrites. Verificación 2026-09-26: Fase 1 completa en código (11/11) y T-21a/SEG-01 cerrado; tsc root+web PASS, eslint 0 errores, drizzle-kit check OK, backend 1835/1835, web 111/111.",
-    "next_sprint": "Sprint 103 — Fase 2 restante (T-21b backup+TOTP, T-21c matriz rol×endpoint, T-21d RLS/lookups sin tenant, T-21e CORS) en paralelo con Fase 3 (T-31..T-34: transacciones de OT y stock, auditoría, guarda de deleteClient). Después Fase 5 (sidebar/errores) y Fase 4 (T-43 ficha de mantenimientos, T-44 OC manual).",
+    "current_sprint": "Sprint 102 — EN CURSO 2026-09-28: auditoría 2026-09-25 — 26/28 tareas del plan T-00..T-63 cerradas. fase_0 COMPLETADO · fase_1 COMPLETADO · fase_2 5/5 (SEG-05 cerrado por T-01; era 4/5) · fase_3 COMPLETADO 4/4 · fase_4 8/8 (T-43 registrado hoy: implementado con 20 tests, faltaba la anotación) · fase_5 4/5 (T-51, T-52, T-53, T-55 cerrados; T-54 a medias: FilterSelect existe y hay 4 tests + 3 páginas migradas, faltan 16 ficheros con <select> nativo y la paginación server-side) · fase_6 1/3 (T-63 cerrado + triaje clase D materializado; quedan T-61 y T-62). Verificación 2026-09-28 contra el worktree: backend 2053 PASS / 4 skip (100 ficheros), web 129/129 (14 ficheros), tsc raíz + web PASS, eslint src/ 0 errores (820 warn), guard de rutas con techos de CI PASS (528 rutas · 160 sin consumidor · 334 sin test · 184 escritura-sin-test · 61 clase D · 38 excluidas), lookups sin tenant 371 (≤ 372).",
+    "next_sprint": "Sprint 103 — cerrar las 2 fases con tarea abierta, en este orden: (1) T-54 resto — migrar los 16 <select> nativos de web/src a FilterSelect y pasar a paginación server-side las páginas que hoy filtran en cliente; (2) T-61 — sustituir tests estructurales por tests de comportamiento vía app.inject en las rutas críticas (hoy 23 ficheros ya usan app.inject/buildApp, meta ≥80% de rutas críticas); (3) T-62 — E2E con asserts de datos: analytics verifica KPI ≠ vacío, calendario verifica turno creado, nomina verifica el cálculo. Dependencias ya resueltas (T-00 antes de Fase 4/7, T-21a-c antes de T-42, T-31/32 antes de T-43/44, T-01 antes de rewrites). Pendiente de seguimiento sin dueño: validar el deploy de Vercel (vercel.json declara outputDirectory .next e installCommand en la raíz, pero la app construye en web/) — bloquea los rewrites de web/next.config.mjs. Nota de higiene: el script web `npm run lint` está roto (`next lint` ya no existe en Next 16).",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
