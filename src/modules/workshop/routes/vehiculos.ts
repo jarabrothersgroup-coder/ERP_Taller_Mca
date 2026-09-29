@@ -30,8 +30,10 @@ interface VehiculoQuery {
   plate?: string;
   vin?: string;
   engineType?: string;
+  /** Búsqueda global por marca/modelo/placa/VIN (T-54) */
+  search?: string;
+  page?: string;
   limit?: string;
-  offset?: string;
 }
 
 interface VinDecodeBody {
@@ -111,7 +113,7 @@ export async function vehiculosRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── GET /workshop/vehiculos — List vehicles ──
+  // ── GET /workshop/vehiculos — List vehicles (paginado en servidor, T-54) ──
   app.get<{ Querystring: VehiculoQuery }>(
     "/workshop/vehiculos",
     {
@@ -125,30 +127,41 @@ export async function vehiculosRoutes(app: FastifyInstance): Promise<void> {
             plate: { type: "string" },
             vin: { type: "string" },
             engineType: { type: "string", enum: ["Nafta", "Diésel", "HEV", "BEV"] },
-            limit: { type: "string" },
-            offset: { type: "string" },
+            search: { type: "string", maxLength: 100 },
+            page: { type: "string", pattern: "^[1-9]\\d*$" },
+            limit: { type: "string", pattern: "^([1-9]|[1-9]\\d|100)$" },
           },
         },
         response: {
           200: {
-            type: "array",
-            items: { type: "object", properties: VEHICLE_RESPONSE_PROPS },
+            type: "object",
+            properties: {
+              items: { type: "array", items: { type: "object", properties: VEHICLE_RESPONSE_PROPS } },
+              total: { type: "integer" },
+              page: { type: "integer" },
+              limit: { type: "integer" },
+              totalPages: { type: "integer" },
+            },
           },
         },
       },
     },
     async (request: FastifyRequest<{ Querystring: VehiculoQuery }>, reply: FastifyReply) => {
       const q = request.query;
-      const vehicles = await listVehicles({
-        clientId: q.clientId,
-        brand: q.brand,
-        model: q.model,
-        plate: q.plate,
-        vin: q.vin,
-        engineType: q.engineType,
-        limit: q.limit ? parseInt(q.limit, 10) : undefined,
-        offset: q.offset ? parseInt(q.offset, 10) : undefined,
-      }, request.tenantSlug);
+      const vehicles = await listVehicles(
+        {
+          clientId: q.clientId,
+          brand: q.brand,
+          model: q.model,
+          plate: q.plate,
+          vin: q.vin,
+          engineType: q.engineType,
+          search: q.search,
+          page: q.page ? parseInt(q.page, 10) : 1,
+          limit: q.limit ? parseInt(q.limit, 10) : 20,
+        },
+        request.tenantSlug,
+      );
       return reply.send(vehicles);
     },
   );

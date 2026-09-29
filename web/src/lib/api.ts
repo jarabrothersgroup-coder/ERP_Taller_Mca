@@ -286,13 +286,18 @@ export const api = {
 
   /* ── Clients CRUD ──────────────────────────── */
 
+  /**
+   * Lista clientes con paginación server-side (T-54).
+   * Devuelve `{ items, total, page, limit, totalPages }`; usá `.items` para las
+   * filas y `total` para el total real de la búsqueda.
+   */
   listClients: (params?: ListParams) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set("search", params.search);
+    if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
-    if (params?.offset) qs.set("offset", String(params.offset));
     const query = qs.toString();
-    return request<Client[]>(`/workshop/clientes${query ? `?${query}` : ""}`);
+    return request<PaginatedResponse<Client>>(`/workshop/clientes${query ? `?${query}` : ""}`);
   },
 
   getClient: (id: string) => request<Client>(`/workshop/clientes/${id}`),
@@ -333,16 +338,21 @@ export const api = {
 
   /* ── Vehicles CRUD ─────────────────────────── */
 
+  /**
+   * Lista vehículos con paginación server-side (T-54).
+   * Devuelve `{ items, total, page, limit, totalPages }`; usá `.items` para la
+   * fila y `total` para el total real del filtro.
+   */
   listVehicles: (params?: ListParams & { brand?: string; model?: string; engineType?: string }) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set("search", params.search);
     if (params?.brand) qs.set("brand", params.brand);
     if (params?.model) qs.set("model", params.model);
     if (params?.engineType) qs.set("engineType", params.engineType);
+    if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
-    if (params?.offset) qs.set("offset", String(params.offset));
     const query = qs.toString();
-    return request<Vehicle[]>(`/workshop/vehiculos${query ? `?${query}` : ""}`);
+    return request<PaginatedResponse<Vehicle>>(`/workshop/vehiculos${query ? `?${query}` : ""}`);
   },
 
   getVehicle: (id: string) => request<Vehicle>(`/workshop/vehiculos/${id}`),
@@ -437,20 +447,27 @@ export const api = {
 
   /* ── Work Orders (Taller) ─────────────────── */
 
+  /**
+   * Lista órdenes de trabajo con paginación server-side (T-54).
+   * Devuelve `{ items, total, page, limit, totalPages }`; usá `.items` para las
+   * filas y `total` para el total real del filtro.
+   */
   listWorkOrders: (params?: {
     status?: string;
     /** Comma-separated statuses to exclude (e.g. "Finalizado_Retirado") */
     excludeStatus?: string;
+    search?: string;
+    page?: number;
     limit?: number;
-    offset?: number;
   }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
     if (params?.excludeStatus) qs.set("excludeStatus", params.excludeStatus);
+    if (params?.search) qs.set("search", params.search);
+    if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
-    if (params?.offset) qs.set("offset", String(params.offset));
     const query = qs.toString();
-    return request<WorkOrder[]>(`/workshop/ordenes${query ? `?${query}` : ""}`);
+    return request<PaginatedResponse<WorkOrder>>(`/workshop/ordenes${query ? `?${query}` : ""}`);
   },
 
   getWorkOrder: (id: string) =>

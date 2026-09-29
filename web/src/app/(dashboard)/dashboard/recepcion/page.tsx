@@ -246,7 +246,8 @@ export default function RecepcionPage() {
   // Fetch vehicles for search
   const { data: vehicles = [], isLoading: vLoading, isError, error, refetch } = useQuery({
     queryKey: ["vehicles-search"],
-    queryFn: () => api.listVehicles({ limit: 50 }),
+    // T-54: envelope paginado → `.items` para las filas
+    queryFn: async () => (await api.listVehicles({ limit: 50 })).items,
   });
 
   // T-53: feedback visible al fallar la carga

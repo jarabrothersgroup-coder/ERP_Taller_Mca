@@ -21,7 +21,29 @@ import type { WorkOrder, OrderStatus } from "./types";
 
 export default function WorkshopPage() {
   const qc = useQueryClient();
-  const { data: orders = [], isLoading: loading, isError, error, refetch } = useWorkOrders();
+  const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<string>("");
+  const [selectedOrder, setSelectedOrder] = React.useState<WorkOrder | null>(null);
+  const [editOpen, setEditOpen] = React.useState(false);
+
+  // T-54: la búsqueda viaja al backend con debounce (antes filtraba el array
+  // completo en el cliente, así que la lista se truncaba en los primeros 100).
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const {
+    data: orders = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useWorkOrders({
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+  });
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "las órdenes de trabajo");
 
@@ -35,29 +57,9 @@ export default function WorkshopPage() {
       />
     );
   }
-  const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<string>("");
-  const [selectedOrder, setSelectedOrder] = React.useState<WorkOrder | null>(null);
-  const [editOpen, setEditOpen] = React.useState(false);
 
-  // Filter data
-  const filtered = React.useMemo(() => {
-    let result = orders;
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (o) =>
-          o.client.toLowerCase().includes(q) ||
-          o.vehicle.toLowerCase().includes(q) ||
-          o.plate.toLowerCase().includes(q) ||
-          o.id.toLowerCase().includes(q)
-      );
-    }
-    if (statusFilter) {
-      result = result.filter((o) => o.status === statusFilter);
-    }
-    return result;
-  }, [orders, search, statusFilter]);
+  // T-54: el filtrado ocurre en el servidor; la lista ya llega filtrada
+  const filtered = orders;
 
   // Handle new order created — invalidate cache to refresh list
   const handleOrderCreated = () => {

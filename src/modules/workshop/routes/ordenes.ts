@@ -40,8 +40,10 @@ interface OrdenesQuery {
   status?: string;
   /** Comma-separated statuses to exclude (e.g. `excludeStatus=Finalizado_Retirado`) */
   excludeStatus?: string;
+  /** Búsqueda por descripción, placa o cliente (T-54) */
+  search?: string;
+  page?: string;
   limit?: string;
-  offset?: string;
 }
 
 /** All valid OT statuses (mirror of schema estadoOrdenEnum) */
@@ -99,7 +101,7 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── GET /workshop/ordenes — List work orders ──
+  // ── GET /workshop/ordenes — List work orders (paginado en servidor, T-54) ──
   app.get<{ Querystring: OrdenesQuery }>(
     "/workshop/ordenes",
     {
@@ -112,28 +114,39 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
               enum: ALL_STATUSES,
             },
             excludeStatus: { type: "string" },
-            limit: { type: "string" },
-            offset: { type: "string" },
+            search: { type: "string", maxLength: 100 },
+            page: { type: "string", pattern: "^[1-9]\\d*$" },
+            limit: { type: "string", pattern: "^([1-9]|[1-9]\\d|100)$" },
           },
         },
         response: {
           200: {
-            type: "array",
-            items: { type: "object", properties: ORDEN_RESPONSE_PROPS },
+            type: "object",
+            properties: {
+              items: { type: "array", items: { type: "object", properties: ORDEN_RESPONSE_PROPS } },
+              total: { type: "integer" },
+              page: { type: "integer" },
+              limit: { type: "integer" },
+              totalPages: { type: "integer" },
+            },
           },
         },
       },
     },
     async (request: FastifyRequest<{ Querystring: OrdenesQuery }>, reply: FastifyReply) => {
       const q = request.query;
-      const ordenes = await listOrdenes({
-        status: q.status,
-        excludeStatus: q.excludeStatus
-          ? (q.excludeStatus.split(",").map((s) => s.trim()).filter(Boolean) as ExcludeStatus[])
-          : undefined,
-        limit: q.limit ? parseInt(q.limit, 10) : undefined,
-        offset: q.offset ? parseInt(q.offset, 10) : undefined,
-      }, request.tenantSlug);
+      const ordenes = await listOrdenes(
+        {
+          status: q.status,
+          excludeStatus: q.excludeStatus
+            ? (q.excludeStatus.split(",").map((s) => s.trim()).filter(Boolean) as ExcludeStatus[])
+            : undefined,
+          search: q.search,
+          page: q.page ? parseInt(q.page, 10) : 1,
+          limit: q.limit ? parseInt(q.limit, 10) : 20,
+        },
+        request.tenantSlug,
+      );
       return reply.send(ordenes);
     },
   );

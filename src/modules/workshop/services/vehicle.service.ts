@@ -11,33 +11,53 @@
 import { db } from "../../../shared/database/drizzle.js";
 import { vehiculos } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
-import { eq, desc, ilike, and } from "drizzle-orm";
+import { eq, desc, ilike, and, or, count } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import type { Vehiculo, NewVehiculo, TipoMotor } from "../schema/index.js";
 import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 
 const VALID_ENGINE_TYPES: TipoMotor[] = ["Nafta", "Diésel", "HEV", "BEV"];
 
+/** Filtros + paginación de `listVehicles` (T-54) */
+export interface ListVehiclesParams {
+  clientId?: string;
+  brand?: string;
+  model?: string;
+  plate?: string;
+  vin?: string;
+  engineType?: string;
+  /** Búsqueda global por marca/modelo/placa/VIN (T-54) */
+  search?: string;
+  /** Página 1-based */
+  page?: number;
+  /** Filas por página (1-100) */
+  limit?: number;
+}
+
+/** Envoltorio paginado — misma convención que /inventory/repuestos */
+export interface PaginatedVehicles {
+  items: Vehiculo[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Límite duro de filas por página */
+export const VEHICLES_MAX_LIMIT = 100;
+
 /**
- * Lists vehicles with optional search filters and mandatory tenant isolation.
+ * Lists vehicles with optional search filters, mandatory tenant isolation and
+ * server-side pagination (T-54).
  *
- * @param filters - Optional filters (clientId, brand, model, plate, vin, engineType)
+ * @param filters - Filtros (clientId, brand, model, plate, vin, engineType, search, page, limit)
  * @param tenantSlug - Tenant slug for multi-tenant isolation
- * @returns Array of vehicle DTOs ordered by creation date descending
+ * @returns `{ items, total, page, limit, totalPages }` con la página pedida
  */
 export async function listVehicles(
-  filters?: {
-    clientId?: string;
-    brand?: string;
-    model?: string;
-    plate?: string;
-    vin?: string;
-    engineType?: string;
-    limit?: number;
-    offset?: number;
-  },
+  filters?: ListVehiclesParams,
   tenantSlug?: string,
-): Promise<Vehiculo[]> {
+): Promise<PaginatedVehicles> {
   const conditions: ReturnType<typeof eq>[] = [];
 
   // Multi-tenant isolation — mandatory filter
@@ -63,18 +83,40 @@ export async function listVehicles(
   if (filters?.engineType) {
     conditions.push(eq(vehiculos.engineType, filters.engineType as TipoMotor));
   }
+  if (filters?.search) {
+    const pattern = `%${filters.search}%`;
+    conditions.push(
+      or(
+        ilike(vehiculos.brand, pattern),
+        ilike(vehiculos.model, pattern),
+        ilike(vehiculos.plate, pattern),
+        ilike(vehiculos.vin, pattern),
+      )!,
+    );
+  }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const limit = filters?.limit ?? 50;
-  const offset = filters?.offset ?? 0;
+  const page = Math.max(1, Math.trunc(filters?.page ?? 1));
+  const limit = Math.min(VEHICLES_MAX_LIMIT, Math.max(1, Math.trunc(filters?.limit ?? 20)));
+  const offset = (page - 1) * limit;
 
-  return db()
+  // El count reutiliza el mismo `where` que la data: incluye el filtro de
+  // tenantSlug, de modo que `total` nunca es más amplio que las filas servidas.
+  const [totalRow] = await db()
+    .select({ total: count() })
+    .from(vehiculos)
+    .where(where);
+  const total = Number(totalRow?.total ?? 0);
+
+  const items = await db()
     .select()
     .from(vehiculos)
     .where(where)
     .orderBy(desc(vehiculos.createdAt))
     .limit(limit)
     .offset(offset);
+
+  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 /**

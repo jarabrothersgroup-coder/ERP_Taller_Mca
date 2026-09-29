@@ -184,9 +184,23 @@ const columns: Column<ClientRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function ClientsPage() {
-  const { data: rawClients = [], isLoading: loading, isError, error, refetch } = useClients();
-  useErrorToast(isError, "los clientes");
   const [search, setSearch] = React.useState("");
+  // T-54: la búsqueda viaja al backend con debounce (antes filtraba el array
+  // completo en el cliente, así que la lista se truncaba en los primeros 100).
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const {
+    data: rawClients = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useClients({ search: debouncedSearch || undefined });
+  useErrorToast(isError, "los clientes");
 
   // Map API data to local ClientRecord shape
   const clients: ClientRecord[] = React.useMemo(
@@ -210,18 +224,8 @@ export default function ClientsPage() {
     [rawClients],
   );
 
-  // Filter data
-  const filtered = React.useMemo(() => {
-    if (!search) return clients;
-    const q = search.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q) ||
-        c.phone?.includes(q) ||
-        c.ruc?.includes(q)
-    );
-  }, [clients, search]);
+  // T-54: el filtrado ocurre en el servidor; la lista ya llega filtrada
+  const filtered = clients;
 
   // Get counts for this month
   const thisMonthClients = clients.filter((c) => {

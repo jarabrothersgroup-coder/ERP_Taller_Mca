@@ -86,6 +86,13 @@ function getTenantSlug(override?: string): string {
 const ENABLE_MOCKS = process.env["NEXT_PUBLIC_ENABLE_MOCKS"] === "true";
 
 /**
+ * Tope de filas por petición a los listados paginados del backend (T-54).
+ * Es el `limit` máximo que aceptan los endpoints server-side, así que
+ * requesting más no serviría: la paginación real la hace el servidor.
+ */
+const T54_MAX_LIMIT = 100;
+
+/**
  * Tries an API call. Behavior depends on environment:
  *
  * - **Development** (NEXT_PUBLIC_ENABLE_MOCKS=true): Falls back to mock data on error
@@ -340,23 +347,38 @@ export function mapVehicleFromApi(apiVehicle: Record<string, unknown>): UIMapped
 /**
  * Fetches vehicles from the API with fallback to mock data.
  *
+ * T-54: `params` viaja al backend (`/workshop/vehiculos` pagina y filtra en el
+ * servidor). La respuesta es un envelope `{ items, total, page, limit,
+ * totalPages }`; aquí se devuelve sólo `items` para no romper los consumidores
+ * que esperan un array. Con filtro activo se desactiva el mock, porque un mock
+ * no respetaría el filtro del servidor.
+ *
  * @param getMockVehicles - Factory function returning mock UIMappedVehicle[]
  * @param tenantSlug - Optional tenant slug
+ * @param params - Filtros server-side (search, brand, engineType) + paginación
  */
 export async function fetchVehicles(
   getMockVehicles: () => UIMappedVehicle[],
   tenantSlug?: string,
+  params?: { search?: string; brand?: string; engineType?: string; page?: number },
 ): Promise<UIMappedVehicle[]> {
+  const qs = new URLSearchParams({ limit: String(T54_MAX_LIMIT) });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.brand) qs.set("brand", params.brand);
+  if (params?.engineType) qs.set("engineType", params.engineType);
+  if (params?.page) qs.set("page", String(params.page));
+  const hasFilter = Boolean(params?.search || params?.brand || params?.engineType);
   const { data, source } = await fetchOrMock(
     async (slug, token) => {
-      const res = await fetch("/workshop/vehiculos", {
+      const res = await fetch(`/workshop/vehiculos?${qs.toString()}`, {
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: Record<string, unknown>[] = await res.json();
-      return json.map(mapVehicleFromApi);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? json;
+      return items.map(mapVehicleFromApi);
     },
-    getMockVehicles,
+    hasFilter ? () => [] : getMockVehicles,
   );
 
   if (source === "api") {
@@ -821,24 +843,36 @@ export async function fetchAuditLog(
 /**
  * Fetches clients from the API with fallback to mock data.
  *
+ * T-54: la búsqueda y la paginación viajan al backend; la respuesta es un
+ * envelope `{ items, ... }` del que aquí se devuelve `items`. Con búsqueda
+ * activa se desactiva el mock (filtrar en cliente sobre un mock daría falsos
+ * positivos).
+ *
  * @param getMockClients - Factory function returning mock UIMappedClient[]
  * @param tenantSlug - Optional tenant slug (defaults to session or "demo")
+ * @param params - Filtros server-side (search) + paginación
  * @returns Mapped clients ready for the UI
  */
 export async function fetchClients(
   getMockClients: () => UIMappedClient[],
   tenantSlug?: string,
+  params?: { search?: string; page?: number },
 ): Promise<UIMappedClient[]> {
+  const qs = new URLSearchParams({ limit: String(T54_MAX_LIMIT) });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.page) qs.set("page", String(params.page));
+  const hasFilter = Boolean(params?.search);
   const { data, source } = await fetchOrMock(
     async (slug, token) => {
-      const res = await fetch("/workshop/clientes", {
+      const res = await fetch(`/workshop/clientes?${qs.toString()}`, {
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: Record<string, unknown>[] = await res.json();
-      return json.map(mapClientFromApi);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? json;
+      return items.map(mapClientFromApi);
     },
-    getMockClients,
+    hasFilter ? () => [] : getMockClients,
   );
 
   if (source === "api") {
@@ -850,24 +884,36 @@ export async function fetchClients(
 /**
  * Fetches work orders from the API with fallback to mock data.
  *
+ * T-54: `search` y `status` se resuelven en el backend (antes se filtraba la
+ * lista completa en el cliente) y la respuesta llega paginada en un envelope
+ * `{ items, ... }`.
+ *
  * @param getMockOrders - Factory function returning mock UIMappedWorkOrder[]
  * @param tenantSlug - Optional tenant slug (defaults to session or "demo")
- * @returns Mapped work orders ready for the UI
+ * @param params - Filtros server-side (search, status) + paginación
+ * @returns Mapped orders ready for the UI
  */
 export async function fetchWorkOrders(
   getMockOrders: () => UIMappedWorkOrder[],
   tenantSlug?: string,
+  params?: { search?: string; status?: string; page?: number },
 ): Promise<UIMappedWorkOrder[]> {
+  const qs = new URLSearchParams({ limit: String(T54_MAX_LIMIT) });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.page) qs.set("page", String(params.page));
+  const hasFilter = Boolean(params?.search || params?.status);
   const { data, source } = await fetchOrMock(
     async (slug, token) => {
-      const res = await fetch("/workshop/ordenes", {
+      const res = await fetch(`/workshop/ordenes?${qs.toString()}`, {
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: Record<string, unknown>[] = await res.json();
-      return json.map((item, i) => mapWorkOrderFromApi(item, i));
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? json;
+      return items.map((item, i) => mapWorkOrderFromApi(item, i));
     },
-    getMockOrders,
+    hasFilter ? () => [] : getMockOrders,
   );
 
   if (source === "api") {
@@ -889,7 +935,7 @@ export async function fetchInventoryItems(
   /** T-54: filtros server-side (el backend los soporta en /inventory/repuestos) */
   params?: { search?: string; categoria?: string; page?: number },
 ): Promise<UIMappedInventoryItem[]> {
-  const qs = new URLSearchParams({ limit: "100" });
+  const qs = new URLSearchParams({ limit: String(T54_MAX_LIMIT) });
   if (params?.search) qs.set("search", params.search);
   if (params?.categoria) qs.set("categoria", params.categoria);
   if (params?.page) qs.set("page", String(params.page));

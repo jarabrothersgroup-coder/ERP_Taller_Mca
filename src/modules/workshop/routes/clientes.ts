@@ -2,7 +2,7 @@
  * Clientes routes — CRUD endpoints for workshop clients (vehicle owners).
  *
  * POST   /workshop/clientes       — Create a new client
- * GET    /workshop/clientes       — List all clients
+ * GET    /workshop/clientes       — List clients (paginado: ?search&page&limit)
  * GET    /workshop/clientes/:id   — Get a single client by ID
  * PATCH  /workshop/clientes/:id   — Update a client
  * DELETE /workshop/clientes/:id   — Delete a client
@@ -28,6 +28,13 @@ interface ClientBody {
   ruc?: string;
   address?: string;
   notes?: string;
+}
+
+/** Query de listado paginado (T-54) */
+interface ListQuery {
+  search?: string;
+  page?: string;
+  limit?: string;
 }
 
 /**
@@ -75,35 +82,61 @@ export async function clientesRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── GET /workshop/clientes — List all clients ──
-  app.get(
+  // ── GET /workshop/clientes — List clients (paginado en servidor, T-54) ──
+  app.get<{ Querystring: ListQuery }>(
     "/workshop/clientes",
     {
       schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            search: { type: "string", maxLength: 100 },
+            page: { type: "string", pattern: "^[1-9]\\d*$" },
+            limit: { type: "string", pattern: "^([1-9]|[1-9]\\d|100)$" },
+          },
+        },
         response: {
           200: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                name: { type: "string" },
-                email: { type: "string", nullable: true },
-                phone: { type: "string", nullable: true },
-                ruc: { type: "string", nullable: true },
-                address: { type: "string", nullable: true },
-                notes: { type: "string", nullable: true },
-                createdAt: { type: "string" },
-                updatedAt: { type: "string" },
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    name: { type: "string" },
+                    email: { type: "string", nullable: true },
+                    phone: { type: "string", nullable: true },
+                    ruc: { type: "string", nullable: true },
+                    address: { type: "string", nullable: true },
+                    notes: { type: "string", nullable: true },
+                    createdAt: { type: "string" },
+                    updatedAt: { type: "string" },
+                  },
+                },
               },
+              total: { type: "integer" },
+              page: { type: "integer" },
+              limit: { type: "integer" },
+              totalPages: { type: "integer" },
             },
           },
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const clients = await listClients(request.tenantSlug);
-      return reply.send(clients);
+    async (
+      request: FastifyRequest<{ Querystring: ListQuery }>,
+      reply: FastifyReply,
+    ) => {
+      const { search, page, limit } = request.query;
+      const result = await listClients({
+        search,
+        page: page ? parseInt(page, 10) : 1,
+        limit: limit ? parseInt(limit, 10) : 20,
+        tenantSlug: request.tenantSlug,
+      });
+      return reply.send(result);
     },
   );
 

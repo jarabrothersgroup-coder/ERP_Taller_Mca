@@ -3,7 +3,7 @@ import { withTransaction } from "../../../shared/database/transaction.js";
 import { getSettings, invalidateCache } from "../../config/services/TenantConfigService.js";
 import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial, estadoOrdenEnum } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
-import { eq, sql, and, desc, notInArray } from "drizzle-orm";
+import { eq, sql, and, desc, notInArray, ilike, or, count } from "drizzle-orm";
 import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
 import { generarMantenimientosDeOT } from "./mantenimiento-programado.service.js";
@@ -58,23 +58,43 @@ export interface OrdenListRow {
   cliente?: string | null;
 }
 
+/** Filtros + paginación de `listOrdenes` (T-54) */
+export interface ListOrdenesParams {
+  status?: string;
+  excludeStatus?: ExcludeStatus[];
+  /** Búsqueda por descripción o placa (T-54) */
+  search?: string;
+  /** Página 1-based */
+  page?: number;
+  /** Filas por página (1-100) */
+  limit?: number;
+}
+
+/** Envoltorio paginado — misma convención que /inventory/repuestos */
+export interface PaginatedOrdenes {
+  items: OrdenListRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Límite duro de filas por página */
+export const ORDENES_MAX_LIMIT = 100;
+
 /**
- * Lists work orders with optional status filter.
+ * Lists work orders with optional status filter and server-side pagination (T-54).
  *
  * Uses a single JOIN query to bring in vehicle and client info.
  *
- * @param filters - Optional filters (status, excludeStatus, limit, offset)
- * @returns List of work orders with vehicle and client info
+ * @param filters - Filtros (status, excludeStatus, search, page, limit)
+ * @param tenantSlug - Tenant slug for multi-tenant isolation
+ * @returns `{ items, total, page, limit, totalPages }` con la página pedida
  */
 export async function listOrdenes(
-  filters?: {
-    status?: string;
-    excludeStatus?: ExcludeStatus[];
-    limit?: number;
-    offset?: number;
-  },
+  filters?: ListOrdenesParams,
   tenantSlug?: string,
-): Promise<OrdenListRow[]> {
+): Promise<PaginatedOrdenes> {
   const conditions: ReturnType<typeof eq>[] = [];
   if (tenantSlug) {
     conditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
@@ -85,10 +105,33 @@ export async function listOrdenes(
   if (filters?.excludeStatus && filters.excludeStatus.length > 0) {
     conditions.push(notInArray(ordenesTrabajo.status, filters.excludeStatus as EstadoOrden[]));
   }
+  if (filters?.search) {
+    const pattern = `%${filters.search}%`;
+    conditions.push(
+      or(
+        ilike(ordenesTrabajo.description, pattern),
+        ilike(vehiculos.plate, pattern),
+        ilike(clients.name, pattern),
+      )!,
+    );
+  }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const limit = filters?.limit ?? 50;
-  const offset = filters?.offset ?? 0;
+  const page = Math.max(1, Math.trunc(filters?.page ?? 1));
+  const limit = Math.min(ORDENES_MAX_LIMIT, Math.max(1, Math.trunc(filters?.limit ?? 20)));
+  const offset = (page - 1) * limit;
+
+  // El count reutiliza los mismos LEFT JOIN que la data: `search` filtra por
+  // columnas de vehiculos/clients. Son muchos-a-uno por PK, así que el join no
+  // duplica filas y count() sigue siendo el total real de órdenes. El `where`
+  // es el mismo que usa la data e incluye el filtro de tenantSlug.
+  const [totalRow] = await db()
+    .select({ total: count() })
+    .from(ordenesTrabajo)
+    .leftJoin(vehiculos, eq(ordenesTrabajo.vehicleId, vehiculos.id))
+    .leftJoin(clients, eq(ordenesTrabajo.clientId, clients.id))
+    .where(where);
+  const total = Number(totalRow?.total ?? 0);
 
   const rows = await db()
     .select({
@@ -115,11 +158,17 @@ export async function listOrdenes(
     .limit(limit)
     .offset(offset);
 
-  return rows.map((r) => ({
-    ...r,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-  }));
+  return {
+    items: rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    })),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 }
 
 /**

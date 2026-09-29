@@ -227,38 +227,70 @@ describe("Client Service", () => {
   });
 
   describe("listClients", () => {
-    it("returns all clients ordered by createdAt desc", async () => {
+    /**
+     * Mock de las 2 queries de `listClients` (T-54): count primero, luego la
+     * página de datos. Devuelve los spies de limit/offset para poder asertar
+     * que la paginación se aplica en el servidor.
+     */
+    function mockPaginated(rows: unknown[], total: number) {
+      const offset = vi.fn(() => Promise.resolve(rows));
+      const limit = vi.fn(() => ({ offset }));
+      const dataChain = { where: vi.fn(), orderBy: vi.fn(), limit };
+      dataChain.where.mockReturnValue(dataChain);
+      dataChain.orderBy.mockReturnValue(dataChain);
+      mockDb.select
+        .mockReturnValueOnce({
+          from: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([{ total }])) })),
+        })
+        .mockReturnValueOnce({ from: vi.fn(() => dataChain) });
+      return { limit, offset };
+    }
+
+    it("returns the requested page of clients ordered by createdAt desc", async () => {
       const now = new Date();
       const clientsData = [
         { id: "c-001", name: "Juan", email: null, phone: null, ruc: null, address: null, notes: null, createdAt: now, updatedAt: now },
         { id: "c-002", name: "María", email: null, phone: null, ruc: null, address: null, notes: null, createdAt: now, updatedAt: now },
       ];
 
-      mockDb.select.mockReturnValue({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => Promise.resolve(clientsData)),
-          })),
-        })),
-      });
+      const { limit, offset } = mockPaginated(clientsData, 2);
 
       const result = await listClients();
-      expect(result).toHaveLength(2);
-      expect(result[0].name).toBe("Juan");
-      expect(result[1].name).toBe("María");
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].name).toBe("Juan");
+      expect(result.items[1].name).toBe("María");
+      expect(result).toMatchObject({ total: 2, page: 1, limit: 20, totalPages: 1 });
+      expect(limit).toHaveBeenCalledWith(20);
+      expect(offset).toHaveBeenCalledWith(0);
     });
 
-    it("returns empty array when no clients", async () => {
-      mockDb.select.mockReturnValue({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => Promise.resolve([])),
-          })),
-        })),
-      });
+    it("applies page/limit on the server and computes totalPages", async () => {
+      const { limit, offset } = mockPaginated([{ id: "c-021" }], 45);
+
+      const result = await listClients({ page: 3, limit: 10 });
+
+      expect(result).toMatchObject({ page: 3, limit: 10, total: 45, totalPages: 5 });
+      expect(result.items).toHaveLength(1);
+      expect(limit).toHaveBeenCalledWith(10);
+      expect(offset).toHaveBeenCalledWith(20);
+    });
+
+    it("caps limit at 100 and clamps page to 1-based minimum", async () => {
+      const { limit, offset } = mockPaginated([], 0);
+
+      const result = await listClients({ page: 0, limit: 5000 });
+
+      expect(result).toMatchObject({ page: 1, limit: 100, total: 0, totalPages: 0 });
+      expect(limit).toHaveBeenCalledWith(100);
+      expect(offset).toHaveBeenCalledWith(0);
+    });
+
+    it("returns an empty page when no clients", async () => {
+      mockPaginated([], 0);
 
       const result = await listClients();
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result).toMatchObject({ total: 0, totalPages: 0 });
     });
   });
 

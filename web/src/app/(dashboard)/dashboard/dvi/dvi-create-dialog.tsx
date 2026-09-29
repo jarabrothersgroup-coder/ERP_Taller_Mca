@@ -38,9 +38,10 @@ export function DVICreateDialog({ onCreated }: { onCreated?: () => void }) {
   const [errors, setErrors] = React.useState<Partial<Record<keyof CreateForm, string>>>({});
 
   // Fetch available work orders when dialog opens
+  // T-54: el backend devuelve un envelope paginado; el diálogo necesita las filas
   const { data: workOrders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["work-orders", "all"],
-    queryFn: () => api.listWorkOrders({ limit: 100 }),
+    queryFn: async () => (await api.listWorkOrders({ limit: 100 })).items,
     enabled: open,
   });
 

@@ -75,10 +75,16 @@ export const queryKeys = {
 
 /* ── Workshop Hooks ─────────────────────────── */
 
-export function useWorkOrders(params?: { status?: string; limit?: number; offset?: number }) {
+/**
+ * Lista órdenes de trabajo.
+ *
+ * T-54: `search` y `status` se resuelven en el servidor; `params` forma parte
+ * de la queryKey para que cada combinación de filtros se cachee por separado.
+ */
+export function useWorkOrders(params?: { status?: string; search?: string; page?: number }) {
   return useQuery<UIMappedWorkOrder[], Error>({
     queryKey: [...queryKeys.workOrders, params],
-    queryFn: () => fetchWorkOrders(() => []),
+    queryFn: () => fetchWorkOrders(() => [], undefined, params),
   });
 }
 
@@ -101,10 +107,11 @@ export function useUpdateWorkOrderStatus() {
 
 /* ── Client Hooks ───────────────────────────── */
 
-export function useClients() {
+/** Lista clientes; T-54: `search` se resuelve en el servidor. */
+export function useClients(params?: { search?: string; page?: number }) {
   return useQuery<UIMappedClient[], Error>({
-    queryKey: queryKeys.clients,
-    queryFn: () => fetchClients(() => []),
+    queryKey: [...queryKeys.clients, params],
+    queryFn: () => fetchClients(() => [], undefined, params),
   });
 }
 
@@ -119,10 +126,11 @@ export function useCreateClient() {
 
 /* ── Vehicle Hooks ──────────────────────────── */
 
-export function useVehicles() {
+/** Lista vehículos; T-54: `search`/`brand`/`engineType` se resuelven en el servidor. */
+export function useVehicles(params?: { search?: string; brand?: string; engineType?: string; page?: number }) {
   return useQuery<UIMappedVehicle[], Error>({
-    queryKey: queryKeys.vehicles,
-    queryFn: () => fetchVehicles(() => []),
+    queryKey: [...queryKeys.vehicles, params],
+    queryFn: () => fetchVehicles(() => [], undefined, params),
   });
 }
 

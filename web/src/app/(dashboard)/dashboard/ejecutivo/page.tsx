@@ -470,7 +470,8 @@ export default function EjecutivoPage() {
   // Hub: active OT status summary
   const { data: activeOrders = [] } = useQuery<any[]>({
     queryKey: ["ejecutivo-active-orders"],
-    queryFn: () => api.listWorkOrders({ limit: 100 }),
+    // T-54: envelope paginado → `.items` para las filas
+    queryFn: async () => (await api.listWorkOrders({ limit: 100 })).items,
     refetchInterval: 60_000,
   });
 

@@ -236,33 +236,60 @@ describe("Vehicle Service", () => {
   });
 
   describe("listVehicles", () => {
-    function makeListQuery(returnValue: unknown[]) {
-      return {
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => ({
-              limit: vi.fn(() => ({
-                offset: vi.fn(() => Promise.resolve(returnValue)),
-              })),
-            })),
-          })),
-        })),
-      };
+    /**
+     * Mock de las 2 queries de `listVehicles` (T-54): count primero, luego la
+     * página de datos. Devuelve los spies de limit/offset.
+     */
+    function mockPaginated(rows: unknown[], total: number) {
+      const offset = vi.fn(() => Promise.resolve(rows));
+      const limit = vi.fn(() => ({ offset }));
+      const dataChain = { where: vi.fn(), orderBy: vi.fn(), limit };
+      dataChain.where.mockReturnValue(dataChain);
+      dataChain.orderBy.mockReturnValue(dataChain);
+      mockDb.select
+        .mockReturnValueOnce({
+          from: vi.fn(() => ({ where: vi.fn(() => Promise.resolve([{ total }])) })),
+        })
+        .mockReturnValueOnce({ from: vi.fn(() => dataChain) });
+      return { limit, offset };
     }
 
-    it("returns all vehicles without filters", async () => {
+    it("returns the requested page of vehicles", async () => {
       const vehicles = [makeVehicle({ id: "v-001", brand: "Toyota" })];
-      mockDb.select.mockReturnValue(makeListQuery(vehicles));
+      const { limit, offset } = mockPaginated(vehicles, 1);
 
       const result = await listVehicles({});
-      expect(result).toHaveLength(1);
-      expect(result[0].brand).toBe("Toyota");
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].brand).toBe("Toyota");
+      expect(result).toMatchObject({ total: 1, page: 1, limit: 20, totalPages: 1 });
+      expect(limit).toHaveBeenCalledWith(20);
+      expect(offset).toHaveBeenCalledWith(0);
     });
 
-    it("returns empty array when no match", async () => {
-      mockDb.select.mockReturnValue(makeListQuery([]));
+    it("applies page/limit on the server and computes totalPages", async () => {
+      const { limit, offset } = mockPaginated([makeVehicle({ id: "v-011" })], 34);
+
+      const result = await listVehicles({ page: 2, limit: 10 });
+
+      expect(result).toMatchObject({ page: 2, limit: 10, total: 34, totalPages: 4 });
+      expect(limit).toHaveBeenCalledWith(10);
+      expect(offset).toHaveBeenCalledWith(10);
+    });
+
+    it("caps limit at 100", async () => {
+      const { limit } = mockPaginated([], 0);
+
+      const result = await listVehicles({ limit: 9999 });
+
+      expect(result.limit).toBe(100);
+      expect(limit).toHaveBeenCalledWith(100);
+    });
+
+    it("returns an empty page when no match", async () => {
+      mockPaginated([], 0);
       const result = await listVehicles({ brand: "Nonexistent" });
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

@@ -11,6 +11,23 @@ import { getSession } from "../auth/session";
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000";
 export { BACKEND_URL };
 
+/**
+ * Envelope paginado que devuelve el backend en los listados server-side (T-54).
+ * Mismo contrato que `web/src/lib/api.ts` (`PaginatedResponse`).
+ */
+export interface PaginatedItems<T> {
+  items: T[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
+
+/** Desenvuelve `{ items, … }`; tolera un array plano por compatibilidad. */
+function unwrapItems<T>(res: PaginatedItems<T> | T[]): T[] {
+  return Array.isArray(res) ? res : (res.items ?? []);
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const session = await getSession();
 
@@ -272,23 +289,47 @@ export const api = {
   },
 
   // Work Orders
-  listWorkOrders: (params?: { status?: string; limit?: number }) => {
+  // T-54: el backend pagina y filtra en el servidor y devuelve un envelope
+  // `{ items, total, page, limit, totalPages }`; la app consume `items`.
+  listWorkOrders: (params?: { status?: string; search?: string; page?: number; limit?: number }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set("status", params.status);
+    if (params?.search) qs.set("search", params.search);
+    if (params?.page) qs.set("page", String(params.page));
     if (params?.limit) qs.set("limit", String(params.limit));
     const query = qs.toString();
-    return request<WorkOrder[]>(`/workshop/ordenes${query ? `?${query}` : ""}`);
+    return request<PaginatedItems<WorkOrder>>(`/workshop/ordenes${query ? `?${query}` : ""}`).then(
+      unwrapItems,
+    );
   },
 
   getWorkOrder: (id: string) => request<WorkOrder>(`/workshop/ordenes/${id}`),
 
-  // Clients
-  listClients: () => request<Client[]>("/workshop/clientes"),
+  // Clients — T-54: envelope paginado, la app consume `items`
+  listClients: (params?: { search?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<PaginatedItems<Client>>(`/workshop/clientes${query ? `?${query}` : ""}`).then(
+      unwrapItems,
+    );
+  },
 
   getClient: (id: string) => request<Client>(`/workshop/clientes/${id}`),
 
-  // Vehicles
-  listVehicles: () => request<Vehicle[]>("/workshop/vehiculos"),
+  // Vehicles — T-54: envelope paginado, la app consume `items`
+  listVehicles: (params?: { search?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.search) qs.set("search", params.search);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<PaginatedItems<Vehicle>>(`/workshop/vehiculos${query ? `?${query}` : ""}`).then(
+      unwrapItems,
+    );
+  },
 
   getVehicle: (id: string) => request<Vehicle>(`/workshop/vehiculos/${id}`),
 

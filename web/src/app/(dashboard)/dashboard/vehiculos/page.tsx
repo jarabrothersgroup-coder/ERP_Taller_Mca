@@ -171,10 +171,24 @@ const columns: Column<VehicleRecord>[] = [
 /* ── Main Page ──────────────────────────────── */
 
 export default function VehiclesPage() {
-  const { data: rawVehicles = [], isLoading: loading, isError, error, refetch } = useVehicles();
+  const [search, setSearch] = React.useState("");
+  // T-54: la búsqueda viaja al backend con debounce (antes filtraba el array
+  // completo en el cliente, así que la lista se truncaba en los primeros 100).
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const {
+    data: rawVehicles = [],
+    isLoading: loading,
+    isError,
+    error,
+    refetch,
+  } = useVehicles({ search: debouncedSearch || undefined });
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "los vehículos");
-  const [search, setSearch] = React.useState("");
   // T-43: ficha de próximos mantenimientos al hacer click en una fila
   const [selectedVehicleId, setSelectedVehicleId] = React.useState<string | null>(null);
 
@@ -199,18 +213,8 @@ export default function VehiclesPage() {
     [rawVehicles],
   );
 
-  // Filter
-  const filtered = React.useMemo(() => {
-    if (!search) return vehicles;
-    const q = search.toLowerCase();
-    return vehicles.filter(
-      (v) =>
-        v.brand.toLowerCase().includes(q) ||
-        v.model.toLowerCase().includes(q) ||
-        v.plate?.toLowerCase().includes(q) ||
-        v.vin?.toLowerCase().includes(q)
-    );
-  }, [vehicles, search]);
+  // T-54: el filtrado ocurre en el servidor; la lista ya llega filtrada
+  const filtered = vehicles;
 
   if (isError) {
     return (

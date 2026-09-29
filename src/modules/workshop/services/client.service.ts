@@ -9,28 +9,87 @@
 
 import { db } from "../../../shared/database/drizzle.js";
 import { clients } from "../../../shared/database/schema/clients.js";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, count, ilike, or } from "drizzle-orm";
 import { ConflictError, NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 import { ordenesTrabajo } from "../schema/index.js";
 import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 import type { Client, NewClient } from "../../../shared/database/schema/clients.js";
 
+/** Filtros + paginación de `listClients` (T-54) */
+export interface ListClientsParams {
+  /** Búsqueda por nombre, email, teléfono o RUC (ILIKE, case-insensitive) */
+  search?: string;
+  /** Página 1-based */
+  page?: number;
+  /** Filas por página (1-100) */
+  limit?: number;
+  tenantSlug?: string;
+}
+
+/** Envoltorio paginado — misma convención que /inventory/repuestos */
+export interface PaginatedClients {
+  items: Client[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/** Límite duro de filas por página (evita que un pageSize enorme reviente la RAM) */
+export const CLIENTS_MAX_LIMIT = 100;
+
 /**
- * Lists all clients for a tenant, ordered by creation date descending.
+ * Lists clients for a tenant, paginated on the server (T-54).
  *
- * @param tenantSlug - Tenant slug for multi-tenant isolation
- * @returns Array of client DTOs
+ * La paginación va en el servidor porque el listado de clientes crece con el
+ * taller: traerlo entero para pintar 10 filas en el cliente es lo que
+ * provocaba el corte silencioso en listas de 100+.
+ *
+ * @param params - Filtros (`search`, `page`, `limit`) + `tenantSlug`
+ * @returns `{ items, total, page, limit, totalPages }` con la página pedida
  */
-export async function listClients(tenantSlug?: string): Promise<Client[]> {
-  const conditions = [];
+export async function listClients(params: ListClientsParams = {}): Promise<PaginatedClients> {
+  const { search, tenantSlug } = params;
+  const page = Math.max(1, Math.trunc(params.page ?? 1));
+  const limit = Math.min(CLIENTS_MAX_LIMIT, Math.max(1, Math.trunc(params.limit ?? 20)));
+  const offset = (page - 1) * limit;
+
+  const conditions: ReturnType<typeof eq>[] = [];
   if (tenantSlug) {
     conditions.push(eq(clients.tenantSlug, tenantSlug));
   }
-  return db()
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(clients.name, pattern),
+        ilike(clients.email, pattern),
+        ilike(clients.phone, pattern),
+        ilike(clients.ruc, pattern),
+      )!,
+    );
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // ── count + data en dos queries sobre el mismo WHERE (sin N+1) ──
+  // El count reutiliza `where`, que ya incluye el filtro de tenantSlug y de
+  // búsqueda: el total nunca puede ser más amplio que las filas devueltas.
+  const [totalRow] = await db()
+    .select({ total: count() })
+    .from(clients)
+    .where(where);
+  const total = Number(totalRow?.total ?? 0);
+
+  const items = await db()
     .select()
     .from(clients)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(clients.createdAt));
+    .where(where)
+    .orderBy(desc(clients.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
 /**

@@ -185,9 +185,10 @@ export default function MarketingPage() {
   });
 
   // ─── Client search + loyalty ──────────────────
+  // T-54: la búsqueda de clientes viaja al backend (antes filtraba en cliente)
   const { data: clientes = [], isLoading: loadingClientes } = useQuery({
     queryKey: ["clientes-search", searchCliente],
-    queryFn: () => api.listClients({ search: searchCliente, limit: 10 }),
+    queryFn: async () => (await api.listClients({ search: searchCliente, limit: 10 })).items,
     enabled: searchCliente.length >= 2,
   });
 

@@ -97,47 +97,92 @@ describe("Orden Service", () => {
   });
 
   describe("listOrdenes", () => {
-    it("returns all ordenes without filters", async () => {
+    /**
+     * Mock de las 2 queries de `listOrdenes` (T-54): count primero, luego la
+     * página de datos. Devuelve los spies de limit/offset.
+     */
+    function mockPaginated(rows: unknown[], total: number) {
+      const offset = vi.fn(() => Promise.resolve(rows));
+      const limit = vi.fn(() => ({ offset }));
+      const dataChain = {
+        leftJoin: vi.fn(),
+        where: vi.fn(),
+        orderBy: vi.fn(),
+        limit,
+      };
+      dataChain.leftJoin.mockReturnValue(dataChain);
+      dataChain.where.mockReturnValue(dataChain);
+      dataChain.orderBy.mockReturnValue(dataChain);
+      mockDb.select
+        .mockReturnValueOnce({
+          from: vi.fn(() => {
+            const countChain = { leftJoin: vi.fn(), where: vi.fn() };
+            countChain.leftJoin.mockReturnValue(countChain);
+            countChain.where.mockReturnValue(Promise.resolve([{ total }]));
+            return countChain;
+          }),
+        })
+        .mockReturnValueOnce({ from: vi.fn(() => dataChain) });
+      return { limit, offset };
+    }
+
+    it("returns the requested page of ordenes without filters", async () => {
       const rows = [makeOrdenRow()];
-      mockDb.select.mockReturnValue(makeSelectQuery(rows));
+      const { limit, offset } = mockPaginated(rows, 1);
 
       const result = await listOrdenes();
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
         id: "ot-001",
         vehiculo: "Toyota Corolla",
         cliente: "Juan Pérez",
         status: "En_Proceso",
       });
-      expect(result[0].createdAt).toBe("2026-06-09T10:00:00.000Z");
+      expect(result.items[0].createdAt).toBe("2026-06-09T10:00:00.000Z");
+      expect(result).toMatchObject({ total: 1, page: 1, limit: 20, totalPages: 1 });
+      expect(limit).toHaveBeenCalledWith(20);
+      expect(offset).toHaveBeenCalledWith(0);
     });
 
     it("filters by status", async () => {
       const rows = [makeOrdenRow({ status: "Presupuestado" })];
-      mockDb.select.mockReturnValue(makeSelectQuery(rows));
+      mockPaginated(rows, 1);
 
       const result = await listOrdenes({ status: "Presupuestado" });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].status).toBe("Presupuestado");
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].status).toBe("Presupuestado");
     });
 
-    it("returns empty array when no matching orders", async () => {
-      mockDb.select.mockReturnValue(makeSelectQuery([]));
+    it("returns an empty page when no matching orders", async () => {
+      mockPaginated([], 0);
 
       const result = await listOrdenes({ status: "Listo" });
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
     });
 
-    it("respects limit and offset", async () => {
+    it("applies page/limit on the server and computes totalPages", async () => {
       const rows = [makeOrdenRow({ id: "ot-001" })];
-      mockDb.select.mockReturnValue(makeSelectQuery(rows));
+      const { limit, offset } = mockPaginated(rows, 95);
 
-      const result = await listOrdenes({ limit: 1, offset: 5 });
+      const result = await listOrdenes({ page: 2, limit: 20 });
 
-      expect(result).toHaveLength(1);
+      expect(result).toMatchObject({ page: 2, limit: 20, total: 95, totalPages: 5 });
+      expect(result.items).toHaveLength(1);
+      expect(limit).toHaveBeenCalledWith(20);
+      expect(offset).toHaveBeenCalledWith(20);
+    });
+
+    it("caps limit at 100", async () => {
+      const { limit } = mockPaginated([], 0);
+
+      const result = await listOrdenes({ limit: 500 });
+
+      expect(result.limit).toBe(100);
+      expect(limit).toHaveBeenCalledWith(100);
     });
   });
 
