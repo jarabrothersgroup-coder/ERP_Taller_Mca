@@ -152,7 +152,7 @@
             "T-54 avance previo (2026-09-28, registrado ahora — la implementación ya estaba en el worktree sin anotar): componente web/src/components/ui/filter-select.tsx con tests web/tests/components/filter-select.test.tsx (4 tests) y ya en uso en 3 páginas (tesoreria, nomina, hub). web 129/129 tras el cambio"
           ],
           "pending": [
-            "T-54 restante: migrar los 16 ficheros de web/src que aún usan <select> nativo al componente FilterSelect con opciones dinámicas + paginación server-side donde hoy se filtra en cliente"
+            "T-54 restante (recontado 2026-09-28 con evidencia, NO está cerrado): (a) selects de FILTRO — quedan ~4-5 nativos (inventario/conteo id=almacen, inventario/herramientas id=cat, facturacion/reimpresion protocolo, finance/consolidation memberRole) sobre 32 <select> en 14 ficheros, de los que 27 son selects de FORMULARIO y quedan fuera de alcance por diseño (el propio docstring de FilterSelect los excluye); (b) paginación server-side — prácticamente sin hacer: solo useInventory (search/categoria/page → /inventory/repuestos). DataTable pagina en cliente (web/src/components/ui/data-table.tsx:349-351 totalPages + sortedData.slice) y 25 páginas del dashboard lo usan con paginate sobre el array completo; el backend no soporta paginación en las listas grandes (/workshop/clientes no tiene Querystring de page/limit ni .limit() en el service; de 77 funciones list* solo 17 ficheros tocan limit/offset/page) y api.ts expone ~14 métodos con limit pero sin offset/page, así que no se puede saltar de página. Implica trabajo de backend (page/limit/offset + total) además de web"
           ]
         },
         "fase_6_calidad": {
