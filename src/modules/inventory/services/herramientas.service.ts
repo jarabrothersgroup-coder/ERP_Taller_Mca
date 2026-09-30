@@ -215,21 +215,15 @@ export async function updateHerramienta(
 
   for (const field of fields) {
     if (data[field] !== undefined) {
-      const dbField = field === "numeroSerie" ? "numero_serie"
-        : field === "requiereCalibracion" ? "requiere_calibracion"
-        : field === "tieneSerialIndividual" ? "tiene_serial_individual"
-        : field === "vidaUtilAnos" ? "vida_util_anos"
-        : field === "metodoDepreciacion" ? "metodo_depreciacion"
-        : field === "costoReposicion" ? "costo_reposicion"
-        : field === "categoriaContableId" ? "categoria_contable_id"
-        : field === "imagenUrl" ? "imagen_url"
-        : field;
-
-      updatePayload[dbField] = data[field] as string | number | boolean | null;
+      // FIX (T-61): drizzle construye el SET recorriendo solo las columnas de
+      // la tabla por su nombre JS (camelCase) y descarta el resto en silencio
+      // — `numero_serie`, `vida_util_anos`, `imagen_url`, … no existían en el
+      // SET y el campo se ignoraba sin error (PATCH 200 con la fila intacta).
+      updatePayload[field] = data[field] as string | number | boolean | null;
     }
   }
 
-  updatePayload["updated_at"] = sql`NOW()`;
+  updatePayload["updatedAt"] = sql`NOW()`;
 
   const whereConditions = [eq(herramientas.id, id)];
   if (tenantSlug) {
@@ -315,12 +309,15 @@ export async function bajaHerramienta(id: string, tenantSlug: string) {
  * resolves to the first available DISPONIBLE tool_instance, and
  * calls lendTool() on that instance.
  */
-export async function prestarHerramienta(data: {
-  herramientaId: string;
-  ordenTrabajoId: string;
-  mecanicoId: string;
-  observaciones?: string | null;
-}) {
+export async function prestarHerramienta(
+  data: {
+    herramientaId: string;
+    ordenTrabajoId: string;
+    mecanicoId: string;
+    observaciones?: string | null;
+  },
+  tenantSlug?: string,
+) {
   const { lendTool } = await import("./tool-loan.service.js");
 
   // Auto-resolve: find first available instance of this SKU
@@ -351,7 +348,9 @@ export async function prestarHerramienta(data: {
       observaciones: data.observaciones,
     },
     "legacy",
-    "",
+    // FIX (T-61): el endpoint no pasaba el tenant, así que `lendTool` filtraba
+    // por tenant_slug='' y TODA respuesta era 404 para un taller real.
+    tenantSlug ?? "",
   );
 }
 
@@ -362,16 +361,21 @@ export async function prestarHerramienta(data: {
 export async function devolverHerramienta(
   controlId: string,
   data: { observaciones?: string | null; estado?: string },
+  tenantSlug?: string,
 ) {
   const { returnTool } = await import("./tool-loan.service.js");
 
   const conditionMap: Record<string, string> = {
     Devuelto: 'BUENO',
     Perdido: 'EXTRAVIADO',
-    'Dañado': 'DANADO',
+    'Dañado': 'DANADO',
   };
 
-  const condicionRetorno = conditionMap[data.estado ?? 'Devuelto'] || 'BUENO';
+  // FIX (T-61): se normaliza a NFC para que la forma compuesta ("Dañado", la
+  // que produce cualquier cliente estándar) y la forma NFD del teclado macOS
+  // resuelvan el mismo código de condición.
+  const estado = (data.estado ?? 'Devuelto').normalize('NFC');
+  const condicionRetorno = conditionMap[estado] || 'BUENO';
 
   return returnTool(
     controlId,
@@ -380,7 +384,9 @@ export async function devolverHerramienta(
       observaciones: data.observaciones,
     },
     "legacy",
-    "",
+    // FIX (T-61): igual que prestar, sin el tenant el préstamo nunca existía
+    // para el taller → 404 en toda devolución.
+    tenantSlug ?? "",
   );
 }
 

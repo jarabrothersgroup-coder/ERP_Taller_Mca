@@ -281,42 +281,20 @@ export async function updateRepuesto(
 
   for (const field of fields) {
     if (data[field] !== undefined) {
-      const dbField = field === "codigoBarras"
-        ? "codigo_barras"
-        : field === "precioCosto"
-        ? "precio_costo"
-        : field === "precioVenta"
-        ? "precio_venta"
-        : field === "stockActual"
-        ? "stock_actual"
-        : field === "stockMinimo"
-        ? "stock_minimo"
-        : field === "stockMaximo"
-        ? "stock_maximo"
-        : field === "unidadMedida"
-        ? "unidad_medida"
-        : field === "compatibleCon"
-        ? "compatible_con"
-        : field === "imagenUrl"
-        ? "imagen_url"
-        : field === "puntoReorden"
-        ? "punto_reorden"
-        : field === "proveedorPreferidoId"
-        ? "proveedor_preferido_id"
-        : field === "loteEconomico"
-        ? "lote_economico"
-        : field;
-
+      // FIX (T-61): idem herramientas — drizzle solo reconoce el nombre JS
+      // (camelCase) de la columna; las claves snake_case (`precio_costo`,
+      // `stock_actual`, `punto_reorden`, …) se descartaban en silencio y el
+      // PATCH devolvía 200 con la fila sin cambiar.
       const value = field === "precioCosto" || field === "precioVenta"
         ? String(data[field])
         : data[field];
 
-      updatePayload[dbField] = value;
+      updatePayload[field] = value;
     }
   }
 
   // ── 4. Apply update ──
-  updatePayload["updated_at"] = sql`NOW()`;
+  updatePayload["updatedAt"] = sql`NOW()`;
 
   const [updated] = await db()
     .update(repuestos)

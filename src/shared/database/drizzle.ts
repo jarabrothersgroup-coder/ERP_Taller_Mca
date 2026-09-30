@@ -60,7 +60,12 @@ export function db(): PostgresJsDatabase<DbSchema> {
   // connection (and inherit its `app.current_tenant` RLS context). Outside a
   // request (cron, CLI, background jobs) fall back to the shared singleton.
   const ctx = requestDbStorage.getStore();
-  if (ctx) return ctx.drizzle;
+  // FIX (T-61): nunca entregar la conexión de un request ya liberado.
+  // El contexto de request se libera en `onResponse`; cualquier trabajo en
+  // segundo plano (notificaciones/broadcast que corren sin await) que siga
+  // consultando después de `release()` encolaría su query en una conexión ya
+  // devuelta al pool y desincronizaría el protocolo (query sin respuesta).
+  if (ctx && !ctx.released && ctx.drizzle) return ctx.drizzle;
   if (!_db) {
     const sql = getDb();
     _db = drizzle(sql, { schema, logger: false });

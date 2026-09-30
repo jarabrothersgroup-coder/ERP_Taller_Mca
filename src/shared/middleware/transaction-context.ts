@@ -106,6 +106,12 @@ export async function registerRequestTransactions(
   const releaseContext = async () => {
     const ctx = requestDbStorage.getStore();
     if (!ctx || ctx.released || !ctx.tx) return;
+    // FIX (T-61): marcar liberado ANTES de cualquier await. Así, cualquier
+    // `db()` disparado en paralelo (fire-and-forget del handler) cae al pool
+    // compartido en vez de encolarse sobre esta conexión, evitando queries
+    // sobre un handle ya devuelto al pool (desincroniza el protocolo y la
+    // query siguiente nunca recibe respuesta).
+    ctx.released = true;
     // Hygiene: clear the session setting before the connection returns to the
     // pool. The next request that reserves it will overwrite it anyway.
     try {
@@ -114,7 +120,6 @@ export async function registerRequestTransactions(
       // Connection may already be closed — nothing to do.
     }
     ctx.tx.release();
-    ctx.released = true;
     requestDbStorage.exit(() => {});
   };
 

@@ -148,10 +148,10 @@ export async function updateServiceEvent(
   };
 
   if (data.estado !== undefined) updatePayload['estado'] = data.estado;
-  if (data.fechaFin !== undefined) updatePayload['fecha_fin'] = data.fechaFin ? new Date(data.fechaFin) : sql`NOW()`;
+  if (data.fechaFin !== undefined) updatePayload['fechaFin'] = data.fechaFin ? new Date(data.fechaFin) : sql`NOW()`;
   if (data.costo !== undefined) updatePayload['costo'] = String(Number(data.costo).toFixed(2));
   if (data.resultado !== undefined) updatePayload['resultado'] = data.resultado;
-  if (data.certificadoUrl !== undefined) updatePayload['certificado_url'] = data.certificadoUrl;
+  if (data.certificadoUrl !== undefined) updatePayload['certificadoUrl'] = data.certificadoUrl;
   if (data.proveedor !== undefined) updatePayload['proveedor'] = data.proveedor;
   if (data.observaciones !== undefined) updatePayload['observaciones'] = data.observaciones;
 

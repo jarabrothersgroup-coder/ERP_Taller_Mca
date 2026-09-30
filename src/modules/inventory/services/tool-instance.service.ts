@@ -281,22 +281,16 @@ export async function updateToolInstance(
     'diasIntervaloCalibracion', 'activa', 'categoriaContableId',
   ];
 
+  // FIX (T-61): drizzle `.set()` resuelve las columnas por el nombre JS del
+  // campo (camelCase). Las claves en snake_case se descartaban en silencio, así
+  // que cualquier PATCH dejaba el SET vacío → `update ... set where` → 500.
   for (const field of fields) {
     if (data[field] !== undefined) {
-      const dbField = field === 'tagRfid' ? 'tag_rfid'
-        : field === 'codigoBarras' ? 'codigo_barras'
-        : field === 'codigoInventario' ? 'codigo_inventario'
-        : field === 'ubicacionActual' ? 'ubicacion_actual'
-        : field === 'requiereCalibracion' ? 'requiere_calibracion'
-        : field === 'diasIntervaloCalibracion' ? 'dias_intervalo_calibracion'
-        : field === 'categoriaContableId' ? 'categoria_contable_id'
-        : field;
-
-      updatePayload[dbField] = data[field] as string | boolean | number | null;
+      updatePayload[field] = data[field] as string | boolean | number | null;
     }
   }
 
-  updatePayload['updated_at'] = sql`NOW()`;
+  updatePayload['updatedAt'] = sql`NOW()`;
 
   const [updated] = await db()
     .update(toolInstances)
@@ -335,8 +329,11 @@ async function transitionState(
 
   // If entering a terminal/lost state, clear custodian references
   if (newEstado === 'DADO_DE_BAJA' || newEstado === 'EXTRAVIADA') {
-    updateData['tecnico_actual_id'] = null;
-    updateData['orden_trabajo_actual_id'] = null;
+    // FIX (T-61): drizzle ignora en silencio las claves que no son el nombre
+    // JS de la columna — con snake_case el custodio NO se limpiaba nunca al
+    // dar de baja o extraviar el activo.
+    updateData['tecnicoActualId'] = null;
+    updateData['ordenTrabajoActualId'] = null;
     updateData['activa'] = newEstado === 'DADO_DE_BAJA' ? false : true;
   }
 
@@ -427,8 +424,14 @@ export async function decommissionTool(
     );
   }
 
+  // FIX (T-61): `fecha_baja` es una columna `date` y drizzle (modo string) no
+  // convierte Date → postgres.js enviaba `Tue Sep 29 2026 ...` → 500. Se
+  // normaliza a 'YYYY-MM-DD'.
+  const fechaBaja = data.fechaBaja ? new Date(data.fechaBaja) : null;
   const extra: Record<string, unknown> = {
-    fechaBaja: data.fechaBaja ? new Date(data.fechaBaja) : sql`CURRENT_DATE`,
+    fechaBaja: fechaBaja && !Number.isNaN(fechaBaja.getTime())
+      ? fechaBaja.toISOString().slice(0, 10)
+      : sql`CURRENT_DATE`,
     motivoBaja: data.motivoBaja,
     valorActualLibros: '0',
   };

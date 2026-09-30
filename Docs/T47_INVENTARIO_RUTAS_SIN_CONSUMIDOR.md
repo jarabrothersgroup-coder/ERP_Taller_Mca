@@ -195,3 +195,78 @@ clase D, pero siguen contando en `sinTest` — la exclusión cubre la ausencia
 de consumidor, nunca la falta de prueba. Las filas "Legado" y "Decisión"
 permanecen visibles a propósito: una exclusión prematura escondería superficie
 muerta detrás de una etiqueta.
+
+## Cierre — T-61 (2026-09-30)
+
+El criterio `≥80% de rutas críticas con test de comportamiento` no era medible
+hasta que el plan definiera **cuáles son las rutas críticas y su denominador**.
+Definido y cerrado:
+
+**Universo (decisión) — A:** rutas bajo `/workshop` + `/inventory` +
+`/billing`, **solo escritura** (`POST`/`PATCH`/`PUT`/`DELETE`) = **99 pares
+(método, URL)**. La métrica es **por par método+URL** (no por path): `POST
+/inventory/adjustments` y `POST /inventory/adjustments/:id/approve` son dos
+pares. Piso en CI: `BEHAVIOR_COVERAGE_FLOOR = 0.8`.
+
+**Resultado: 81/99 = 81.8% ≥ 80% → gate en verde.** El margen real son 2 pares
+(79/99 = 79.8% ya fallaría), así que cualquier par nuevo de escritura en esos
+tres dominios debe entrar con su test o el gate se rompe.
+
+**Ficheros (46 tests en 4 ficheros, todos `app.inject` contra la app real):**
+
+| Fichero | Tests | Pares |
+|---|---|---|
+| `tests/fase6-t61-behavior.test.ts` | 9 | `PATCH /workshop/ordenes/:id/status` (transacción T-31, 404 cross-tenant, 400 enum) + flujo `POST /inventory/adjustments` → approve/reject (umbral >10, 422 stock negativo, aplicación real) |
+| `tests/fase6-t61-items.test.ts` | 14 | 14 pares |
+| `tests/fase6-t61-catalogos.test.ts` | 10 | 10 pares |
+| `tests/fase6-t61-inventario.test.ts` | 13 | 12 pares (herramientas, tool-instances, calibración/reparación/baja, préstamo/devolución, tool-service-events, depreciación) + happy path de `PATCH /inventory/repuestos/:id`, que solo estaba "cubierto" por un 404 cross-tenant |
+
+29 ficheros de `tests/` usan `app.inject` (eran 11 en la auditoría del 09-25).
+
+**Bugs de `src/` cazados por los tests** (todos con comentario `FIX (T-61)`,
+nunca se enshrinó comportamiento roto) — 5 familias / 10 instancias:
+
+1. `prestarHerramienta`/`devolverHerramienta` no recibían `tenantSlug` →
+   filtraban con `""` → **404 siempre**; ahora lo pasa la ruta.
+2. Response schemas de prestar/devolver declaraban `control` pero los servicios
+   devuelven `{ loan }` → serializaban `{}` → schema de respuesta eliminado.
+3. **`drizzle .set()` descarta en silencio las claves snake_case** — el
+   dialecto recorre solo `Object.keys(tableColumns)` (el nombre JS camelCase
+   de cada columna); una clave desconocida no lanza, simplemente no entra al
+   SET. Cuatro instancias:
+   - `updateToolInstance` iba entero en snake_case → `SET` vacío →
+     `update ... set  where ...` → **500 en todo
+     `PATCH /inventory/tool-instances/:id`**;
+   - `updateHerramienta` y `updateRepuesto` traducían cada campo
+     multi-palabra a snake_case → `numeroSerie`, `imagenUrl`, `requiereCalibracion`,
+     `precioVenta`, `precioCosto`, `codigoBarras`, `stockMinimo`, … se
+     **ignoraban con un 200 aparente** (un par solo cubierto por un 404
+     cruzado no lo hubiera visto nunca);
+   - `transitionState` limpiaba el custodio con `tecnico_actual_id` /
+     `orden_trabajo_actual_id` → el activo dado de baja o extraviado
+     **conservaba técnico y OT asignados**;
+   - `updateServiceEvent` (`fecha_fin`, `certificado_url`) y `updated_at` en
+     `herramientas.service.ts` / `stock.service.ts` → campos ignorados y
+     `updated_at` que nunca se refrescaba.
+4. `decommissionTool` pasaba un `Date` a una columna `date` (modo string) →
+   postgres.js enviaba `Tue Sep 29 2026 ...` → 500; ahora `'YYYY-MM-DD'`.
+5. Enums de condición `"Dañado"` estaban en **NFD** en el código y el cliente
+   envía **NFC** → 400 injustificado; ahora se aceptan ambas formas y el
+   servicio normaliza a NFC.
+
+Decisión (no bug): `createServiceEvent` exige `realizadaPorId` FK válida →
+header `x-user-id` con profile real (patrón heredado de `tool-loans.ts`, se
+mantiene).
+
+**Gate en CI:** `scripts/route-consumer-scan.mjs --min-behavior 80` en
+`.github/workflows/ci.yml` + `tests/contract/route-consumer-guard.test.ts`.
+
+**18 pares aún sin test (no bloquean, son el colchón / fichero 4):**
+cycle-counts ×6, ingresos ×4 (checklist, firma-retiro, fotos, delete-foto),
+billing ×3 (portal, checkout, webhook), vehiculos ×2 (decode-vin, delete),
+mechanic-assignment, initial-load, auto-po.
+
+**Verificación de cierre:** `tsc --noEmit` PASS · suite backend completa
+**2127/2127 en 105 ficheros** contra la DB local `:5433` · guard T-63 7/7 ·
+eslint sobre `src/modules/inventory` + ficheros nuevos: 0 errores / 33 warnings
+(solo `no-explicit-any`, patrón existente).

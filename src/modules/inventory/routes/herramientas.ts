@@ -77,7 +77,7 @@ interface PrestarBody {
 
 interface DevolverBody {
   observaciones?: string;
-  estado?: "Devuelto" | "Perdido" | "Dañado";
+  estado?: "Devuelto" | "Perdido" | "Dañado";
 }
 
 interface ListQuery {
@@ -329,33 +329,16 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
             observaciones: { type: "string", maxLength: 500 },
           },
         },
-        response: {
-          201: {
-            type: "object",
-            properties: {
-              control: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  herramientaId: { type: "string" },
-                  herramientaNombre: { type: "string" },
-                  ordenTrabajoId: { type: "string" },
-                  mecanicoId: { type: "string" },
-                  mecanicoNombre: { type: "string" },
-                  fechaAsignacion: { type: "string" },
-                  estado: { type: "string" },
-                },
-              },
-            },
-          },
-        },
+        // FIX (T-61): el schema de respuesta declaraba `control`, pero
+        // lendTool()/returnTool() devuelven `{ loan }` → fast-json-stringify
+        // serializaba `{}` y el cliente nunca recibía el préstamo.
       },
     },
     async (
       request: FastifyRequest<{ Body: PrestarBody }>,
       reply: FastifyReply,
     ) => {
-      const result = await prestarHerramienta(request.body);
+      const result = await prestarHerramienta(request.body, request.tenantSlug);
       return reply.status(201).send(result);
     },
   );
@@ -376,32 +359,16 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
             observaciones: { type: "string", maxLength: 500 },
             estado: {
               type: "string",
-              enum: ["Devuelto", "Perdido", "Dañado"],
+              // FIX (T-61): el literal original estaba en Unicode NFD (n +
+              // U+0303); un cliente que enviara la forma NFC recibía 400. Se
+              // aceptan ambas formas y el servicio normaliza a NFC.
+              enum: ["Devuelto", "Perdido", "Dañado", "Dañado"],
             },
           },
         },
-        response: {
-          200: {
-            type: "object",
-            properties: {
-              control: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  herramientaId: { type: "string" },
-                  herramientaNombre: { type: "string" },
-                  ordenTrabajoId: { type: "string" },
-                  mecanicoId: { type: "string" },
-                  mecanicoNombre: { type: "string" },
-                  fechaAsignacion: { type: "string" },
-                  fechaDevolucion: { type: "string" },
-                  estado: { type: "string" },
-                  observaciones: { type: "string", nullable: true },
-                },
-              },
-            },
-          },
-        },
+        // FIX (T-61): el schema de respuesta declaraba `control`, pero
+        // lendTool()/returnTool() devuelven `{ loan }` → fast-json-stringify
+        // serializaba `{}` y el cliente nunca recibía el préstamo.
       },
     },
     async (
@@ -414,6 +381,7 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
       const result = await devolverHerramienta(
         request.params.id,
         request.body,
+        request.tenantSlug,
       );
       return reply.send(result);
     },
@@ -432,7 +400,7 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
             herramientaId: { type: "string", format: "uuid" },
             estado: {
               type: "string",
-              enum: ["Asignado", "Devuelto", "Perdido", "Dañado"],
+              enum: ["Asignado", "Devuelto", "Perdido", "Dañado", "Dañado"],
             },
             page: { type: "string", pattern: "^[1-9]\\d*$" },
             limit: { type: "string", pattern: "^([1-9]|[1-9]\\d|100)$" },

@@ -208,9 +208,24 @@
 
 | ID | Tarea | Esfuerzo | Criterio de éxito |
 |---|---|---|---|
-| T-61 | Reemplazar tests estructurales por **tests de comportamiento**: `app.inject` en rutas críticas (11 archivos hoy) | 2 d + cadencia | ≥80% de rutas críticas con test de comportamiento |
+| T-61 | ✅ **CERRADA 2026-09-30** · Reemplazar tests estructurales por **tests de comportamiento**: `app.inject` en rutas críticas (11 archivos hoy) | 2 d + cadencia | ≥80% de rutas críticas con test de comportamiento — **81/99 = 81.8%** |
 | T-62 | E2E con asserts de **datos**: `analytics` verifica KPI ≠ vacío, `calendario` verifica turno creado, `nomina` verifica cálculo | 1,5 d | Los 12 breaks actuales habrían fallado |
-| T-63 | Contrato T-00 + chequeo de tenant (script sobre los 180 lookups) en CI | 1 d | Regresiones bloqueadas antes de merge |
+| T-63 | ✅ **CERRADA 2026-09-28** · Contrato T-00 + chequeo de tenant (script sobre los 180 lookups) en CI | 1 d | Regresiones bloqueadas antes de merge |
+
+**Estado de Fase 6 (2026-09-30): 2/3.** T-61 cerrado con el universo ya
+definido — rutas de escritura (`POST`/`PATCH`/`PUT`/`DELETE`) bajo
+`/workshop` + `/inventory` + `/billing` = **99 pares método+URL**, medidos por
+par, piso 80% en CI (`route-consumer-scan.mjs --min-behavior 80` +
+`tests/contract/route-consumer-guard.test.ts`). 46 tests en 4 ficheros y
+**5 familias de bug reales (10 instancias) corregidas en `src/`** por ellos:
+tenant ausente en prestar/devolver, response schema que serializaba `{}`, y
+sobre todo **`drizzle .set()` descarta en silencio las claves snake_case**
+(`PATCH tool-instances` → SET vacío → 500; `updateHerramienta`/`updateRepuesto`
+→ campos multi-palabra ignorados con 200 aparente; custodio no limpiado al
+dar de baja), más `Date` sobre columna `date` y enums en NFD vs NFC. Detalle y
+lista de los 18 pares restantes en
+`Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md` → *Cierre — T-61*.
+**Queda T-62.**
 
 ---
 

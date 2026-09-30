@@ -22,14 +22,20 @@
  *
  * El matching es por PATH (no por método): si un test ejercita GET /x/:id,
  * el POST hermano sigue siendo un riesgo, pero el guard mide superficie sin
- * consumidor, no cobertura por verbo — para eso están los tests de
- * comportamiento (T-61).
+ * consumidor, no cobertura por verbo — para eso está el tercer gate, T-61.
+ *
+ *   3. T-61 — cobertura de COMPORTAMIENTO sobre las rutas críticas
+ *      (/workshop, /inventory, /billing) contada por PAR (método, URL):
+ *      cuántos pares de escritura ejercita al menos un test. Piso
+ *      `BEHAVIOR_COVERAGE_FLOOR` (80%).
  *
  * Uso:
  *   node scripts/route-consumer-scan.mjs                  # resumen humano
  *   node scripts/route-consumer-scan.mjs --json           # JSON completo
  *   node scripts/route-consumer-scan.mjs --max-orphan N --max-untested N
  *                                                         # gate de CI (exit 1 si excede)
+ *   node scripts/route-consumer-scan.mjs --min-behavior 80
+ *                                                         # gate T-61 (exit 1 si baja)
  *
  * @module scripts/route-consumer-scan
  */
@@ -46,6 +52,27 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CONSUMER_DIRS = ["web/src", "mobile/src", "src/shared/public", "scripts", "src"];
 /** Directorios cuya presencia define "la ruta está probada". */
 const TEST_DIRS = ["tests", "web/e2e"];
+
+// ── T-61 — rutas críticas y cobertura de comportamiento por verbo ────────
+/**
+ * Rutas críticas de T-61 (criterio ≥80%): las de ESCRITURA de los módulos
+ * transaccionales del taller — `/workshop/*` (órdenes, clientes, vehículos,
+ * servicios), `/inventory/*` (repuestos, stock, herramientas) y `/billing/*`
+ * (cobros). Es lo que un usuario mueve y lo que corrompe datos si falla.
+ *
+ * La métrica es por PAR (método, URL): POST y DELETE de la misma ruta
+ * cuentan como dos. Coincide con la nota de este mismo script: el matching
+ * por path mide superficie, la cobertura por verbo es T-61.
+ */
+const CRITICAL_PREFIXES = ["/workshop", "/inventory", "/billing"];
+
+/** Fracción mínima de pares (método, URL) con test de comportamiento. */
+export const BEHAVIOR_COVERAGE_FLOOR = 0.8;
+
+/** @param {string} path @returns {boolean} */
+export function isCriticalRoute(path) {
+  return CRITICAL_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+}
 
 const EXTS = /\.(ts|tsx|js|jsx|mjs)$/;
 /** Definiciones de rutas: ahí los literales URL son documentación, no consumo. */
@@ -146,6 +173,109 @@ function collectUrls(dirs, excludeRe) {
 }
 
 /**
+ * Extrae los literales de un objeto equilibrado `{ … }`, saltando strings
+ * (para que una llave dentro de un payload no corte el balanceo).
+ *
+ * @param {string} text
+ * @returns {string[]} contenido de cada objeto literal
+ */
+function objectLiterals(text) {
+  const out = [];
+  const n = text.length;
+  for (let i = 0; i < n; i++) {
+    if (text[i] !== "{") continue;
+    let depth = 0;
+    for (let j = i; j < n; j++) {
+      const c = text[j];
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          out.push(text.slice(i, j + 1));
+          break;
+        }
+      } else if (c === "'" || c === '"' || c === "`") {
+        const q = c;
+        for (let k = j + 1; k < n; k++) {
+          if (text[k] === "\\") { k++; continue; }
+          if (text[k] === q) { j = k; break; }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Pares (método, URL) declarados en los tests: todo objeto literal que
+ * declara `method: "X"` y `url: "/y"` juntos — cubre `app.inject({...})`
+ * y las matrices data-driven (p. ej. security-role-matrix) sin depender del
+ * orden de las propiedades (un regex method…url empareja el método de una
+ * llamada con la URL de la siguiente y se come los objetos intermedios).
+ *
+ * @param {string} file
+ * @returns {Array<[string, string]>}
+ */
+function extractBehaviorPairs(file) {
+  const text = readFileSync(file, "utf8");
+  const seen = new Set();
+  const pairs = [];
+  for (const obj of objectLiterals(text)) {
+    const m = obj.match(/method\s*:\s*["']([A-Z]+)["']/);
+    const u = obj.match(/url\s*:\s*([`"'])([^`"'\n]+)\1/);
+    if (!m || !u) continue;
+    const url = normalizeUrl(u[2]);
+    if (!url) continue;
+    const key = `${m[1]} ${url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push([m[1], url]);
+  }
+  return pairs;
+}
+
+/** Literal URL → forma comparable con el árbol de rutas (query/hash fuera, `${…}` → `*`). */
+function normalizeUrl(raw) {
+  let out = raw.split("?")[0].split("#")[0].replace(/\$\{[^}]*\}/g, "*");
+  if (out.length <= 1) return "";
+  return out;
+}
+
+/**
+ * Cobertura T-61: pares (método, URL) de las rutas críticas que ejercita al
+ * menos un test de comportamiento.
+ *
+ * @returns {Promise<{total: number, covered: number, ratio: number, gaps: Array<{path: string, method: string}>}>}
+ */
+export async function scanCriticalBehavior() {
+  const routes = loadRoutes();
+
+  const pairs = [];
+  for (const dir of TEST_DIRS) {
+    for (const f of walk(join(ROOT, dir))) pairs.push(...extractBehaviorPairs(f));
+  }
+
+  let total = 0;
+  let covered = 0;
+  const gaps = [];
+  for (const route of routes) {
+    if (!isCriticalRoute(route.path)) continue;
+    const re = routeToRegex(route.path);
+    for (const method of route.methods) {
+      if (!WRITE_METHODS.has(method)) continue;
+      total++;
+      if (pairs.some(([m, u]) => m === method && re.test(u))) covered++;
+      else gaps.push({ path: route.path, method });
+    }
+  }
+
+  return { total, covered, ratio: total ? covered / total : 0, gaps };
+}
+
+/** Métodos que mutan datos: sobre ellos se mide la cobertura T-61. */
+const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+
+/**
  * Ruta Fastify → regex, por segmentos. El radix tree fusiona nodos
  * paramétricos en la misma posición (`:id|:inspectionId`): todo segmento que
  * empiece por `:` es un parámetro, sin importar qué siga. `*` → `.*`.
@@ -168,8 +298,12 @@ function routeToRegex(path) {
   return new RegExp("^" + body + "$");
 }
 
-/** Arranca la app real y serializa su árbol de rutas (fuente de verdad). */
+/** Arranca la app real y serializa su árbol de rutas (fuente de verdad).
+ *  Memoizado: el guard llama a varios escaneos en la misma corrida y cada
+ *  arranque de la app (crons incluidos) cuesta ~8 s. */
+let routesCache = null;
 function loadRoutes() {
+  if (routesCache) return routesCache;
   const outfile = join(mkdtempSync(join(tmpdir(), "route-guard-")), "routes.json");
   const tsx = join(ROOT, "node_modules", ".bin", "tsx");
   execFileSync(tsx, [join(ROOT, "scripts", "dump-routes.ts"), outfile], {
@@ -180,6 +314,7 @@ function loadRoutes() {
   });
   const routes = JSON.parse(readFileSync(outfile, "utf8"));
   rmSync(dirname(outfile), { recursive: true, force: true });
+  routesCache = routes;
   return routes;
 }
 
@@ -223,13 +358,16 @@ if (invokedDirectly) {
   const json = process.argv.includes("--json");
   const orphanIdx = process.argv.indexOf("--max-orphan");
   const untestedIdx = process.argv.indexOf("--max-untested");
+  const behaviorIdx = process.argv.indexOf("--min-behavior");
   const maxOrphan = orphanIdx !== -1 ? Number(process.argv[orphanIdx + 1]) : null;
   const maxUntested = untestedIdx !== -1 ? Number(process.argv[untestedIdx + 1]) : null;
+  const minBehavior = behaviorIdx !== -1 ? Number(process.argv[behaviorIdx + 1]) : null;
 
   const r = await scanRouteConsumers();
+  const b = await scanCriticalBehavior();
 
   if (json) {
-    console.log(JSON.stringify(r, null, 2));
+    console.log(JSON.stringify({ ...r, behavior: b }, null, 2));
   } else {
     console.log(
       `rutas registradas: ${r.total} · sin consumidor: ${r.withoutConsumer.length} · sin test: ${r.withoutTest.length} · excluidas (triaje): ${r.excluded.length}`,
@@ -241,11 +379,21 @@ if (invokedDirectly) {
         .join("\n");
     console.log(`  peores sin consumidor:\n${top(r.withoutConsumer, 12)}`);
     console.log(`  peores sin test:\n${top(r.withoutTest, 12)}`);
-  if (r.excluded.length) {
+    if (r.excluded.length) {
+      console.log(
+        `  excluidas por triaje:\n${r.excluded.map((x) => `    ${x.methods.join(",").padEnd(12)} ${x.path}`).join("\n")}`,
+      );
+    }
+    const pct = (b.total ? (b.covered / b.total) * 100 : 0).toFixed(1);
     console.log(
-      `  excluidas por triaje:\n${r.excluded.map((x) => `    ${x.methods.join(",").padEnd(12)} ${x.path}`).join("\n")}`,
+      `  T-61 comportamiento (rutas críticas /workshop+/inventory+/billing, por par método+URL): ${b.covered}/${b.total} = ${pct}% (piso ${BEHAVIOR_COVERAGE_FLOOR * 100}%)`,
     );
-  }
+    if (b.gaps.length) {
+      console.log(
+        `  pares críticos sin test de comportamiento (${b.gaps.length}):\n` +
+          b.gaps.map((g) => `    ${g.method.padEnd(7)} ${g.path}`).join("\n"),
+      );
+    }
   }
 
   let failed = false;
@@ -255,6 +403,12 @@ if (invokedDirectly) {
   }
   if (maxUntested !== null && Number.isFinite(maxUntested) && r.withoutTest.length > maxUntested) {
     console.error(`FAIL: sinTest=${r.withoutTest.length} > techo ${maxUntested}`);
+    failed = true;
+  }
+  if (minBehavior !== null && Number.isFinite(minBehavior) && b.ratio * 100 < minBehavior) {
+    console.error(
+      `FAIL: cobertura T-61=${(b.ratio * 100).toFixed(1)}% < piso ${minBehavior}% — faltan ${b.gaps.length} pares método+URL con test de comportamiento`,
+    );
     failed = true;
   }
   if (failed) process.exit(1);

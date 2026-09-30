@@ -24,7 +24,7 @@
  */
 import { describe, expect, it, beforeAll } from "vitest";
 // @ts-expect-error — script .mjs sin declaraciones de tipos
-import { scanRouteConsumers } from "../../scripts/route-consumer-scan.mjs";
+import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } from "../../scripts/route-consumer-scan.mjs";
 
 // ─── Techos vigentes (baseline T-63 + triaje, medido 2026-09-28) ─────────
 // Sin consumidor 160 = 528 rutas − las citadas por web/mobile/public/scripts/backend
@@ -62,13 +62,23 @@ interface ScanResult {
   excluded: RouteEntry[];
 }
 
+interface BehaviorResult {
+  total: number;
+  covered: number;
+  ratio: number;
+  gaps: Array<{ path: string; method: string }>;
+}
+
 describe("T-63 · guard de rutas sin consumidor", () => {
   let scan: ScanResult;
+  let behavior: BehaviorResult;
 
   beforeAll(async () => {
     // Arranca la app real en un proceso hijo (scripts/dump-routes.ts): es la
     // única fuente fiable de rutas por los prefix anidados de Fastify.
     scan = (await scanRouteConsumers()) as ScanResult;
+    // Mismo árbol de rutas (memoizado en el módulo) + pares método+URL de tests/.
+    behavior = (await scanCriticalBehavior()) as BehaviorResult;
   }, 180_000);
 
   it("inventario real cargado", () => {
@@ -138,5 +148,25 @@ describe("T-63 · guard de rutas sin consumidor", () => {
       classD.length,
       `hay ${classD.length} rutas de clase D (techo ${CEILING_CLASS_D}). Triaje en Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md:\n${detail}`,
     ).toBeLessThanOrEqual(CEILING_CLASS_D);
+  });
+
+  // ── T-61 ──────────────────────────────────────────────────────────────
+  // Universo: pares (método, URL) de escritura de /workshop, /inventory y
+  // /billing — el dominio transaccional del taller. El matching por path de
+  // los techos de arriba no distingue verbos; este piso sí: un POST sin
+  // ejercitar es comportamiento no probado, no solo "superficie".
+
+  it("≥80% de los pares método+URL críticos tienen test de comportamiento (T-61)", () => {
+    const pct = behavior.ratio * 100;
+    const detail = behavior.gaps
+      .slice(0, 40)
+      .map((g) => `    ${g.method.padEnd(7)} ${g.path}`)
+      .join("\n");
+    expect(
+      pct,
+      `cobertura T-61 = ${pct.toFixed(1)}% (${behavior.covered}/${behavior.total} pares, piso ${
+        BEHAVIOR_COVERAGE_FLOOR * 100
+      }%). Faltan ${behavior.gaps.length} pares método+URL con app.inject:\n${detail}`,
+    ).toBeGreaterThanOrEqual(BEHAVIOR_COVERAGE_FLOOR * 100);
   });
 });
