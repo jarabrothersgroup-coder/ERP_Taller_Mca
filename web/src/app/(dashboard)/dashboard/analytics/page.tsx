@@ -58,7 +58,7 @@ function AnalyticsKPIs({ kpis }: { kpis: AnalyticsKpis[] }) {
               : kpi.value.toLocaleString("es-PY");
 
         return (
-          <Card key={kpi.label}>
+          <Card key={kpi.label} data-testid="kpi-card">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.label}</CardTitle>
               <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", config.bg)}>

@@ -250,7 +250,7 @@ function ResumenTab() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="break-even-current">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">
               Ingresos Netos
@@ -262,7 +262,7 @@ function ResumenTab() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="break-even-threshold">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">
               Umbral

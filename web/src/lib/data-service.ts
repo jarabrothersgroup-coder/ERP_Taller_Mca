@@ -624,8 +624,15 @@ export async function fetchAppointments(
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: Record<string, unknown>[] = await res.json();
-      return json.map(mapAppointmentFromApi);
+      const json = await res.json();
+      // T-62: `GET /scheduling/appointments` responde con el envelope paginado
+      // `{ items, total, page, limit, totalPages }`, no con un array pelado.
+      // Antes se hacía `json.map(...)` sobre el envelope → `map is not a
+      // function` → `fetchOrMock` caía al mock `[]` y el calendario pintaba
+      // "No hay turnos agendados" con 3 turnos en la BD. Mismo unwrap que
+      // `fetchClients`/`fetchVehicles`.
+      const items: Record<string, unknown>[] = json.items ?? json;
+      return items.map(mapAppointmentFromApi);
     },
     getMockAppointments,
   );
@@ -829,8 +836,11 @@ export async function fetchAuditLog(
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: Record<string, unknown>[] = await res.json();
-      return json.map(mapAuditFromApi);
+      const json = await res.json();
+      // T-62: mismo envelope roto que `/scheduling/appointments`, con la clave
+      // `entries` en vez de `items` → `map is not a function` → mock.
+      const entries: Record<string, unknown>[] = json.entries ?? json;
+      return entries.map(mapAuditFromApi);
     },
     getMockEntries,
   );

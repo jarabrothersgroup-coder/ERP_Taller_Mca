@@ -209,10 +209,10 @@
 | ID | Tarea | Esfuerzo | Criterio de éxito |
 |---|---|---|---|
 | T-61 | ✅ **CERRADA 2026-09-30** · Reemplazar tests estructurales por **tests de comportamiento**: `app.inject` en rutas críticas (11 archivos hoy) | 2 d + cadencia | ≥80% de rutas críticas con test de comportamiento — **81/99 = 81.8%** |
-| T-62 | E2E con asserts de **datos**: `analytics` verifica KPI ≠ vacío, `calendario` verifica turno creado, `nomina` verifica cálculo | 1,5 d | Los 12 breaks actuales habrían fallado |
+| T-62 | ✅ **CERRADA 2026-10-01** · E2E con asserts de **datos**: `analytics` verifica KPI ≠ vacío, `calendario` verifica turno creado, `nomina` verifica cálculo | 1,5 d | 3 specs de datos / 7 asserts; suite **55/55**; los 3 specs verificados **por mutación** (con el bug de vuelta fallan) |
 | T-63 | ✅ **CERRADA 2026-09-28** · Contrato T-00 + chequeo de tenant (script sobre los 180 lookups) en CI | 1 d | Regresiones bloqueadas antes de merge |
 
-**Estado de Fase 6 (2026-09-30): 2/3.** T-61 cerrado con el universo ya
+**Estado de Fase 6 (2026-10-01): 3/3.** T-61 cerrado con el universo ya
 definido — rutas de escritura (`POST`/`PATCH`/`PUT`/`DELETE`) bajo
 `/workshop` + `/inventory` + `/billing` = **99 pares método+URL**, medidos por
 par, piso 80% en CI (`route-consumer-scan.mjs --min-behavior 80` +
@@ -225,7 +225,65 @@ sobre todo **`drizzle .set()` descarta en silencio las claves snake_case**
 dar de baja), más `Date` sobre columna `date` y enums en NFD vs NFC. Detalle y
 lista de los 18 pares restantes en
 `Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md` → *Cierre — T-61*.
-**Queda T-62.**
+T-62 cerrado el 2026-10-01 (detalle abajo). **Fase 6 completa.**
+
+### Cierre — T-62 (2026-10-01) · E2E con asserts de datos
+
+**Qué se añadió.** Dataset determinista (`scripts/seed-e2e.ts`, corrido por
+`globalSetup` en cada suite, contra BD explícita por `DATABASE_URL`) + 3 specs
+nuevos / 7 asserts que comparan la pantalla contra los datos:
+
+| Spec | Assert | Break de TRN-01 que cubre |
+|---|---|---|
+| `analytics-data` | los 4 KPIs contra la fila real de la BD; ninguno en cero/vacío/"-" | `/analytics/*` sin rewrite (T-13) |
+| `calendario-data` | turno creado **desde el diálogo real** → aparece en la fila con cliente/chapa/fecha/hora; y los turnos sembrados visibles con su estado real | `/workshop/citas` (T-11) |
+| `nomina-data` | break-even (ingresos netos, umbral, restante) contra `payroll_summary` | `/finance/payroll/calculate` (T-16) |
+
+Resultado: **suite completa 55/55**, `tsc --noEmit` verde, vitest web
+**142/142** (16 ficheros). Además la suite dejó de depender de que alguien se
+acuerde del seed: `playwright.config.ts` levanta backend + build de producción
+y espera a que ambas respondan.
+
+**Sobre el criterio "los 12 breaks habrían fallado".** Cubierto **el tramo de
+datos de los breaks que caen en estas tres pantallas**, y comprobado de la
+forma que importa: **mutación**. Reintroducir cada bug pone el spec en rojo —
+`json.map()` sobre el envelope de appointments → **2/2 tests de calendario
+fallan**; el `Slot` de Radix con dos hijos → **2/3 asserts del test de
+regresión fallan**. Los breaks de `label-printing`, `storage`/`uploads`,
+`portal/profile` y los 4 de móvil **siguen sin E2E de datos**: pertenecen a otras
+pantallas y no entran en el alcance de esta tarea. Reclasar como deuda abierta,
+no como covered.
+
+**2 bugs reales que los asserts cazaron** (los 1780 + 142 + 55 tests
+estructurales los veían pasar):
+
+1. **Envelope roto en dos endpoints** — `/scheduling/appointments` responde
+   `{items,…}` y `/audit/log` `{entries,…}`, pero `fetchAppointments` y
+   `fetchAuditLog` hacían `json.map()` sobre el envelope: excepción →
+   `fetchOrMock` devolvía el mock `[]` → calendario y auditoría pintaban
+   "vacío" con 3 turnos en la BD. Es exactamente el patrón de TRN-05
+   (fallo silencioso a cero), yEndpoints que responden bien.
+2. **HTTP 500 en SSR** — `<Button asChild>` interpolaba **dos** hijos en el
+   `Slot` de Radix (`loading && <Loader2/>` cuenta como hijo porque
+   `React.Children.count` no descarta `false`) → *"Slot failed to slot onto its
+   children"* → `/offline` con 500 en build de producción, tolerado en dev.
+   Regresión cubierta en `web/tests/components/button-as-child.test.tsx`.
+   (Mismo modo de fallo, ya arreglado en el mismo sprint: `useSyncExternalStore`
+   sin `getServerSnapshot` en `<ToastViewport/>` → 500 en toda página.)
+
+**Hallazgos colaterales, NO arreglados en T-62** (anotados para triage):
+
+- **CSRF sin cookie**: `@fastify/cookie` no está registrado, así que el hook
+  `_csrf` nunca emite la cookie y toda escritura sin Bearer dies con 403. La UI
+  no lo nota porque manda `Authorization: Bearer` (el hook lo salta), o sea que
+  la protección hoy es accidental, no por diseño. SEG-06 ("CSRF double-submit")
+  debe leerse con esa reserva.
+- **`npm run lint` de `web/` es un script muerto**: `next lint` ya no existe en
+  Next 16 y no hay `eslint` instalado ni config. No hay gate de lint en el front;
+  el de backend (`npx tsc --noEmit`) sí existe.
+- **`scripts/seed-e2e.ts` borra más de lo que dice**: su `limpiar()` elimina
+  clientes, vehículos y OT de *todo* el tenant `demo`, no solo lo `e2e-`. Es
+  seguro contra la BD de pruebas y peligroso si alguien lo apunta a otra.
 
 ---
 

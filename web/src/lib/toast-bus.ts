@@ -69,3 +69,25 @@ export function subscribeToasts(listener: Listener): () => void {
 export function getToastsSnapshot(): ToastMessage[] {
   return toasts;
 }
+
+/**
+ * FIX (T-62) — Snapshot para el render del servidor.
+ *
+ * `<ToastViewport/>` vive en el layout raíz, así que se renderiza en SSR. React
+ * exige `getServerSnapshot` cuando hay contenido renderizado en servidor: sin
+ * este tercer argumento lanza
+ * `Missing getServerSnapshot, which is required for server-rendered content`
+ * y **toda** página responde 500 en build de producción. El dev server lo
+ * tolera revirtiendo a render cliente, por eso solo aparecía al correr contra
+ * `next start`.
+ *
+ * Los toasts son estado efímero del cliente: en el servidor siempre están
+ * vacíos. La referencia debe ser la MISMA en cada llamada —React compara por
+ * identidad y un array nuevo en cada render provocaría un bucle de
+ * hidratación— por eso es una constante a nivel de módulo, no un literal.
+ */
+const EMPTY_TOASTS: ToastMessage[] = [];
+
+export function getToastsServerSnapshot(): ToastMessage[] {
+  return EMPTY_TOASTS;
+}

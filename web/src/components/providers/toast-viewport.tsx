@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import {
   subscribeToasts,
   getToastsSnapshot,
+  getToastsServerSnapshot,
   dismissToast,
   type ToastMessage,
 } from "@/lib/toast-bus";
@@ -34,7 +35,14 @@ const KIND_ICON: Record<ToastMessage["kind"], string> = {
 };
 
 export function ToastViewport() {
-  const toasts = useSyncExternalStore(subscribeToasts, getToastsSnapshot);
+  // FIX (T-62) — el tercer argumento es `getServerSnapshot`: este componente se
+  // renderiza en SSR (layout raíz) y React lo exige. Sin él, toda página
+  // devuelve 500 en build de producción. Ver `lib/toast-bus.ts`.
+  const toasts = useSyncExternalStore(
+    subscribeToasts,
+    getToastsSnapshot,
+    getToastsServerSnapshot,
+  );
 
   if (toasts.length === 0) return null;
 

@@ -48,6 +48,28 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     const isIconSize = size === "icon" || size === "icon-sm";
 
+    // FIX (T-62) — `asChild` delega en el `Slot` de Radix, que exige UN SOLO
+    // hijo y cuenta con `React.Children.count`, que no descarta `null` ni
+    // `false`. Antes este bloque siempre interpolaba DOS expresiones
+    // (`{loading && <Loader2/>}` y `{... && children}`), así que el `Slot`
+    // recibía 2 hijos y tiraba
+    // "Slot failed to slot onto its children" en el render de servidor: la
+    // página `/offline` respondía HTTP 500 con cualquier estado de la conexión.
+    // Con `asChild` el spinner no cabe (sería un hijo más): se omite y queda
+    // `aria-busy` para comunicar el estado.
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          aria-busy={loading || undefined}
+          {...props}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}

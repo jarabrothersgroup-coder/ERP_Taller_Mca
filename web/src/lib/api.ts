@@ -1207,12 +1207,14 @@ export const api = {
 
   /* ── Analytics ─────────────────────────────── */
 
-  getAnalyticsKpis: (from?: string, to?: string) => {
+  getAnalyticsKpis: async (from?: string, to?: string) => {
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
     const q = qs.toString();
-    return request<KpisResponse>(`/analytics/kpis${q ? `?${q}` : ""}`);
+    return toKpisResponse(
+      await request<KpisAggregateResponse>(`/analytics/kpis${q ? `?${q}` : ""}`),
+    );
   },
 
   getAnalyticsTrends: (type: "revenue" | "ots", from?: string, to?: string) => {
@@ -1713,6 +1715,59 @@ export interface KpisResponse {
   avgOrderValue: KpiMetric;
   completionRate: KpiMetric;
   range: { from: string; to: string };
+}
+
+/** Backend aggregate shape: { kpis: KpiItem[], range } (T-62) */
+export interface KpiItem {
+  label: string;
+  value: number;
+  unit: string;
+  change?: number;
+  trend?: "up" | "down" | "flat";
+}
+
+export interface KpisAggregateResponse {
+  kpis: KpiItem[];
+  range: { from: string; to: string };
+}
+
+function toKpisResponse(agg: KpisAggregateResponse): KpisResponse {
+  const byLabel = (label: string) => agg.kpis.find((k) => k.label === label);
+  const r = byLabel("Ingresos") || byLabel("Ingresos Totales") || byLabel("Revenue");
+  const o = byLabel("Órdenes de Trabajo") || byLabel("OTs") || byLabel("Órdenes");
+  const a = byLabel("Ticket Promedio") || byLabel("Avg Order Value");
+  const c = byLabel("Tasa de Finalización") || byLabel("Finalización");
+
+  const changeToPrev = (v: number, ch?: number) => {
+    if (!ch || ch === 0) return 0;
+    // previous = current / (1 + ch/100)
+    const prev = ch > -100 ? v / (1 + ch / 100) : v - v * (ch / 100);
+    return Math.round(prev);
+  };
+
+  return {
+    revenue: {
+      current: r?.value ?? 0,
+      previous: changeToPrev(r?.value ?? 0, r?.change),
+      change: r?.change ?? 0,
+    },
+    orderCount: {
+      current: o?.value ?? 0,
+      previous: changeToPrev(o?.value ?? 0, o?.change),
+      change: o?.change ?? 0,
+    },
+    avgOrderValue: {
+      current: a?.value ?? 0,
+      previous: changeToPrev(a?.value ?? 0, a?.change),
+      change: a?.change ?? 0,
+    },
+    completionRate: {
+      current: c?.value ?? 0,
+      previous: changeToPrev(c?.value ?? 0, c?.change),
+      change: c?.change ?? 0,
+    },
+    range: agg.range,
+  };
 }
 
 export interface AnalyticsKpis {
