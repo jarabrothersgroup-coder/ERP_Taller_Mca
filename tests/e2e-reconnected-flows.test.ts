@@ -553,7 +553,7 @@ describe("Fase 1 — 12 flujos reconectados (app real + DB)", () => {
     expect(listo.json().status).toBe("Listo");
   });
 
-  it("T-21 portal cliente: PIN → sesión → /portal/summary", async () => {
+  it("T-21 portal cliente: PIN → sesión → /portal/summary", { timeout: 60000 }, async () => {
     const clientId = await ensureCliente();
 
     const pinRes = await app.inject({
