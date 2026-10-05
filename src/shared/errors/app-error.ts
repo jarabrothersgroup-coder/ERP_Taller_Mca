@@ -55,6 +55,13 @@ export class ConflictError extends AppError {
   }
 }
 
+/** 413 Payload Too Large */
+export class PayloadTooLargeError extends AppError {
+  constructor(message = "Payload too large") {
+    super(message, 413);
+  }
+}
+
 /** 422 Unprocessable Entity — validation errors */
 export class ValidationError extends AppError {
   public readonly details: Record<string, string[]>;

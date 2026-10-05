@@ -16,6 +16,7 @@ import {
 } from "../../../shared/storage/local-storage.js";
 import ExifTransformer from "exif-be-gone";
 import { Readable } from "node:stream";
+import { BadRequestError, PayloadTooLargeError } from "../../../shared/errors/app-error.js";
 
 // ─── Types ────────────────────────────────────
 
@@ -119,14 +120,20 @@ export async function uploadIngresoPhoto(params: {
 }): Promise<PhotoUploadResult> {
   const { tenantSlug, ingresoId, photoId, fileBuffer, contentType, filename } = params;
 
+  // Errores de validación del lado del cliente: BadRequestError/PayloadTooLargeError
+  // (AppError) en vez de Error plano. Con `Error`, el error handler global los
+  // mapeaba a 500 — un archivo disfrazado respondía "Internal Server Error" y
+  // el cliente no tenía forma de saber que debía corregir el upload.
   if (!ALLOWED_TYPES.includes(contentType)) {
-    throw new Error(`Tipo de archivo no permitido: ${contentType}`);
+    throw new BadRequestError(`Tipo de archivo no permitido: ${contentType}`);
   }
   if (fileBuffer.length > MAX_FILE_SIZE) {
-    throw new Error(`Archivo excede el límite de ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    throw new PayloadTooLargeError(
+      `Archivo excede el límite de ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+    );
   }
   if (!validateMagicBytes(fileBuffer, contentType)) {
-    throw new Error(
+    throw new BadRequestError(
       `El archivo no coincide con el tipo declarado (${contentType}).`,
     );
   }

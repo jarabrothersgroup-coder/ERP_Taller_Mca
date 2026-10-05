@@ -91,6 +91,11 @@ export async function buildApp() {
     maxAge: 86400, // Preflight cache: 24 hours
   });
 
+  await app.register((await import("@fastify/cookie")).default, {
+    secret: process.env.COOKIE_SECRET || env.JWT_SECRET || "dev-cookie-secret-change-in-prod",
+    parseOptions: {},
+  });
+
   // ─── Security Headers (Helmet + Custom) ──────
   // BAJO-06 FIX: Re-enable Helmet with selective overrides
   try {

@@ -435,6 +435,12 @@ async function processRepuestoItem(
         costoPromedio: String(valorEstimadoMercado), // Initial PPP
         precioVenta: null, // User must set selling price later
         activo: true,
+        // Sin esta línea el INSERT caía en el DEFAULT de la columna
+        // (`tenant_slug text NOT NULL DEFAULT 'demo'`): la carga inicial de un
+        // tenant creaba el repuesto en 'demo', invisible para quien lo cargó y
+        // visible para cualquier taller del tenant demo. Es decir, el flujo de
+        // puesta en marcha escribía stock en el tenant equivocado.
+        tenantSlug,
       })
       .returning();
 

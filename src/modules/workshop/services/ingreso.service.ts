@@ -63,11 +63,11 @@ export async function guardarChecklist(
     .insert(ingresoChecklist)
     .values({
       ingresoId,
-      panels: JSON.stringify(checklist.panels),
-      neumaticos: JSON.stringify(checklist.neumaticos),
+      panels: checklist.panels as any,
+      neumaticos: checklist.neumaticos as any,
       nivelCombustibleExacto: String(checklist.nivelCombustibleExacto),
       kilometrajeFoto: checklist.kilometrajeFoto,
-      accesorios: JSON.stringify(checklist.accesorios),
+      accesorios: checklist.accesorios as any,
       observacionesCliente: checklist.observacionesCliente ?? null,
       firmaCliente: checklist.firmaCliente ?? null,
       firmaClienteNombre: checklist.firmaClienteNombre ?? null,
@@ -78,11 +78,11 @@ export async function guardarChecklist(
     .onConflictDoUpdate({
       target: ingresoChecklist.ingresoId,
       set: {
-        panels: JSON.stringify(checklist.panels),
-        neumaticos: JSON.stringify(checklist.neumaticos),
+        panels: checklist.panels as any,
+        neumaticos: checklist.neumaticos as any,
         nivelCombustibleExacto: String(checklist.nivelCombustibleExacto),
         kilometrajeFoto: checklist.kilometrajeFoto,
-        accesorios: JSON.stringify(checklist.accesorios),
+        accesorios: checklist.accesorios as any,
         observacionesCliente: checklist.observacionesCliente ?? null,
         firmaCliente: checklist.firmaCliente ?? null,
         firmaClienteNombre: checklist.firmaClienteNombre ?? null,
@@ -130,7 +130,13 @@ export async function guardarFirmaRetiro(
   firma: string,
   nombre: string,
 ): Promise<{ success: boolean }> {
-  await db()
+  // El UPDATE filtra sólo por ingreso_id y devolvía { success: true }
+  // incondicionalmente: si el ingreso no tenía checklist, el statement
+  // afectaba 0 filas y la API respondía 200 "guardado" sin haber escrito nada.
+  // En el flujo de recepción eso es peor que un error — la receptionista veía
+  // la firma aceptada y el taller entregaba el vehículo sin registro.
+  // Se usa returning() para distinguir "actualizado" de "no había fila".
+  const [updated] = await db()
     .update(ingresoChecklist)
     .set({
       firmaRetiro: firma,
@@ -138,7 +144,14 @@ export async function guardarFirmaRetiro(
       firmaRetiroTimestamp: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(ingresoChecklist.ingresoId, ingresoId));
+    .where(eq(ingresoChecklist.ingresoId, ingresoId))
+    .returning({ id: ingresoChecklist.id });
+
+  if (!updated) {
+    throw new NotFoundError(
+      `Ingreso ${ingresoId} no tiene checklist: no se puede registrar la firma de retiro`,
+    );
+  }
 
   return { success: true };
 }

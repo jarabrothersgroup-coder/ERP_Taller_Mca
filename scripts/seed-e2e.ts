@@ -159,18 +159,40 @@ async function upsertAdmin(tenantId: string) {
   return created.id;
 }
 
-/** Borra solo las filas de este seed, en orden de FK. */
-async function limpiar(tenantId: string, clientIds: string[], vehicleIds: string[]) {
-  await db().delete(ordenesTrabajo).where(eq(ordenesTrabajo.tenantSlug, TENANT_SLUG));
+/** Borra solo las filas creadas por este seed (marcadas con E2E-*). */
+async function limpiar(_tenantId: string, _clientIds: string[], _vehicleIds: string[]) {
+  // Ordenes de trabajo asociadas a vehículos con chapa E2E-*
+  await db()
+    .delete(ordenesTrabajo)
+    .where(
+      and(
+        eq(ordenesTrabajo.tenantSlug, TENANT_SLUG),
+        exists(
+          db()
+            .select({ id: vehiculos.id })
+            .from(vehiculos)
+            .where(
+              and(
+                eq(vehiculos.id, ordenesTrabajo.vehiculoId),
+                like(vehiculos.chapa, `${MARK}%`),
+              ),
+            ),
+        ),
+      ),
+    );
 
-  // `inArray` no acepta listas vacías, así que se recurre a un predicado
-  // siempre falso: no borrar filas si este seed nunca corrió en el tenant.
+  // Vehículos con chapa E2E-*
   await db()
     .delete(vehiculos)
-    .where(vehicleIds.length > 0 ? inArray(vehiculos.id, vehicleIds) : sql`false`);
-  await db()
-    .delete(clients)
-    .where(clientIds.length > 0 ? inArray(clients.id, clientIds) : sql`false`);
+    .where(and(eq(vehiculos.tenantSlug, TENANT_SLUG), like(vehiculos.chapa, `${MARK}%`)));
+
+  // Clientes con emails de este seed
+  const clientEmails = CLIENTS.map((c) => c.email);
+  if (clientEmails.length > 0) {
+    await db()
+      .delete(clients)
+      .where(and(eq(clients.tenantSlug, TENANT_SLUG), inArray(clients.email, clientEmails)));
+  }
 
   await db()
     .delete(agendamientos)
@@ -184,7 +206,7 @@ async function limpiar(tenantId: string, clientIds: string[], vehicleIds: string
     .delete(payrollSummary)
     .where(
       and(
-        eq(payrollSummary.tenantId, tenantId),
+        eq(payrollSummary.tenantId, _tenantId),
         eq(payrollSummary.month, new Date().getMonth() + 1),
         eq(payrollSummary.year, new Date().getFullYear()),
       ),
