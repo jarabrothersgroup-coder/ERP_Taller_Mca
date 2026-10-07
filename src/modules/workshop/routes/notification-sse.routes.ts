@@ -31,7 +31,10 @@ export async function notificationSseRoutes(app: FastifyInstance): Promise<void>
    *   tenant — tenant slug (required)
    *   user   — user email (optional, for targeted notifications)
    */
-  app.get(`${prefix}/stream`, async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get(`${prefix}/stream`, { config: { reserveDb: false } }, async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
     const tenantSlug = (request.query as any).tenant ||
       request.tenantSlug || "";
 

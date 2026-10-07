@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./auth.setup";
+import { loginAsAdmin, getApiAuthHeaders, BACKEND_URL } from "./auth.setup";
 
 /**
  * T-62 — Calendario end-to-end con asserts de DATOS.
@@ -82,6 +82,26 @@ test.describe("Calendario — crear y verificar turno", () => {
     await loginAsAdmin(page);
   });
 
+  /**
+   * Idempotencia (deuda del Sprint 105 cerrada): no hay DELETE de
+   * agendamientos, así que el turno creado se pasa a CANCELADO por
+   * `PATCH /scheduling/appointments/:id` tras el test. La fila queda en la
+   * lista (con badge "Cancelado"), pero el assert del test anterior se ancla
+   * a fecha + badge "Reservado", así que los restos de corridas previas del
+   * mismo día no vuelven a contar.
+   */
+  let creadoId: string | null = null;
+
+  test.afterEach(async ({ request }) => {
+    if (!creadoId) return;
+    const headers = await getApiAuthHeaders(request);
+    await request.patch(`${BACKEND_URL}/scheduling/appointments/${creadoId}`, {
+      headers,
+      data: { estado: "CANCELADO" },
+    });
+    creadoId = null;
+  });
+
   test("crea un turno desde el diálogo y la fila aparece con sus datos", async ({ page }) => {
     const fecha = futureOpenDay();
 
@@ -95,7 +115,20 @@ test.describe("Calendario — crear y verificar turno", () => {
     await dialog.locator("#ap-vehiculo").selectOption({ label: VEHICULO });
     await dialog.locator("#ap-fecha").fill(fecha);
     await dialog.locator("#ap-hora-inicio").fill(HORA);
+
+    // Capturo el POST real de la UI: el backend responde 201 con `{ success,
+    // id, estado }` (ver scheduling.routes.ts). El id alimenta el cleanup del
+    // afterEach.
+    const postAppt = page.waitForResponse(
+      (r) =>
+        r.url().includes("/scheduling/appointments") &&
+        r.request().method() === "POST" &&
+        r.status() === 201,
+      { timeout: 15000 },
+    );
     await dialog.getByRole("button", { name: "Agendar Turno" }).click();
+    const apptResp = await postAppt;
+    creadoId = ((await apptResp.json()) as { id?: string }).id ?? null;
 
     // El toast sólo aparece si el POST devolvió 2xx: sin `Authorization` el
     // guard de CSRF responde 403 y el diálogo pinta el error inline.
@@ -106,10 +139,16 @@ test.describe("Calendario — crear y verificar turno", () => {
     await page.getByRole("button", { name: "Lista" }).click();
     await page.getByPlaceholder("Buscar cliente, chapa o teléfono…").fill(CHAPA);
 
-    // Ancla por fecha: es lo único que no comparte fila con los turnos del seed.
+    // Ancla por fecha + badge "Reservado": la fecha distingue al turno de los
+    // del seed (offsets +1..+3 vs futureOpenDay ≥ +4, salteando domingos), y el
+    // filtro de estado deja fuera los CANCELADO de corridas previas del mismo
+    // día (no hay DELETE: ver afterEach).
     // `tbody tr` y no `getByRole("row")`: `DataTable` marca cada `<tr>` de datos
     // con `role="button"` cuando hay `onRowClick`, y eso les quita el rol `row`.
-    const row = page.locator("tbody tr").filter({ hasText: fecha });
+    const row = page
+      .locator("tbody tr")
+      .filter({ hasText: fecha })
+      .filter({ hasText: "Reservado" });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(CLIENTE);
     await expect(row).toContainText(CHAPA);

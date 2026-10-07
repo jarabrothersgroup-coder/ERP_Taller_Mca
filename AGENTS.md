@@ -29,9 +29,9 @@ Located in `.opencode/agents/`:
 
 Current sprint in `engram.json.state.current_sprint` — update after each sprint milestone.
 
-## Tooling (installed, verified 2026-08-16)
+## Tooling (installed, verified 2026-10-06)
 
-- **Web** (`web/`): Next.js 16 (Turbopack), React 19 — `npm run build`, `npm run lint`, `npm run typecheck`, `npm test` (vitest, 111 tests), `npm run test:e2e` (Playwright, 48 tests — run against `next start` production build with `BACKEND_PORT=4000`, not the dev server)
-- **Backend** (root): `npx tsc --noEmit` (typecheck), `npx vitest run` (1780 tests — requires `DATABASE_URL` of a fully-migrated DB, e.g. local `automotiveos` on port 5433 with `sslmode=disable`), `drizzle-kit check`/`migrate` for migrations
+- **Web** (`web/`): Next.js 16 (Turbopack), React 19 — `npm run build`, `npm run lint` (ESLint flat config, gate real: falla solo por errores; baseline 0 errores / 193 warnings), `npm run typecheck`, `npm test` (vitest, 156 tests / 18 files), `npm run test:e2e` (Playwright, 61 tests / 19 specs — corre contra `next start` build de producción con `BACKEND_PORT=4000`, no el dev server; playwright.config levanta backend + web y el globalSetup siembra el dataset determinista)
+- **Backend** (root): `npx tsc --noEmit` (typecheck), `npx vitest run` (2183 tests / 110 files — requiere `DATABASE_URL` de una DB con migraciones completas; la local viva es `erp-audit-pg` = `postgresql://erp_user:***@localhost:5433/automotive_os?sslmode=disable`, ya alineada en `.env`), `drizzle-kit check`/`migrate` para migraciones
 - `npm audit` clean (0 vulnerabilities, root + web)
 - Proxy file is `src/proxy.ts` (Next 16 convention, `export const config = { matcher }`), NOT `middleware.ts`

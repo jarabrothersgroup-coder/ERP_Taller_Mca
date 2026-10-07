@@ -38,12 +38,12 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
   app.get("/whatsapp/templates", async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const templates = await listTemplates(tenantSlug);
-    reply.send(templates);
+    return reply.send(templates);
   });
 
   // ── GET /whatsapp/templates/variables — List variables ──
   app.get("/whatsapp/templates/variables", async (_request, reply) => {
-    reply.send(TEMPLATE_VARIABLES);
+    return reply.send(TEMPLATE_VARIABLES);
   });
 
   // ── GET /whatsapp/templates/:key — Get template ──
@@ -52,7 +52,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
     const { key } = request.params as { key: string };
     const template = await getTemplate(tenantSlug, key);
     if (!template) return reply.status(404).send({ error: "Template not found" });
-    reply.send(template);
+    return reply.send(template);
   });
 
   // ── POST /whatsapp/templates — Create/update ──
@@ -73,7 +73,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
     }
 
     const template = await upsertTemplate(tenantSlug, body);
-    reply.status(201).send(template);
+    return reply.status(201).send(template);
   });
 
   // ── DELETE /whatsapp/templates/:key — Delete ──
@@ -81,7 +81,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
     const tenantSlug = request.tenantSlug;
     const { key } = request.params as { key: string };
     await deleteTemplate(tenantSlug, key);
-    reply.send({ success: true });
+    return reply.send({ success: true });
   });
 
   // ── POST /whatsapp/templates/preview — Preview ──
@@ -96,14 +96,14 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
     const preview = previewTemplate(body, sampleData);
     const variables = extractVariables(body);
 
-    reply.send({ preview, variables });
+    return reply.send({ preview, variables });
   });
 
   // ── POST /whatsapp/templates/seed — Seed defaults ──
   app.post("/whatsapp/templates/seed", async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const seeded = await seedDefaultTemplates(tenantSlug);
-    reply.send({ seeded, message: `${seeded} templates created` });
+    return reply.send({ seeded, message: `${seeded} templates created` });
   });
 
   // ── POST /whatsapp/followups — Schedule follow-up ──
@@ -129,7 +129,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
       scheduledAt: new Date(body.scheduledAt),
     });
 
-    reply.status(201).send(followup);
+    return reply.status(201).send(followup);
   });
 
   // ── POST /whatsapp/followups/auto — Schedule auto-follow-up ──
@@ -147,7 +147,7 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
       ...body,
     });
 
-    reply.status(201).send({ scheduled: followups.length, followups });
+    return reply.status(201).send({ scheduled: followups.length, followups });
   });
 
   // ── GET /whatsapp/followups — List follow-ups ──
@@ -165,14 +165,14 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
       limit: limit ? parseInt(limit, 10) : undefined,
     });
 
-    reply.send(followups);
+    return reply.send(followups);
   });
 
   // ── GET /whatsapp/followups/stats — Stats ──
   app.get("/whatsapp/followups/stats", async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const stats = await getFollowupStats(tenantSlug);
-    reply.send(stats);
+    return reply.send(stats);
   });
 
   // ── POST /whatsapp/followups/:id/cancel — Cancel ──
@@ -180,12 +180,12 @@ export async function whatsappTemplateRoutes(app: FastifyInstance): Promise<void
     const tenantSlug = request.tenantSlug;
     const { id } = request.params as { id: string };
     await cancelFollowup(id, tenantSlug);
-    reply.send({ success: true });
+    return reply.send({ success: true });
   });
 
   // ── POST /whatsapp/followups/process — Process due ──
   app.post("/whatsapp/followups/process", async (_request, reply) => {
     const processed = await processDueFollowups();
-    reply.send({ processed });
+    return reply.send({ processed });
   });
 }

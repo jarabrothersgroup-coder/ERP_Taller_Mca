@@ -674,8 +674,8 @@ async function broadcastToScreens(orderId: string, status: string): Promise<void
 
   const [orden] = await db()
     .select({
-      vehiculoModelo: sql<string>`COALESCE(v.brand || ' ' || v.model, 'Desconocido')`,
-      plate: sql<string>`v.plate`,
+      vehiculoModelo: sql<string>`COALESCE(${vehiculos.brand} || ' ' || ${vehiculos.model}, 'Desconocido')`,
+      plate: sql<string>`${vehiculos.plate}`,
       hvAlert: ordenesTrabajo.hvAlert,
       dtcCodes: ordenesTrabajo.dtcCodes,
     })

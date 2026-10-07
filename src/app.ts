@@ -96,6 +96,14 @@ export async function buildApp() {
     parseOptions: {},
   });
 
+  // ─── WebSocket (root scope) ─────────────────────────────────────
+  // DEBE registrarse AQUÍ y no dentro de un módulo: el plugin envuelve las
+  // rutas vía onRoute, y ese hook sólo aplica a su propio scope + hijos.
+  // Registrado dentro de visual/plugin.ts sólo /api/v1/visual/stream hacía
+  // handshake; /ws/notifications y /ws/financial-dashboard (scopes hermanos)
+  // se resolvían como HTTP normal y devolvían 500 en el connect.
+  await app.register((await import("@fastify/websocket")).default);
+
   // ─── Security Headers (Helmet + Custom) ──────
   // BAJO-06 FIX: Re-enable Helmet with selective overrides
   try {

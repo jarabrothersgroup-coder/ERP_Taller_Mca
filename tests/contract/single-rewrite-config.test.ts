@@ -56,11 +56,29 @@ describe("T-01 config única de rewrites", () => {
   });
 
   it("web/next.config.mjs sigue siendo una config de rewrites completa", async () => {
+    // Next acepta dos formas de retorno: array plano o objeto por secciones
+    // { beforeFiles, afterFiles, fallback }. El portal usa la forma por
+    // secciones desde Sprint 105: el rewrite /portal/:path* vive en `fallback`
+    // para que las páginas dinámicas de Next (/portal/auth/magic/:token,
+    // /portal/ordenes/:id) ganen sobre el proxy (con afterFiles el backend
+    // devolvía JSON crudo donde iba HTML).
+    type RewriteRule = { source: string; destination: string };
+    type RewritesReturn =
+      | RewriteRule[]
+      | {
+          beforeFiles?: RewriteRule[];
+          afterFiles?: RewriteRule[];
+          fallback?: RewriteRule[];
+        };
+
     const config = (await import(
       pathToFileURL(path.join(ROOT, "web", "next.config.mjs")).href
-    )) as { default: { rewrites(): Promise<{ source: string; destination: string }[]> } };
+    )) as { default: { rewrites(): Promise<RewritesReturn> } };
 
-    const rewrites = await config.default.rewrites();
+    const raw = await config.default.rewrites();
+    const rewrites: RewriteRule[] = Array.isArray(raw)
+      ? raw
+      : [...(raw.beforeFiles ?? []), ...(raw.afterFiles ?? []), ...(raw.fallback ?? [])];
     expect(rewrites.length).toBeGreaterThanOrEqual(20);
 
     // Todo rewrite debe apuntar al backend (mismo path), nunca a un path de Next.

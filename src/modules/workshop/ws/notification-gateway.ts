@@ -30,7 +30,10 @@ const clients: Map<WebSocket, WSClient> = new Map();
  * Register notification WebSocket endpoint.
  */
 export async function registerNotificationWS(app: FastifyInstance): Promise<void> {
-  app.get("/ws/notifications", { websocket: true }, (socket, req) => {
+  app.get("/ws/notifications", { websocket: true, config: { reserveDb: false } }, (
+    socket,
+    req,
+  ) => {
     const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     const tenantSlug = url.searchParams.get("tenant") || "";
     const userEmail = url.searchParams.get("user") || "";

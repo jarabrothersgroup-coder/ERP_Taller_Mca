@@ -23,8 +23,12 @@ export default function MagicLinkAuthPage() {
 
     const validate = async () => {
       try {
+        // Alias /portal/api/*: la página y la API comparten el path
+        // `/portal/auth/magic/:token`; si el fetch pegara al mismo path, la
+        // ruta de Next ganaría (sección `fallback` del rewrite) y el cliente
+        // recibiría HTML en vez de JSON.
         const result = await api.request<{ session: string; client: { name: string; email: string } }>(
-          `/portal/auth/magic/${token}`,
+          `/portal/api/auth/magic/${token}`,
         );
 
         if (result.session) {

@@ -93,6 +93,16 @@ const ENABLE_MOCKS = process.env["NEXT_PUBLIC_ENABLE_MOCKS"] === "true";
 const T54_MAX_LIMIT = 100;
 
 /**
+ * D1 — Tamaño de página para la paginación server-side real.
+ *
+ * `T54_MAX_LIMIT` (100) era el techo del endpoint, no una página: pedía 100
+ * filas y las paginaba en el cliente, con lo que los registros 101+ eran
+ * inalcanzables. Con paginación real cada request pide `T54_PAGE_SIZE` y el
+ * `page` viaja en la query, así que el techo deja de ser un techo.
+ */
+const T54_PAGE_SIZE = 25;
+
+/**
  * Tries an API call. Behavior depends on environment:
  *
  * - **Development** (NEXT_PUBLIC_ENABLE_MOCKS=true): Falls back to mock data on error
@@ -383,6 +393,83 @@ export async function fetchVehicles(
 
   if (source === "api") {
     console.log("[data-service] Using live API data for vehicles");
+  }
+  return data;
+}
+
+/** Envelope de paginación que devuelve `GET /workshop/vehiculos`. */
+export interface VehiclesPage {
+  items: UIMappedVehicle[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * D1 — Variante paginada de `fetchVehicles` que preserva el envelope del
+ * backend (`{ items, total, page, limit, totalPages }`).
+ *
+ * `fetchVehicles` pide hasta `T54_MAX_LIMIT` filas y pagina en el cliente, así
+ * que los registros 101+ son inalcanzables. Esta función pide una página de
+ * `T54_PAGE_SIZE` y deja que el `DataTable` navegue con `total`/`totalPages`.
+ *
+ * @param params - Filtros server-side (`search`, `brand`, `engineType`) + `page` (base 1)
+ */
+export async function fetchVehiclesPage(
+  getMockVehicles: () => UIMappedVehicle[],
+  tenantSlug?: string,
+  params?: { search?: string; brand?: string; engineType?: string; page?: number },
+): Promise<VehiclesPage> {
+  const page = params?.page && params.page > 0 ? params.page : 1;
+  const qs = new URLSearchParams({
+    limit: String(T54_PAGE_SIZE),
+    page: String(page),
+  });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.brand) qs.set("brand", params.brand);
+  if (params?.engineType) qs.set("engineType", params.engineType);
+  const hasFilter = Boolean(params?.search || params?.brand || params?.engineType);
+
+  const { data, source } = await fetchOrMock<VehiclesPage>(
+    async (slug, token) => {
+      const res = await fetch(`/workshop/vehiculos?${qs.toString()}`, {
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? [];
+      const total = typeof json.total === "number" ? json.total : items.length;
+      const totalPages =
+        typeof json.totalPages === "number"
+          ? json.totalPages
+          : Math.max(1, Math.ceil(total / T54_PAGE_SIZE));
+      return {
+        items: items.map(mapVehicleFromApi),
+        total,
+        page: typeof json.page === "number" ? json.page : page,
+        totalPages,
+      };
+    },
+    () => {
+      const all = getMockVehicles();
+      const start = (page - 1) * T54_PAGE_SIZE;
+      const items = all.slice(start, start + T54_PAGE_SIZE);
+      return {
+        items,
+        total: all.length,
+        page,
+        totalPages: Math.max(1, Math.ceil(all.length / T54_PAGE_SIZE)),
+      };
+    },
+  );
+
+  // Mismo criterio que `fetchClientsPage`: con filtro activo y API caída, un
+  // mock no respeta el filtro del servidor, así que se muestra vacío.
+  if (source === "mock" && hasFilter) {
+    return { items: [], total: 0, page, totalPages: 1 };
+  }
+  if (source === "api") {
+    console.log("[data-service] Using live API data for vehicles (paged)");
   }
   return data;
 }
@@ -891,6 +978,87 @@ export async function fetchClients(
   return data;
 }
 
+/** Envelope de paginación que devuelve `GET /workshop/clientes`. */
+export interface ClientsPage {
+  items: UIMappedClient[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * D1/T-54 — Variante paginada de `fetchClients` que preserva el envelope del
+ * backend (`{ items, total, page, limit, totalPages }`) en vez de descartarlo.
+ *
+ * `fetchClients` devuelve solo el array mapeado, así que el `DataTable` acaba
+ * paginando sobre los primeros `T54_MAX_LIMIT` registros: con más de 100
+ * clientes las páginas siguientes nunca se piden al servidor. Esta función
+ * expone `total`/`totalPages` para que la tabla pueda saltar de página y el
+ * `page` viajar en la query.
+ *
+ * @param getMockClients - Factory de mocks (solo se usa si la API no responde)
+ * @param tenantSlug - Slug del tenant (por defecto, la sesión o "demo")
+ * @param params - Filtros server-side (`search`) + `page` (base 1)
+ * @returns Página de clientes con los metadatos de paginación del backend
+ */
+export async function fetchClientsPage(
+  getMockClients: () => UIMappedClient[],
+  tenantSlug?: string,
+  params?: { search?: string; page?: number },
+): Promise<ClientsPage> {
+  const page = params?.page && params.page > 0 ? params.page : 1;
+  const qs = new URLSearchParams({
+    limit: String(T54_PAGE_SIZE),
+    page: String(page),
+  });
+  if (params?.search) qs.set("search", params.search);
+  const hasFilter = Boolean(params?.search);
+
+  const { data, source } = await fetchOrMock<ClientsPage>(
+    async (slug, token) => {
+      const res = await fetch(`/workshop/clientes?${qs.toString()}`, {
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? [];
+      const total = typeof json.total === "number" ? json.total : items.length;
+      const totalPages =
+        typeof json.totalPages === "number"
+          ? json.totalPages
+          : Math.max(1, Math.ceil(total / T54_PAGE_SIZE));
+      return {
+        items: items.map(mapClientFromApi),
+        total,
+        page: typeof json.page === "number" ? json.page : page,
+        totalPages,
+      };
+    },
+    () => {
+      const all = getMockClients();
+      const start = (page - 1) * T54_PAGE_SIZE;
+      const items = all.slice(start, start + T54_PAGE_SIZE);
+      return {
+        items,
+        total: all.length,
+        page,
+        totalPages: Math.max(1, Math.ceil(all.length / T54_PAGE_SIZE)),
+      };
+    },
+  );
+
+  // Con un filtro activo y la API caída, el mock no aplica el filtro: mostrar
+  // la lista completa sería peor que mostrar vacío (mismo criterio que
+  // `fetchClients`, que devuelve `[]` en ese caso).
+  if (source === "mock" && hasFilter) {
+    return { items: [], total: 0, page, totalPages: 1 };
+  }
+  if (source === "api") {
+    console.log("[data-service] Using live API data for clients (paged)");
+  }
+  return data;
+}
+
 /**
  * Fetches work orders from the API with fallback to mock data.
  *
@@ -928,6 +1096,82 @@ export async function fetchWorkOrders(
 
   if (source === "api") {
     console.log("[data-service] Using live API data for work orders");
+  }
+  return data;
+}
+
+/** Envelope de paginación que devuelve `GET /workshop/ordenes`. */
+export interface WorkOrdersPage {
+  items: UIMappedWorkOrder[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * D1 — Variante paginada de `fetchWorkOrders` que preserva el envelope del
+ * backend (`{ items, total, page, limit, totalPages }`).
+ *
+ * `fetchWorkOrders` pide hasta `T54_MAX_LIMIT` filas y pagina en el cliente,
+ * así que las órdenes 101+ son inalcanzables. Esta función pide una página de
+ * `T54_PAGE_SIZE` y deja que el `DataTable` navegue con `total`/`totalPages`.
+ *
+ * @param params - Filtros server-side (`search`, `status`) + `page` (base 1)
+ */
+export async function fetchWorkOrdersPage(
+  getMockOrders: () => UIMappedWorkOrder[],
+  tenantSlug?: string,
+  params?: { search?: string; status?: string; page?: number },
+): Promise<WorkOrdersPage> {
+  const page = params?.page && params.page > 0 ? params.page : 1;
+  const qs = new URLSearchParams({
+    limit: String(T54_PAGE_SIZE),
+    page: String(page),
+  });
+  if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
+  const hasFilter = Boolean(params?.search || params?.status);
+
+  const { data, source } = await fetchOrMock<WorkOrdersPage>(
+    async (slug, token) => {
+      const res = await fetch(`/workshop/ordenes?${qs.toString()}`, {
+        headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const items: Record<string, unknown>[] = json.items ?? [];
+      const total = typeof json.total === "number" ? json.total : items.length;
+      const totalPages =
+        typeof json.totalPages === "number"
+          ? json.totalPages
+          : Math.max(1, Math.ceil(total / T54_PAGE_SIZE));
+      return {
+        items: items.map((item, i) => mapWorkOrderFromApi(item, i)),
+        total,
+        page: typeof json.page === "number" ? json.page : page,
+        totalPages,
+      };
+    },
+    () => {
+      const all = getMockOrders();
+      const start = (page - 1) * T54_PAGE_SIZE;
+      const items = all.slice(start, start + T54_PAGE_SIZE);
+      return {
+        items,
+        total: all.length,
+        page,
+        totalPages: Math.max(1, Math.ceil(all.length / T54_PAGE_SIZE)),
+      };
+    },
+  );
+
+  // Mismo criterio que `fetchClientsPage`: con filtro activo y API caída, un
+  // mock no respeta el filtro del servidor, así que se muestra vacío.
+  if (source === "mock" && hasFilter) {
+    return { items: [], total: 0, page, totalPages: 1 };
+  }
+  if (source === "api") {
+    console.log("[data-service] Using live API data for work orders (paged)");
   }
   return data;
 }

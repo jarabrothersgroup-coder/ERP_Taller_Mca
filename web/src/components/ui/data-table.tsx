@@ -81,6 +81,17 @@ interface DataTableProps<T> {
   onSearchChange?: (value: string) => void;
   /** Total number of items (for server-side pagination) */
   totalItems?: number;
+  /**
+   * D1 — Los datos received YA vienen paginados del servidor.
+   *
+   * Cuando es `true` la tabla no hace `slice()` (la página llegó completa) y
+   * usa `totalPages` del backend en vez de recalcularlo. Sin este flag, pasar
+   * `totalItems` + `page` controladas recorta la página ya paginada y deja las
+   * páginasadvanced inaccesibles.
+   */
+  serverSide?: boolean;
+  /** `totalPages` reportado por el backend (solo con `serverSide`) */
+  totalPages?: number;
   /** Additional wrapper class name */
   className?: string;
   /** Compact mode */
@@ -290,6 +301,8 @@ function DataTable<T extends Record<string, any>>({
   searchValue,
   onSearchChange,
   totalItems: externalTotalItems,
+  serverSide = false,
+  totalPages: externalTotalPages,
   className,
   compact = false,
   stickyHeader = false,
@@ -346,10 +359,17 @@ function DataTable<T extends Record<string, any>>({
 
   // Client-side pagination
   const totalItems = externalTotalItems ?? sortedData.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const paginatedData = paginate
-    ? sortedData.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
-    : sortedData;
+  // D1: en modo `serverSide` el backend ya devolvió una sola página, así que
+  // `totalPages` es el que reporta el servidor y NO se recalcula con
+  // `Math.ceil(total / pageSize)`: hacerlo descartaría los metadatos de
+  // paginación y, peor, `slice()` recortaría la página ya paginada.
+  const totalPages = serverSide
+    ? Math.max(1, externalTotalPages ?? 1)
+    : Math.max(1, Math.ceil(totalItems / pageSize));
+  const paginatedData =
+    paginate && !serverSide
+      ? sortedData.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+      : sortedData;
 
   // Reset page when data changes
   React.useEffect(() => {

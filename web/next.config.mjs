@@ -31,7 +31,9 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    return [
+    return {
+      beforeFiles: [],
+      afterFiles: [
       {
         source: '/api/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/api/:path*`,
@@ -97,10 +99,6 @@ const nextConfig = {
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/enterprise/:path*`,
       },
       {
-        source: '/portal/:path*',
-        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/portal/:path*`,
-      },
-      {
         source: '/import/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/import/:path*`,
       },
@@ -136,7 +134,19 @@ const nextConfig = {
         source: '/security/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/security/:path*`,
       },
-    ];
+      ],
+      // `fallback` se evalúa DESPUÉS de las rutas dinámicas de la app (a
+      // diferencia de `afterFiles`, que las pisa): así los links mágicos del
+      // portal (`/portal/auth/magic/:token`) y `/portal/ordenes/:id` siguen
+      // siendo páginas de Next y no terminan en un JSON crudo del backend.
+      // Todo `/portal/*` que no sea una página sigue yendo al backend.
+      fallback: [
+        {
+          source: '/portal/:path*',
+          destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/portal/:path*`,
+        },
+      ],
+    };
   },
 };
 

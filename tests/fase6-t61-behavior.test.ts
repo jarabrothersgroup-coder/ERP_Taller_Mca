@@ -309,4 +309,21 @@ describe("T-61 · comportamiento de escritura crítica (app.inject)", () => {
     });
     expect(lista.json().some((r: { id: string }) => r.id === id)).toBe(false);
   });
+
+  // ── Sprint 105: consumidor FE real de GET /api/notifications/ws/status ──
+  // notification-bell.js consulta el estado del gateway en el `close` del WS
+  // (la fuente de verdad server-side). Ejercitarlo aquí saca la ruta del balde
+  // "sin test" del guard T-63 — la exclusión de triaje se quitó.
+  it("GET /api/notifications/ws/status devuelve connected + timestamp sin WS abierto", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/notifications/ws/status",
+      headers: auth(),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { connected: number; timestamp: string };
+    expect(typeof body.connected).toBe("number");
+    expect(Number.isNaN(Date.parse(body.timestamp))).toBe(false);
+    expect(body.connected).toBe(0); // este test no abre el WebSocket
+  });
 });

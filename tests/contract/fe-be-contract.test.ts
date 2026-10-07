@@ -258,10 +258,25 @@ describe("T-00 contrato FE ↔ BE", () => {
     fs.rmSync(path.dirname(outfile), { recursive: true, force: true });
 
     // Raíces de API: las de las rutas del backend + las de los rewrites.
+    // next.config.mjs devuelve la forma por secciones de Next
+    // ({ beforeFiles, afterFiles, fallback }) desde Sprint 105 — aplanar.
     const nextConfig = (await import(
       pathToFileURL(path.join(ROOT, "web", "next.config.mjs")).href
-    )) as { default: { rewrites(): Promise<Rewrite[]> } };
-    const rewrites = await nextConfig.default.rewrites();
+    )) as {
+      default: {
+        rewrites(): Promise<
+          Rewrite[] | { beforeFiles?: Rewrite[]; afterFiles?: Rewrite[]; fallback?: Rewrite[] }
+        >;
+      };
+    };
+    const rawRewrites = await nextConfig.default.rewrites();
+    const rewrites: Rewrite[] = Array.isArray(rawRewrites)
+      ? rawRewrites
+      : [
+          ...(rawRewrites.beforeFiles ?? []),
+          ...(rawRewrites.afterFiles ?? []),
+          ...(rawRewrites.fallback ?? []),
+        ];
     rewriteRoots = new Set(rewrites.map((r) => rewriteRoot(r.source)));
 
     const roots = new Set<string>([

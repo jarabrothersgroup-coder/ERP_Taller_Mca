@@ -33,7 +33,7 @@
  * @module shared/middleware/transaction-context
  */
 
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { getDb } from "../database/connection.js";
 import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "../database/schema/index.js";
@@ -52,6 +52,31 @@ export async function registerRequestTransactions(
   app: FastifyInstance,
 ): Promise<void> {
   if (!env.ENABLE_REQUEST_TENANT_CONTEXT) return;
+
+  /**
+   * Reset the tenant setting + release the pinned connection.
+   *
+   * Idempotente por diseño (`released` se marca ANTES de cualquier await, ver
+   * FIX T-61), así que puede invocarse desde varios disparadores — onResponse,
+   * onError y el backstop de `reply.raw` "close" — sin doble release.
+   */
+  const releasePinnedContext = async (ctx: RequestDbContext): Promise<void> => {
+    if (!ctx.tx) return;
+    // FIX (T-61): marcar liberado ANTES de cualquier await. Así, cualquier
+    // `db()` disparado en paralelo (fire-and-forget del handler) cae al pool
+    // compartido en vez de encolarse sobre esta conexión, evitando queries
+    // sobre un handle ya devuelto al pool (desincroniza el protocolo y la
+    // query siguiente nunca recibe respuesta).
+    ctx.released = true;
+    // Hygiene: clear the session setting before the connection returns to the
+    // pool. The next request that reserves it will overwrite it anyway.
+    try {
+      await ctx.tx`SELECT set_config('app.current_tenant', '', false)`;
+    } catch {
+      // Connection may already be closed — nothing to do.
+    }
+    ctx.tx.release();
+  };
 
   // Reserve a dedicated connection + set the tenant context at the start of
   // each request.
@@ -72,7 +97,7 @@ export async function registerRequestTransactions(
   // enter it synchronously, then fill `tx`/`drizzle` after the awaits (the
   // handler runs only after the preHandler fully resolves, so the fields are
   // set).
-  app.addHook("preHandler", async (request: FastifyRequest) => {
+  app.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantSlug = (request as { tenantSlug?: string }).tenantSlug;
     const ctx: RequestDbContext = {
       tx: undefined as never,
@@ -80,6 +105,15 @@ export async function registerRequestTransactions(
       released: false,
     };
     requestDbStorage.enterWith(ctx);
+
+    // Rutas de streaming (SSE / WebSocket): la respuesta se escribe sobre
+    // `reply.raw` o se secuestra con `reply.hijack()`, por lo que Fastify
+    // NUNCA emite `onResponse` y esta conexión quedaría retenida para
+    // siempre. Con un pool de 5 conexiones, cada stream abierto destruye
+    // capacidad hasta que la siguiente request se queda esperando en
+    // `sql.reserve()` sin ninguna actividad visible en Postgres. Estos
+    // handlers no consultan la DB, así que no reservan conexión.
+    if (request.routeOptions?.config?.reserveDb === false) return;
 
     const sql = getDb();
     const conn = await sql.reserve();
@@ -100,26 +134,33 @@ export async function registerRequestTransactions(
     // `transaction()` would throw on this handle. Patch it to drive BEGIN /
     // COMMIT on the pinned connection and to reuse any active transaction.
     patchPinnedTransaction(ctx);
+
+    // FIX (wedge E2E 2026-10-07): si el cliente aborta el request en vuelo
+    // (timeout del test, navegación, page.close()), Fastify NO emite ni
+    // `onResponse` ni `onError`, así que la conexión reservada quedaba
+    // retenida para siempre. Con 5 abortos el pool (max 5) se agotaba y el
+    // backend se wedgeaba: /health responde 401 en ~2ms (el authGate corta
+    // antes del reserve) pero TODO lo demás cuelga en `sql.reserve()` con
+    // Postgres mostrando conns idle y sin lock waits. Repro determinista:
+    // abortar 15 requests paralelas → el siguiente login queda HANG.
+    // `reply.raw` "close" se dispara SIEMPRE (tras respuesta normal Y tras
+    // aborto del socket), y `released` hace el doble release inocuo.
+    reply.raw.once("close", () => {
+      void releasePinnedContext(ctx);
+    });
+
+    // Si el cliente ya había abortado mientras esperábamos `sql.reserve()` /
+    // el set_config, liberamos ya: nadie va a disparar onResponse después.
+    if (reply.raw.destroyed) await releasePinnedContext(ctx);
   });
 
   // Reset the tenant context + release the connection when the request ends.
+  // El release en sí vive en `releasePinnedContext` (idempotente), compartido
+  // con el backstop de aborto del preHandler.
   const releaseContext = async () => {
     const ctx = requestDbStorage.getStore();
     if (!ctx || ctx.released || !ctx.tx) return;
-    // FIX (T-61): marcar liberado ANTES de cualquier await. Así, cualquier
-    // `db()` disparado en paralelo (fire-and-forget del handler) cae al pool
-    // compartido en vez de encolarse sobre esta conexión, evitando queries
-    // sobre un handle ya devuelto al pool (desincroniza el protocolo y la
-    // query siguiente nunca recibe respuesta).
-    ctx.released = true;
-    // Hygiene: clear the session setting before the connection returns to the
-    // pool. The next request that reserves it will overwrite it anyway.
-    try {
-      await ctx.tx`SELECT set_config('app.current_tenant', '', false)`;
-    } catch {
-      // Connection may already be closed — nothing to do.
-    }
-    ctx.tx.release();
+    await releasePinnedContext(ctx);
     requestDbStorage.exit(() => {});
   };
 

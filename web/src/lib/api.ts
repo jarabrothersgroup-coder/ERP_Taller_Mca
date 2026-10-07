@@ -1183,11 +1183,30 @@ export const api = {
 
   /* ── Label Printing ────────────────────────── */
 
-  generateLabel: (body: { type: "repuesto" | "herramienta"; id: string; copies?: number }) =>
-    request<{ success: boolean; label: string }>("/label-printing/generate", {
+  /**
+   * Etiqueta de un repuesto/herramienta → HTML listo para la vista previa.
+   *
+   * Contrato real (T-18): `POST /label-printing/generate` NO acepta
+   * `{type, id}` — pide `{tipo: "REPUESTO"|"HERRAMIENTA", protocolo, data}` y
+   * devolvía 400 ("required property 'tipo'"), así que la página se tragaba el
+   * error y nunca pintaba preview. El flujo correcto son dos pasos: el lookup
+   * por id (`GET /label-printing/:tipo/:id`, devuelve `data`) y el HTML
+   * (`POST /label-printing/preview`).
+   *
+   * `copies` se mantiene en la firma porque la página lo manda; afecta al
+   * payload ESC/POS de impresión, no al preview.
+   */
+  generateLabel: async (body: { type: "repuesto" | "herramienta"; id: string; copies?: number }) => {
+    const tipo = body.type === "repuesto" ? "REPUESTO" : "HERRAMIENTA";
+    const etiqueta = await request<{ data: Record<string, unknown> }>(
+      `/label-printing/${body.type}/${encodeURIComponent(body.id)}`,
+    );
+    const preview = await request<{ html: string }>("/label-printing/preview", {
       method: "POST",
-      body: JSON.stringify(body),
-    }),
+      body: JSON.stringify({ tipo, protocolo: "ESCPOS", data: etiqueta.data }),
+    });
+    return { success: true as const, label: preview.html };
+  },
 
   /** Generate ESC/POS thermal receipt for an invoice */
   printInvoice: (facturaId: string, protocolo: string = "ESCPOS", copias: number = 1) =>

@@ -65,7 +65,15 @@ export default defineConfig({
       // /health responde 401 sin token (protegido a propósito); Playwright
       // considera "listo" cualquier respuesta que no sea conexión rechazada.
       url: `http://localhost:${BACKEND_PORT}/health`,
-      env: { PORT: BACKEND_PORT },
+      env: {
+        PORT: BACKEND_PORT,
+        // El E2E de storage sube archivos de verdad (T-19), así que el backend
+        // de la suite necesita un root escribible: `/data/erp-storage` del
+        // .env no existe en CI ni en una máquina de dev sin el volumen montado.
+        // Si el backend ya está corriendo (reuseExistingServer) ignora esto;
+        // el spec lo detecta y lo salta con el motivo a la vista.
+        STORAGE_PATH: process.env["E2E_STORAGE_PATH"] || "/tmp/erp-e2e-storage",
+      },
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
       stdout: "pipe",

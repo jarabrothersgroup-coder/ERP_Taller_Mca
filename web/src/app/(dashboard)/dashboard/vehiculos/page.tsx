@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
-import { useVehicles } from "@/hooks/use-data";
+import { useVehiclesPage } from "@/hooks/use-data";
 import { ErrorState } from "@/components/ui/error-state";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewVehicleDialog } from "./new-vehicle-dialog";
@@ -180,17 +180,29 @@ export default function VehiclesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // D1: `page` en el estado (base 1) para que la tabla salte de página real,
+  // no de una paginación client-side sobre los primeros 100 registros.
+  const [page, setPage] = React.useState(1);
+  // Una búsqueda nueva puede dejar la página actual fuera de rango.
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
   const {
-    data: rawVehicles = [],
+    data: vehiclesPage,
     isLoading: loading,
     isError,
     error,
     refetch,
-  } = useVehicles({ search: debouncedSearch || undefined });
+  } = useVehiclesPage({ search: debouncedSearch || undefined, page });
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "los vehículos");
   // T-43: ficha de próximos mantenimientos al hacer click en una fila
   const [selectedVehicleId, setSelectedVehicleId] = React.useState<string | null>(null);
+
+  const rawVehicles = vehiclesPage?.items ?? [];
+  const totalItems = vehiclesPage?.total ?? 0;
+  const totalPages = vehiclesPage?.totalPages ?? 1;
 
   // Map API data to local VehicleRecord shape
   const vehicles: VehicleRecord[] = React.useMemo(
@@ -234,7 +246,7 @@ export default function VehiclesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Vehículos</h1>
           <p className="text-sm text-muted-foreground">
-            Registro de vehículos del taller — {vehicles.length} en total
+            Registro de vehículos del taller — {totalItems} en total
           </p>
         </div>
 
@@ -256,7 +268,12 @@ export default function VehiclesPage() {
             : "No hay vehículos registrados. Agregue su primer vehículo."
         }
         paginate
-        pageSize={10}
+        pageSize={25}
+        serverSide
+        totalItems={totalItems}
+        totalPages={totalPages}
+        page={page - 1}
+        onPageChange={(p) => setPage(p + 1)}
         sortable
         searchPlaceholder="Buscar por marca, modelo, placa o VIN…"
         searchValue={search}

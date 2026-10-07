@@ -51,7 +51,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
       getCompletionRateKPI(tenantSlug, range),
     ]);
 
-    reply.send({ kpis: [revenue, ots, avgValue, completion], range });
+    return reply.send({ kpis: [revenue, ots, avgValue, completion], range });
   });
 
   // ── GET /analytics/kpis/revenue ──
@@ -60,7 +60,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getRevenueKPI(tenantSlug, range);
-    reply.send(kpi);
+    return reply.send(kpi);
   });
 
   // ── GET /analytics/kpis/ots ──
@@ -69,7 +69,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getOTCountKPI(tenantSlug, range);
-    reply.send(kpi);
+    return reply.send(kpi);
   });
 
   // ── GET /analytics/kpis/avg-value ──
@@ -78,7 +78,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getAvgOrderValueKPI(tenantSlug, range);
-    reply.send(kpi);
+    return reply.send(kpi);
   });
 
   // ── GET /analytics/kpis/completion ──
@@ -87,7 +87,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const kpi = await getCompletionRateKPI(tenantSlug, range);
-    reply.send(kpi);
+    return reply.send(kpi);
   });
 
   // ── GET /analytics/trends/revenue ──
@@ -96,7 +96,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const trend = await getDailyRevenueTrend(tenantSlug, range);
-    reply.send({ trend, range });
+    return reply.send({ trend, range });
   });
 
   // ── GET /analytics/trends/ots ──
@@ -105,7 +105,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const trend = await getDailyOTTrend(tenantSlug, range);
-    reply.send({ trend, range });
+    return reply.send({ trend, range });
   });
 
   // ── GET /analytics/distribution — Status distribution ──
@@ -114,7 +114,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const distribution = await getOTStatusDistribution(tenantSlug, range);
-    reply.send({ distribution, range });
+    return reply.send({ distribution, range });
   });
 
   // ── GET /analytics/mechanics — Top mechanics ──
@@ -123,7 +123,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
     const { from, to, limit } = (request.query as any) || {};
     const range = from && to ? { from, to } : getDefaultRange();
     const mechanics = await getTopMechanics(tenantSlug, range, limit ? parseInt(limit) : 5);
-    reply.send({ mechanics, range });
+    return reply.send({ mechanics, range });
   });
 
   // ── POST /analytics/report — Custom report ──
@@ -148,7 +148,7 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
       format: config.format as any,
     });
 
-    reply.send(report);
+    return reply.send(report);
   });
 
   // ── POST /analytics/report/csv — Export CSV ──
@@ -184,6 +184,6 @@ export async function analyticsRoutes(app: FastifyInstance): Promise<void> {
 
     reply.header("Content-Type", "text/csv");
     reply.header("Content-Disposition", `attachment; filename="report-${config.type}.csv"`);
-    reply.send(csv);
+    return reply.send(csv);
   });
 }

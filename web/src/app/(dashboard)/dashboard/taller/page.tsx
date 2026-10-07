@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
-import { useWorkOrders } from "@/hooks/use-data";
+import { useWorkOrdersPage } from "@/hooks/use-data";
 import { queryKeys } from "@/hooks/use-data";
 import { ErrorState } from "@/components/ui/error-state";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -34,15 +34,24 @@ export default function WorkshopPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // D1: `page` en el estado (base 1) para que la tabla salte de página real,
+  // no de una paginación client-side sobre los primeros 100 registros.
+  const [page, setPage] = React.useState(1);
+  // Un filtro nuevo (búsqueda o estado) puede dejar la página fuera de rango.
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
   const {
-    data: orders = [],
+    data: ordersPage,
     isLoading: loading,
     isError,
     error,
     refetch,
-  } = useWorkOrders({
+  } = useWorkOrdersPage({
     search: debouncedSearch || undefined,
     status: statusFilter || undefined,
+    page,
   });
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "las órdenes de trabajo");
@@ -59,6 +68,10 @@ export default function WorkshopPage() {
   }
 
   // T-54: el filtrado ocurre en el servidor; la lista ya llega filtrada
+  // (limitada a la página actual de 25 filas — D1).
+  const orders = ordersPage?.items ?? [];
+  const totalItems = ordersPage?.total ?? 0;
+  const totalPages = ordersPage?.totalPages ?? 1;
   const filtered = orders;
 
   // Handle new order created — invalidate cache to refresh list
@@ -136,7 +149,12 @@ export default function WorkshopPage() {
               : "No hay órdenes de trabajo. Cree su primera orden para comenzar."
           }
           paginate
-          pageSize={10}
+          pageSize={25}
+          serverSide
+          totalItems={totalItems}
+          totalPages={totalPages}
+          page={page - 1}
+          onPageChange={(p) => setPage(p + 1)}
           sortable
           searchPlaceholder="Buscar OT, cliente, vehículo o matrícula…"
           searchValue={search}

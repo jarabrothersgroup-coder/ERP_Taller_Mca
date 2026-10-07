@@ -142,12 +142,15 @@ export default function PortalBookingPage() {
       setLoadingAi(true);
       try {
         const sessionToken = getSession();
+        // /portal/summary anida el teléfono en `client.phone` (no en la raíz):
+        // leer `r.phone` dejaba `clientePhone` undefined y las sugerencias
+        // salían siempre anónimas.
         const clientPhone = sessionToken
           ? await api
-              .request<{ phone?: string | null }>("/portal/summary", {
+              .request<{ client?: { phone?: string | null } }>("/portal/summary", {
                 headers: { "X-Portal-Session": sessionToken },
               })
-              .then((r) => r.phone ?? undefined)
+              .then((r) => r.client?.phone ?? undefined)
               .catch(() => undefined)
           : undefined;
 

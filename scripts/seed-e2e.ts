@@ -26,7 +26,7 @@
  * @module scripts/seed-e2e
  */
 
-import { and, eq, inArray, like, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, like, sql } from "drizzle-orm";
 import { db } from "../src/shared/database/drizzle.js";
 import { closeDb } from "../src/shared/database/connection.js";
 import {
@@ -96,6 +96,22 @@ const WORK_ORDERS = [
 const APPOINTMENT_OFFSETS = [1, 2, 3];
 const APPOINTMENT_HOURS = ["09:00", "11:30", "15:00"];
 
+/**
+ * OT con protocolo de alta tensión (EV/HEV) — fixture del E2E de
+ * `sign-lockout` que la app móvil usa.
+ *
+ * Se crea **hace 60 días** (fuera de la ventana de 30 días de
+ * `/analytics/kpis`) para que sumar esta fila no mueva los KPIs de
+ * `analytics-data.spec.ts`: revenue, orderCount y completionRate siguen
+ * saliendo de las 3 OTs normales.
+ */
+const HV_WORK_ORDER = {
+  description: `${MARK}HV lockout`,
+  status: "En_Proceso" as const,
+  totalCost: 0,
+  daysAgo: 60,
+};
+
 function fechaTurno(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -159,8 +175,17 @@ async function upsertAdmin(tenantId: string) {
   return created.id;
 }
 
-/** Borra solo las filas creadas por este seed (marcadas con E2E-*). */
-async function limpiar(_tenantId: string, _clientIds: string[], _vehicleIds: string[]) {
+/**
+ * Borra solo las filas creadas por este seed.
+ *
+ * Alcance acotado (deuda del Sprint 105): si el tenant de E2E es el mismo que
+ * el de una demo o taller real, los únicos datos que se tocan son los que
+ * tienen marca explícita `e2e-` (chapas, emails de cliente). `payroll_summary`
+ * es la excepción: no tiene campo de texto donde encajar la marca, así que se
+ * borra por (tenant, mes, año) — si el tenant es compartido, correr este seed
+ * resetea esa fila y hay que regenerarla.
+ */
+async function limpiar(tenantId: string) {
   // Ordenes de trabajo asociadas a vehículos con chapa E2E-*
   await db()
     .delete(ordenesTrabajo)
@@ -173,18 +198,23 @@ async function limpiar(_tenantId: string, _clientIds: string[], _vehicleIds: str
             .from(vehiculos)
             .where(
               and(
-                eq(vehiculos.id, ordenesTrabajo.vehiculoId),
-                like(vehiculos.chapa, `${MARK}%`),
+                eq(vehiculos.id, ordenesTrabajo.vehicleId),
+                like(vehiculos.plate, `${MARK}%`),
               ),
             ),
         ),
       ),
     );
 
-  // Vehículos con chapa E2E-*
+  // Y las OTs marcadas directamente en description (incluye la OT HV).
+  await db()
+    .delete(ordenesTrabajo)
+    .where(and(eq(ordenesTrabajo.tenantSlug, TENANT_SLUG), like(ordenesTrabajo.description, `${MARK}%`)));
+
+  // Vehículos con placa E2E-*
   await db()
     .delete(vehiculos)
-    .where(and(eq(vehiculos.tenantSlug, TENANT_SLUG), like(vehiculos.chapa, `${MARK}%`)));
+    .where(and(eq(vehiculos.tenantSlug, TENANT_SLUG), like(vehiculos.plate, `${MARK}%`)));
 
   // Clientes con emails de este seed
   const clientEmails = CLIENTS.map((c) => c.email);
@@ -194,6 +224,8 @@ async function limpiar(_tenantId: string, _clientIds: string[], _vehicleIds: str
       .where(and(eq(clients.tenantSlug, TENANT_SLUG), inArray(clients.email, clientEmails)));
   }
 
+  // Turnos cuyo vehículo tiene chapa E2E-* (los turnos del seed y los que
+  // la suite E2E de calendario deja con la misma chapa).
   await db()
     .delete(agendamientos)
     .where(
@@ -202,11 +234,14 @@ async function limpiar(_tenantId: string, _clientIds: string[], _vehicleIds: str
         like(agendamientos.vehiculoChapa, `${MARK}%`),
       ),
     );
+
+  // pay_summary del mes en curso para este tenant: al no tener campo de texto,
+  // el (tenant, mes, año) es el mejor acotado posible. Ver el comentario arriba.
   await db()
     .delete(payrollSummary)
     .where(
       and(
-        eq(payrollSummary.tenantId, _tenantId),
+        eq(payrollSummary.tenantId, tenantId),
         eq(payrollSummary.month, new Date().getMonth() + 1),
         eq(payrollSummary.year, new Date().getFullYear()),
       ),
@@ -221,19 +256,10 @@ async function main() {
   console.log(`   ✅ Tenant + admin listos (${tenantId})`);
 
   // ── Limpieza selectiva ────────────────────────────────────────
-  const prevClients = await db()
-    .select({ id: clients.id })
-    .from(clients)
-    .where(eq(clients.tenantSlug, TENANT_SLUG));
-  const prevVehicles = await db()
-    .select({ id: vehiculos.id })
-    .from(vehiculos)
-    .where(eq(vehiculos.tenantSlug, TENANT_SLUG));
-  await limpiar(
-    tenantId,
-    prevClients.map((c) => c.id),
-    prevVehicles.map((v) => v.id),
-  );
+  // (el acotado vive en limpiar(): los borrrados son por marca `e2e-`, no por
+  // pertenencia al tenant, así que la lista previa de clientes/vehículos del
+  // tenant entero sobraba — deuda del Sprint 105 cerrada aquí.)
+  await limpiar(tenantId);
 
   // ── Clientes ──────────────────────────────────────────────────
   const clientIds: string[] = [];
@@ -286,6 +312,20 @@ async function main() {
   console.log(
     `   ✅ ${WORK_ORDERS.length} OTs · revenue=${E2E_EXPECTED.revenue} · completion=${E2E_EXPECTED.completionRate}%`,
   );
+
+  // ── OT de alta tensión (EV/HEV) — fixture del sign-lockout del móvil ──
+  // Fuera de la ventana de 30 días: no toca los KPIs de analytics.
+  await db().insert(ordenesTrabajo).values({
+    tenantSlug: TENANT_SLUG,
+    clientId: clientIds[0],
+    vehicleId: vehicleIds[0],
+    status: HV_WORK_ORDER.status,
+    description: HV_WORK_ORDER.description,
+    totalCost: String(HV_WORK_ORDER.totalCost),
+    hvAlert: true,
+    createdAt: new Date(Date.now() - HV_WORK_ORDER.daysAgo * 86_400_000),
+  });
+  console.log(`   ✅ 1 OT HV (${HV_WORK_ORDER.description}) — fixture de sign-lockout`);
 
   // ── Turnos (calendario) ───────────────────────────────────────
   for (let i = 0; i < APPOINTMENT_OFFSETS.length; i++) {

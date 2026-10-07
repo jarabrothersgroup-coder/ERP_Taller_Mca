@@ -41,14 +41,14 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
       offset: offset ? parseInt(offset) : undefined,
     });
 
-    reply.send(notifications);
+    return reply.send(notifications);
   });
 
   // ── GET /api/notifications/count — Unread count ──
   app.get(`${prefix}/count`, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const count = await getUnreadCount(tenantSlug);
-    reply.send({ count });
+    return reply.send({ count });
   });
 
   // ── PATCH /api/notifications/:id/read — Mark read ──
@@ -57,21 +57,21 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
     const { id } = request.params as { id: string };
     const updated = await markAsRead(id, tenantSlug);
     if (!updated) return reply.status(404).send({ error: "Not found" });
-    reply.send(updated);
+    return reply.send(updated);
   });
 
   // ── POST /api/notifications/read-all — Mark all read ──
   app.post(`${prefix}/read-all`, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     await markAllAsRead(tenantSlug);
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 
   // ── GET /api/notifications/ws/status — WS status ──
   app.get(`${prefix}/ws/status`, async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const connected = getConnectionCount(tenantSlug);
-    reply.send({ connected, timestamp: new Date().toISOString() });
+    return reply.send({ connected, timestamp: new Date().toISOString() });
   });
 
   // ── POST /api/notifications — Create + push ──
@@ -98,6 +98,6 @@ export async function notificationPushRoutes(app: FastifyInstance): Promise<void
       priority: body.priority as any,
     });
 
-    reply.status(201).send(notif);
+    return reply.status(201).send(notif);
   });
 }

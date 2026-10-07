@@ -58,14 +58,21 @@ function generateCsrfToken(): string {
  * Fastify hook that sets a CSRF cookie on every response.
  * The cookie is HttpOnly=false so JavaScript can read it.
  * Regenerates on every request to prevent cookie deletion attacks.
+ *
+ * Registered as `onRequest`, NOT `onResponse`: `@fastify/cookie` serializes
+ * pending cookies in its own `onSend` hook, and `onResponse` runs *after* the
+ * payload has already been written. Setting the cookie there produced a
+ * `set-cookie` header that never reached the client, so the double-submit
+ * pattern was broken end-to-end (the client could never send a matching
+ * header). `onRequest` runs before serialization.
  */
 export async function csrfSetCookieHook(
   _request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  if (typeof (reply as any).cookie === 'function') {
+  if (typeof reply.cookie === 'function') {
     const token = generateCsrfToken();
-    (reply as any).cookie(CSRF_COOKIE_NAME, token, {
+    reply.cookie(CSRF_COOKIE_NAME, token, {
       httpOnly: false, // Must be readable by JavaScript
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -143,8 +150,9 @@ export async function csrfVerifyHook(
  * Call this to register CSRF protection hooks.
  */
 export async function registerCsrfProtection(app: import("fastify").FastifyInstance): Promise<void> {
-  // Set CSRF cookie on every response
-  app.addHook("onResponse", csrfSetCookieHook);
+  // Set CSRF cookie on every request — must precede @fastify/cookie's `onSend`
+  // serialization hook, so `onRequest` is the correct phase (see csrfSetCookieHook).
+  app.addHook("onRequest", csrfSetCookieHook);
   // Verify CSRF token on state-changing requests
   app.addHook("preHandler", csrfVerifyHook);
   app.log.info("CSRF double-submit cookie protection registered");

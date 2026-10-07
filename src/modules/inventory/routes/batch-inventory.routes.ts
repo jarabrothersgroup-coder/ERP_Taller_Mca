@@ -44,7 +44,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const result = await bulkImportRepuestos(tenantSlug, rows);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── POST /inventory/bulk/price-update — Bulk price update (masivo → manager+) ──
@@ -61,7 +61,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const result = await bulkUpdatePrices(tenantSlug, ids, field, percentageChange);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── POST /inventory/bulk/stock-adjust — Bulk stock adjustment (masivo → manager+) ──
@@ -76,14 +76,14 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const result = await bulkAdjustStock(tenantSlug, adjustments);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── GET /inventory/analytics/turnover — Turnover ──
   app.get("/inventory/analytics/turnover", async (request, reply) => {
     const tenantSlug = request.tenantSlug;
     const turnover = await getInventoryTurnover(tenantSlug);
-    reply.send({ turnover, count: turnover.length });
+    return reply.send({ turnover, count: turnover.length });
   });
 
   // ── GET /inventory/analytics/dead-stock — Dead stock ──
@@ -91,7 +91,7 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     const tenantSlug = request.tenantSlug;
     const deadStock = await getDeadStock(tenantSlug);
     const totalValue = deadStock.reduce((sum, d) => sum + d.valorTotal, 0);
-    reply.send({ deadStock, count: deadStock.length, totalValue });
+    return reply.send({ deadStock, count: deadStock.length, totalValue });
   });
 
   // ── GET /inventory/analytics/reorder — Reorder predictions ──
@@ -99,6 +99,6 @@ export async function batchInventoryRoutes(app: FastifyInstance): Promise<void> 
     const tenantSlug = request.tenantSlug;
     const predictions = await getReorderPredictions(tenantSlug);
     const critico = predictions.filter((p) => p.urgencia === "CRITICO").length;
-    reply.send({ predictions, count: predictions.length, critico });
+    return reply.send({ predictions, count: predictions.length, critico });
   });
 }

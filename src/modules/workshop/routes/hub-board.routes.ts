@@ -49,7 +49,10 @@ export async function hubBoardRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /workshop/hub/board/stream — SSE board-change pings ──
-  app.get("/workshop/hub/board/stream", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/workshop/hub/board/stream", { config: { reserveDb: false } }, async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
     const tenantSlug = request.tenantSlug;
     if (!tenantSlug) {
       return reply.status(400).send({ error: "Tenant requerido" });

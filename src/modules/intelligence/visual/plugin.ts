@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import WebSocket from "@fastify/websocket";
 import fastifyStatic from "@fastify/static";
 import { VisualStreamGateway } from "./VisualStreamGateway.js";
 import { readFileSync } from "node:fs";
@@ -22,7 +21,9 @@ async function visualPlugin(app: FastifyInstance): Promise<void> {
     decorateReply: false, // Another plugin may have already decorated
   });
 
-  await app.register(WebSocket);
+  // @fastify/websocket se registra en la raíz (src/app.ts): aquí, dentro del
+  // scope del módulo, sólo envolvía las rutas de ESTE scope y las rutas
+  // websocket de otros módulos quedaban sin handshake (500 al conectar).
 
   VisualStreamGateway.registerGateway(app);
 

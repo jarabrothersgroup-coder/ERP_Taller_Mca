@@ -34,4 +34,14 @@ declare module "fastify" {
      */
     apiKeyId?: string;
   }
+
+  interface FastifyContextConfig {
+    /**
+     * `false` on streaming routes (SSE / WebSocket) that write to
+     * `reply.raw` or hijack the reply. Fastify never emits `onResponse`
+     * for them, so the per-request pooled connection would be retained
+     * forever and exhaust the pool. Set via `routeOptions.config`.
+     */
+    reserveDb?: boolean;
+  }
 }

@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ErrorState } from "@/components/ui/error-state";
-import { useClients } from "@/hooks/use-data";
+import { useClientsPage } from "@/hooks/use-data";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewClientDialog } from "./new-client-dialog";
 
@@ -193,14 +193,28 @@ export default function ClientsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // D1: `page` en el estado (base 1) para que la tabla salte de página real,
+  // no de una paginación client-side sobre los primeros 100 registros.
+  const [page, setPage] = React.useState(1);
+
   const {
-    data: rawClients = [],
+    data: clientsPage,
     isLoading: loading,
     isError,
     error,
     refetch,
-  } = useClients({ search: debouncedSearch || undefined });
+  } = useClientsPage({ search: debouncedSearch || undefined, page });
   useErrorToast(isError, "los clientes");
+
+  // Un filtro nuevo puede dejar la página actual fuera de rango (p. ej. estaba
+  // en 4 y el resultado tiene 1 página): se vuelve a la primera.
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  const rawClients = clientsPage?.items ?? [];
+  const totalItems = clientsPage?.total ?? 0;
+  const totalPages = clientsPage?.totalPages ?? 1;
 
   // Map API data to local ClientRecord shape
   const clients: ClientRecord[] = React.useMemo(
@@ -255,7 +269,7 @@ export default function ClientsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">
-            {clients.length} cliente{clients.length !== 1 ? "s" : ""} registrados
+            {totalItems} cliente{totalItems !== 1 ? "s" : ""} registrados
             {thisMonthClients > 0 && ` · ${thisMonthClients} nuevo${thisMonthClients !== 1 ? "s" : ""} este mes`}
           </p>
         </div>
@@ -279,7 +293,12 @@ export default function ClientsPage() {
             : "No hay clientes registrados. Agregue su primer cliente para comenzar."
         }
         paginate
-        pageSize={10}
+        pageSize={25}
+        serverSide
+        totalItems={totalItems}
+        totalPages={totalPages}
+        page={page - 1}
+        onPageChange={(p) => setPage(p + 1)}
         sortable
         searchPlaceholder="Buscar por nombre, email, teléfono o RUC…"
         searchValue={search}

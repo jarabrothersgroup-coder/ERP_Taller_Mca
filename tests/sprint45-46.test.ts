@@ -260,7 +260,7 @@ describe("Sprint 46 — Portal Routes", () => {
     expect(typeof mod.portalRoutes).toBe("function");
   });
 
-  it("portalRoutes registers 14 routes", async () => {
+  it("portalRoutes registers 15 routes", async () => {
     const registeredRoutes: string[] = [];
     const mockRoute = (method: string) => ({
       post: () => { registeredRoutes.push(method + ':post'); return { post: mockRoute(method + '.post').post, get: () => ({ get: () => ({}), post: () => ({}) }) }; },
@@ -275,8 +275,11 @@ describe("Sprint 46 — Portal Routes", () => {
     const { portalRoutes } = await import("../../src/modules/client-portal/routes/portal.routes.js");
     await portalRoutes(app);
 
-    // 14 routes expected (4 auth + 10 data)
-    expect(app.post.mock.calls.length + app.get.mock.calls.length).toBe(14);
+    // 15 routes expected (4 auth + 10 data + 1 alias de magic-link para el
+    // fetch del cliente: la página Next /portal/auth/magic/[token] y la API
+    // compartían path y con el rewrite en fallback la página ganaba — el
+    // alias /portal/api/auth/magic/:token comparte handler validateMagicToken).
+    expect(app.post.mock.calls.length + app.get.mock.calls.length).toBe(15);
   });
 });
 

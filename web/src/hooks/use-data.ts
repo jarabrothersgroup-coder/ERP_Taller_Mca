@@ -7,8 +7,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   fetchWorkOrders,
+  fetchWorkOrdersPage,
+  type WorkOrdersPage,
   fetchClients,
+  fetchClientsPage,
+  type ClientsPage,
   fetchVehicles,
+  fetchVehiclesPage,
+  type VehiclesPage,
   fetchInventoryItems,
   fetchInvoices,
   fetchAccounts,
@@ -88,6 +94,19 @@ export function useWorkOrders(params?: { status?: string; search?: string; page?
   });
 }
 
+/**
+ * D1 — `useWorkOrders` con paginación server-side real (página de 25 filas +
+ * `total`/`totalPages`). Las órdenes 101+ son alcanzables: el `page` viaja al
+ * backend en vez de recortarse en el cliente.
+ */
+export function useWorkOrdersPage(params?: { status?: string; search?: string; page?: number }) {
+  return useQuery<WorkOrdersPage, Error>({
+    queryKey: [...queryKeys.workOrders, "page", params],
+    queryFn: () => fetchWorkOrdersPage(() => [], undefined, params),
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useWorkOrder(id: string) {
   return useQuery({
     queryKey: ["work-order", id],
@@ -115,6 +134,22 @@ export function useClients(params?: { search?: string; page?: number }) {
   });
 }
 
+/**
+ * D1 — `useClients` con paginación server-side real.
+ *
+ * A diferencia de `useClients`, que pide hasta 100 filas y las deja paginar
+ * en el cliente (los registros 101+ son inalcanzables), esta variante pide una
+ * página de 25 y expone `total`/`totalPages` para que el `DataTable` pueda
+ * navegar sin recortar el dataset.
+ */
+export function useClientsPage(params?: { search?: string; page?: number }) {
+  return useQuery<ClientsPage, Error>({
+    queryKey: [...queryKeys.clients, "page", params],
+    queryFn: () => fetchClientsPage(() => [], undefined, params),
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useCreateClient() {
   const qc = useQueryClient();
   return useMutation({
@@ -131,6 +166,19 @@ export function useVehicles(params?: { search?: string; brand?: string; engineTy
   return useQuery<UIMappedVehicle[], Error>({
     queryKey: [...queryKeys.vehicles, params],
     queryFn: () => fetchVehicles(() => [], undefined, params),
+  });
+}
+
+/**
+ * D1 — `useVehicles` con paginación server-side real (página de 25 filas +
+ * `total`/`totalPages`). Los vehículos 101+ son alcanzables: el `page` viaja
+ * al backend en vez de recortarse en el cliente.
+ */
+export function useVehiclesPage(params?: { search?: string; brand?: string; engineType?: string; page?: number }) {
+  return useQuery<VehiclesPage, Error>({
+    queryKey: [...queryKeys.vehicles, "page", params],
+    queryFn: () => fetchVehiclesPage(() => [], undefined, params),
+    placeholderData: (prev) => prev,
   });
 }
 

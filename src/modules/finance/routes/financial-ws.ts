@@ -9,6 +9,8 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { resolveTenant } from "../../../shared/middleware/tenant-resolver.js";
+import { resolveProfile } from "../../../shared/middleware/rbac.js";
 import { getFinancialKPIs, getCashflowData, getInvoiceSummary } from "../services/financial-realtime.service.js";
 
 interface WSClient {
@@ -54,7 +56,16 @@ function startBroadcast(): void {
 }
 
 export async function financialWsRoute(app: FastifyInstance): Promise<void> {
-  app.get("/ws/financial-dashboard", { websocket: true }, (socket: any, req: any) => {
+  // Se registra en la raíz (fuera de finance/plugin), así que NO hereda los
+  // hooks del scope de finanzas: sin resolveTenant/resolveProfile, authGate
+  // no resuelve el perfil y el handshake WS moría en 401.
+  app.addHook("onRequest", resolveTenant);
+  app.addHook("onRequest", resolveProfile);
+
+  app.get("/ws/financial-dashboard", { websocket: true, config: { reserveDb: false } }, (
+    socket: any,
+    req: any,
+  ) => {
     // Extract tenant from query or header
     const url = new URL(req.url, "http://localhost");
     const tenantSlug = url.searchParams.get("tenant") || req.headers["x-tenant-slug"] || "default";

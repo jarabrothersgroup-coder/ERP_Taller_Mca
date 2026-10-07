@@ -18,7 +18,7 @@
  * @module client-portal/routes/portal.routes
  */
 
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { env } from "../../../config/env.js";
 import {
   generateMagicLink,
@@ -48,19 +48,29 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     if (!email) return reply.status(400).send({ error: "email is required" });
 
     const result = await generateMagicLink(tenantSlug, email);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── GET /portal/auth/magic/:token — Validate magic link ──
-  app.get("/portal/auth/magic/:token", async (request, reply) => {
+  // Handler compartido con el alias /portal/api/auth/magic/:token (abajo).
+  const validateMagicToken = async (request: FastifyRequest, reply: FastifyReply) => {
     const { token } = request.params as { token: string };
     const { session, error } = await validateMagicLink(token);
 
     if (!session) return reply.status(401).send({ error });
 
     const encodedSession = encodeSession(session);
-    reply.send({ session: encodedSession, client: { name: session.name, email: session.email } });
-  });
+    return reply.send({ session: encodedSession, client: { name: session.name, email: session.email } });
+  };
+  app.get("/portal/auth/magic/:token", validateMagicToken);
+
+  // ── GET /portal/api/auth/magic/:token — Alias para el fetch del cliente ──
+  // La página Next `/portal/auth/magic/[token]` y esta API comparten path;
+  // con el rewrite `/portal/:path*` en la sección `fallback` de Next la
+  // página gana y el fetch del cliente recibía HTML en vez de JSON. El page
+  // component valida por este alias, que sí cae en el fallback rewrite
+  // porque no existe página Next bajo `/portal/api/*`.
+  app.get("/portal/api/auth/magic/:token", validateMagicToken);
 
   // ── POST /portal/auth/pin — Generate PIN ──
   app.post("/portal/auth/pin", async (request, reply) => {
@@ -70,7 +80,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     if (!clientId) return reply.status(400).send({ error: "clientId is required" });
 
     const result = await generatePIN(tenantSlug, clientId);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── POST /portal/auth/pin/validate — Validate PIN ──
@@ -86,7 +96,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     if (!session) return reply.status(401).send({ error });
 
     const encodedSession = encodeSession(session);
-    reply.send({ session: encodedSession, client: { name: session.name, email: session.email } });
+    return reply.send({ session: encodedSession, client: { name: session.name, email: session.email } });
   });
 
   // ── Middleware: validate session for portal routes ──
@@ -107,7 +117,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /portal/session — Validate session ──
   app.get("/portal/session", { preHandler: [requirePortalSession] }, async (request, reply) => {
     const session = (request as any).portalSession;
-    reply.send({ valid: true, client: { name: session.name, email: session.email } });
+    return reply.send({ valid: true, client: { name: session.name, email: session.email } });
   });
 
   // ── GET /portal/summary — Client summary ──
@@ -115,14 +125,14 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     const session = (request as any).portalSession;
     const summary = await getClientSummary(session.tenantSlug, session.clientId);
     if (!summary) return reply.status(404).send({ error: "Client not found" });
-    reply.send(summary);
+    return reply.send(summary);
   });
 
   // ── GET /portal/vehicles — Client vehicles ──
   app.get("/portal/vehicles", { preHandler: [requirePortalSession] }, async (request, reply) => {
     const session = (request as any).portalSession;
     const vehicles = await getClientVehicles(session.tenantSlug, session.clientId);
-    reply.send(vehicles);
+    return reply.send(vehicles);
   });
 
   // ── GET /portal/orders — Client work orders ──
@@ -130,14 +140,14 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     const session = (request as any).portalSession;
     const { limit } = request.query as { limit?: string };
     const orders = await getClientOrders(session.tenantSlug, session.clientId, limit ? parseInt(limit) : 20);
-    reply.send(orders);
+    return reply.send(orders);
   });
 
   // ── GET /portal/invoices — Client invoices ──
   app.get("/portal/invoices", { preHandler: [requirePortalSession] }, async (request, reply) => {
     const session = (request as any).portalSession;
     const invoices = await getClientInvoices(session.tenantSlug, session.clientId);
-    reply.send(invoices);
+    return reply.send(invoices);
   });
 
   // ── POST /portal/invoices/:id/pay — Generate payment link ──
@@ -162,9 +172,9 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
         session.tenantSlug,
       );
 
-      reply.send(result);
+      return reply.send(result);
     } catch (err: any) {
-      reply.status(400).send({ error: err?.message || "Error al generar link de pago" });
+      return reply.status(400).send({ error: err?.message || "Error al generar link de pago" });
     }
   });
 
@@ -174,7 +184,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const order = await getClientOrderById(session.tenantSlug, session.clientId, id);
     if (!order) return reply.status(404).send({ error: "Orden no encontrada" });
-    reply.send(order);
+    return reply.send(order);
   });
 
   // ── POST /portal/feedback — Submit feedback ──
@@ -198,9 +208,9 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
         rating,
         comment,
       });
-      reply.send(result);
+      return reply.send(result);
     } catch (err: any) {
-      reply.status(400).send({ error: err.message });
+      return reply.status(400).send({ error: err.message });
     }
   });
 
@@ -211,7 +221,7 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
     if (!date) return reply.status(400).send({ error: "date is required" });
 
     const result = await checkAvailability(session.tenantSlug, date);
-    reply.send(result);
+    return reply.send(result);
   });
 
   // ── POST /portal/appointments — Book appointment ──
@@ -238,9 +248,9 @@ export async function portalRoutes(app: FastifyInstance): Promise<void> {
         motivo,
         phone: session.email || "",
       });
-      reply.status(201).send(result);
+      return reply.status(201).send(result);
     } catch (err: any) {
-      reply.status(400).send({ error: err.message });
+      return reply.status(400).send({ error: err.message });
     }
   });
 }

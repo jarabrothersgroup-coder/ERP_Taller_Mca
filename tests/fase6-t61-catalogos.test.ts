@@ -28,8 +28,11 @@ import { generateToken } from "../src/shared/services/auth-jwt.js";
 import { getDb } from "../src/shared/database/connection.js";
 
 const T = "e2e-t61-catalogos";
-const T_ID = "00000000-0000-0000-0000-0000f4610001";
-const ADMIN = "00000000-0000-0000-0000-0000f4610010";
+// IDs propios: fase6-t61-ingresos usaba los MISMOS UUID con otro slug, y como
+// los ficheros corren en paralelo (un fork c/u) el INSERT chocaba en tenants_pkey
+// y el afterAll del otro fichero borraba este tenant a mitad de corrida (401).
+const T_ID = "00000000-0000-0000-0000-0000f4610003";
+const ADMIN = "00000000-0000-0000-0000-0000f4610013";
 const EMAIL = "admin@e2e-t61-catalogos.test";
 const VEH_TYPE_ID = "00000000-0000-0000-0000-0000f4610099";
 const VEH_TYPE_NOMBRE = "T61 SUV";

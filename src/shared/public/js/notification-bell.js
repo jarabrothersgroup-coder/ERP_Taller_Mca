@@ -56,6 +56,14 @@ function connectNotificationWS() {
       _notifState.connected = false;
       updateConnectionDot(false);
       console.log("[notif-ws] Disconnected, reconnecting in 5s...");
+      // Consulta server-side: /api/notifications/ws/status es la fuente de
+      // verdad del gateway (no confundir con el evento `close` local del
+      // socket, que se dispara incluso con la pestaña en segundo plano).
+      // Va por `api()`: el endpoint no es público (authGate exige JWT) y
+      // `api()` inyecta Authorization + X-Tenant-Slug.
+      api(`/api/notifications/ws/status`)
+        .then((s) => console.log(`[notif-ws] gateway reports connected=${s.connected}`))
+        .catch(() => {});
       setTimeout(connectNotificationWS, 5000);
     };
 

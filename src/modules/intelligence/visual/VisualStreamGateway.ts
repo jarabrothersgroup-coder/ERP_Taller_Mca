@@ -50,7 +50,10 @@ export function invalidateTenantCache(): void {
 
 export class VisualStreamGateway {
   static registerGateway(app: FastifyInstance): void {
-    app.get("/api/v1/visual/stream", { websocket: true }, (socket, _req) => {
+    app.get("/api/v1/visual/stream", { websocket: true, config: { reserveDb: false } }, (
+      socket,
+      _req,
+    ) => {
       connectedScreens.add(socket);
 
       getTenantInfo().then((t) => {
