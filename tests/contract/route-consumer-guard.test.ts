@@ -26,25 +26,29 @@ import { describe, expect, it, beforeAll } from "vitest";
 // @ts-expect-error — script .mjs sin declaraciones de tipos
 import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } from "../../scripts/route-consumer-scan.mjs";
 
-// ─── Techos vigentes (baseline T-63 + triaje, medido 2026-09-28) ─────────
-// Sin consumidor 160 = 528 rutas − las citadas por web/mobile/public/scripts/backend
+// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 107 2026-10-08) ─────────
+// Sin consumidor 160 = 529 rutas − las citadas por web/mobile/public/scripts/backend
 // − las 37 del triaje (de 38 excluidas, una ya tenía consumidor). Las exclusiones
 // del triaje (externas/internas por diseño) viven en EXCLUDED del escáner.
-// Sin test 334 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
+// Sin test 286 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
 // las exclusiones NO bajan esta pata (un webhook externo necesita test igual).
 // Primer baseline (293/383) usaba un matcher que nunca convertía `:param`:
 // toda ruta parametrizada contaba como huérfana. Corregido el matcher, el
-// número REAL bajó. Bajar con cada fix; jamás subir.
+// número REAL bajó. Sprint 107 cerró los 8 pares T-61 restantes (293 → 286
+// neto, incluida +1 ruta nueva sin test en el intervalo). Bajar con cada fix;
+// jamás subir.
 const CEILING_WITHOUT_CONSUMER = 160;
-const CEILING_WITHOUT_TEST = 334;
+const CEILING_WITHOUT_TEST = 286;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
- *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests. */
-const CEILING_WRITE_WITHOUT_TEST = 184;
+ *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
+ *  184 → 139 con el cierre de los 8 pares de comportamiento (Sprint 107). */
+const CEILING_WRITE_WITHOUT_TEST = 139;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61): las 31 restantes son los baldes
- *  "conectar a UI", "legado a eliminar" y "decisión de producto". */
-const CEILING_CLASS_D = 61;
+ *  "conectar a UI", "legado a eliminar" y "decisión de producto".
+ *  61 → 48 con el cierre de los 8 pares T-61 (Sprint 107). */
+const CEILING_CLASS_D = 48;
 /** Piso de exclusiones del triaje (38 al materializarlo: ~25 externas + ~11
  *  internas + variantes). Si baja, una ruta excluida fue borrada o dejó de
  *  existir — revisar que la exclusión siga justificada en Docs/T47. */

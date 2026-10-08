@@ -374,7 +374,7 @@ async function processRepuestoItem(
       .where(eq(repuestos.id, repuestoId))
       .limit(1);
 
-    if (!existing) {
+    if (!existing[0]) {
       throw new NotFoundError(`Repuesto ${repuestoId} no encontrado`);
     }
 
