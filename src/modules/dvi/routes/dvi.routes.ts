@@ -6,7 +6,6 @@
  *   GET    /dvi/:id                    — Get DVI with details
  *   GET    /dvi/orden/:ordenId         — List DVI by work order
  *   POST   /dvi/:id/photos             — Add photo
- *   PATCH  /dvi/photos/:photoId/markup — Update photo markup
  *   POST   /dvi/:id/items             — Add inspection item
  *   PATCH  /dvi/items/:itemId/status  — Update item status
  *   POST   /dvi/:id/calculate-score   — Recalculate health score
@@ -24,7 +23,6 @@ import {
   deleteDvi,
   listDviByOrden,
   listDviInspections,
-  updatePhotoMarkup,
   addItem,
   updateItemStatus,
   calculateHealthScore,
@@ -45,10 +43,6 @@ interface CreateBody {
   inspector?: string;
 }
 
-interface UpdateMarkupBody {
-  markup: unknown;
-}
-
 interface AddItemBody {
   categoria: string;
   descripcion: string;
@@ -59,10 +53,6 @@ interface AddItemBody {
 
 interface UpdateStatusBody {
   estado: string;
-}
-
-interface PhotoParams {
-  photoId: string;
 }
 
 interface ItemParams {
@@ -174,38 +164,6 @@ export async function dviRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── POST /dvi/:id/photos — handled by photo.routes.ts (Supabase Storage) ──
-
-  // ── PATCH /dvi/photos/:photoId/markup — Update markup ──
-  app.patch<{ Params: PhotoParams; Body: UpdateMarkupBody }>(
-    "/dvi/photos/:photoId/markup",
-    {
-      schema: {
-        params: {
-          type: "object",
-          required: ["photoId"],
-          properties: { photoId: { type: "string", format: "uuid" } },
-        },
-        body: {
-          type: "object",
-          required: ["markup"],
-          properties: {
-            markup: { type: "object" },
-          },
-        },
-      },
-    },
-    async (
-      request: FastifyRequest<{ Params: PhotoParams; Body: UpdateMarkupBody }>,
-      reply: FastifyReply,
-    ) => {
-      const result = await updatePhotoMarkup(
-        request.params.photoId,
-        request.body.markup,
-        request.tenantSlug,
-      );
-      return reply.send(result);
-    },
-  );
 
   // ── POST /dvi/:id/items — Add inspection item ──
   app.post<{ Params: DviParams; Body: AddItemBody }>(

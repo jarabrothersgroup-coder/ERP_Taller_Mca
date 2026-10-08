@@ -27,7 +27,6 @@ import { aiDTCAssistantRoutes } from "./ai-dtc-assistant.routes.js";
  *   - /intelligence/ocr/jobs/:id       GET  — Poll OCR job status
  *   - /intelligence/safety/protocol    POST — Generate HV safety protocol
  *   - /intelligence/decode-safety      POST — VIN decode + HV safety eval (NHTSA + heuristics)
- *   - /intelligence/parse-dtc          POST — Parse individual DTC code
  *   - /intelligence/manuals/ingest     POST — Upload PDF manual → chunk → embed → store
  *   - /intelligence/manuals/query      POST — Semantic search on indexed manuals
  *

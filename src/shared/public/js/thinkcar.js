@@ -208,7 +208,7 @@ async function assignThinkcarPending(importId) {
     return;
   }
   try {
-    await api('/thinkcar/pending/' + importId + '/assign', {
+      await api(`/thinkcar/pending/${importId}/assign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ordenTrabajoId: select.value })

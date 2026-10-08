@@ -270,3 +270,32 @@ mechanic-assignment, initial-load, auto-po.
 **2127/2127 en 105 ficheros** contra la DB local `:5433` · guard T-63 7/7 ·
 eslint sobre `src/modules/inventory` + ficheros nuevos: 0 errores / 33 warnings
 (solo `no-explicit-any`, patrón existente).
+
+## Cierre — balde "Legado → eliminar" (Sprint 108, 2026-10-08)
+
+Los 7 handlers del balde "Legado/duplicado" fueron verificados contra
+consumidores en `web/`, `mobile/`, `src/shared/public/`, `scripts/`,
+`tests/` y `web/e2e/` (**0 referencias**) y eliminados:
+
+| Ruta eliminada | Archivo |
+|---|---|
+| `POST /intelligence/parse-dtc` | `src/modules/intelligence/routes/vehicle-intelligence.ts` (duplicaba `dtc/parse`) |
+| `POST /thinkcar/import` | `src/modules/thinkcar/routes/index.ts` (convive con `ingest/*` consumidos) |
+| `POST /thinkcar/imports/:id/retry-link` | `src/modules/thinkcar/routes/index.ts` |
+| `POST /fleet/contracts` | `src/modules/fleet/routes/fleet-contracts.routes.ts` |
+| `PATCH /fleet/contracts/:id` | ídem |
+| `POST /fleet/contracts/:id/cancel` | ídem |
+| `PATCH /dvi/photos/:photoId/markup` | `src/modules/dvi/routes/dvi.routes.ts` |
+
+No borradas (corrección del triaje): `POST /thinkcar/imports/:id/link` y
+`GET /thinkcar/pending` **sí** tienen consumidores reales (mobile, web,
+`dtc-assistant.js`); `POST /thinkcar/pending/:id/assign` lo tiene en
+`src/shared/public/js/thinkcar.js` — su URL por concatenación
+(`'/thinkcar/pending/' + id + '/assign'`) era invisible para el matcher;
+ahora es template literal y el scanner la cuenta.
+
+**Efecto en métricas (Sprint 108):** total 529 → **522** · sin consumidor
+160 → **152** · sin test 286 → **279** · escritura sin test 139 → **132** ·
+clase D 48 → **40** · excluidas 38 · behavior 99/99. Techos del guard
+`tests/contract/route-consumer-guard.test.ts` congelados en 152/279/132/40.
+Clase D restante = baldes "Conectar a UI" + "Decidir caso por caso".

@@ -6,7 +6,7 @@ import { processBuffer } from "../services/thinkcar-pipeline.service.js";
 import { ingestFromUsb } from "../services/thinkcar-usb.service.js";
 import { checkEmailNow } from "../services/thinkcar-email.service.js";
 import { scanAndIngest } from "../services/thinkcar-bluetooth.service.js";
-import { smartLink, updateOrdenDtcs, updateVehicleDtcs } from "../services/thinkcar-linker.service.js";
+import { updateOrdenDtcs, updateVehicleDtcs } from "../services/thinkcar-linker.service.js";
 import { getAllHealth } from "../services/thinkcar-health.service.js";
 import { ordenesTrabajo } from "../../workshop/schema/ordenes-trabajo.js";
 import { BadRequestError, NotFoundError } from "../../../shared/errors/app-error.js";
@@ -100,49 +100,6 @@ export async function thinkcarRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({ ok: true, id, status: "linked" });
     },
   );
-
-  app.post<{ Params: { id: string } }>(
-    "/thinkcar/imports/:id/retry-link",
-    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const { id } = request.params;
-
-    const [record] = await db()
-      .select()
-      .from(thinkcarImports)
-      .where(eq(thinkcarImports.id, id))
-      .limit(1);
-    if (!record) throw new NotFoundError(`Importe ${id} no encontrado`);
-
-    const result = await smartLink(record);
-    return reply.send({ ok: true, id, linking: result });
-  });
-
-  app.post("/thinkcar/import", async (request: FastifyRequest, reply: FastifyReply) => {
-    const data = await request.file();
-    if (!data) throw new BadRequestError("Archivo PDF requerido");
-
-    const buffers: Buffer[] = [];
-    const { Writable } = await import("node:stream");
-    const { pipeline } = await import("node:stream/promises");
-    await pipeline(
-      data.file,
-      new Writable({
-        write(chunk: Buffer, _enc, cb) {
-          buffers.push(chunk);
-          cb();
-        },
-      }),
-    );
-
-    const pdfBuffer = Buffer.concat(buffers);
-    const result = await processBuffer(
-      pdfBuffer,
-      data.filename ?? "upload.pdf",
-      "api",
-    );
-
-    return reply.status(result.status === "error" ? 422 : 201).send(result);
-  });
 
   app.post("/thinkcar/ingest/usb", async (_request, reply) => {
     const result = await ingestFromUsb(false);

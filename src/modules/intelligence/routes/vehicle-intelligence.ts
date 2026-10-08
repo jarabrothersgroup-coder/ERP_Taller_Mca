@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { analyzeVehicleSafety, parseDtcError } from "../services/vehicle-intelligence.service.js";
+import { analyzeVehicleSafety } from "../services/vehicle-intelligence.service.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
 
 interface DecodeSafetyBody {
@@ -7,10 +7,6 @@ interface DecodeSafetyBody {
   brand: string;
   model: string;
   year: number;
-}
-
-interface ParseDtcBody {
-  dtcCode: string;
 }
 
 export async function vehicleIntelligenceRoutes(app: FastifyInstance): Promise<void> {
@@ -35,32 +31,6 @@ export async function vehicleIntelligenceRoutes(app: FastifyInstance): Promise<v
       if (!brand || brand.trim().length === 0) throw new BadRequestError("brand is required");
 
       const result = await analyzeVehicleSafety({ vin, brand, model, year });
-      return reply.send(result);
-    },
-  );
-
-  app.post<{ Body: ParseDtcBody }>(
-    "/intelligence/parse-dtc",
-    {
-      schema: {
-        body: {
-          type: "object",
-          required: ["dtcCode"],
-          properties: {
-            dtcCode: {
-              type: "string",
-              pattern: "^[PBCU]\\d{4}$",
-            },
-          },
-        },
-      },
-    },
-    async (request: FastifyRequest<{ Body: ParseDtcBody }>, reply: FastifyReply) => {
-      const { dtcCode } = request.body;
-      if (!dtcCode || dtcCode.trim().length === 0) {
-        throw new BadRequestError("dtcCode is required");
-      }
-      const result = parseDtcError(dtcCode.toUpperCase());
       return reply.send(result);
     },
   );
