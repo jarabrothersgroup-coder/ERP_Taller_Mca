@@ -325,3 +325,26 @@ sin test 279 → **266** · escritura sin test 132 → **119** · clase D 40 →
 · excluidas 38 · behavior 99/99. Techos del guard congelados en
 152/266/119/30. Clase D restante: contabilidad/sifen (~20) + "conectar a UI"
 y "decidir caso por caso".
+
+## Cierre — clase D tanda 2, liviana (Sprint 110, 2026-10-08)
+
+Nuevo fichero `tests/fase7-s110-classd2.test.ts` (16 tests, tenant `e2e-s110`)
+ejercita los 8 paths livianos restantes de la clase D:
+
+- `POST /finance/presupuestos/:id/items` (+409 duplicado, +404 inexistente, aserción BD)
+- `POST /finance/presupuestos/:id/refresh` (+404)
+- `PATCH /finance/treasury/cuentas/:id` (+404)
+- `PATCH /api/tenant/profile` (+GET que auto-crea perfil, reclasificación MIC/IRE)
+- `DELETE /whatsapp/instance` (Evolution API localhost traga errores → siempre 200)
+- `POST /dvi/:id/share` (cadena cliente→vehículo→orden→DVI, aserción `compartido_whatsapp`)
+- `POST /finance/rg90/exportar` (asiento CONTABILIZADO fixture en período aislado 2045-12, +404 período vacío)
+- `POST /finance/sifen/contingencia/guardar` (+400 sin campos requeridos; sin FK a documentos)
+
+Se evitó contabilidad (~21 rutas, fixtures pesadas de períodos/asientos) y
+sifen emitir/firmar (riesgo de llamada externa al DNIT) — quedan para el
+"tanda 3" cuando se decida.
+
+**Efecto en métricas (Sprint 110):** total 522 · sin consumidor 152 ·
+sin test 266 → **258** · escritura sin test 119 → **111** · clase D 30 → **22**
+· excluidas 38 · behavior 99/99. Techos del guard congelados en
+152/258/111/22. Clase D restante: contabilidad (~21) + decidir caso por caso.

@@ -26,32 +26,32 @@ import { describe, expect, it, beforeAll } from "vitest";
 // @ts-expect-error — script .mjs sin declaraciones de tipos
 import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } from "../../scripts/route-consumer-scan.mjs";
 
-// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 109 2026-10-08) ─────────
+// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 110 2026-10-08) ─────────
 // Sin consumidor 152 = 522 rutas − las citadas por web/mobile/public/scripts/backend
 // − las 38 excluidas del triaje (externas/internas por diseño). Las exclusiones
 // viven en EXCLUDED del escáner.
-// Sin test 266 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
+// Sin test 258 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
 // las exclusiones NO bajan esta pata (un webhook externo necesita test igual).
 // Primer baseline (293/383) usaba un matcher que nunca convertía `:param`:
 // toda ruta parametrizada contaba como huérfana. Corregido el matcher, el
 // número REAL bajó. Sprint 107 cerró los 8 pares T-61 (293 → 286); Sprint 108
 // eliminó 7 rutas legado (286 → 279); Sprint 109 sumó 15 tests de clase D
-// (279 → 266) y reparó el `delayDays` de createSequence. Bajar con cada fix;
-// jamás subir.
+// (279 → 266); Sprint 110 sumó 16 tests tanda 2 liviana (266 → 258).
+// Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 152;
-const CEILING_WITHOUT_TEST = 266;
+const CEILING_WITHOUT_TEST = 258;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
- *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109). */
-const CEILING_WRITE_WITHOUT_TEST = 119;
+ *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110). */
+const CEILING_WRITE_WITHOUT_TEST = 111;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
- *  Materializado el triaje (92 → 61 → 48 → 40). Sprint 109 cerró 10 paths
- *  con tests de comportamiento (fase6-s109-classd: sucursales, donaciones,
- *  crm close, marketing enroll, whatsapp resolve, dvi status + items +
- *  calculate-score) → 30 restantes: contabilidad/sifen + "conectar a UI" +
- *  "decidir caso por caso" (Docs/T47). */
-const CEILING_CLASS_D = 30;
+ *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
+ *  livianos (fase7-s110-classd2: presupuestos items/refresh, treasury cuentas,
+ *  tenant profile, whatsapp instance, dvi share, rg90 exportar, sifen
+ *  contingencia) → 22 restantes: contabilidad (~21, fixtures pesadas de
+ *  períodos/asientos) + decidir caso por caso (Docs/T47). */
+const CEILING_CLASS_D = 22;
 /** Piso de exclusiones del triaje (38 al materializarlo: ~25 externas + ~11
  *  internas + variantes). Si baja, una ruta excluida fue borrada o dejó de
  *  existir — revisar que la exclusión siga justificada en Docs/T47. */
