@@ -525,31 +525,32 @@ export async function generarAsientoAutomatico(
     .where(sql`${planCuentas.codigo} LIKE '1.1.01.%' AND ${planCuentas.activo} = true`)
     .limit(1);
 
-  if (!cuentaIngresos || !cuentaCosto || !cuentaCaja) {
+  const [cuentaInventario] = await db()
+    .select({ id: planCuentas.id })
+    .from(planCuentas)
+    .where(
+      sql`${planCuentas.codigo} LIKE '1.1.03.%' AND ${planCuentas.activo} = true AND ${planCuentas.aceptaMovimientos} = true`,
+    )
+    .limit(1);
+
+  if (!cuentaIngresos || !cuentaCosto || !cuentaCaja || !cuentaInventario) {
     throw new ValidationError(
       "No se encontraron las cuentas contables necesarias. " +
       "Verifique que el Plan de Cuentas tenga cuentas de Ingresos (4.1.x), " +
-      "Costos (6.1.x), y Caja (1.1.01.x)",
+      "Costos (6.1.x), Caja (1.1.01.x) e Inventario (1.1.03.x)",
     );
   }
 
   // ── 3. Build the balanced lines ──
+  // Cobro (Caja/Ingresos) + costo de mercadería (Costo/Inventario): cada par
+  // suma `total`, de modo que el asiento cierra siempre debe = haber.
   const total = orden.total_cost ?? "0";
   const lines: AsientoLineaRequest[] = [
-    // Debe: Caja (se cobra al cliente)
     { cuentaId: cuentaCaja.id, debe: total },
-    // Haber: Ingresos por servicios
     { cuentaId: cuentaIngresos.id, haber: total },
+    { cuentaId: cuentaCosto.id, debe: total, ordenTrabajoId },
+    { cuentaId: cuentaInventario.id, haber: total },
   ];
-
-  // Also register cost if there's a costo account
-  if (cuentaCosto) {
-    lines.push({
-      cuentaId: cuentaCosto.id,
-      debe: total,
-      ordenTrabajoId: ordenTrabajoId,
-    });
-  }
 
   return createAsiento({
     fecha,

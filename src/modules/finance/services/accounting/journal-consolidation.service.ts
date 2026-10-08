@@ -16,7 +16,7 @@
 
 import { db } from "../../../../shared/database/drizzle.js";
 import { asientosContables, asientosDetalle } from "../../schema/index.js";
-import { and, sql, gte, lte } from "drizzle-orm";
+import { and, gte, inArray, lte, sql } from "drizzle-orm";
 
 // ─── Interfaces ────────────────────────────────
 
@@ -74,7 +74,7 @@ export async function refundirAsientos(
   const asientos = await db()
     .select({ id: asientosContables.id, numero: asientosContables.numero, estado: asientosContables.estado })
     .from(asientosContables)
-    .where(sql`${asientosContables.id} = ANY(${asientoIds}::uuid[])`);
+    .where(inArray(asientosContables.id, asientoIds));
 
   if (asientos.length !== asientoIds.length) {
     throw new Error(`Solo se encontraron ${asientos.length} de ${asientoIds.length} asientos`);
@@ -95,7 +95,7 @@ export async function refundirAsientos(
       totalHaber: sql<number>`COALESCE(SUM(COALESCE(${asientosDetalle.haber}::numeric, 0)), 0)`,
     })
     .from(asientosDetalle)
-    .where(sql`${asientosDetalle.asientoId} = ANY(${asientoIds}::uuid[])`)
+    .where(inArray(asientosDetalle.asientoId, asientoIds))
     .groupBy(asientosDetalle.cuentaId);
 
   const consolidatedLines: ConsolidatedLine[] = lineasAgrupadas.map((l) => ({
@@ -176,7 +176,7 @@ export async function refundirAsientos(
   await db()
     .update(asientosContables)
     .set({ moduloOrigen: sql`CONCAT(${asientosContables.moduloOrigen}, '_REFUNDIDO')` })
-    .where(sql`${asientosContables.id} = ANY(${asientoIds}::uuid[])`);
+    .where(inArray(asientosContables.id, asientoIds));
 
   return {
     success: true,

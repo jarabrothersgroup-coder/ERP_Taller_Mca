@@ -859,7 +859,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
           type: "object",
           required: ["asientoIds"],
           properties: {
-            asientoIds: { type: "array", minItems: 1, items: { type: "string", format: "uuid" } },
+            asientoIds: { type: "array", minItems: 2, items: { type: "string", format: "uuid" } },
             fecha: { type: "string", format: "date" },
             concepto: { type: "string" },
           },

@@ -36,22 +36,24 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // toda ruta parametrizada contaba como huérfana. Corregido el matcher, el
 // número REAL bajó. Sprint 107 cerró los 8 pares T-61 (293 → 286); Sprint 108
 // eliminó 7 rutas legado (286 → 279); Sprint 109 sumó 15 tests de clase D
-// (279 → 266); Sprint 110 sumó 16 tests tanda 2 liviana (266 → 258).
+// (279 → 266); Sprint 110 sumó 16 tests tanda 2 liviana (266 → 258);
+// Sprint 111 sumó 25 tests de contabilidad (258 → 238; los 19 paths huérfanos
+// + asientos/:id que el matcher paramétrico caza desde /asientos/automatico).
 // Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 152;
-const CEILING_WITHOUT_TEST = 258;
+const CEILING_WITHOUT_TEST = 238;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
- *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110). */
-const CEILING_WRITE_WITHOUT_TEST = 111;
+ *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
+ *  → 92 (Sprint 111: los 19 POST de contabilidad). */
+const CEILING_WRITE_WITHOUT_TEST = 92;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
- *  livianos (fase7-s110-classd2: presupuestos items/refresh, treasury cuentas,
- *  tenant profile, whatsapp instance, dvi share, rg90 exportar, sifen
- *  contingencia) → 22 restantes: contabilidad (~21, fixtures pesadas de
- *  períodos/asientos) + decidir caso por caso (Docs/T47). */
-const CEILING_CLASS_D = 22;
+ *  livianos → 22. Sprint 111 cerró los 19 de contabilidad
+ *  (fase7-s111-contabilidad) → 3 restantes: las externas sifen/emitir,
+ *  firmar y consultar-lote (llaman al DNIT — no ejercitar en tests). */
+const CEILING_CLASS_D = 3;
 /** Piso de exclusiones del triaje (38 al materializarlo: ~25 externas + ~11
  *  internas + variantes). Si baja, una ruta excluida fue borrada o dejó de
  *  existir — revisar que la exclusión siga justificada en Docs/T47. */

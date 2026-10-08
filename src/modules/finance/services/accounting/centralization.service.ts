@@ -174,8 +174,8 @@ export async function centralizePurchases(
       FROM stock_movements sm
       WHERE sm.tenant_slug = ${tenantSlug}
         AND sm.tipo = 'INGRESO'
-        AND sm.created_at >= ${start}
-        AND sm.created_at <= ${end}
+        AND sm.created_at >= ${start.toISOString()}
+        AND sm.created_at <= ${end.toISOString()}
     `;
     total = parseFloat(purchases[0]?.total ?? "0");
   }
@@ -242,8 +242,8 @@ export async function centralizeInventory(
     )::text as neto
     FROM stock_movements
     WHERE tenant_slug = ${tenantSlug}
-      AND created_at >= ${start}
-      AND created_at <= ${end}
+      AND created_at >= ${start.toISOString()}
+      AND created_at <= ${end.toISOString()}
   `;
 
   const netoValue = parseFloat(neto[0]?.neto ?? "0");
@@ -318,11 +318,12 @@ export async function centralizePayroll(
 
   // Buscar payroll_summary del período
   const [summary] = await getDb()<Array<{ total_salaries: string }> | []>`
-    SELECT COALESCE(SUM(total_salaries::numeric), 0)::text as total_salaries
-    FROM payroll_summary
-    WHERE tenant_slug = ${tenantSlug}
-      AND EXTRACT(YEAR FROM period_date) = ${anho}
-      AND EXTRACT(MONTH FROM period_date) = ${mes}
+    SELECT COALESCE(SUM(ps.payroll_base_total::numeric), 0)::text as total_salaries
+    FROM payroll_summary ps
+    JOIN tenants t ON t.id = ps.tenant_id
+    WHERE t.slug = ${tenantSlug}
+      AND ps.year = ${anho}
+      AND ps.month = ${mes}
   `;
 
   const total = parseFloat(summary?.total_salaries ?? "0");

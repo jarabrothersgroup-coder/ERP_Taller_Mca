@@ -348,3 +348,56 @@ sifen emitir/firmar (riesgo de llamada externa al DNIT) — quedan para el
 sin test 266 → **258** · escritura sin test 119 → **111** · clase D 30 → **22**
 · excluidas 38 · behavior 99/99. Techos del guard congelados en
 152/258/111/22. Clase D restante: contabilidad (~21) + decidir caso por caso.
+
+## Cierre — clase D tanda 3, contabilidad (Sprint 111, 2026-10-08)
+
+Nuevo fichero `tests/fase7-s111-contabilidad.test.ts` (25 tests, tenant
+`e2e-s111`, fixtures SQL con plan de cuentas de 12 códigos con saldo inicial
+5M/5M para la apertura, asientos fixture con `modulo_origen='TEST_S111'`,
+liquidación IRE 2045 y factura fixture; limpieza pre/post con sweeps por
+concepto/S111, ids capturados y módulo+fecha) ejercita los **19 paths
+huérfanos de contabilidad**:
+
+- `POST /finance/contabilidad/asientos/automatico` (201, 4 líneas balanceadas)
+- `POST /finance/contabilidad/apertura` (201, balance 5M)
+- `POST /finance/contabilidad/devengamiento/{ingresos,gastos,revertir}`
+- `POST /finance/contabilidad/depreciacion/{activos,calcular}` (+ revaluo con
+  aserción BD de `valor_actual_libros`)
+- `POST /finance/contabilidad/centralizacion/{ventas,compras,ejecutar}`
+- `POST /finance/contabilidad/{tipos-cambio,diferencia-cambio/calcular}`
+- `POST /finance/contabilidad/{refundir,reversar,reserva-legal}` (+400
+  minItems, +404 reversa repetida, +400 sin campos; aserciones BD de
+  `modulo_origen` refundido y estado ANULADO)
+- `POST /finance/contabilidad/{centros-costo,validar,nota-credito-debito}`
+  (+400×3 de la NC, 201 con `monto='500000.00'`)
+
+**Bugs reales encontrados y corregidos (5)** — los endpoints nunca habían
+corrido (éxito del triaje T-47):
+
+1. `generarAsientoAutomatico` (ledger.service.ts) desbalanceaba el asiento
+   (Caja/Ingresos = 2t vs t → 422): añadido el par Costo/Inventario
+   (`1.1.03.%`), asiento de 4 líneas balanceado.
+2. Schema `refundir` exigía `minItems: 1` pero el servicio requiere ≥2
+   (un id → 500 plano): `minItems: 2` → 400 correcto.
+3. `centralizePurchases`/`centralizeInventory` (centralization.service.ts)
+   pasaban `Date` como parámetros de templates crudos de postgres.js →
+   `TypeError: Received an instance of Date` → **500**; corregido a
+   `toISOString()` (patrón drizzle lo serializa solo, el crudo no).
+4. `refundirAsientos` (journal-consolidation.service.ts) usaba
+   `sql\`= ANY(${ids}::uuid[])\`` que drizzle expande a `ANY(($1,$2)::uuid[])`
+   → `cannot cast type record to uuid[]` → **500**: migrado a `inArray()` en
+   los 3 usos (select de validación, agrupado de líneas y UPDATE final).
+   *Patrón idéntico sigue vivo en treasury.service.ts:426 (conciliación) —
+   candidato a fix.*
+5. `centralizePayroll` consultaba columnas inexistentes (`total_salaries`,
+   `tenant_slug`, `period_date`) de `payroll_summary` → **500 en
+   centralización/ejecutar**: reescrito contra el esquema real
+   (`payroll_base_total` + `year`/`month` + JOIN a `tenants`).
+
+**Efecto en métricas (Sprint 111):** total 522 · sin consumidor 152 ·
+sin test 258 → **238** (los 19 + `GET /asientos/:id` que el matcher
+paramétrico caza desde `/asientos/automatico`) · escritura sin test 111 →
+**92** · clase D 22 → **3** · excluidas 38 · behavior 99/99. Techos del
+guard congelados en **152/238/92/3**. Clase D restante = las 3 externas
+`sifen/emitir|firmar|consultar-lote` (llaman al DNIT — no ejercitar nunca
+en tests).
