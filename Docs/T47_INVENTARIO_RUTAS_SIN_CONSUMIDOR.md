@@ -299,3 +299,29 @@ ahora es template literal y el scanner la cuenta.
 clase D 48 → **40** · excluidas 38 · behavior 99/99. Techos del guard
 `tests/contract/route-consumer-guard.test.ts` congelados en 152/279/132/40.
 Clase D restante = baldes "Conectar a UI" + "Decidir caso por caso".
+
+## Cierre — clase D con tests (Sprint 109, 2026-10-08)
+
+Nuevo fichero `tests/fase6-s109-classd.test.ts` (15 tests, tenant `e2e-s109`,
+patrón fase4-crud) ejercita 10 paths de la clase D con `app.inject`:
+
+- `POST /config/sucursales` + `PATCH|DELETE /config/sucursales/:id` (requireAdmin)
+- `POST /finance/donaciones` + `PATCH|DELETE /finance/donaciones/:id`
+- `POST /crm/deals/:id/close` (seed de stages + create + cierre con `fecha_cierre`)
+- `POST /marketing/sequences/:id/enroll` (+ fixture `POST /marketing/sequences`)
+- `POST /whatsapp/errors/:errorId/resolve` (fixture INSERT + aserción `resolved`)
+- `PATCH /dvi/items/:itemId/status` (+ fixtures `POST /dvi` y `POST /dvi/:id/items`)
+- `POST /dvi/:id/calculate-score` (de regalo vía fixture)
+
+**Bug real encontrado y corregido:** `createSequence`
+(`src/modules/marketing/services/sequence.service.ts`) interpolaba
+`${step.delayDays}` sin coalescer — con el campo opcional omitido, el tagged
+template de drizzle emitía un placeholder vacío (`VALUES ($1,$2,$3, , $4…)`)
+→ syntax error → **500 en un POST documentado como opcional**. Corregido a
+`${step.delayDays ?? 0}` (la columna es `NOT NULL DEFAULT 0`).
+
+**Efecto en métricas (Sprint 109):** total 522 · sin consumidor 152 ·
+sin test 279 → **266** · escritura sin test 132 → **119** · clase D 40 → **30**
+· excluidas 38 · behavior 99/99. Techos del guard congelados en
+152/266/119/30. Clase D restante: contabilidad/sifen (~20) + "conectar a UI"
+y "decidir caso por caso".

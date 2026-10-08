@@ -66,7 +66,7 @@ export async function createSequence(
   for (const step of data.steps) {
     await db().execute(sql`
       INSERT INTO marketing_sequence_steps (sequence_id, tenant_slug, orden, delay_days, tipo, asunto, mensaje)
-      VALUES (${seq.id}, ${tenantSlug}, ${step.orden}, ${step.delayDays}, ${step.tipo}, ${step.asunto || null}, ${step.mensaje})
+      VALUES (${seq.id}, ${tenantSlug}, ${step.orden}, ${step.delayDays ?? 0}, ${step.tipo}, ${step.asunto || null}, ${step.mensaje})
     `);
   }
 

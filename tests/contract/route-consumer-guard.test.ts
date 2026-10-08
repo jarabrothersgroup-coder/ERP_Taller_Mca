@@ -26,30 +26,32 @@ import { describe, expect, it, beforeAll } from "vitest";
 // @ts-expect-error — script .mjs sin declaraciones de tipos
 import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } from "../../scripts/route-consumer-scan.mjs";
 
-// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 108 2026-10-08) ─────────
+// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 109 2026-10-08) ─────────
 // Sin consumidor 152 = 522 rutas − las citadas por web/mobile/public/scripts/backend
 // − las 38 excluidas del triaje (externas/internas por diseño). Las exclusiones
 // viven en EXCLUDED del escáner.
-// Sin test 279 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
+// Sin test 266 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
 // las exclusiones NO bajan esta pata (un webhook externo necesita test igual).
 // Primer baseline (293/383) usaba un matcher que nunca convertía `:param`:
 // toda ruta parametrizada contaba como huérfana. Corregido el matcher, el
-// número REAL bajó. Sprint 107 cerró los 8 pares T-61 restantes (293 → 286);
-// Sprint 108 eliminó 7 rutas legado verificadas (286 → 279) y arregló la
-// concatenación de URL que ocultaba un consumidor de thinkcar.js. Bajar con
-// cada fix; jamás subir.
+// número REAL bajó. Sprint 107 cerró los 8 pares T-61 (293 → 286); Sprint 108
+// eliminó 7 rutas legado (286 → 279); Sprint 109 sumó 15 tests de clase D
+// (279 → 266) y reparó el `delayDays` de createSequence. Bajar con cada fix;
+// jamás subir.
 const CEILING_WITHOUT_CONSUMER = 152;
-const CEILING_WITHOUT_TEST = 279;
+const CEILING_WITHOUT_TEST = 266;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
- *  184 → 139 (Sprint 107) → 132 con el borrado de las 7 legado (Sprint 108). */
-const CEILING_WRITE_WITHOUT_TEST = 132;
+ *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109). */
+const CEILING_WRITE_WITHOUT_TEST = 119;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
- *  Materializado el triaje (92 → 61 → 48). Sprint 108 eliminó los 7
- *  "legado → eliminar" verificados y reparó thinkcar.js → 40 restantes:
- *  "conectar a UI" + "decisión de producto" (Docs/T47). */
-const CEILING_CLASS_D = 40;
+ *  Materializado el triaje (92 → 61 → 48 → 40). Sprint 109 cerró 10 paths
+ *  con tests de comportamiento (fase6-s109-classd: sucursales, donaciones,
+ *  crm close, marketing enroll, whatsapp resolve, dvi status + items +
+ *  calculate-score) → 30 restantes: contabilidad/sifen + "conectar a UI" +
+ *  "decidir caso por caso" (Docs/T47). */
+const CEILING_CLASS_D = 30;
 /** Piso de exclusiones del triaje (38 al materializarlo: ~25 externas + ~11
  *  internas + variantes). Si baja, una ruta excluida fue borrada o dejó de
  *  existir — revisar que la exclusión siga justificada en Docs/T47. */
