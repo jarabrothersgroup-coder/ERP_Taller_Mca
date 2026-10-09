@@ -492,3 +492,53 @@ sin test 90 · clase D 0 · excluidas 41. Techos del guard congelados en
 **113/235/90/0** (piso de exclusiones 36). Validación: backend 117 ficheros
 / 2264 PASS + guard 7/7 + contrato FE↔BE 5/5 + tsc 0; web typecheck 0,
 lint 0 errores (191 warnings), 156/156 tests.
+
+## Sprint 114 — Tests de escritura del balde 113 (2026-10-09)
+
+**Alcance:** los 14 endpoints de escritura cableados a UI en Sprint 113 no
+tenían tests de comportamiento backend (backlog T-61). Se cubrieron con
+`tests/fase7-s114-write-coverage.test.ts` (patrón fase7: tenant dedicado
+`e2e-s114`, fixtures SQL idempotentes, `app.inject` con template literals
+para el scanner de T-63).
+
+### Rutas cubiertas (14 ops de escritura)
+
+| Módulo | Rutas |
+|--------|-------|
+| Treasury | POST `/finance/treasury/cuentas`, POST `/finance/treasury/movimientos`, POST `/finance/treasury/facturas-proveedor`, POST `/finance/treasury/facturas-proveedor/:id/pagar` |
+| Presupuestos | POST `/finance/presupuestos`, POST `/finance/presupuestos/:id/aprobar` (APROBAR→OT y RECHAZAR) |
+| Contabilidad | POST `/finance/contabilidad/asientos`, POST/DELETE `/finance/contabilidad/grupos`, POST/DELETE `/finance/contabilidad/grupos/:id/miembros`, PATCH/DELETE `/finance/contabilidad/centros-costo/:id` |
+| DVI | POST `/dvi/:inspectionId/photos` (multipart JPEG + magic bytes + spoofing), DELETE `/dvi/:inspectionId/photos/:photoId` |
+
+### Bugs encontrados y corregidos (RED → fix → GREEN)
+
+1. **POST `/finance/treasury/facturas-proveedor` → 500.** El handler pasaba
+   `fechaEmision`/`fechaVencimiento` como strings ISO al insert de drizzle;
+   `timestamp withTimezone` exige `Date`. Fix: convertir a `Date` en el
+   handler (`treasury.routes.ts`).
+2. **DELETE `/finance/contabilidad/grupos/:id` devolvía 204 en grupo ya
+   inactivo.** `deactivateTenantGroup` no filtraba `is_active = TRUE`, así
+   que el `UPDATE … RETURNING` siempre encontraba la fila. Fix: añadir
+   `AND is_active = TRUE` (`consolidated-report.service.ts`).
+3. **DELETE `/dvi/:inspectionId/photos/:photoId` → 500 (ENOENT).** El
+   handler construía la ruta sin extensión (`{tenant}/{inspection}/{photoId}`)
+   pero upload guarda `{photoId}.{ext}`. Fix: resolver el archivo real por
+   prefijo con `listPhotos` y devolver 404 si no existe
+   (`photo.routes.ts`).
+
+### Ajustes de expectativas (no bugs)
+
+- POST movimientos devuelve **201** (no 200).
+- ValidationError (asientos desbalanceados, aprobar sin cliente/vehículo)
+  mapea a **422** (error-handler), no 400.
+- POST asientos con `< 2` líneas → **400** del schema Fastify (`minItems`),
+  antes del servicio.
+- POST fotos sin multipart → **406** (parser rechaza Content-Type).
+- Estado de factura tras pago total: **`PAGA`** (no `PAGADA`).
+
+**Efecto en métricas (Sprint 114):** total 522 · sin consumidor 113 (sin
+cambios) · sin test 235 → **221** (−14) · escritura sin test 90 → **76**
+(−14) · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/221/76/0** (piso de exclusiones 36). Validación: backend 118 ficheros
+/ 2296 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó (cambios solo en
+backend/tests).

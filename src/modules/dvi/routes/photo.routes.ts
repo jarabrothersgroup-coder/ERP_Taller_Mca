@@ -146,8 +146,15 @@ export async function photoRoutes(app: FastifyInstance): Promise<void> {
       const { inspectionId, photoId } = request.params;
       const tenantSlug = request.tenantSlug;
 
-      const path = `${tenantSlug}/${inspectionId}/${photoId}`;
-      const result = await deletePhoto(path);
+      // Upload guarda {photoId}.{ext}: resolver el archivo real por prefijo
+      // (el handler construía la ruta sin extensión → ENOENT → 500).
+      const photos = await listPhotos(tenantSlug, inspectionId);
+      const match = photos.find((p) => p.name === photoId || p.name.startsWith(`${photoId}.`));
+      if (!match) {
+        return reply.status(404).send({ error: "Foto no encontrada" });
+      }
+
+      const result = await deletePhoto(match.path);
 
       return reply.send(result);
     },

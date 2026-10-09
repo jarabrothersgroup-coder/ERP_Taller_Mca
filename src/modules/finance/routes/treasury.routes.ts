@@ -257,6 +257,9 @@ export async function treasuryRoutes(app: FastifyInstance): Promise<void> {
     const body = request.body as Record<string, unknown>;
     const factura = await createFacturaProveedor({
       ...body,
+      // Drizzle/pg rechaza strings ISO en timestamp withTimezone: convertir a Date
+      ...(body.fechaEmision ? { fechaEmision: new Date(body.fechaEmision as string) } : {}),
+      ...(body.fechaVencimiento ? { fechaVencimiento: new Date(body.fechaVencimiento as string) } : {}),
       tenantSlug,
     } as any);
 

@@ -494,9 +494,11 @@ export async function removeTenantGroupMember(
 export async function deactivateTenantGroup(
   groupId: string,
 ): Promise<boolean> {
+  // Solo desactiva si estaba activo: si ya inactivo, RETURNING no debe
+  // devolver fila (la ruta DELETE debe responder 404, no 204 repetido).
   const deactivateResult = await db().execute(
     sql`UPDATE tenant_groups SET is_active = FALSE, updated_at = NOW()
-        WHERE id = ${groupId}
+        WHERE id = ${groupId} AND is_active = TRUE
         RETURNING id`,
   );
   return deactivateResult !== null && deactivateResult.length > 0;

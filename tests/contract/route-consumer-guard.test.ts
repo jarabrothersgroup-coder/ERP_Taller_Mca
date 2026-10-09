@@ -46,14 +46,22 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // sucursales, presupuestos items+refresh, DVI item-status, inventory
 // adjustments+initial-load, contabilidad cierre ~14 ops + tipos-cambio
 // actual/:fecha) → 149 → 113.
+// Sprint 114 ejercitó con tests de comportamiento las 14 ops de escritura
+// del balde cableado en 113 (fase7-s114-write-coverage: treasury cuentas/
+// movimientos/facturas-proveedor(+pagar), presupuestos create+aprobar,
+// contabilidad asientos/grupos/miembros/centros-costo, dvi photos):
+// sin test 235 → 221, escritura sin test 90 → 76. Además corrigió 3 bugs
+// (facturas-proveedor fechas ISO→Date, DELETE grupo ya inactivo devolvía
+// 204 en vez de 404, DELETE foto DVI perdía la extensión del archivo).
 // Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 235;
+const CEILING_WITHOUT_TEST = 221;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
- *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación). */
-const CEILING_WRITE_WITHOUT_TEST = 90;
+ *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación)
+ *  → 76 (Sprint 114: 14 ops de escritura del balde T-47). */
+const CEILING_WRITE_WITHOUT_TEST = 76;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
