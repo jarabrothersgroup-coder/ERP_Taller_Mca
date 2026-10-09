@@ -26,11 +26,12 @@ import { describe, expect, it, beforeAll } from "vitest";
 // @ts-expect-error — script .mjs sin declaraciones de tipos
 import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } from "../../scripts/route-consumer-scan.mjs";
 
-// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 110 2026-10-08) ─────────
-// Sin consumidor 152 = 522 rutas − las citadas por web/mobile/public/scripts/backend
-// − las 38 excluidas del triaje (externas/internas por diseño). Las exclusiones
+// ─── Techos vigentes (baseline T-63 + triaje 2026-09-28; Sprint 112 2026-10-08;
+// Sprint 113 (T-47 "Conectar a UI") 2026-10-09) ─────────────────────────────
+// Sin consumidor 113 = 522 rutas − las citadas por web/mobile/public/scripts/backend
+// − las 41 excluidas del triaje (externas/internas por diseño). Las exclusiones
 // viven en EXCLUDED del escáner.
-// Sin test 258 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
+// Sin test 235 = la misma superficie menos lo que ejercita tests/ y web/e2e/;
 // las exclusiones NO bajan esta pata (un webhook externo necesita test igual).
 // Primer baseline (293/383) usaba un matcher que nunca convertía `:param`:
 // toda ruta parametrizada contaba como huérfana. Corregido el matcher, el
@@ -38,25 +39,33 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // eliminó 7 rutas legado (286 → 279); Sprint 109 sumó 15 tests de clase D
 // (279 → 266); Sprint 110 sumó 16 tests tanda 2 liviana (266 → 258);
 // Sprint 111 sumó 25 tests de contabilidad (258 → 238; los 19 paths huérfanos
-// + asientos/:id que el matcher paramétrico caza desde /asientos/automatico).
+// + asientos/:id que el matcher paramétrico caza desde /asientos/automatico);
+// Sprint 112 excluyó las 3 externas sifen (152 → 149) y ejercitó los 3 paths
+// de treasury/conciliación con tests/fase7-s112-treasury (238 → 235).
+// Sprint 113 conectó a UI el balde T-47 (~30 ops: tesorería transfer/edit,
+// sucursales, presupuestos items+refresh, DVI item-status, inventory
+// adjustments+initial-load, contabilidad cierre ~14 ops + tipos-cambio
+// actual/:fecha) → 149 → 113.
 // Bajar con cada fix; jamás subir.
-const CEILING_WITHOUT_CONSUMER = 152;
-const CEILING_WITHOUT_TEST = 238;
+const CEILING_WITHOUT_CONSUMER = 113;
+const CEILING_WITHOUT_TEST = 235;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
- *  → 92 (Sprint 111: los 19 POST de contabilidad). */
-const CEILING_WRITE_WITHOUT_TEST = 92;
+ *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación). */
+const CEILING_WRITE_WITHOUT_TEST = 90;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
  *  livianos → 22. Sprint 111 cerró los 19 de contabilidad
  *  (fase7-s111-contabilidad) → 3 restantes: las externas sifen/emitir,
- *  firmar y consultar-lote (llaman al DNIT — no ejercitar en tests). */
-const CEILING_CLASS_D = 3;
+ *  firmar y consultar-lote (llaman al DNIT — no ejercitar en tests).
+ *  Sprint 112 las excluyó del triaje con justificación → 0. */
+const CEILING_CLASS_D = 0;
 /** Piso de exclusiones del triaje (38 al materializarlo: ~25 externas + ~11
- *  internas + variantes). Si baja, una ruta excluida fue borrada o dejó de
- *  existir — revisar que la exclusión siga justificada en Docs/T47. */
+ *  internas + variantes; 41 tras Sprint 112 con las 3 sifen del DNIT). Si baja,
+ *  una ruta excluida fue borrada o dejó de existir — revisar que la exclusión
+ *  siga justificada en Docs/T47. */
 const FLOOR_EXCLUDED = 36;
 
 interface RouteEntry {

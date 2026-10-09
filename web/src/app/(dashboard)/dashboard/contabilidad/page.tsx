@@ -14,6 +14,7 @@ import {
   BookOpen,
   BarChart3,
   Landmark,
+  CalendarCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -213,6 +214,11 @@ const CONTABILIDAD_SUB_PAGES = [
     href: "/dashboard/contabilidad/evolucion-patrimonio",
     label: "Patrimonio",
     icon: Landmark,
+  },
+  {
+    href: "/dashboard/contabilidad/cierre",
+    label: "Cierre",
+    icon: CalendarCheck,
   },
 ];
 

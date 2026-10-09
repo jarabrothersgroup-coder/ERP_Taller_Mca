@@ -401,3 +401,94 @@ paramétrico caza desde `/asientos/automatico`) · escritura sin test 111 →
 guard congelados en **152/238/92/3**. Clase D restante = las 3 externas
 `sifen/emitir|firmar|consultar-lote` (llaman al DNIT — no ejercitar nunca
 en tests).
+
+## Cierre — clase D = 0, exclusión sifen + regresión conciliación (Sprint 112, 2026-10-08)
+
+Tres movimientos que cierran la fase de triaje de T-47:
+
+1. **Fix del patrón `= ANY(${ids}::uuid[])` en treasury** — era el "candidato
+   a fix" que Sprint 111 dejó anotado en el punto 4 anterior:
+   `cerrarConciliacion` (treasury.service.ts:426) expandía `movimientoIds` a
+   `ANY(($1,$2)::uuid[])` → `cannot cast type record to uuid[]` → **500 con
+   cualquier lista de ≥1 movimiento**. Migrado a `inArray()` (mismo fix que
+   `refundirAsientos` en Sprint 111). Nuevo fichero
+   `tests/fase7-s112-treasury.test.ts` (5 tests, tenant `e2e-s112`):
+   iniciar conciliación → cerrar con 2 movimientos (regresión, con aserción
+   BD de `conciliado`/`fecha_conciliacion`) → cerrar con lista vacía → 404 →
+   listado. Verificado que **falla 1/5 sin el fix** (stash) y pasa 5/5 con él.
+2. **Exclusión de las 3 externas sifen del triaje** — `POST
+   /finance/sifen/{emitir,firmar,consultar-lote}` añadidas a `EXCLUDED` del
+   escáner con justificación (emisión electrónica saliente al DKCC; el
+   "consumidor" es la red DNIT, no la UI). Con esto **la clase D llega a 0**
+   sin arriesgar llamadas fiscales reales. Las exclusiones NO bajan la pata
+   `sinTest`: un webhook externo necesita test igual (semántica documentada
+   en el propio EXCLUDED).
+3. **CI materializado en `.github/workflows/ci.yml`** — el guard T-63 pasó de
+   gate local a gate de PR: job backend (postgres service `pgvector/pg16`,
+   mismas 36 migraciones sobre DB fresca, `tsc`, `eslint`, `vitest run` con
+   el guard dentro) + job web (typecheck, lint, 156 unit tests). Validado
+   end-to-end localmente contra una DB recién migrada (117 archivos /
+   2268 tests) antes de confiar en el runner.
+
+**Efecto en métricas (Sprint 112):** total 522 · sin consumidor 152 →
+**149** (−3 sifen excluidas) · sin test 238 → **235** (−3 paths de
+`treasury/conciliación`) · escritura sin test 92 → **90** (−2: start +
+cerrar) · clase D 3 → **0** (excluidas, no ejercitadas) · excluidas 38 →
+**41** · behavior 99/99. Techos del guard congelados en **149/235/90/0**
+(piso de exclusiones 36). **La clase D de T-47 queda vaciada: todo lo que
+escribe y no tiene consumidor o tiene test, o es externa documentada.**
+
+## Cierre — balde "Conectar a UI" cableado a UI real (Sprint 113, 2026-10-09)
+
+Sprint 113 tomó el balde "Conectar a UI" (~30 ops del punto anterior) y lo
+cableó a pantallas reales en `web/` (alcance "balde completo" aprobado).
+Lo que quedó fuera de alcance y por qué:
+
+- `POST /inventory/herramientas/prestar` y `POST
+  /inventory/herramientas/control/:id/devolver` — duplicados legados de
+  `/inventory/tool-loans/lend|/:id/return` (el servicio los marca
+  `@deprecated` y delega). La UI de herramientas ya consume los tool-loans
+  canónicos (`api.lendTool`/`api.returnTool`); doble-wiring duplicaría el
+  flujo. Candidatos a eliminarse (balde "legado/duplicado").
+- `PATCH /dvi/photos/:photoId/markup` — eliminada en Sprint 108 junto con
+  el flujo de anotación de fotos. DVI solo necesita `PATCH
+  /dvi/items/:itemId/status` (conectado).
+- Reportes/mappings GET de contabilidad (`cuadratura`, `rentabilidad/*`,
+  `libro-*-iva`, `mappings`, `validar`, `audit-log`, `devengamiento/ajustes`)
+  — lecturas especializadas fuera del balde de cierre; siguen en la cola.
+
+Lo cableado (archivos clave en `web/src`):
+
+1. **Tesorería** — `tesoreria/transfer-dialog.tsx` (POST
+   `/finance/treasury/transferencias`) + `tesoreria/edit-account-dialog.tsx`
+   (PATCH `/finance/treasury/cuentas/:id`).
+2. **Config** — `config/sucursales-section.tsx` (CRUD completo
+   `/config/sucursales`). El contrato FE↔BE detectó que faltaba el rewrite
+   `/config/:path*` en `web/next.config.mjs` (Next respondería la página en
+   vez del backend); añadido y testeado.
+3. **Presupuestos** — `presupuestos/items-card.tsx` (items CRUD + refresh
+   de totales).
+4. **DVI** — `dvi/dvi-item-status-control.tsx` cableado a la vista comparada
+   de `dvi/page.tsx` con `GET /dvi/:id` (la lista `GET /dvi` no trae items).
+5. **Inventario** — `inventario/movimientos/adjustments-card.tsx`
+   (`/inventory/adjustments` + pending/approve/reject) y
+   `inventario/movimientos/initial-load-card.tsx` (`/inventory/initial-load`
+   + batches list/detail; nuevo `api.getInitialLoadBatch` para
+   `batches/:batchId`).
+6. **Contabilidad** — página nueva
+   `contabilidad/cierre/page.tsx` + `cierre/cierre-dialogs.tsx`: las ~14 ops
+   de cierre (apertura, devengamiento ingresos/gastos/revertir,
+   centralización ventas/compras/ejecutar, depreciación, diferencia de
+   cambio, reserva legal + saldo, cerrar-periodo) y operaciones avanzadas
+   (revaluo, refundir, reversar, nota crédito/débito, tipos de cambio con
+   `actual`/`:fecha`/crear). Pestaña "Cierre" añadida a
+   `CONTABILIDAD_SUB_PAGES`.
+
+**Efecto en métricas (Sprint 113):** total 522 · sin consumidor 149 →
+**113** (−36: las ~30 del balde menos las 3 legacy/del 108/GETs fuera de
+alcance que ya estaban citadas) · sin test 235 (sin cambios — la UI no es
+test de comportamiento backend; sigue siendo el backlog T-61) · escritura
+sin test 90 · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/235/90/0** (piso de exclusiones 36). Validación: backend 117 ficheros
+/ 2264 PASS + guard 7/7 + contrato FE↔BE 5/5 + tsc 0; web typecheck 0,
+lint 0 errores (191 warnings), 156/156 tests.

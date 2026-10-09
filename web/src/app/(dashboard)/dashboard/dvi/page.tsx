@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useDVIInspections } from "@/hooks/use-data";
 import { DVICreateDialog } from "./dvi-create-dialog";
-import type { DVIInspection } from "@/lib/api";
+import { DVIItemStatusControl } from "./dvi-item-status-control";
+import { api, type DVIInspection, type DVIItem as DVIItemApi } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -268,6 +270,16 @@ export default function DVIPage() {
 
   const selectedExtended = selectedInspection as DVIInspectionExtended | null;
 
+  // T-47 item 4 — el listado GET /dvi no incluye ítems; el detalle GET /dvi/:id
+  // sí trae items[] con `estado`, que es lo que edita PATCH /dvi/items/:id/status.
+  const { data: detalle, isLoading: detLoading } = useQuery<{
+    items: DVIItemApi[];
+  }>({
+    queryKey: ["dvi-detail", selectedInspection?.id],
+    queryFn: () => api.getDVIInspection(selectedInspection!.id),
+    enabled: viewMode === "compare" && !!selectedInspection,
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -386,6 +398,49 @@ export default function DVIPage() {
               })
             )}
           </div>
+
+          {/* T-47 item 4 — Estado por ítem (PATCH /dvi/items/:itemId/status) */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4" aria-hidden="true" />
+                Estado de Ítems
+              </CardTitle>
+              <CardDescription>
+                Marcá el estado de cada ítem de la inspección — se guarda en el DVI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {detLoading ? (
+                <Skeleton className="h-20" />
+              ) : (detalle?.items ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Esta inspección no tiene ítems cargados.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {(detalle?.items ?? []).map((item) => (
+                    <div key={item.id} className="rounded-lg border p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {item.descripcion || item.categoria}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Categoría: {item.categoria} — Peso: {item.peso}
+                          </p>
+                          {item.notas && (
+                            <p className="text-xs text-muted-foreground">{item.notas}</p>
+                          )}
+                        </div>
+                      </div>
+                      <DVIItemStatusControl itemId={item.id} estado={item.estado} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Gallery of photos */}
           {selectedExtended?.fotos && selectedExtended.fotos.length > 0 && (

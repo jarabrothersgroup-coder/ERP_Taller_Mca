@@ -14,6 +14,7 @@ import type { UIMappedConfigSettings } from "@/lib/data-service";
 import { LogoUpload } from "@/components/dashboard/config/logo-upload";
 import { FormField } from "@/components/dashboard/config/form-field";
 import { authHeaders } from "@/lib/api";
+import { SucursalesSection } from "./sucursales-section";
 
 export default function ConfigPage() {
   const { data: settingsData, isLoading: loading } = useConfigSettings();
@@ -163,6 +164,8 @@ export default function ConfigPage() {
           </Card>
         </div>
       </div>
+
+      <SucursalesSection />
     </div>
   );
 }

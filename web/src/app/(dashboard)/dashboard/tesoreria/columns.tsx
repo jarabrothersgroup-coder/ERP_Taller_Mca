@@ -4,8 +4,10 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   CheckCircle2,
+  Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
 import type { UIMappedBankAccount, UIMappedMovement } from "@/lib/data-service";
@@ -56,7 +58,8 @@ export const badgeMovimiento: Record<string, "success" | "destructive" | "second
 
 /* ── Columns: Cuentas ───────────────────────── */
 
-export const cuentasColumns: Column<CUentaRecord>[] = [
+export function buildCuentasColumns(onEdit: (row: CUentaRecord) => void): Column<CUentaRecord>[] {
+  return [
   {
     header: "Código",
     accessor: "codigo",
@@ -117,7 +120,17 @@ export const cuentasColumns: Column<CUentaRecord>[] = [
       </Badge>
     ),
   },
-];
+  {
+    header: "Acciones",
+    accessor: "id",
+    cell: (_, row) => (
+      <Button variant="ghost" size="sm" className="gap-1 h-7" onClick={() => onEdit(row)}>
+        <Pencil className="h-3 w-3" aria-hidden="true" /> Editar
+      </Button>
+    ),
+  },
+  ];
+}
 
 /* ── Columns: Movimientos ───────────────────── */
 

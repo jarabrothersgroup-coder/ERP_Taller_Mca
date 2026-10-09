@@ -25,6 +25,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PresupuestoItemsCard } from "./items-card";
 
 /* ── Helpers ──────────────────────────────────── */
 
@@ -220,25 +221,12 @@ export default function PresupuestosPage() {
           </Card>
         </div>
 
-        {/* Items */}
-        {items.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Ítems del Presupuesto</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {items.map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                    <div>
-                      <p className="font-medium">{item.categoria}</p>
-                      <p className="text-xs text-muted-foreground">Centro: {item.centroCostoId}</p>
-                    </div>
-                    <span className="font-medium">{formatGuarani(Number(item.montoPresupuestado))}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Items — T-47 item 4: CRUD de ítems + recálculo de montos reales */}
+        <PresupuestoItemsCard
+          presupuestoId={selectedId}
+          items={items}
+          estado={estado}
+        />
 
         {detLoading && <Skeleton className="h-32" />}
       </div>

@@ -662,6 +662,34 @@ export const api = {
     return request<StockMovement[]>(`/inventory/stock-movements${query ? `?${query}` : ""}`);
   },
 
+  /* ── Inventory: Ajustes con aprobación ─────── */
+
+  createAdjustment: (body: {
+    repuestoId: string;
+    cantidad: number;
+    motivo: string;
+    observaciones?: string;
+    costoUnitario?: number;
+  }) =>
+    request<StockAdjustmentRequest>("/inventory/adjustments", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listPendingAdjustments: () =>
+    request<StockAdjustmentRequest[]>("/inventory/adjustments/pending"),
+
+  approveAdjustment: (id: string) =>
+    request<StockAdjustmentRequest>(`/inventory/adjustments/${id}/approve`, {
+      method: "POST",
+    }),
+
+  rejectAdjustment: (id: string, motivoRechazo: string) =>
+    request<StockAdjustmentRequest>(`/inventory/adjustments/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ motivoRechazo }),
+    }),
+
   /* ── Inventory: Herramientas CRUD ──────────── */
 
   listHerramientas: (params?: ListParams) => {
@@ -696,10 +724,11 @@ export const api = {
 
   lendTool: (body: {
     toolInstanceId: string;
-    ordenTrabajoId?: string;
-    tecnicoId?: string;
+    ordenTrabajoId: string;
+    mecanicoId: string;
     condicionSalida?: string;
     fechaEsperadaDevolucion?: string;
+    observaciones?: string;
   }) =>
     request<ToolLoan>(`/inventory/tool-loans/lend`, {
       method: "POST",
@@ -723,6 +752,20 @@ export const api = {
       }),
     });
   },
+
+  /* ── Inventory: Carga Inicial ──────────────── */
+
+  initialLoad: (body: InitialLoadInput) =>
+    request<InitialLoadResult>("/inventory/initial-load", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listInitialLoadBatches: (limit = 20) =>
+    request<InitialLoadBatch[]>(`/inventory/initial-load/batches?limit=${limit}`),
+
+  getInitialLoadBatch: (batchId: string) =>
+    request<InitialLoadBatchItem[]>(`/inventory/initial-load/batches/${encodeURIComponent(batchId)}`),
 
   /* ── Finance: Invoices ─────────────────────── */
 
@@ -850,6 +893,32 @@ export const api = {
   listConciliaciones: (cuentaId: string) =>
     request<ConciliacionRecord[]>(`/finance/treasury/conciliacion/${cuentaId}`),
 
+  updateBankAccount: (id: string, body: {
+    nombre?: string;
+    codigo?: string;
+    banco?: string | null;
+    tipoCuenta?: string;
+    moneda?: string;
+    activo?: boolean;
+    observaciones?: string | null;
+  }) =>
+    request<BankAccount>(`/finance/treasury/cuentas/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  transferir: (body: {
+    cuentaOrigenId: string;
+    cuentaDestinoId: string;
+    monto: string;
+    concepto: string;
+    moneda?: string;
+  }) =>
+    request<{ egreso: Movement; ingreso: Movement }>("/finance/treasury/transferencias", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   /* ── Nómina / Payroll ────────────────────── */
 
   listMechanicProfiles: () =>
@@ -886,6 +955,9 @@ export const api = {
 
   listCuentasContables: () =>
     request<CuentaContable[]>("/finance/contabilidad/cuentas"),
+
+  listCentrosCosto: () =>
+    request<CentroCosto[]>("/finance/contabilidad/centros-costo"),
 
   createCuentaContable: (body: {
     codigo: string;
@@ -931,6 +1003,139 @@ export const api = {
     return request<FinancialNotesReport>(`/finance/contabilidad/notas-financieras/${anho}/${mes}${qs}`);
   },
 
+  /* ── Finance: Contabilidad — Cierre de período ── */
+
+  contabilidadApertura: (body: { anho: number; mes: number; usarSaldosAcumulados?: boolean }) =>
+    request<ContabilidadAperturaResult>("/finance/contabilidad/apertura", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  contabilidadCerrarPeriodo: (hastaMes: number) =>
+    request<{ cerradoHastaMes: number }>("/finance/contabilidad/cerrar-periodo", {
+      method: "POST",
+      body: JSON.stringify({ hastaMes }),
+    }),
+
+  contabilidadDevengarIngresos: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/devengamiento/ingresos", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadDevengarGastos: (body: { gastos: DevengamientoGasto[] }) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/devengamiento/gastos", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  contabilidadRevertirDevengamiento: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/devengamiento/revertir", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadCentralizarVentas: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/centralizacion/ventas", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadCentralizarCompras: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/centralizacion/compras", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadCentralizacionEjecutar: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/centralizacion/ejecutar", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadCalcularDepreciacion: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/depreciacion/calcular", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadCalcularDiferenciaCambio: (anho: number, mes: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/diferencia-cambio/calcular", {
+      method: "POST",
+      body: JSON.stringify({ anho, mes }),
+    }),
+
+  contabilidadReservaLegal: (anho: number) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/reserva-legal", {
+      method: "POST",
+      body: JSON.stringify({ anho }),
+    }),
+
+  contabilidadRevaluo: (body: { activoFijoId: string; nuevoValor: number; fecha: string; motivo?: string }) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/revaluo", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  contabilidadReversar: (body: { referenciaId: string; referenciaTipo: string; motivo: string }) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/reversar", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  contabilidadRefundir: (body: { asientoIds: string[]; fecha?: string; concepto?: string }) =>
+    request<ContabilidadOpResult>("/finance/contabilidad/refundir", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  contabilidadNotaCreditoDebito: (body: {
+    facturaOriginalId: string;
+    tipo: "CREDITO" | "DEBITO";
+    motivo: string;
+    monto?: number;
+    reversalAsientoId?: string;
+  }) =>
+    request<ContabilidadNotaResult>("/finance/contabilidad/nota-credito-debito", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  createTipoCambio: (body: {
+    moneda: string;
+    fecha: string;
+    compra: number;
+    venta: number;
+    referencia?: number;
+    fuente?: string;
+    notas?: string;
+  }) =>
+    request<TipoCambio>("/finance/contabilidad/tipos-cambio", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  listTiposCambio: (params?: { moneda?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.moneda) qs.set("moneda", params.moneda);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const query = qs.toString();
+    return request<TipoCambio[]>(`/finance/contabilidad/tipos-cambio${query ? `?${query}` : ""}`);
+  },
+
+  getTipoCambioActual: (moneda = "USD") =>
+    request<TipoCambio | null>(`/finance/contabilidad/tipos-cambio/actual?moneda=${encodeURIComponent(moneda)}`),
+
+  getTipoCambioFecha: (fecha: string, moneda = "USD") =>
+    request<TipoCambio | null>(
+      `/finance/contabilidad/tipos-cambio/${encodeURIComponent(fecha)}?moneda=${encodeURIComponent(moneda)}`,
+    ),
+
+  listActivosFijos: () => request<ActivoFijo[]>("/finance/contabilidad/depreciacion/activos"),
+
+  getReservaLegalSaldo: () =>
+    request<{ saldo: number | string }>("/finance/contabilidad/reserva-legal/saldo"),
+
   /* ── Finance: Presupuestos ─────────────────── */
 
   listPresupuestos: () => request<Presupuesto[]>("/finance/presupuestos"),
@@ -947,6 +1152,33 @@ export const api = {
     request<PresupuestoComparativa>(`/finance/presupuestos/${id}/comparativa`),
 
   getPresupuestoAlertas: () => request<PresupuestoAlerta[]>("/finance/presupuestos/alertas"),
+
+  createPresupuestoItem: (presupuestoId: string, body: {
+    centroCostoId: string;
+    categoria: string;
+    montoPresupuestado: number;
+    notas?: string;
+  }) =>
+    request<PresupuestoItem>(`/finance/presupuestos/${presupuestoId}/items`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updatePresupuestoItem: (itemId: string, body: { montoPresupuestado?: number; notas?: string }) =>
+    request<PresupuestoItem>(`/finance/presupuestos/items/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deletePresupuestoItem: (itemId: string) =>
+    request<void>(`/finance/presupuestos/items/${itemId}`, {
+      method: "DELETE",
+    }),
+
+  refreshPresupuesto: (presupuestoId: string) =>
+    request<{ ok: boolean; message: string }>(`/finance/presupuestos/${presupuestoId}/refresh`, {
+      method: "POST",
+    }),
 
   /* ── Finance: Portal Payments ────────────── */
 
@@ -1078,6 +1310,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  updateDVIItemStatus: (itemId: string, estado: "OK" | "REQUIERE_ATENCION" | "CRITICO") =>
+    request<DVIItem>(`/dvi/items/${itemId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ estado }),
+    }),
+
   /* ── Thinkcar ──────────────────────────────── */
 
   listThinkcarImports: (params?: { limit?: number; offset?: number }) => {
@@ -1179,6 +1417,47 @@ export const api = {
     request<ConfigSettings>("/api/config/settings", {
       method: "PUT",
       body: JSON.stringify(body),
+    }),
+
+  /* ── Config: Sucursales ────────────────────── */
+
+  listSucursales: () => request<Sucursal[]>("/config/sucursales"),
+
+  createSucursal: (body: {
+    nombre: string;
+    codigo: string;
+    direccion?: string;
+    ciudad?: string;
+    departamento?: string;
+    telefono?: string;
+    email?: string;
+    gerente?: string;
+    esPrincipal?: boolean;
+  }) =>
+    request<Sucursal>("/config/sucursales", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateSucursal: (id: string, body: Partial<{
+    nombre: string;
+    direccion: string | null;
+    ciudad: string;
+    departamento: string;
+    telefono: string;
+    email: string;
+    gerente: string;
+    esPrincipal: boolean;
+    activa: boolean;
+  }>) =>
+    request<Sucursal>(`/config/sucursales/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteSucursal: (id: string) =>
+    request<void>(`/config/sucursales/${id}`, {
+      method: "DELETE",
     }),
 
   /* ── Label Printing ────────────────────────── */
@@ -1859,8 +2138,168 @@ export interface DVIInspection {
   technicianId: string;
   status: string;
   healthScore: number;
-  items: unknown[];
+  items: DVIItem[];
   createdAt: string;
+}
+
+export interface DVIItem {
+  id: string;
+  dviId: string;
+  categoria: string;
+  descripcion: string;
+  estado: string;
+  peso: number;
+  notas: string | null;
+  createdAt: string;
+}
+
+export interface Sucursal {
+  id: string;
+  nombre: string;
+  codigo: string;
+  direccion: string | null;
+  ciudad: string | null;
+  departamento: string | null;
+  telefono: string | null;
+  email: string | null;
+  gerente: string | null;
+  esPrincipal: boolean;
+  activa: boolean;
+  tenantSlug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockAdjustmentRequest {
+  id: string;
+  repuestoId: string;
+  cantidad: number;
+  motivo: string;
+  observaciones?: string;
+  estado: "PENDIENTE" | "APROBADO" | "RECHAZADO";
+  solicitadoPor: string;
+  aprobadoPor?: string;
+  motivoRechazo?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface InitialLoadBatch {
+  batchId: string;
+  tipo: string;
+  asientoId: string | null;
+  createdAt: string;
+}
+
+export interface InitialLoadBatchItem {
+  id: string;
+  tipo: string;
+  batchId: string;
+  itemId: string;
+  itemDescripcion: string;
+  cantidad: number;
+  valorUnitario: string;
+  valorTotal: string;
+  cuentaActivoId: string;
+  asientoId: string | null;
+  cuentaPatrimonioId: string;
+  createdAt: string;
+}
+
+export interface InitialLoadInput {
+  repuestos?: {
+    repuestoId: string;
+    codigo?: string;
+    descripcion?: string;
+    categoria?: string;
+    cantidad: number;
+    valorEstimadoMercado?: number;
+  }[];
+  herramientas?: {
+    herramientaId: string;
+    numeroSerie: string;
+    tagRfid?: string;
+    estadoInicial: string;
+    valorAdquisicion: number;
+    valorNetoActual: number;
+    fechaAdquisicion?: string;
+    observaciones?: string;
+  }[];
+  cuentaContrapartidaId?: string;
+  fecha?: string;
+  concepto?: string;
+}
+
+export interface InitialLoadResult {
+  batchId: string;
+  repuestosCargados: number;
+  herramientasCargadas: number;
+  valorTotalCargado: number | string;
+  asiento?: unknown;
+  items: unknown[];
+}
+
+export interface ContabilidadOpResult {
+  success: boolean;
+  periodo?: string;
+  asientoId?: string;
+  message?: string;
+}
+
+export interface ContabilidadAperturaResult {
+  asiento: { id: string; totalDebe: number | string; totalHaber: number | string };
+  lineas: unknown[];
+}
+
+export interface ContabilidadNotaResult {
+  success: boolean;
+  notaAsientoId?: string;
+  monto?: string;
+  error?: string;
+}
+
+export interface TipoCambio {
+  id: string;
+  moneda: string;
+  fecha: string;
+  compra: number | string;
+  venta: number | string;
+  referencia?: number | string | null;
+  fuente?: string | null;
+  notas?: string | null;
+}
+
+export interface ActivoFijo {
+  id: string;
+  codigo?: string;
+  descripcion?: string;
+  valorActualLibros?: number | string;
+}
+
+export interface PresupuestoItem {
+  id: string;
+  presupuestoId: string;
+  centroCostoId: string;
+  categoria: string;
+  montoPresupuestado: string | number;
+  montoReal?: string | number;
+  notas: string | null;
+  createdAt?: string;
+}
+
+export interface DevengamientoGasto {
+  concepto: string;
+  monto: number;
+  cuentaGastoId: string;
+  cuentaPagarId?: string;
+  ordenTrabajoId?: string;
+}
+
+export interface CentroCosto {
+  id: string;
+  codigo: string;
+  nombre: string;
+  parentId?: string | null;
 }
 
 export interface ThinkcarImport {

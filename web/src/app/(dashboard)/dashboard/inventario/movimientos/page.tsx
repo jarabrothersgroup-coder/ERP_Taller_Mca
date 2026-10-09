@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { AdjustmentsCard } from "./adjustments-card";
+import { InitialLoadCard } from "./initial-load-card";
 
 /* ── Types ──────────────────────────────────── */
 
@@ -303,6 +305,12 @@ export default function StockMovementsPage() {
         onSearchChange={setSearch}
         className="shadow-sm"
       />
+
+      {/* ── Ajustes con aprobación + Carga Inicial (T-47) ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AdjustmentsCard />
+        <InitialLoadCard />
+      </div>
 
       {/* ── Register Dialog ──────────────────── */}
       <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>

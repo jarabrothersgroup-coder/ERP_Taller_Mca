@@ -191,7 +191,7 @@ export default function HerramientasPage() {
 
   // ── Lend tool mutation ──
   const lendMut = useMutation({
-    mutationFn: () => api.lendTool({ toolInstanceId: lendInstanceId, ordenTrabajoId: lendOtId, tecnicoId: lendTecnico }),
+    mutationFn: () => api.lendTool({ toolInstanceId: lendInstanceId, ordenTrabajoId: lendOtId, mecanicoId: lendTecnico }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tool-instances"] });
       qc.invalidateQueries({ queryKey: ["tool-loans"] });

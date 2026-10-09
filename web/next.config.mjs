@@ -134,6 +134,10 @@ const nextConfig = {
         source: '/security/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/security/:path*`,
       },
+      {
+        source: '/config/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/config/:path*`,
+      },
       ],
       // `fallback` se evalúa DESPUÉS de las rutas dinámicas de la app (a
       // diferencia de `afterFiles`, que las pisa): así los links mágicos del

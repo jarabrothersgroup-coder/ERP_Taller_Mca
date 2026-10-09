@@ -28,7 +28,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useBankAccounts, useMovements } from "@/hooks/use-data";
 import { NewBankAccountDialog } from "./new-account-dialog";
 import { NewMovementDialog } from "./new-movement-dialog";
-import { type CUentaRecord, type MovimientoRecord, type CxcRecord, cuentasColumns, movimientosColumns, cxcColumns } from "./columns";
+import { TransferDialog } from "./transfer-dialog";
+import { EditAccountDialog } from "./edit-account-dialog";
+import { type CUentaRecord, type MovimientoRecord, type CxcRecord, buildCuentasColumns, movimientosColumns, cxcColumns } from "./columns";
 import { TreasuryStats } from "./stats";
 import type { Tab } from "./columns";
 
@@ -41,6 +43,7 @@ export default function TesoreriaPage() {
   const [activeTab, setActiveTab] = React.useState<Tab>("cuentas");
   const cxc: CxcRecord[] = [];
   const [search, setSearch] = React.useState("");
+  const [editingCuenta, setEditingCuenta] = React.useState<CUentaRecord | null>(null);
 
   // Filter data
   const filteredData = React.useMemo(() => {
@@ -80,7 +83,12 @@ export default function TesoreriaPage() {
           </p>
         </div>
 
-        {activeTab === "cuentas" && <NewBankAccountDialog />}
+        {activeTab === "cuentas" && (
+          <div className="flex flex-wrap gap-2">
+            <TransferDialog cuentas={cuentas} />
+            <NewBankAccountDialog />
+          </div>
+        )}
         {activeTab === "movimientos" && <NewMovementDialog />}
         {activeTab === "cxc" && (
           <Button size="lg" className="gap-2 shadow-md hover:shadow-lg transition-shadow">
@@ -146,7 +154,7 @@ export default function TesoreriaPage() {
       {/* ── Data Table ───────────────────────── */}
       {activeTab === "cuentas" && (
         <DataTable<CUentaRecord>
-          columns={cuentasColumns}
+          columns={buildCuentasColumns(setEditingCuenta)}
           data={filteredData as CUentaRecord[]}
           rowKey="id"
           loading={loading}
@@ -211,6 +219,9 @@ export default function TesoreriaPage() {
       {activeTab === "conciliacion" && (
         <ConciliacionTab cuentas={cuentas} cuentasLoading={cuentasLoading} />
       )}
+
+      {/* ── Diálogo: Editar Cuenta ──────────────── */}
+      <EditAccountDialog cuenta={editingCuenta} onClose={() => setEditingCuenta(null)} />
     </div>
   );
 }
