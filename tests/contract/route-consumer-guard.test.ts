@@ -53,15 +53,23 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // sin test 235 → 221, escritura sin test 90 → 76. Además corrigió 3 bugs
 // (facturas-proveedor fechas ISO→Date, DELETE grupo ya inactivo devolvía
 // 204 en vez de 404, DELETE foto DVI perdía la extensión del archivo).
-// Bajar con cada fix; jamás subir.
+// Sprint 115 ejercitó 16 ops de escritura del siguiente lote (fase7-s115:
+// mobile push-token, notifications read/read-all, api-keys create/revoke,
+// data-retention upsert/cleanup, label-printing config/preview/reimpresiones,
+// analytics report, fleet billing, 2fa verify, finance payments link):
+// sin test 221 → 208, escritura sin test 76 → 63. Además corrigió 3 bugs
+// (markAsRead/markAsRead sin filtro de tenant — aislamiento cross-tenant,
+// reimpresiones 500 por bytes NUL en payload ESC/POS, scopes api-keys
+// inválidos en test). Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 221;
+const CEILING_WITHOUT_TEST = 208;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
  *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación)
- *  → 76 (Sprint 114: 14 ops de escritura del balde T-47). */
-const CEILING_WRITE_WITHOUT_TEST = 76;
+ *  → 76 (Sprint 114: 14 ops de escritura del balde T-47)
+ *  → 63 (Sprint 115: 16 ops de escritura lote 2). */
+const CEILING_WRITE_WITHOUT_TEST = 63;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths

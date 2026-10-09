@@ -542,3 +542,57 @@ cambios) · sin test 235 → **221** (−14) · escritura sin test 90 → **76**
 **113/221/76/0** (piso de exclusiones 36). Validación: backend 118 ficheros
 / 2296 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó (cambios solo en
 backend/tests).
+
+---
+
+## Sprint 115 — Cobertura de escritura lote 2 (backlog T-61) · 2026-10-09
+
+Segundo lote de tests de comportamiento para rutas de escritura sin test
+del balde post-113. Patrón fase7 (tenant propio `e2e-s115`, fixtures SQL
+idempotentes, `app.inject` con template literals para el scanner T-63).
+
+### Rutas cubiertas (16 ops)
+
+| Módulo | Rutas |
+|--------|-------|
+| Mobile | POST/DELETE `/mobile/push-token` (insert + upsert + delete) |
+| Notifications | PATCH `/api/notifications/:id/read` (+ cross-tenant 404), POST `/api/notifications/read-all` |
+| API Keys | POST `/api-keys`, DELETE `/api-keys/:id` (+ 404) |
+| Enterprise | PUT `/enterprise/data-retention` (upsert), POST `/enterprise/data-retention/cleanup` (+ 404 sin política) |
+| Label printing | PUT `/label-printing/config`, POST `/label-printing/config/preview`, POST `/label-printing/reimpresiones/:id` (404 + 200) |
+| Analytics | POST `/analytics/report` (400 + revenue + status) |
+| Fleet | POST `/fleet/billing/run` (sin contratos → generated=0) |
+| 2FA | POST `/2fa/verify` (400 sin code + valid=false) |
+| Finance | POST `/finance/payments/link` (404 + STRIPE mock + 400 schema) |
+
+### Bugs encontrados y corregidos (RED → fix → GREEN)
+
+1. **PATCH `/api/notifications/:id/read` — aislamiento cross-tenant.**
+   `markAsRead` en `notification-push.service.ts` recibía `tenantSlug` pero
+   solo lo usaba para el broadcast WebSocket; el `WHERE` filtraba solo por
+   `id`. Un tenant podía marcar como leídas notificaciones de otro tenant.
+   Fix: añadir `AND tenant_slug = $tenant` al update. (La ruta activa es
+   `notification-push.routes.ts`; `notifications.routes.ts` está
+   superseded y también se corrigió por consistencia.)
+2. **POST `/label-printing/reimpresiones/:id` → 500.** El payload ESC/POS
+   generado por `generateLabelPayload` contiene bytes NUL (`0x00`, comandos
+   de corte/padding) que PostgreSQL rechaza en columnas `text`. Fix:
+   strip `/\0/g` antes del insert en `print_jobs`
+   (`label-printing.routes.ts`).
+3. **Tabla `data_retention_policy`** (singular) — el afterAll del test
+   usaba el nombre plural incorrecto.
+
+### Ajustes de expectativas (no bugs)
+
+- POST `/api-keys` exige scopes válidos de `API_SCOPES`
+  (ej. `read:workshop`, no `read`) → 400 si scope inválido.
+- POST `/analytics/report` type=revenue devuelve `{ trend: [...] }`
+  (sin campo `type` en la respuesta).
+- POST `/finance/payments/link` sin `STRIPE_SECRET_KEY` devuelve mock URL
+  (`/dashboard/facturas/{id}/pago?mock=true&amount=…`).
+
+**Efecto en métricas (Sprint 115):** total 522 · sin consumidor 113 (sin
+cambios) · sin test 221 → **208** (−13) · escritura sin test 76 → **63**
+(−13) · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/208/63/0** (piso de exclusiones 36). Validación: backend 119 ficheros
+/ 2326 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.

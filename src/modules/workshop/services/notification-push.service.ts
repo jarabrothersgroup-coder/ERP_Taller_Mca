@@ -103,7 +103,9 @@ export async function markAsRead(id: string, tenantSlug: string) {
   const [updated] = await db()
     .update(notificaciones)
     .set({ leido: true, updatedAt: new Date() })
-    .where(eq(notificaciones.id, id))
+    .where(
+      and(eq(notificaciones.id, id), eq(notificaciones.tenantSlug, tenantSlug)),
+    )
     .returning();
 
   // Broadcast unread count update

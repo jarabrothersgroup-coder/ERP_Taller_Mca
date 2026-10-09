@@ -901,6 +901,9 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
       } : {};
 
       const payload = generateLabelPayload("FACTURA", protocolo, labelData, undefined, invoiceCfg);
+      // ESC/POS payloads contain NUL bytes (cut/padding commands) that Postgres
+      // text columns reject — strip before storage (Sprint 115 fix).
+      const payloadSafe = payload.raw.replace(/\0/g, "");
 
       // Log to print_jobs
       await db().insert(printJobs).values({
@@ -909,7 +912,7 @@ export async function labelPrintingRoutes(app: FastifyInstance): Promise<void> {
         copias,
         impresora: config?.printerAddress || "default",
         protocolo: protocolo as any,
-        payload: payload.raw.substring(0, 10000), // Truncate for DB storage
+        payload: payloadSafe.substring(0, 10000), // Truncate for DB storage
         estado: "COMPLETADO",
         tenantSlug: tenant,
       });

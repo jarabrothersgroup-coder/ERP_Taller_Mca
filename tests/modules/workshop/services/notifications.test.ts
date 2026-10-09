@@ -165,7 +165,7 @@ describe("marcarLeido", () => {
     const updated = { id: "n1", leido: true };
     mockDbInstance.returning.mockResolvedValue([updated]);
 
-    const result = await marcarLeido("n1");
+    const result = await marcarLeido("n1", "t1");
 
     expect(mockDbInstance.update).toHaveBeenCalled();
     expect(mockDbInstance.set).toHaveBeenCalledWith(
@@ -177,7 +177,7 @@ describe("marcarLeido", () => {
   it("returns undefined when notification not found", async () => {
     mockDbInstance.returning.mockResolvedValue([]);
 
-    const result = await marcarLeido("nonexistent");
+    const result = await marcarLeido("nonexistent", "t1");
 
     expect(result).toBeUndefined();
   });

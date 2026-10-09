@@ -69,13 +69,15 @@ export async function contarNoLeidas(tenantSlug: string) {
 }
 
 /**
- * Mark a notification as read.
+ * Mark a notification as read (scoped to tenant — Sprint 115 fix).
  */
-export async function marcarLeido(id: string) {
+export async function marcarLeido(id: string, tenantSlug: string) {
   const [updated] = await db()
     .update(notificaciones)
     .set({ leido: true, updatedAt: new Date() })
-    .where(eq(notificaciones.id, id))
+    .where(
+      and(eq(notificaciones.id, id), eq(notificaciones.tenantSlug, tenantSlug)),
+    )
     .returning();
   return updated;
 }

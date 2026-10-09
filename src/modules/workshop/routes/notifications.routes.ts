@@ -60,7 +60,7 @@ export async function notificationsRoutes(app: FastifyInstance): Promise<void> {
     `${prefix}/:id/read`,
     async (request: FastifyRequest, reply: FastifyReply) => {
       const { id } = request.params as { id: string };
-      const updated = await marcarLeido(id);
+      const updated = await marcarLeido(id, request.tenantSlug);
       if (!updated) {
         return reply.code(404).send({ error: "Notificación no encontrada" });
       }
