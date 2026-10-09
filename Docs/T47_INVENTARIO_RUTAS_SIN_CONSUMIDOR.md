@@ -626,3 +626,36 @@ cambios) · sin test 208 → **200** (−8) · escritura sin test 63 → **55**
 (−8) · clase D 0 · excluidas 41. Techos del guard congelados en
 **113/200/55/0** (piso de exclusiones 36). Validación: backend 120 ficheros
 / 2348 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.
+
+---
+
+## Sprint 117 — Cobertura de escritura lote 4 (backlog T-61) · 2026-10-09
+
+Cuarto lote de tests de comportamiento para rutas de escritura sin test.
+15 ops: 7 WhatsApp (templates CRUD + followups), 3 marketing sequences
+(PATCH/DELETE/run), 2 CRM sync (sync/:ordenId + retry), 2 Thinkcar
+(link + assign), 1 white-label upsert. Patrón fase7 (tenant propio
+`e2e-s117`, fixtures SQL idempotentes, `app.inject` con template literals).
+
+### Rutas cubiertas (15 ops)
+
+| Módulo | Rutas |
+|--------|-------|
+| WhatsApp templates | POST `/whatsapp/templates` (+400 sin key/name/body), POST `/whatsapp/templates/preview` (+400 sin body), POST `/whatsapp/templates/seed` (idempotente), DELETE `/whatsapp/templates/:key` |
+| WhatsApp followups | POST `/whatsapp/followups` (+400 sin campos), POST `/whatsapp/followups/:id/cancel`, POST `/whatsapp/followups/process` |
+| Marketing sequences | PATCH `/marketing/sequences/:id` (+404), DELETE `/marketing/sequences/:id`, POST `/marketing/sequences/run` |
+| CRM sync | POST `/crm/sync/:ordenId` (500 graceful sin CRM externo), POST `/crm/retry` (0 si no hay fallidos) |
+| Thinkcar | POST `/thinkcar/imports/:id/link` (+404), POST `/thinkcar/pending/:id/assign` (+400 sin ordenTrabajoId) |
+| Enterprise | PUT `/enterprise/white-label` (upsert idempotente) |
+
+### Bugs encontrados
+
+Ninguno de producción. Los fallos iniciales fueron UUIDs mal formados
+en las fixtures del test (13 chars en el último segmento), corregidos
+antes de la corrida GREEN.
+
+**Efecto en métricas (Sprint 117):** total 522 · sin consumidor 113 (sin
+cambios) · sin test 200 → **186** (−14) · escritura sin test 55 → **41**
+(−14) · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/186/41/0** (piso de exclusiones 36). Validación: backend 121 ficheros
+/ 2370 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.

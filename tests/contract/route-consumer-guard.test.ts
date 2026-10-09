@@ -66,17 +66,23 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // y deals create/patch/move/close/delete): sin test 208 → 200,
 // escritura sin test 63 → 55. Sin bugs de producción (solo aserciones
 // de test ajustadas a los shapes reales impuestoIdu/impuestoIsc/impuestoInr).
+// Sprint 117 ejercitó 15 ops de escritura (fase7-s117: WhatsApp templates
+// create/preview/seed/delete + followups schedule/cancel/process, marketing
+// sequences PATCH/DELETE/run, CRM sync/:ordenId + retry, thinkcar link +
+// assign, white-label upsert): sin test 200 → 186, escritura sin test
+// 55 → 41. Sin bugs de producción (UUIDs mal formados en fixtures corregidos).
 // Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 200;
+const CEILING_WITHOUT_TEST = 186;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
  *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación)
  *  → 76 (Sprint 114: 14 ops de escritura del balde T-47)
- *  → 63 (Sprint 115: 16 ops de escritura lote 2)
- *  → 55 (Sprint 116: 14 ops de escritura lote 3 — fiscal + CRM). */
-const CEILING_WRITE_WITHOUT_TEST = 55;
+  *  → 63 (Sprint 115: 16 ops de escritura lote 2)
+  *  → 55 (Sprint 116: 14 ops de escritura lote 3 — fiscal + CRM)
+  *  → 41 (Sprint 117: 15 ops de escritura lote 4 — WhatsApp + marketing + CRM sync + thinkcar + white-label). */
+const CEILING_WRITE_WITHOUT_TEST = 41;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths

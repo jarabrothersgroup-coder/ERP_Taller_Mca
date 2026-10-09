@@ -172,9 +172,9 @@
         }
       }
     },
-    "current_sprint": "Sprint 116 — CERRADO 2026-10-09 · Tests escritura lote 3 (backlog T-61): 14 ops (5 calculadoras fiscales form120/ire/idu/isc/inr + CRM stages create/seed/patch/delete y deals create/patch/move/close/delete). Sin bugs de producción. Techos guard: sin test 208→200, escritura 63→55. Backend 120 files / 2348 PASS + 4 skip; guard 7/7; tsc 0.",
+    "current_sprint": "Sprint 117 — CERRADO 2026-10-09 · Tests escritura lote 4 (backlog T-61): 15 ops (7 WhatsApp templates/followups, 3 marketing sequences, 2 CRM sync, 2 Thinkcar link/assign, 1 white-label). Sin bugs de producción. Techos guard: sin test 200→186, escritura 55→41. Backend 121 files / 2370 PASS + 4 skip; guard 7/7; tsc 0.",
     "next_sprint": [
-      "Sprint 117 candidatos: (a) tests escritura lote 4 — bajar escritura sin test 55→~40 vía siguiente lote (whatsapp templates/seed+preview+delete, whatsapp followups, crm sync/retry, marketing sequences, thinkcar imports/pending, portal appointments/feedback/invoices-pay con sesión portal); (b) e2e Playwright de los flujos nuevos de UI 113 (tesorería transfer, sucursales CRUD, ajustes approve/reject, cierre contable); (c) eliminar duplicados legados /inventory/herramientas/prestar y /inventory/herramientas/control/:id/devolver; (d) reportes GET de contabilidad fuera del balde de cierre (cuadratura, rentabilidad/*, libro-*-iva, mappings, validar, audit-log); (e) subir PAT con scope workflow para pushear .github/workflows/ci.yml"
+      "Sprint 118 candidatos: (a) tests escritura lote 5 — bajar escritura sin test 41→~25 vía siguiente lote (intelligence dtc/parse, dtc/diagnose, decode-safety, ocr/plate, ocr/cedula, safety/protocol, manuals/ingest, whatsapp instance/queue/send/disconnect); (b) e2e Playwright de los flujos nuevos de UI 113 (tesorería transfer, sucursales CRUD, ajustes approve/reject, cierre contable); (c) eliminar duplicados legados /inventory/herramientas/prestar y /inventory/herramientas/control/:id/devolver; (d) reportes GET de contabilidad fuera del balde de cierre (cuadratura, rentabilidad/*, libro-*-iva, mappings, validar, audit-log); (e) subir PAT con scope workflow para pushear .github/workflows/ci.yml"
     ],
     "last_deploy": {
       "host": "local (Podman rootless)",
