@@ -106,6 +106,12 @@ const EXCLUDED = [
   "/intelligence/decode-safety",
   "/intelligence/safety/protocol",
   "/api-keys*", // colección, :id, :id/usage
+  // SIFEN (DNIT) — emisión electrónica saliente al DKCC. Emitir/firmar/
+  // consultar-lote se invocan desde el flujo de facturación bajo flag
+  // fiscal y su "consumidor" es la red externa, no la UI (Docs/T47 Sprint 112).
+  "/finance/sifen/emitir",
+  "/finance/sifen/firmar",
+  "/finance/sifen/consultar-lote",
   // Internas por diseño — cron/hook/evento o administración interna
   "/fleet/billing/run",
   "/scheduling/cron/reminders",

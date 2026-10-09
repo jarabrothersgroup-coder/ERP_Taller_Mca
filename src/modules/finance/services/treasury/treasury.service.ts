@@ -22,7 +22,7 @@ import {
   facturasProveedor,
   facturas,
 } from "../../schema/index.js";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray, lte } from "drizzle-orm";
 import {
   NotFoundError,
   ConflictError,
@@ -423,7 +423,7 @@ export async function cerrarConciliacion(
       await tx
         .update(movimientosTes)
         .set({ conciliado: true, fechaConciliacion: new Date() })
-        .where(sql`${movimientosTes.id} = ANY(${movimientoIds}::uuid[])`);
+        .where(inArray(movimientosTes.id, movimientoIds));
     }
 
     // Cerrar conciliación
