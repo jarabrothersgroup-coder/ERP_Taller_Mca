@@ -58,18 +58,25 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // data-retention upsert/cleanup, label-printing config/preview/reimpresiones,
 // analytics report, fleet billing, 2fa verify, finance payments link):
 // sin test 221 → 208, escritura sin test 76 → 63. Además corrigió 3 bugs
-// (markAsRead/markAsRead sin filtro de tenant — aislamiento cross-tenant,
-// reimpresiones 500 por bytes NUL en payload ESC/POS, scopes api-keys
-// inválidos en test). Bajar con cada fix; jamás subir.
+// (markAsRead sin filtro de tenant — aislamiento cross-tenant,
+// reimpresiones 500 por bytes NUL en payload ESC/POS, tabla
+// data_retention_policy singular).
+// Sprint 116 ejercitó 14 ops de escritura (fase7-s116: 5 calculadoras
+// fiscales form120/ire/idu/isc/inr + CRM stages create/seed/patch/delete
+// y deals create/patch/move/close/delete): sin test 208 → 200,
+// escritura sin test 63 → 55. Sin bugs de producción (solo aserciones
+// de test ajustadas a los shapes reales impuestoIdu/impuestoIsc/impuestoInr).
+// Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 208;
+const CEILING_WITHOUT_TEST = 200;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
  *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación)
  *  → 76 (Sprint 114: 14 ops de escritura del balde T-47)
- *  → 63 (Sprint 115: 16 ops de escritura lote 2). */
-const CEILING_WRITE_WITHOUT_TEST = 63;
+ *  → 63 (Sprint 115: 16 ops de escritura lote 2)
+ *  → 55 (Sprint 116: 14 ops de escritura lote 3 — fiscal + CRM). */
+const CEILING_WRITE_WITHOUT_TEST = 55;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths

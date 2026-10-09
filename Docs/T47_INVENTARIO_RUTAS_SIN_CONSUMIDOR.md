@@ -596,3 +596,33 @@ cambios) · sin test 221 → **208** (−13) · escritura sin test 76 → **63**
 (−13) · clase D 0 · excluidas 41. Techos del guard congelados en
 **113/208/63/0** (piso de exclusiones 36). Validación: backend 119 ficheros
 / 2326 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.
+
+---
+
+## Sprint 116 — Cobertura de escritura lote 3 (backlog T-61) · 2026-10-09
+
+Tercer lote de tests de comportamiento para rutas de escritura sin test.
+14 ops: 5 calculadoras fiscales DNIT (cálculo puro + persistencia de
+liquidaciones) y 9 de CRM pipeline (stages + deals CRUD). Patrón fase7
+(tenant propio `e2e-s116`, fixtures SQL idempotentes, `app.inject` con
+template literals para el scanner T-63).
+
+### Rutas cubiertas (14 ops)
+
+| Módulo | Rutas |
+|--------|-------|
+| Fiscal | POST `/finance/fiscal/form120/calcular`, POST `/finance/fiscal/ire/calcular`, POST `/finance/fiscal/idu/calcular` (+404 sin IRE previo), POST `/finance/fiscal/isc/calcular`, POST `/finance/fiscal/inr/calcular` (+400 tasa>1) |
+| CRM stages | POST `/crm/stages` (+400 sin nombre), POST `/crm/stages/seed` (idempotente), PATCH `/crm/stages/:id`, DELETE `/crm/stages/:id` |
+| CRM deals | POST `/crm/deals` (+400 sin titulo/stageId), PATCH `/crm/deals/:id`, POST `/crm/deals/:id/move`, POST `/crm/deals/:id/close` (ganado=true), DELETE `/crm/deals/:id` |
+
+### Bugs encontrados
+
+Ninguno de producción. Los 3 falros iniciales fueron aserciones mal
+nombradas en el test (shapes reales: `impuestoIdu`, `impuestoIsc`,
+`impuestoInr` — no `impuesto`/`retencion`).
+
+**Efecto en métricas (Sprint 116):** total 522 · sin consumidor 113 (sin
+cambios) · sin test 208 → **200** (−8) · escritura sin test 63 → **55**
+(−8) · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/200/55/0** (piso de exclusiones 36). Validación: backend 120 ficheros
+/ 2348 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.
