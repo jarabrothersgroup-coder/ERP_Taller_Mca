@@ -659,3 +659,45 @@ cambios) · sin test 200 → **186** (−14) · escritura sin test 55 → **41**
 (−14) · clase D 0 · excluidas 41. Techos del guard congelados en
 **113/186/41/0** (piso de exclusiones 36). Validación: backend 121 ficheros
 / 2370 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.
+
+---
+
+## Sprint 118 — Cobertura de escritura lote 5 (backlog T-61) · 2026-10-09
+
+Quinto lote de tests de comportamiento para rutas de escritura sin test.
+14 ops, todas offline/local (sin servicios externos): 4 intelligence DTC
+(parse, parse-file, diagnose, + safety/protocol), 1 decode-safety (sin VIN,
+sin llamada NHTSA), 2 intelligence OCR (plate, cedula — fallback base64),
+1 thinkcar mobile-dtc, 1 whatsapp followups/auto, 2 migration (export,
+import dryRun), 3 portal (magic, feedback, appointments — vía magic-link
+session). Patrón fase7 (tenant propio `e2e-s118`, fixtures SQL idempotentes,
+`app.inject` con template literals).
+
+### Rutas cubiertas (14 ops)
+
+| Módulo | Rutas |
+|--------|-------|
+| Intelligence DTC | POST `/intelligence/dtc/parse` (+400 sin reportText), POST `/intelligence/dtc/parse-file` (+400 sin archivo), POST `/intelligence/dtc/diagnose` (+400 sin códigos válidos) |
+| Intelligence safety | POST `/intelligence/safety/protocol` (HV, +400 tensión >1500), POST `/intelligence/decode-safety` (BYD → RED, offline sin VIN) |
+| Intelligence OCR | POST `/intelligence/ocr/plate` (202, base64, +400 sin imagen), POST `/intelligence/ocr/cedula` (202, base64) |
+| Thinkcar | POST `/thinkcar/mobile-dtc` (manual_review sin OT, +400 sin códigos) |
+| WhatsApp | POST `/whatsapp/followups/auto` (según trigger, scheduled 0 si no hay template) |
+| Migration | POST `/api/v1/migration/export`, POST `/api/v1/migration/import` (dryRun +400 sin data) |
+| Portal | POST `/portal/auth/magic` (link), POST `/portal/feedback` (+401 sin sesión), POST `/portal/appointments` (201/400 por disponibilidad) |
+
+### Bugs encontrados
+
+Ninguno de producción. Los fallos iniciales fueron de test:
+1. CSRF double-submit en rutas públicas del portal (sin Bearer) — se
+   resolvió enviando token autoconsistente cookie+header.
+2. Shape real del protocolo HV: `riskAssessment` (no `isHighVoltage`).
+3. Status del job OCR puede ser `processing` inmediatamente (race).
+4. `parse-file` fallback de texto crudo es código muerto: el plugin
+   multipart decora `request.file`, así que siempre entra la rama
+   multipart (si no hay parte de archivo → 400).
+
+**Efecto en métricas (Sprint 118):** total 522 · sin consumidor 113 (sin
+cambios) · sin test 186 → **172** (−14) · escritura sin test 41 → **27**
+(−14) · clase D 0 · excluidas 41. Techos del guard congelados en
+**113/172/27/0** (piso de exclusiones 36). Validación: backend 122 ficheros
+/ 2392 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.

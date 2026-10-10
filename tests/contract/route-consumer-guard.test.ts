@@ -71,9 +71,15 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // sequences PATCH/DELETE/run, CRM sync/:ordenId + retry, thinkcar link +
 // assign, white-label upsert): sin test 200 → 186, escritura sin test
 // 55 → 41. Sin bugs de producción (UUIDs mal formados en fixtures corregidos).
+// Sprint 118 ejercitó 14 ops de escritura (fase7-s118: intelligence dtc
+// parse/parse-file/diagnose + safety/protocol + decode-safety + ocr plate/
+// cedula, thinkcar mobile-dtc, whatsapp followups/auto, migration export/
+// import, portal magic/feedback/appointments): sin test 186 → 172,
+// escritura sin test 41 → 27. Sin bugs de producción (solo ajustes de test:
+// CSRF double-submit en portal, shape riskAssessment, status OCR race).
 // Bajar con cada fix; jamás subir.
 const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 186;
+const CEILING_WITHOUT_TEST = 172;
 /** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
  *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
  *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
@@ -81,8 +87,9 @@ const CEILING_WITHOUT_TEST = 186;
  *  → 76 (Sprint 114: 14 ops de escritura del balde T-47)
   *  → 63 (Sprint 115: 16 ops de escritura lote 2)
   *  → 55 (Sprint 116: 14 ops de escritura lote 3 — fiscal + CRM)
-  *  → 41 (Sprint 117: 15 ops de escritura lote 4 — WhatsApp + marketing + CRM sync + thinkcar + white-label). */
-const CEILING_WRITE_WITHOUT_TEST = 41;
+  *  → 41 (Sprint 117: 15 ops de escritura lote 4 — WhatsApp + marketing + CRM sync + thinkcar + white-label)
+  *  → 27 (Sprint 118: 14 ops de escritura lote 5 — intelligence DTC/safety/OCR + thinkcar mobile + migration + portal). */
+const CEILING_WRITE_WITHOUT_TEST = 27;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
