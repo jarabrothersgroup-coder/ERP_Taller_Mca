@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Activity,
   CheckCircle2,
@@ -22,8 +22,10 @@ import {
   Warehouse,
   CreditCard,
   UserCheck,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -36,6 +38,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { api, type IntegracionDashboard, type IntegracionDashboardModulo } from "@/lib/api";
 import { useErrorToast } from "@/hooks/use-error-toast";
+import { useToast } from "@/hooks/use-toast";
 
 /* ── Constants ──────────────────────────────── */
 
@@ -394,6 +397,53 @@ export default function IntegracionPage() {
 
   const asientosPorModulo = dashboardData?.asientosPorModulo ?? {};
 
+  // ── RG 90 (DNIT / Marangatú) ──
+  const { toast: rg90Toast, ToastContainer } = useToast();
+  const [rg90Anho, setRg90Anho] = React.useState(new Date().getFullYear());
+  const [rg90Mes, setRg90Mes] = React.useState(new Date().getMonth() + 1);
+
+  interface RG90ExportResult {
+    anho: number;
+    mes: number;
+    formato: string;
+    contenido?: string;
+    totalRegistros?: number;
+  }
+  interface RG90ReportResult {
+    periodo: { anho: number; mes: number };
+    totalRegistros: number;
+    totalVentas?: string;
+    totalCompras?: string;
+    totalRetenido?: string;
+    entries: unknown[];
+  }
+
+  const rg90ExportMut = useMutation({
+    mutationFn: () =>
+      api.request<RG90ExportResult>("/finance/rg90/exportar", {
+        method: "POST",
+        body: JSON.stringify({ anho: rg90Anho, mes: rg90Mes, formato: "TXT" }),
+      }),
+    onSuccess: (d) =>
+      rg90Toast.success(`RG90 exportado — ${d.totalRegistros ?? "—"} registro(s), formato ${d.formato}`),
+    onError: (err: Error) => rg90Toast.error(err.message),
+  });
+  const rg90VentasQ = useQuery<RG90ReportResult>({
+    queryKey: ["rg90-ventas", rg90Anho, rg90Mes],
+    enabled: false,
+    queryFn: () => api.request(`/finance/rg90/ventas/${rg90Anho}/${rg90Mes}`),
+  });
+  const rg90ComprasQ = useQuery<RG90ReportResult>({
+    queryKey: ["rg90-compras", rg90Anho, rg90Mes],
+    enabled: false,
+    queryFn: () => api.request(`/finance/rg90/compras/${rg90Anho}/${rg90Mes}`),
+  });
+  const rg90RetencionesQ = useQuery<RG90ReportResult>({
+    queryKey: ["rg90-retenciones", rg90Anho, rg90Mes],
+    enabled: false,
+    queryFn: () => api.request(`/finance/rg90/retenciones/${rg90Anho}/${rg90Mes}`),
+  });
+
   if (isLoading) return <DashboardSkeleton />;
 
   if (isError) {
@@ -708,6 +758,71 @@ export default function IntegracionPage() {
           </Card>
         </div>
       </div>
+
+      {/* ── RG 90 — Libro electrónico DNIT ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileDown className="h-4 w-4" aria-hidden="true" />
+            RG 90 — Libro Electrónico (DNIT / Marangatú)
+          </CardTitle>
+          <CardDescription>
+            Exportación TXT y reportes de ventas, compras y retenciones del período
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Año</label>
+              <Input type="number" value={rg90Anho} onChange={(e) => setRg90Anho(Number(e.target.value))} className="h-8 w-24 text-xs" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Mes</label>
+              <Input type="number" min={1} max={12} value={rg90Mes} onChange={(e) => setRg90Mes(Number(e.target.value))} className="h-8 w-20 text-xs" />
+            </div>
+            <Button size="sm" className="h-8 text-xs gap-1" loading={rg90ExportMut.isPending} onClick={() => rg90ExportMut.mutate()}>
+              <FileDown className="h-3 w-3" aria-hidden="true" /> Exportar TXT
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" loading={rg90VentasQ.isFetching} onClick={() => rg90VentasQ.refetch()}>
+              Ventas
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" loading={rg90ComprasQ.isFetching} onClick={() => rg90ComprasQ.refetch()}>
+              Compras
+            </Button>
+            <Button size="sm" variant="outline" className="h-8 text-xs" loading={rg90RetencionesQ.isFetching} onClick={() => rg90RetencionesQ.refetch()}>
+              Retenciones
+            </Button>
+          </div>
+          {rg90ExportMut.data?.contenido && (
+            <pre className="max-h-48 overflow-auto rounded-md border bg-muted/50 p-3 text-[11px] font-mono whitespace-pre-wrap break-all">
+              {rg90ExportMut.data.contenido}
+            </pre>
+          )}
+          {(rg90VentasQ.data || rg90ComprasQ.data || rg90RetencionesQ.data) && (
+            <div className="grid gap-2 text-xs sm:grid-cols-3">
+              {rg90VentasQ.data && (
+                <div className="rounded border p-2">
+                  <p className="text-muted-foreground">Ventas — {rg90VentasQ.data.totalRegistros} registro(s)</p>
+                  <p className="font-mono font-bold">₲{Number(rg90VentasQ.data.totalVentas ?? 0).toLocaleString("es-PY")}</p>
+                </div>
+              )}
+              {rg90ComprasQ.data && (
+                <div className="rounded border p-2">
+                  <p className="text-muted-foreground">Compras — {rg90ComprasQ.data.totalRegistros} registro(s)</p>
+                  <p className="font-mono font-bold">₲{Number(rg90ComprasQ.data.totalCompras ?? 0).toLocaleString("es-PY")}</p>
+                </div>
+              )}
+              {rg90RetencionesQ.data && (
+                <div className="rounded border p-2">
+                  <p className="text-muted-foreground">Retenciones — {rg90RetencionesQ.data.totalRegistros} registro(s)</p>
+                  <p className="font-mono font-bold">₲{Number(rg90RetencionesQ.data.totalRetenido ?? 0).toLocaleString("es-PY")}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      {ToastContainer}
     </div>
   );
 }

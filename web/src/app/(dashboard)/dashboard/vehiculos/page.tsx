@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { useVehiclesPage } from "@/hooks/use-data";
 import { ErrorState } from "@/components/ui/error-state";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -165,6 +166,33 @@ const columns: Column<VehicleRecord>[] = [
     sortable: true,
     align: "right",
     className: "text-xs",
+  },
+  {
+    header: "",
+    accessor: "id",
+    className: "w-10",
+    cell: (_, row) => (
+      /* GET /reports/vehicle-history/:vehicleId — historial PDF (T-63 S126) */
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0"
+        title="Historial PDF"
+        onClick={(e) => {
+          e.stopPropagation();
+          api.downloadFile(`/reports/vehicle-history/${row.id}`).then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `historial-${row.plate || row.id.slice(0, 8)}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }}
+      >
+        <Download className="h-3.5 w-3.5" />
+      </Button>
+    ),
   },
 ];
 

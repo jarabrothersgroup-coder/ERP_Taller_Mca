@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ErrorState } from "@/components/ui/error-state";
+import { api } from "@/lib/api";
 import { useClientsPage } from "@/hooks/use-data";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { NewClientDialog } from "./new-client-dialog";
@@ -178,6 +179,33 @@ const columns: Column<ClientRecord>[] = [
     sortable: true,
     align: "right",
     className: "text-xs",
+  },
+  {
+    header: "",
+    accessor: "id",
+    className: "w-10",
+    cell: (_, row) => (
+      /* GET /reports/client-statement/:clientId — estado de cuenta PDF (T-63 S126) */
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 w-7 p-0"
+        title="Estado de cuenta PDF"
+        onClick={(e) => {
+          e.stopPropagation();
+          api.downloadFile(`/reports/client-statement/${row.id}`).then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `estado-cuenta-${row.name || row.id.slice(0, 8)}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }}
+      >
+        <Download className="h-3.5 w-3.5" />
+      </Button>
+    ),
   },
 ];
 

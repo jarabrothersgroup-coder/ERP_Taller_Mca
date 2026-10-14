@@ -36,7 +36,7 @@ import { getDb } from "../src/shared/database/connection.js";
 
 const TENANT = "e2e-s117";
 const TENANT_ID = "00000000-0000-0000-0000-0000e2e4f117";
-const ADMIN_ID = "00000000-0000-0000-0000-0000e2e4f11e";
+const ADMIN_ID = "00000000-0000-0000-0000-0000e2e4a117";
 const ADMIN_EMAIL = "admin@e2e-s117.test";
 const CLIENTE = "00000000-0000-0000-0000-0000c11e4f17";
 const VEHICULO = "00000000-0000-0000-0000-0000c11e4f18";

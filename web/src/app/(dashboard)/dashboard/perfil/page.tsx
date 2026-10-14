@@ -18,6 +18,7 @@ import { ProfileAvatarCard } from "@/components/dashboard/profile/profile-avatar
 import { ProfileDetailsCard } from "@/components/dashboard/profile/profile-details-card";
 import { ProfilePreferencesCard } from "@/components/dashboard/profile/profile-preferences-card";
 import { ProfileSessionCard } from "@/components/dashboard/profile/profile-session-card";
+import { ProfileTenantCard } from "@/components/dashboard/profile/profile-tenant-card";
 import { RecentActivity } from "@/components/dashboard/profile/recent-activity";
 
 /* ── Role Config ────────────────────────────── */
@@ -163,6 +164,8 @@ export default function ProfilePage() {
             tenantSlug={user.tenantName || "demo"}
             sessionExpires={new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()}
           />
+
+          <ProfileTenantCard />
 
           {/* Recent Activity */}
           <div className="rounded-lg border bg-card">

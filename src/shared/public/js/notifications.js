@@ -34,10 +34,11 @@ async function fetchNotifications() {
 
 async function fetchNotifCount() {
   try {
-    const data = await api('/api/notifications/count');
+    // Long-poll fallback del SSE: devuelve { unreadCount, timestamp }
+    const data = await api('/api/notifications/poll');
     const badge = document.getElementById('notif-badge');
     if (badge) {
-      const count = data?.count || 0;
+      const count = data?.unreadCount || 0;
       badge.textContent = count > 99 ? '99+' : String(count);
       badge.classList.toggle('hidden', count === 0);
       // Show toast for new notifications

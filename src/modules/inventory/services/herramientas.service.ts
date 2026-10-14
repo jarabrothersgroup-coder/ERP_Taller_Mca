@@ -20,7 +20,6 @@ import {
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import {
   NotFoundError,
-  ValidationError,
   ConflictError,
 } from "../../../shared/errors/app-error.js";
 import type {
@@ -299,104 +298,17 @@ export async function bajaHerramienta(id: string, tenantSlug: string) {
   return { deleted: true, activo: false };
 }
 
-// ─── Tool Checkout / Return (LEGACY — redirected to tool-loan.service) ──
-
-/**
- * @deprecated Use tool-loan.service.ts lendTool() instead.
- * Kept for backward compatibility — delegates to the new asset-based system.
- *
- * For legacy callers, this function accepts a herramientaId (SKU),
- * resolves to the first available DISPONIBLE tool_instance, and
- * calls lendTool() on that instance.
- */
-export async function prestarHerramienta(
-  data: {
-    herramientaId: string;
-    ordenTrabajoId: string;
-    mecanicoId: string;
-    observaciones?: string | null;
-  },
-  tenantSlug?: string,
-) {
-  const { lendTool } = await import("./tool-loan.service.js");
-
-  // Auto-resolve: find first available instance of this SKU
-  const [availableInstance] = await db()
-    .select({ id: sql<string>`id` })
-    .from(sql`tool_instances`)
-    .where(
-      and(
-        sql`herramienta_id = ${data.herramientaId}`,
-        sql`estado_actual = 'DISPONIBLE'`,
-        sql`activa = true`,
-      ),
-    )
-    .limit(1);
-
-  if (!availableInstance) {
-    throw new ValidationError(
-      `No hay unidades disponibles de esta herramienta. ` +
-      `Use tool-loan/lend con un toolInstanceId específico.`,
-    );
-  }
-
-  return lendTool(
-    {
-      toolInstanceId: availableInstance.id,
-      ordenTrabajoId: data.ordenTrabajoId,
-      mecanicoId: data.mecanicoId,
-      observaciones: data.observaciones,
-    },
-    "legacy",
-    // FIX (T-61): el endpoint no pasaba el tenant, así que `lendTool` filtraba
-    // por tenant_slug='' y TODA respuesta era 404 para un taller real.
-    tenantSlug ?? "",
-  );
-}
-
-/**
- * @deprecated Use tool-loan.service.ts returnTool() instead.
- * Delegates to the new return flow.
- */
-export async function devolverHerramienta(
-  controlId: string,
-  data: { observaciones?: string | null; estado?: string },
-  tenantSlug?: string,
-) {
-  const { returnTool } = await import("./tool-loan.service.js");
-
-  const conditionMap: Record<string, string> = {
-    Devuelto: 'BUENO',
-    Perdido: 'EXTRAVIADO',
-    'Dañado': 'DANADO',
-  };
-
-  // FIX (T-61): se normaliza a NFC para que la forma compuesta ("Dañado", la
-  // que produce cualquier cliente estándar) y la forma NFD del teclado macOS
-  // resuelvan el mismo código de condición.
-  const estado = (data.estado ?? 'Devuelto').normalize('NFC');
-  const condicionRetorno = conditionMap[estado] || 'BUENO';
-
-  return returnTool(
-    controlId,
-    {
-      condicionRetorno: condicionRetorno as any,
-      observaciones: data.observaciones,
-    },
-    "legacy",
-    // FIX (T-61): igual que prestar, sin el tenant el préstamo nunca existía
-    // para el taller → 404 en toda devolución.
-    tenantSlug ?? "",
-  );
-}
+// ─── Tool Checkout / Return ───────────────────
 
 /**
  * Lists tool control (checkout) records with optional filters.
  *
- * @param options - Filters
+ * @param options - Filters (tenantSlug es obligatorio: aísla los registros
+ *   de checkout entre tenants — la tabla tiene índice por tenant_slug)
  * @returns List of control records with JOINed data
  */
 export async function listControlHerramientas(options: {
+  tenantSlug: string;
   ordenTrabajoId?: string;
   mecanicoId?: string;
   herramientaId?: string;
@@ -405,6 +317,7 @@ export async function listControlHerramientas(options: {
   limit?: number;
 }) {
   const {
+    tenantSlug,
     ordenTrabajoId,
     mecanicoId,
     herramientaId,
@@ -414,7 +327,9 @@ export async function listControlHerramientas(options: {
   } = options;
   const offset = (page - 1) * limit;
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(controlHerramientas.tenantSlug, tenantSlug),
+  ];
 
   if (ordenTrabajoId) {
     conditions.push(

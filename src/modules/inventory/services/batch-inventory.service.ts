@@ -33,7 +33,6 @@ export interface BulkImportRow {
 export interface BulkPriceUpdate {
   ids: string[];
   percentageChange?: number;
- 固定Price?: number;
   field: "precioVenta" | "precioCompra";
 }
 
@@ -264,22 +263,23 @@ export async function getInventoryTurnover(tenantSlug: string): Promise<Turnover
       ),
     );
 
-  // Get sales data from OT items (last 30 days)
+  // Get sales data from OT parts (last 30 days).
+  // Nota: `db().execute()` (postgres-js) devuelve un array de filas directamente,
+  // y la tabla real es `orden_repuestos` (no el legado `orden_items`/`fecha_ingreso`
+  // que no existen — el endpoint siempre devolvía 500).
   const salesData = await db()
     .execute(sql`
       SELECT
-        oi.repuesto_id,
-        COALESCE(SUM(oi.cantidad), 0) as total_sold
-      FROM orden_items oi
-      JOIN ordenes_trabajo ot ON oi.orden_id = ot.id
-      WHERE ot.tenant_slug = ${tenantSlug}
-        AND oi.tipo = 'repuesto'
-        AND ot.fecha_ingreso >= NOW() - INTERVAL '30 days'
-      GROUP BY oi.repuesto_id
+        repuesto_id,
+        COALESCE(SUM(cantidad), 0) as total_sold
+      FROM orden_repuestos
+      WHERE tenant_slug = ${tenantSlug}
+        AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY repuesto_id
     `);
 
   const salesMap = new Map<string, number>();
-  for (const row of (salesData as any).rows || []) {
+  for (const row of salesData as unknown as Array<{ repuesto_id: string; total_sold: unknown }>) {
     salesMap.set(row.repuesto_id, Number(row.total_sold));
   }
 
@@ -328,15 +328,13 @@ export async function getDeadStock(tenantSlug: string): Promise<DeadStockResult[
   for (const item of items) {
     const [lastSale] = await db()
       .execute(sql`
-        SELECT MAX(ot.fecha_ingreso) as last_sale
-        FROM orden_items oi
-        JOIN ordenes_trabajo ot ON oi.orden_id = ot.id
-        WHERE ot.tenant_slug = ${tenantSlug}
-          AND oi.tipo = 'repuesto'
-          AND oi.repuesto_id = ${item.id}
+        SELECT MAX(created_at) as last_sale
+        FROM orden_repuestos
+        WHERE tenant_slug = ${tenantSlug}
+          AND repuesto_id = ${item.id}
       `);
 
-    const lastSaleDate = (lastSale as any)?.rows?.[0]?.last_sale;
+    const lastSaleDate = (lastSale as { last_sale?: Date | string } | undefined)?.last_sale;
     const daysSinceLastSale = lastSaleDate
       ? Math.floor((Date.now() - new Date(lastSaleDate).getTime()) / 86400000)
       : 999;
@@ -376,22 +374,21 @@ export async function getReorderPredictions(tenantSlug: string): Promise<Reorder
       ),
     );
 
-  // Get average daily sales (last 90 days)
+  // Get average daily sales (last 90 days) — ver nota en getInventoryTurnover:
+  // `orden_repuestos` (tabla real) y execute() devuelve las filas directamente.
   const salesData = await db()
     .execute(sql`
       SELECT
-        oi.repuesto_id,
-        COALESCE(SUM(oi.cantidad), 0) / 90.0 as avg_daily
-      FROM orden_items oi
-      JOIN ordenes_trabajo ot ON oi.orden_id = ot.id
-      WHERE ot.tenant_slug = ${tenantSlug}
-        AND oi.tipo = 'repuesto'
-        AND ot.fecha_ingreso >= NOW() - INTERVAL '90 days'
-      GROUP BY oi.repuesto_id
+        repuesto_id,
+        COALESCE(SUM(cantidad), 0) / 90.0 as avg_daily
+      FROM orden_repuestos
+      WHERE tenant_slug = ${tenantSlug}
+        AND created_at >= NOW() - INTERVAL '90 days'
+      GROUP BY repuesto_id
     `);
 
   const salesMap = new Map<string, number>();
-  for (const row of (salesData as any).rows || []) {
+  for (const row of salesData as unknown as Array<{ repuesto_id: string; avg_daily: unknown }>) {
     salesMap.set(row.repuesto_id, Number(row.avg_daily));
   }
 

@@ -301,6 +301,22 @@ export async function buildApp() {
     (await import("./modules/intelligence/visual/plugin.js")).default,
   );
 
+  // ─── File upload support (multipart) ────────
+  // Required by: Tenant config logo upload, Intelligence OCR endpoints.
+  // Must be registered BEFORE any module that uses request.file(): the
+  // content-type parser is snapshotted per encapsulated scope, so a module
+  // registered earlier would 415 on multipart bodies.
+  try {
+    await app.register((await import("@fastify/multipart")).default, {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10 MB max per file
+        files: 1,                    // Max 1 file per request
+      },
+    });
+  } catch (err) {
+    app.log.warn({ err }, "@fastify/multipart not available — file uploads disabled");
+  }
+
   // ─── Tenant Configuration Module ──────────────
   // Company identity management: logo, RUC, address, operator signatures.
   // Settings persist in config/tenant_settings.json.
@@ -314,19 +330,6 @@ export async function buildApp() {
 
   // Offline-first sync endpoints (tenant-scoped)
   await app.register(syncPlugin);
-
-  // ─── File upload support (multipart) ────────
-  // Required by: Intelligence OCR endpoints for image uploads
-  try {
-    await app.register((await import("@fastify/multipart")).default, {
-      limits: {
-        fileSize: 10 * 1024 * 1024, // 10 MB max per file
-        files: 1,                    // Max 1 file per request
-      },
-    });
-  } catch (err) {
-    app.log.warn({ err }, "@fastify/multipart not available — file uploads disabled");
-  }
 
   // ─── Tenants Classification Module ──────────────
   // MIC classification, IRE regime, obligatory books management.

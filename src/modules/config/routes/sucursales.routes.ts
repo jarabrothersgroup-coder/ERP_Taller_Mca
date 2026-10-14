@@ -90,7 +90,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
         response: {
           200: {
             type: "array",
-            items: { type: "object" },
+            items: { type: "object", additionalProperties: true },
           },
         },
       },
@@ -182,7 +182,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
               totalOTActivas: { type: "number" },
               totalOTCompletadasMes: { type: "number" },
               totalIngresoMes: { type: "number" },
-              sucursales: { type: "array", items: { type: "object" } },
+              sucursales: { type: "array", items: { type: "object", additionalProperties: true } },
             },
           },
         },

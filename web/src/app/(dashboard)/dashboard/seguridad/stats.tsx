@@ -1,6 +1,12 @@
+"use client";
+
+import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, ShieldCheck, ShieldAlert, FileText, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import type { UIMappedAuditEntry as AuditRecord } from "@/lib/data-service";
 
 export const actionConfig: Record<string, { label: string; variant: "success" | "destructive" | "warning" | "secondary" | "default"; icon: React.ElementType }> = {
@@ -21,11 +27,52 @@ export const entityColors: Record<string, string> = {
   CLIENTE: "text-cyan-500 bg-cyan-500/10",
 };
 
+/** Shape de `GET /audit/stats` (agregado server-side del período). */
+interface ServerAuditStats {
+  total: number;
+  period: string;
+  byAction: Record<string, number>;
+  bySeverity: Record<string, number>;
+}
+
 export function AuditStats({ entries }: { entries: AuditRecord[] }) {
-  const total = entries.length;
-  const creaciones = entries.filter((e) => e.accion === "CREAR").length;
-  const anulaciones = entries.filter((e) => e.accion === "ANULAR").length;
-  const entidadesUnicas = [...new Set(entries.map((e) => e.entidad))].length;
+  const clientTotal = entries.length;
+  const clientCreaciones = React.useMemo(
+    () => entries.filter((e) => e.accion === "CREAR").length,
+    [entries],
+  );
+  const clientAnulaciones = React.useMemo(
+    () => entries.filter((e) => e.accion === "ANULAR").length,
+    [entries],
+  );
+  const entidadesUnicas = React.useMemo(
+    () => new Set(entries.map((e) => e.entidad)).size,
+    [entries],
+  );
+
+  // Fuente server-side: los agregados no dependen de la página cargada
+  // (fallback silencioso a la vista cliente si falla).
+  const { data: server, isLoading } = useQuery({
+    queryKey: ["audit-stats"],
+    queryFn: () => api.request<ServerAuditStats>("/audit/stats?days=30"),
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const total = server?.total ?? clientTotal;
+  const creaciones = server?.byAction?.CREAR ?? clientCreaciones;
+  const anulaciones = server?.byAction?.ANULAR ?? clientAnulaciones;
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+        <Skeleton className="h-28" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-3 sm:grid-cols-4">
@@ -38,7 +85,9 @@ export function AuditStats({ entries }: { entries: AuditRecord[] }) {
             <Activity className="h-4 w-4 text-blue-500" aria-hidden="true" />
             <p className="text-2xl font-bold">{total}</p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Últimos 30 días</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {server?.period ? `Últimos ${server.period.replace(" days", " días")}` : "Últimos 30 días"}
+          </p>
         </CardContent>
       </Card>
       <Card>

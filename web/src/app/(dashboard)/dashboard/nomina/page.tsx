@@ -535,6 +535,70 @@ function NominaMensualTab() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // ── Resumen del período (GET/PATCH/DELETE
+  //    /api/v1/finance/payroll/summary) ──
+  const { data: periodSummary, isError: summaryMissing } = useQuery<
+    PayrollSummaryRecord & { id: string },
+    Error
+  >({
+    queryKey: ["payroll-summary", month, year],
+    queryFn: () =>
+      api.request<PayrollSummaryRecord & { id: string }>(
+        `/api/v1/finance/payroll/summary?month=${month}&year=${year}`,
+      ),
+  });
+
+  const [summaryEditOpen, setSummaryEditOpen] = React.useState(false);
+  const [summaryForm, setSummaryForm] = React.useState({
+    fixedExpensesTotal: "",
+    payrollBaseTotal: "",
+    netLaborRevenue: "",
+    breakevenThreshold: "",
+  });
+
+  const openSummaryEdit = () => {
+    setSummaryForm({
+      fixedExpensesTotal: String(periodSummary?.fixedExpensesTotal ?? ""),
+      payrollBaseTotal: String(periodSummary?.payrollBaseTotal ?? ""),
+      netLaborRevenue: String(periodSummary?.netLaborRevenue ?? ""),
+      breakevenThreshold: String(periodSummary?.breakevenThreshold ?? ""),
+    });
+    setSummaryEditOpen(true);
+  };
+
+  const updateSummaryMut = useMutation({
+    mutationFn: () =>
+      api.request(`/api/v1/finance/payroll/summary/${periodSummary!.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          fixedExpensesTotal: Number(summaryForm.fixedExpensesTotal) || 0,
+          payrollBaseTotal: Number(summaryForm.payrollBaseTotal) || 0,
+          netLaborRevenue: Number(summaryForm.netLaborRevenue) || 0,
+          breakevenThreshold: Number(summaryForm.breakevenThreshold) || 0,
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll-summary", month, year] });
+      qc.invalidateQueries({ queryKey: ["payroll-history"] });
+      setSummaryEditOpen(false);
+      toast.success("Resumen actualizado");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteSummaryMut = useMutation({
+    mutationFn: () =>
+      api.request(`/api/v1/finance/payroll/summary/${periodSummary!.id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll-summary", month, year] });
+      qc.invalidateQueries({ queryKey: ["payroll-history"] });
+      toast.success("Resumen del período eliminado");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const totalCommissions = commissions.reduce(
     (sum, c) => sum + Number(c.commissionAmount),
     0,
@@ -638,6 +702,96 @@ function NominaMensualTab() {
               data={commissions}
               rowKey="id"
             />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Resumen del período (punto de equilibrio) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <DollarSign className="h-4 w-4" /> Resumen del Período
+              </CardTitle>
+              <CardDescription>
+                Punto de equilibrio de {String(month).padStart(2, "0")}/{year}
+              </CardDescription>
+            </div>
+            {periodSummary && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={openSummaryEdit}>
+                  Editar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  loading={deleteSummaryMut.isPending}
+                  onClick={() => {
+                    if (confirm("¿Eliminar el resumen de nómina de este período?")) {
+                      deleteSummaryMut.mutate();
+                    }
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!periodSummary || summaryMissing ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Sin resumen calculado para este período. Presione &quot;Calcular Nómina&quot; para generarlo.
+            </p>
+          ) : summaryEditOpen ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ["fixedExpensesTotal", "Gastos Fijos"],
+                ["payrollBaseTotal", "Base de Nómina"],
+                ["netLaborRevenue", "Ingresos Netos de Mano de Obra"],
+                ["breakevenThreshold", "Umbral Break-Even"],
+              ] as const).map(([key, label]) => (
+                <div key={key} className="space-y-1">
+                  <label className="text-xs font-medium">{label} (₲)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={summaryForm[key]}
+                    onChange={(e) => setSummaryForm({ ...summaryForm, [key]: e.target.value })}
+                  />
+                </div>
+              ))}
+              <div className="flex gap-2 sm:col-span-2">
+                <Button size="sm" loading={updateSummaryMut.isPending} onClick={() => updateSummaryMut.mutate()}>
+                  Guardar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setSummaryEditOpen(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Gastos Fijos</p>
+                <p className="font-bold">{formatGuarani(periodSummary.fixedExpensesTotal)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Base Nómina</p>
+                <p className="font-bold">{formatGuarani(periodSummary.payrollBaseTotal)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Ingresos Netos</p>
+                <p className="font-bold">{formatGuarani(periodSummary.netLaborRevenue)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Break-Even</p>
+                <Badge variant={periodSummary.breakevenHit ? "success" : "warning"}>
+                  {periodSummary.breakevenPercentage}%
+                </Badge>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -172,10 +172,8 @@
         }
       }
     },
-    "current_sprint": "Sprint 118 — CERRADO 2026-10-09 · Tests escritura lote 5 (backlog T-61): 14 ops offline/local (4 intelligence DTC parse/parse-file/diagnose + safety/protocol, 1 decode-safety offline, 2 OCR plate/cedula base64, 1 thinkcar mobile-dtc, 1 whatsapp followups/auto, 2 migration export/import, 3 portal magic/feedback/appointments). Sin bugs de producción (solo ajustes de test: CSRF double-submit portal, shape riskAssessment, status OCR race, parse-file fallback muerto). Techos guard: sin test 186→172, escritura 41→27. Backend 122 files / 2392 PASS + 4 skip; guard 7/7; tsc 0.",
-    "next_sprint": [
-      "Sprint 119 candidatos: (a) tests escritura lote 6 — bajar escritura sin test 27→~15 vía siguiente lote (restantes: whatsapp instance/create+queue/process+send+disconnect, thinkcar ingest/usb, email/* (8), sso/* (4), portal invoices/:id/pay, config upload-logo, api-keys, migration import/file); (b) e2e Playwright de flujos UI 113 (tesorería transfer, sucursales CRUD, ajustes approve/reject, cierre contable); (c) eliminar duplicados legados /inventory/herramientas/prestar y /inventory/herramientas/control/:id/devolver; (d) reportes GET de contabilidad fuera del balde de cierre (cuadratura, rentabilidad/*, libro-*-iva, mappings, validar, audit-log); (e) subir PAT con scope workflow para pushear .github/workflows/ci.yml"
-    ],
+    "current_sprint": "Sprint 128 — CERRADO 2026-10-13 · triple (E2E + backend tests + hardening). Sin feature nueva; balde T-63 permanece 0/0/0/0. Lote A E2E: 19 tests en 3 specs Playwright (dashboard-smoke-s128, facturacion-smoke-s128, inventario-contabilidad-smoke-s128) — 19 páginas sin E2E previo ahora con smoke; NO ejecutados (requieren dev server + seed, pendiente CI). Lote B backend: 43 tests en 2 archivos de funciones puras — tests/fase7-s128-capa3-formatters.test.ts (30 asserts: parseMoneyToCentavos, centavosToString, buildTxtRecord, stripAccents, montoFixed, fechaDDMMAAAA, marangatuHeader/Trailer, csvEscape, csvRow) y tests/fase7-s128-sifen-xml.test.ts (13 asserts: buildDTEXml, validateDTEXml, parseSifenSoapResponse). Gotchas: stripAccents normaliza ñç→nc vía NFD; csvEscape(null) retorna '' vacío; csvRow une con ',' simple. Lote C hardening: csrf.ts eliminado as any — parseo directo header Cookie sin @fastify/cookie; integration-error-logger.ts eliminado as any — validación runtime contra VALID_OPERATIONS (pgEnum error_operation) con fallback send_message. csrf-double-submit 6/6 verde tras cambio; tsc 0 errores. Métricas: total 520 · sin consumidor 0 · sin test 0 · escritura sin test 0 · clase D 0 · excluidas 43 · behavior 97/97=100%. Guard 0/0/0/0 sin cambios. Docs T47 § Sprint 128.",
+    "next_sprint": "Sprint 129 — Opciones: (1) ejecutar los 19 tests E2E en CI con dev server + seed (requiere configurar globalSetup y dataset determinista); (2) ampliar behavior coverage a servicios con tests de integración DB (analytics, backup, crm, dvi, email, enterprise/sso+2fa); (3) nueva feature de negocio; (4) hardening avanzado (821 lint warnings restantes: no-explicit-any, etc.).",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -4018,6 +4016,64 @@
     "sprint_115_completed": "CERRADO 2026-10-09 — tests escritura lote 2 (fase7-s115): 16 ops (mobile push-token, notifications read/read-all, api-keys create/revoke, data-retention upsert/cleanup, label-printing, analytics report, fleet billing, 2fa verify, finance payments link), 3 bugfixes (markAsRead sin filtro tenant — aislamiento cross-tenant, NUL ESC/POS reimpresiones 500, tabla data_retention_policy singular). Techos: sin test 221→208, escritura 76→63. commit e8e51fa.",
     "sprint_116_completed": "CERRADO 2026-10-09 — tests escritura lote 3 (fase7-s116): 14 ops (5 calculadoras fiscales DNIT form120/ire/idu/isc/inr + 9 CRM pipeline stages+deals CRUD). Sin bugs de producción (solo aserciones ajustadas a shapes impuestoIdu/Isc/Inr). Techos: sin test 208→200, escritura 63→55. commit b357ea1.",
     "sprint_117_completed": "CERRADO 2026-10-09 — tests escritura lote 4 (fase7-s117): 15 ops (7 WhatsApp templates+followups, 3 marketing sequences PATCH/DELETE/run, 2 CRM sync/retry, 2 Thinkcar link/assign, 1 white-label upsert). Sin bugs (UUIDs mal formados en fixtures corregidos). Techos: sin test 200→186, escritura 55→41. commit d1c4763.",
-    "sprint_118_completed": "CERRADO 2026-10-09 — tests escritura lote 5 (fase7-s118): 14 ops offline/local (4 intelligence DTC parse/parse-file/diagnose + safety/protocol, 1 decode-safety sin VIN, 2 OCR plate/cedula base64, 1 thinkcar mobile-dtc, 1 whatsapp followups/auto, 2 migration export/import, 3 portal magic/feedback/appointments). Sin bugs de producción (solo ajustes de test: CSRF double-submit portal, shape riskAssessment, status OCR race, parse-file fallback muerto). Techos: sin test 186→172, escritura 41→27. Backend 122 files / 2392 PASS + 4 skip; guard 7/7; tsc 0. commit 26a77ad."
+    "sprint_118_completed": "CERRADO 2026-10-09 — tests escritura lote 5 (fase7-s118): 14 ops offline/local (4 intelligence DTC parse/parse-file/diagnose + safety/protocol, 1 decode-safety sin VIN, 2 OCR plate/cedula base64, 1 thinkcar mobile-dtc, 1 whatsapp followups/auto, 2 migration export/import, 3 portal magic/feedback/appointments). Sin bugs de producción (solo ajustes de test: CSRF double-submit portal, shape riskAssessment, status OCR race, parse-file fallback muerto). Techos: sin test 186→172, escritura 41→27. Backend 122 files / 2392 PASS + 4 skip; guard 7/7; tsc 0. commit 26a77ad.",
+    "sprint_119_completed": "CERRADO 2026-10-11 — lote 6 escritura (fase7-s119-write-coverage, 32 tests / 22 ops) + reportes GET contabilidad (fase7-s119-reportes-contabilidad, 23 tests) + regresión list sucursales (2 tests) + 2 duplicados legados eliminados + e2e Playwright (4 specs nuevos: treasury-transfer, config-sucursales-crud, inventory-adjustments, contabilidad-cierre; calendario flake por timezone UTC/local anclado a HORA). Bugs producción: rentabilidad dashboard 500 (binding de Date en sql fragment), upload-logo 415 (multipart tras registerConfigModule), response schemas additionalProperties. Bugs cliente: api.ts + auth.setup.ts Content-Type en peticiones sin body → 400 FST_ERR_CTP_EMPTY_JSON_BODY. Techos: total 522→520, sin consumidor 113→111, sin test 172→138, escritura 27→5, excluidas 41. Backend 123 files / 2447 PASS + 4 skip; guard 7/7; tsc 0; e2e web 77/77. (sin commit aún; PAT workflow pendiente)",
+    "sprint_120_completed": "CERRADO 2026-10-12 — lote 7 de lectura (fase7-s120-read-finance, 39 tests / 31 rutas GET de finance sin test): estados financieros + integración/consolidado + FX/reserva-legal + RG90 + fiscal (5 listados) + treasury + presupuestos + SIFEN (lectura; consultar solo validación para no depender del SOAP DNIT). Bug producción corregido: flujo-efectivo 500 siempre (falta .groupBy en calcularAjustesNoEfectivo, cash-flow.service.ts — PG 42803; depreciación 6.2.% y provisiones 6.3.%). sin test 138→107 (−31), techos guard 111/107/5/0 (guard 7/7), validación: 2488 PASS + tsc 0 + eslint 0 errores. Ficheros: tests/fase7-s120-read-finance.test.ts (nuevo), cash-flow.service.ts (fix), route-consumer-guard.test.ts, ci.yml, Docs/T47 (sección Sprint 120).",
+    "sprint_121_completed": "CERRADO 2026-10-12 — lote 8 de lectura (fase7-s121-read-taller-inventario, 34 tests / 43 rutas GET de workshop+inventory): 3 bugfixes de producción en batch-inventory.service.ts (queries sobre orden_items inexistente + fecha_ingreso inexistente → 500 siempre; .rows con postgres-js → ventas 0 / dead-stock 999d para todos; fix orden_repuestos+created_at e iteración de array directa). SSE probado con payloadAsStream+AbortController, PDF con fallback 404/503 según Chromium, referencias estáticas con literales explícitos (el scanner convierte ${...} en * que solo matchea paramétricas). Fix de raza entre ficheros: s116/s117/s118 compartían profiles.id 0000e2e4f11e y s111/s112 compartían 0000e2e4f11b (afterAll de uno borraba el perfil del otro → PK conflict + 401 aleatorios según scheduling); ids únicos por fichero (a116/a117/a118/a111/a112). Techos T-63: sin test 107→64, guard 7/7, sin consumidor 111, escritura 5, clase D 0, excluidas 41. Verificación final: suite 2522 PASS + 4 skip (126 files), tsc 0, lint 0 errores (821 warnings < baseline 824).",
+    "sprint_122_completed": "CERRADO 2026-10-12 — lote 9 de lectura (fase7-s122-read-remaining, 51 tests / 59 rutas: 57 GET + 2 POST SIFEN de validación). Bug producción corregido: /api/v1/locale/:lang 401 siempre → '/api/v1/locale/' en PUBLIC_PATHS de auth-gate.ts (consumidores i18n.js + sw.js fetchan sin token); tests de límite de prefijo añadidos a auth-gate.test.ts. Ajustes de expectativas: rutas {websocket:true} con GET plano → [400|404|426], whatsapp/qr y crm/status ramas [200|500], reports PDF [404|503], SSE leído con stream de Node once('data') (patrón s121), NotFoundError asertado por message ({error:'NotFoundError'}). Cierre T-61: 0 rutas no-excluidas sin test (las 5 restantes: api-keys/:id/usage, ocr/jobs/:id y las 3 externas del DNIT, todas en EXCLUDED). Techos: sin test 64→5, escritura 5→3, guard 7/7 (111/5/3/0). Verificación final: suite 2574 PASS + 4 skip (128 files), tsc 0, lint 0 errores / 821 warnings (baseline 824).",
+    "sprint_123_completed": "CERRADO 2026-10-12 — consumidores UI (sin tests nuevos; rutas ya ejercitadas). withoutConsumer 111 → 80 (−31): lote A −5 (i18n locale, notifications poll, export options, audit log en data-service+api, ProfileTenantCard), lote B −7 (audit verify/export/stats server-first, WorkshopKpiCards ×4, buildHeaders/downloadFile), lote C −11 (generateLabel con URLs explícitas + payload ESC/POS, CRM stats + close deals, Thinkcar import detail, TwoFactorCard), lote D −8 (purchase-orders lista/detalle/receive/cancel/borrar, herramientas/control como fuente del tab Préstamos + chips de estado, overdue badge, book-value dialog, calibrate). Bugs corregidos: fuga cross-tenant listControlHerramientas (tenantSlug obligatorio); rewrite /2fa ausente en next.config.mjs. Mecánica scanner: literal fuera de ${}; querystring no viaja dentro del template. Techos guard 80/5/3/0. Archivos nuevos: profile-tenant-card.tsx, taller/kpi-cards.tsx, seguridad/two-factor-card.tsx; reescritos: inventario/ordenes-compra/page.tsx. Validación: suite 2574+4skip, guard 7/7, fe-be-contract 5/5, tsc 0, lint 0/821, web typecheck 0, web lint 0/178.",
+    "sprint_124_completed": "CERRADO 2026-10-13 — consumidores UI (sin tests nuevos; rutas ya ejercitadas). withoutConsumer 80 → 60 (−20): lote 1 workshop −9 (historial, stock-preview, orden-estado PATCH, trabajos-terceros PATCH, batch/status + batch/delete con selección múltiple, tecnicos, predictions, service-brand-map GET+PUT), lote 2 marketing −8 (sequences lista/crear/enroll/enrollments, reviews respond POST+DELETE, loyalty movements/points/redeem/redeem/:rewardId), lote 3 DVI −3 (items/calculate-score/share). Docs T47 sección Sprint 124; techos 60/5/3/0.",
+    "sprint_125_completed": "Sprint 125 — CERRADO 2026-10-13 · consumidores UI lotes SIFEN/nómina/diagnóstico contable: withoutConsumer 60 → 36 (−24) en 3 lotes. Lote 1 SIFEN+facturación+nómina (−7): finance/sifen/page.tsx con detalle de documento (GET documentos/:id), tab Sync Log (GET sync-log), anular DTE y guardar en contingencia; facturacion/page.tsx anula facturas (POST invoices/:id/void con confirmación sifenAnulado para electrónicas); nomina/page.tsx resumen del período con editar/eliminar (GET/PATCH/DELETE payroll/summary). Lote 2 diagnóstico contable (−7): nueva contabilidad/diagnostico/page.tsx (link en sidebar) con cuadratura, mappings, validador pre-transacción, audit-log por entidad, asiento automático desde OT, ajustes de devengamiento y depreciación de activos. Lote 3 rentabilidad+libros+RG90 (−10): rentabilidad por período/OT/cliente/mecánico y libros de IVA en diagnostico; sección RG 90 (exportar TXT + ventas/compras/retenciones) en integracion/page.tsx. Gotcha T-63: literal `` `ruta${qs}` `` con template al final NO matchea rutas sin :param (el * sobrante rompe el regex anclado) — usar ternario con literal puro. Sin tests nuevos (behavior 97/97). Techos T-63: 36/5/3/0 en guard + ci.yml. Validación: guard 7/7 · fe-be-contract 5/5 · web typecheck 0. Docs T47 sección Sprint 125.",
+    "sprint_126_completed": {
+      "date": "2026-10-13",
+      "title": "Cierre del balde T-63: withoutConsumer 36 → 0 (primera vez en 0)",
+      "delta": -36,
+      "final_withoutConsumer": 0,
+      "excluded": 43,
+      "guard_ceilings": "0/5/3/0",
+      "validation": "guard 7/7 · web typecheck 0 · behavior 97/97 (sin tests nuevos)",
+      "docs": "Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md § Sprint 126"
+    },
+    "sprint_127_completed": {
+      "date": "2026-10-13",
+      "title": "Cierre de withoutTest: balde T-63/T-61 cerrado en todas sus dimensiones",
+      "delta_without_test": -5,
+      "delta_write_without_test": -3,
+      "final_withoutTest": 0,
+      "final_writeWithoutTest": 0,
+      "test_file": "tests/fase7-s127-close-without-test.test.ts",
+      "asserts": 10,
+      "guard_ceilings": "0/0/0/0",
+      "validation": "guard 7/7 · test 10/10",
+      "docs": "Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md § Sprint 127"
+    },
+    "sprint_128_completed": {
+      "date": "2026-10-13",
+      "title": "Triple: E2E + backend tests + hardening (sin feature nueva)",
+      "scope": "19 E2E tests (3 specs Playwright, 19 páginas smoke) · 43 backend tests (2 archivos funciones puras) · 2 hardening fixes (csrf.ts as-any, integration-error-logger.ts as-any)",
+      "e2e_specs": [
+        "web/e2e/dashboard-smoke-s128.spec.ts (8 tests)",
+        "web/e2e/facturacion-smoke-s128.spec.ts (5 tests)",
+        "web/e2e/inventario-contabilidad-smoke-s128.spec.ts (6 tests)"
+      ],
+      "backend_tests": [
+        "tests/fase7-s128-capa3-formatters.test.ts (30 asserts)",
+        "tests/fase7-s128-sifen-xml.test.ts (13 asserts)"
+      ],
+      "hardening": [
+        "csrf.ts:113 — parseo directo header Cookie sin @fastify/cookie (eliminado as any)",
+        "integration-error-logger.ts:74 — validación runtime VALID_OPERATIONS + fallback send_message (eliminado as any)"
+      ],
+      "behavior_coverage": "97/97 = 100% (sin gaps)",
+      "guard_ceilings": "0/0/0/0 (sin cambios)",
+      "e2e_status": "specs creados y compilando (typecheck web 0 errores) — NO ejecutados (requieren dev server + seed, pendiente CI)",
+      "validation": "capa3-formatters 30/30 · sifen-xml 13/13 · csrf-double-submit 6/6 · tsc 0 errores · lint 0 errores",
+      "docs": "Docs/T47_INVENTARIO_RUTAS_SIN_CONSUMIDOR.md § Sprint 128",
+      "test_suite_baseline": "2627 PASS / 4 skip (131 files) — baseline subió de 2584 a 2627 (+43 tests nuevos)",
+      "scan_final": "520 total · 0 sin consumidor · 0 sin test · 43 excluidas (balde T-63 cerrado)",
+      "lint_root": "0 errores / 819 warnings (reducción de 2 no-explicit-any: 821→819)",
+      "lint_web": "0 errores / 175 warnings",
+      "vitest_web": "156 tests PASS (18 files)"
+    }
   }
 }

@@ -16,6 +16,7 @@ import {
   Trash2,
   Pencil,
   Trophy,
+  CircleX,
   GripVertical,
 } from "lucide-react";
 import {
@@ -115,6 +116,15 @@ export default function CRMPage() {
     queryFn: () => api.request<CrmDeal[]>("/crm/deals"),
   });
 
+  // Estado de sincronización externa del CRM (GET /crm/stats)
+  const { data: syncStats } = useQuery({
+    queryKey: ["crm-sync-stats"],
+    queryFn: () =>
+      api.request<{ total: number; success: number; failed: number; pending: number }>("/crm/stats"),
+    staleTime: 60_000,
+    retry: 1,
+  });
+
   // T-53: feedback visible al fallar la carga (un toast aunque fallen ambas)
   useErrorToast(stagesError || dealsError, "el pipeline CRM");
 
@@ -186,6 +196,20 @@ export default function CRMPage() {
       qc.invalidateQueries({ queryKey: ["crm-deals"] });
       toast.success("Deal eliminado");
     },
+  });
+
+  // Cerrar deal como ganado/perdido (POST /crm/deals/:id/close)
+  const closeMut = useMutation({
+    mutationFn: ({ id, ganado }: { id: string; ganado: boolean }) =>
+      api.request(`/crm/deals/${id}/close`, {
+        method: "POST",
+        body: JSON.stringify({ ganado }),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["crm-deals"] });
+      toast.success(vars.ganado ? "Deal cerrado como ganado" : "Deal cerrado como perdido");
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "No se pudo cerrar el deal"),
   });
 
   function closeDialog() {
@@ -295,6 +319,9 @@ export default function CRMPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {totalDeals} deal{totalDeals !== 1 ? "s" : ""} · {sortedStages.length} etapas
+            {syncStats &&
+              ` · Sync ${syncStats.success}/${syncStats.total}` +
+                (syncStats.failed > 0 ? ` (${syncStats.failed} fallidas)` : "")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -424,6 +451,9 @@ export default function CRMPage() {
                           onDelete={() => {
                             if (confirm(`¿Eliminar deal "${deal.titulo}"?`)) deleteMut.mutate(deal.id);
                           }}
+                          onClose={(ganado) =>
+                            closeMut.mutate({ id: deal.id, ganado })
+                          }
                         />
                       ))
                     )}
@@ -567,11 +597,13 @@ function DealCard({
   stage,
   onEdit,
   onDelete,
+  onClose,
 }: {
   deal: CrmDeal;
   stage: PipelineStage;
   onEdit: () => void;
   onDelete: () => void;
+  onClose: (ganado: boolean) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
@@ -598,6 +630,24 @@ function DealCard({
           <h4 className="font-medium text-sm leading-tight truncate">{deal.titulo}</h4>
         </div>
         <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-emerald-500"
+            title="Cerrar como ganado"
+            onClick={() => onClose(true)}
+          >
+            <Trophy className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 text-red-400"
+            title="Cerrar como perdido"
+            onClick={() => onClose(false)}
+          >
+            <CircleX className="h-3 w-3" />
+          </Button>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onEdit}>
             <Pencil className="h-3 w-3" />
           </Button>

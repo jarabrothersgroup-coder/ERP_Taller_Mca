@@ -50,6 +50,10 @@ const PUBLIC_PATHS = [
   "/portal/",
   // TV display + status (public by design)
   "/api/v1/visual/",
+  // i18n translation JSON (static ES/GU files) — fetched WITHOUT an
+  // Authorization header by the legacy SPA (`public/js/i18n.js`) and the
+  // service worker cache, so requiring a profile made it always 401
+  "/api/v1/locale/",
   // Legacy SPA entry points (login handled client-side)
   "/dashboard",
   "/app.js",

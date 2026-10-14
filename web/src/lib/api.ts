@@ -222,23 +222,36 @@ async function getAuthToken(): Promise<string | undefined> {
   }
 }
 
-async function request<T>(
-  url: string,
-  options?: RequestInit,
-): Promise<T> {
+/**
+ * Headers estándar de toda llamada al backend: tenant slug, JWT de sesión y
+ * CSRF. `body` no nulo añade Content-Type JSON.
+ */
+async function buildHeaders(body?: RequestInit["body"]): Promise<Record<string, string>> {
   const token = await getAuthToken();
   let csrfToken: string | undefined;
   if (typeof document !== "undefined") {
     const m = document.cookie.split("; ").find((c) => c.startsWith("_csrf="));
     if (m) csrfToken = m.split("=").slice(1).join("=");
   }
+  return {
+    "X-Tenant-Slug": getTenantSlug(),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+    // Sólo se manda Content-Type cuando hay body. Fastify rechaza con 400
+    // un DELETE/petición sin cuerpo que lleve Content-Type: application/json
+    // (FST_ERR_CTP_EMPTY_JSON_BODY) — ver sprint 119 e2e sucursales.
+    ...(body != null ? { "Content-Type": "application/json" } : {}),
+  };
+}
+
+async function request<T>(
+  url: string,
+  options?: RequestInit,
+): Promise<T> {
   const res = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
-      "X-Tenant-Slug": getTenantSlug(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      ...(await buildHeaders(options?.body)),
       ...options?.headers,
     },
   });
@@ -257,6 +270,21 @@ async function request<T>(
   if (res.status === 204) return undefined as T;
 
   return res.json() as Promise<T>;
+}
+
+/**
+ * Descarga binaria (CSV u otro) con los headers estándar — el backend responde
+ * con `Content-Disposition: attachment`, así que sólo hace falta el blob.
+ */
+async function downloadFile(url: string): Promise<Blob> {
+  const res = await fetch(url, { headers: await buildHeaders() });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const message =
+      body.message ?? body.error ?? body.detail ?? res.statusText ?? "Error de red";
+    throw new ApiError(res.status, message);
+  }
+  return res.blob();
 }
 
 /**
@@ -283,6 +311,9 @@ export const api = {
 
   /** Generic request method for CRM and other endpoints */
   request: <T>(url: string, options?: RequestInit) => request<T>(url, options),
+
+  /** Downloads a binary/CSV response with the standard auth headers */
+  downloadFile: (url: string) => downloadFile(url),
 
   /* ── Clients CRUD ──────────────────────────── */
 
@@ -496,7 +527,7 @@ export const api = {
     }),
 
   updateWorkOrderStatus: (id: string, status: string) =>
-    request<WorkOrder>(`/workshop/ordenes/${id}`, {
+    request<WorkOrder>(`/workshop/ordenes/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
@@ -1477,14 +1508,30 @@ export const api = {
    */
   generateLabel: async (body: { type: "repuesto" | "herramienta"; id: string; copies?: number }) => {
     const tipo = body.type === "repuesto" ? "REPUESTO" : "HERRAMIENTA";
-    const etiqueta = await request<{ data: Record<string, unknown> }>(
-      `/label-printing/${body.type}/${encodeURIComponent(body.id)}`,
+    // URL explícita por tipo: el segmento fijo debe viajar fuera del template
+    // para que el backend reciba /repuesto/:id o /herramienta/:id tal cual.
+    const etiquetaUrl =
+      body.type === "repuesto"
+        ? `/label-printing/repuesto/${encodeURIComponent(body.id)}`
+        : `/label-printing/herramienta/${encodeURIComponent(body.id)}`;
+    const etiqueta = await request<{ data: Record<string, unknown> }>(etiquetaUrl);
+    const payload = await request<{ payload: string; protocol: string }>(
+      "/label-printing/generate",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          tipo,
+          protocolo: "ESCPOS",
+          data: etiqueta.data,
+          copias: body.copies ?? 1,
+        }),
+      },
     );
     const preview = await request<{ html: string }>("/label-printing/preview", {
       method: "POST",
       body: JSON.stringify({ tipo, protocolo: "ESCPOS", data: etiqueta.data }),
     });
-    return { success: true as const, label: preview.html };
+    return { success: true as const, label: preview.html, payload: payload.payload };
   },
 
   /** Generate ESC/POS thermal receipt for an invoice */
@@ -1568,7 +1615,7 @@ export const api = {
     if (params?.hasta) qs.set("hasta", params.hasta);
     if (params?.limit) qs.set("limit", String(params.limit));
     const query = qs.toString();
-    return request<AuditEntry[]>(`/audit/log${query ? `?${query}` : ""}`);
+    return request<AuditEntry[]>(query ? `/audit/log?${query}` : "/audit/log");
   },
 
   /* ── Search ────────────────────────────────── */

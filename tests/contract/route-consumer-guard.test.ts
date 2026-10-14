@@ -77,19 +77,96 @@ import { scanRouteConsumers, scanCriticalBehavior, BEHAVIOR_COVERAGE_FLOOR } fro
 // import, portal magic/feedback/appointments): sin test 186 → 172,
 // escritura sin test 41 → 27. Sin bugs de producción (solo ajustes de test:
 // CSRF double-submit en portal, shape riskAssessment, status OCR race).
+// Sprint 119 (balde legado/duplicado) eliminó las 2 rutas legacy
+// /inventory/herramientas/prestar y /control/:id/devolver (duplicados de
+// tool-loans, ya consumidos por la UI canónica) y repuntó sus tests a
+// /inventory/tool-loans/lend | /:id/return: sin consumidor 113 → 111.
+// Sprint 119 (lote 6 de escritura, fase7-s119, 22 rutas): whatsapp instance/
+// disconnect/queue/send, sso discover/authorize/logout/validate-domain,
+// portal invoices pay + magic 401/400, api-keys create/revoke/reset-scope,
+// config upload-logo, migration import/file, email send/send-reminder/
+// send-invoice/send-estimate + billing 4 ops, intelligence manuals/ingest,
+// thinkcar ingest/usb: sin test 172 → 150, escritura sin test 27 → 5 (solo
+// quedan las 5 sifen externas). CORRIGIÓ 1 bug de producción: el parser
+// multipart se registraba DESPUÉS del plugin de config, por lo que
+// /api/config/upload-logo devolvía 415 al recibir un multipart real
+// (snapshot de content-type parsers por scope encapsulado: se movió la
+// registración de @fastify/multipart antes del módulo config).
+// Sprint 119 (reportes GET de contabilidad, fase7-s119-reportes, 23 tests):
+// balde de cierre T-47 — cuadratura, rentabilidad ot/cliente/mecanico/
+// dashboard, libro-diario/mayor/inventario, libro-compras-iva/ventas-iva
+// (JSON + CSV), mappings, audit-log/:entidad/:entidadId: sin test 150 → 138.
+// CORRIGIÓ 1 bug de producción: el dashboard de rentabilidad encadenaba un
+// fragmento sql`…` con parámetros Date y postgres-js disparaba
+// ERR_INVALID_ARG_TYPE → siempre 500; se pasó a gte()/lte() column operations
+// (el binding de JS Date como parámetro de sql fragment está roto en drizzle).
+// Nota: los 12 GET siguen en "sin consumidor" — los tests de backend no
+// agregan consumidores de UI; el cierre del balde los saca solo de "sin test".
+// Sprint 120 (lote 7 de lectura, fase7-s120-read-finance, 39 tests): las 31
+// rutas GET de /finance/** que quedaban sin test (estados financieros
+// balance-general/estado-resultados/flujo-efectivo/evolucion-patrimonio/
+// notas-financieras, centros-costo/arbol, integración resumen+check,
+// consolidado balance+pnl, depreciación activos/:id, tipos-cambio/actual,
+// reserva-legal/saldo, RG 90 ventas/compras/retenciones, fiscal form120/ire/
+// idu/isc/inr, treasury cxc-pendientes/flujo-caja/saldo-historico,
+// presupuestos comparativa+alertas, sifen consultar/documentos/sync-log/
+// contingencia-status): sin test 138 → 107 (0 GET de finance restantes).
+// CORRIGIÓ 1 bug de producción: flujo-efectivo devolvía SIEMPRE 500 —
+// calcularAjustesNoEfectivo agrupaba por código/nombre de cuenta sin
+// .groupBy() (42803 must appear in the GROUP BY) en las consultas de
+// depreciación 6.2.% y provisiones 6.3.% (la consulta hermana de activos
+// fijos sí lo tenía).
+// Sprint 121 (lote 8 de lectura, fase7-s121-read-taller-inventario,
+// 34 tests): las 43 rutas GET de /workshop/** (24) e /inventory/** (19) que
+// quedaban sin test — analytics producto top-servicios/top-clientes/
+// productividad/scorecard, historiales clientes/vehiculos, flat-rate
+// technician/bay, hub board + stream (SSE por payloadAsStream), ingreso QR,
+// ordenes historial/pdf/stock-preview, predictions (+ml×3), pricing matrix/
+// suggest, reference×3, tecnicos; inventory analytics turnover/dead-stock/
+// reorder, auto-po, herramientas/control, initial-load batches, reports PDF×3,
+// tecdoc×3, tool-instances×2, tool-loans×2, calibration, book-value:
+// sin test 107 → 64 (0 GET de workshop/inventory restantes).
+// CORRIGIÓ 3 bugs de producción en batch-inventory.service.ts: turnover,
+// dead-stock y reorder consultaban la tabla fantasma `orden_items` +
+// `ordenes_trabajo.fecha_ingreso` (no existen → 500 con o sin datos) y
+// leían `(execute()).rows` (postgres-js devuelve el array directo) ⇒ ventas
+// siempre 0 y todo marcado dead-stock con 999 días. Reescritas sobre
+// `orden_repuestos` + `created_at`, iterando el array.
+// Sprint 122 (lote 9 de lectura, fase7-s122-read-remaining, 51 tests): las 57
+// rutas GET + 2 POST SIFEN que quedaban sin test fuera de EXCLUDED — api,
+// analytics, audit, thinkcar, portal, docs, whatsapp, billing, config, crm,
+// ws (SSE + websocket), reports, dvi, marketing, mobile, email, label, sync,
+// scheduling, fleet, 2fa, sifen reenviar/nota-credito: sin test 64 → 5 (las 5
+// restantes están en EXCLUDED del triaje → 0 no-excluidas sin test).
+// CORRIGIÓ 1 bug de producción: GET /api/v1/locale/:lang estaba fuera de
+// PUBLIC_PATHS y fuera de todo scope con resolveTenant → authGate devolvía
+// 401 SIEMPRE (i18n.js y el SW fetchan sin Authorization) y las traducciones
+// ES/GU del SPA legacy nunca cargaban → "/api/v1/locale/" en PUBLIC_PATHS.
+// Sprint 123 (consumidores UI — lotes A-D, sin tests nuevos): la UI pasó a
+// consumir 31 rutas GET/POST ya testeadas — locale, notifications poll,
+// export options, audit log/export/verify/stats, perfil tenant, KPIs
+// analytics, two-factor, label generate/payload, CRM stats + close, Thinkcar
+// import detail, purchase-orders ×4 (lista/detalle/receive/cancel),
+// herramientas/control (+filtro de estado y fix de aislamiento tenant),
+// tool-loans/overdue, book-value y tool-instances/:id/calibrate → 111 → 80.
+// Sprint 124 (consumidores UI — lotes workshop/marketing/DVI): la UI pasó a
+// consumir 20 rutas — taller historial/stock-preview/estado/orden-estado,
+// batch status+delete, tecnicos, trabajos-terceros PATCH, predictions,
+// service-brand-map GET+PUT, marketing sequences (lista/crear/enroll/
+// enrollments), reviews respond POST+DELETE, loyalty movements/points/redeem
+// ×2, y DVI items/calculate-score/share → 80 → 60.
+// Sprint 125 (consumidores UI — lotes SIFEN/nómina/diagnóstico/RG90): la UI
+// pasó a consumir 24 rutas — SIFEN documentos/:id + sync-log + anular +
+// contingencia/guardar, invoices/void, payroll summary GET+PATCH+DELETE,
+// contabilidad cuadratura + mappings + validar + audit-log/:entidad/:entidadId
+// + asientos/automatico + devengamiento/ajustes + depreciacion/activos/:id,
+// rentabilidad dashboard/ot/cliente/mecanico, libro-compras-iva +
+// libro-ventas-iva, y RG90 exportar + ventas + compras + retenciones
+// → 60 → 36.
 // Bajar con cada fix; jamás subir.
-const CEILING_WITHOUT_CONSUMER = 113;
-const CEILING_WITHOUT_TEST = 172;
-/** Escritura (POST/PATCH/PUT/DELETE) sin test — proxy del backlog T-61.
- *  Incluye rutas YA consumidas por la UI pero nunca ejercitadas por tests.
- *  184 → 139 (Sprint 107) → 132 (Sprint 108) → 119 (Sprint 109) → 111 (Sprint 110)
- *  → 92 (Sprint 111: los 19 POST de contabilidad) → 90 (Sprint 112: conciliación)
- *  → 76 (Sprint 114: 14 ops de escritura del balde T-47)
-  *  → 63 (Sprint 115: 16 ops de escritura lote 2)
-  *  → 55 (Sprint 116: 14 ops de escritura lote 3 — fiscal + CRM)
-  *  → 41 (Sprint 117: 15 ops de escritura lote 4 — WhatsApp + marketing + CRM sync + thinkcar + white-label)
-  *  → 27 (Sprint 118: 14 ops de escritura lote 5 — intelligence DTC/safety/OCR + thinkcar mobile + migration + portal). */
-const CEILING_WRITE_WITHOUT_TEST = 27;
+const CEILING_WITHOUT_CONSUMER = 0;
+const CEILING_WITHOUT_TEST = 0;
+const CEILING_WRITE_WITHOUT_TEST = 0;
 /** Clase D de T-47: escritura ∧ sin consumidor ∧ sin test. El hallazgo
  *  estructural: "un POST sin consumidor solo se nota cuando corrompe datos".
  *  Materializado el triaje (92 → 61 → 48 → 40 → 30). Sprint 110 cerró 8 paths
@@ -102,7 +179,7 @@ const CEILING_CLASS_D = 0;
  *  internas + variantes; 41 tras Sprint 112 con las 3 sifen del DNIT). Si baja,
  *  una ruta excluida fue borrada o dejó de existir — revisar que la exclusión
  *  siga justificada en Docs/T47. */
-const FLOOR_EXCLUDED = 36;
+const FLOOR_EXCLUDED = 43;
 
 interface RouteEntry {
   path: string;

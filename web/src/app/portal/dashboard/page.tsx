@@ -89,8 +89,20 @@ export default function PortalDashboardPage() {
       return;
     }
 
-    const fetchSummary = async () => {
+    const fetchSessionAndSummary = async () => {
       try {
+        // GET /portal/session — validar sesión y obtener datos del cliente (T-63 S126)
+        const sessionData = await api.request<{ valid: boolean; client: { name: string; email: string } }>(
+          "/portal/session",
+          { headers: { "X-Portal-Session": session } },
+        );
+        if (!sessionData.valid) {
+          localStorage.removeItem("portal_session");
+          router.push("/portal/login");
+          return;
+        }
+        setClientName(sessionData.client.name);
+
         const data = await api.request<PortalSummary>("/portal/summary", {
           headers: { "X-Portal-Session": session },
         });
@@ -107,7 +119,7 @@ export default function PortalDashboardPage() {
       }
     };
 
-    fetchSummary();
+    fetchSessionAndSummary();
   }, [router]);
 
   const handleLogout = () => {

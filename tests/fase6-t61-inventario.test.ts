@@ -14,11 +14,12 @@
  *      (EN_REPARACION → DISPONIBLE) y decommission (→ DADO_DE_BAJA con
  *      `activa=false`, `valorActualLibros=0` y el custodio limpiado), cada
  *      uno con su transición inválida → 422.
- *   3. POST /inventory/herramientas/prestar — resuelve la primera unidad
- *      DISPONIBLE del SKU, deja la instancia en PRESTADA y crea el control
- *      de préstamo **en el tenant del taller**; POST
- *      /inventory/herramientas/control/:id/devolver — cierra el préstamo
- *      (Devuelto_Bueno) y devuelve la instancia a DISPONIBLE.
+ *   3. POST /inventory/tool-loans/lend — presta un activo DISPONIBLE (deja
+ *      la instancia en PRESTADA y crea el control de préstamo **en el tenant
+ *      del taller**); POST /inventory/tool-loans/:id/return — cierra el
+ *      préstamo (Devuelto_Bueno) y devuelve la instancia a DISPONIBLE.
+ *      (Sprint 119: las rutas legadas /inventory/herramientas/prestar y
+ *      /control/:id/devolver se eliminaron en favor de estos tool-loans.)
  *   4. POST/PATCH /inventory/tool-service-events — 400 por `tipo` fuera del
  *      enum o por `toolInstanceId` ausente, 404 por instancia/evento
  *      inexistente y transición a COMPLETADO.
@@ -119,8 +120,8 @@ describe("T-61 · inventario de herramientas (SKU, activos, préstamos, eventos,
     });
 
     // Dos SKUs: uno para los activos del ciclo de vida y otro dedicado al
-    // préstamo (prestarHerramienta resuelve "la primera unidad DISPONIBLE"
-    // del SKU, así que se aísla para no interferir con los demás tests).
+    // préstamo (lendTool presta un activo concreto, así que se aísla para no
+    // interferir con los demás tests).
     const a = await app.inject({
       method: "POST",
       url: "/inventory/herramientas",
@@ -416,38 +417,38 @@ describe("T-61 · inventario de herramientas (SKU, activos, préstamos, eventos,
     expect(ok.json()).toMatchObject({ id: instRep, estadoActual: "DISPONIBLE" });
   });
 
-  // ── 3a. POST /inventory/herramientas/prestar ────────────────────────────
-  it("prestar resuelve la unidad DISPONIBLE del SKU y crea el control en el tenant", async () => {
+  // ── 3a. POST /inventory/tool-loans/lend ────────────────────────────────
+  it("lend presta la instancia DISPONIBLE y crea el control en el tenant", async () => {
     const sinCampos = await app.inject({
       method: "POST",
-      url: "/inventory/herramientas/prestar",
+      url: "/inventory/tool-loans/lend",
       headers: auth(),
-      body: { herramientaId: skuPrest },
+      body: {},
     });
     expect(sinCampos.statusCode).toBe(400);
 
     const sinOt = await app.inject({
       method: "POST",
-      url: "/inventory/herramientas/prestar",
+      url: "/inventory/tool-loans/lend",
       headers: auth(),
-      body: { herramientaId: skuPrest, ordenTrabajoId: MISSING, mecanicoId: MECH },
+      body: { toolInstanceId: instPrest, ordenTrabajoId: MISSING, mecanicoId: MECH },
     });
     expect(sinOt.statusCode).toBe(404);
 
     const sinMecanico = await app.inject({
       method: "POST",
-      url: "/inventory/herramientas/prestar",
+      url: "/inventory/tool-loans/lend",
       headers: auth(),
-      body: { herramientaId: skuPrest, ordenTrabajoId: OT, mecanicoId: MISSING },
+      body: { toolInstanceId: instPrest, ordenTrabajoId: OT, mecanicoId: MISSING },
     });
     expect(sinMecanico.statusCode).toBe(404);
 
     const ok = await app.inject({
       method: "POST",
-      url: "/inventory/herramientas/prestar",
+      url: "/inventory/tool-loans/lend",
       headers: auth(),
       body: {
-        herramientaId: skuPrest,
+        toolInstanceId: instPrest,
         ordenTrabajoId: OT,
         mecanicoId: MECH,
         observaciones: "T-61 préstamo",
@@ -480,12 +481,12 @@ describe("T-61 · inventario de herramientas (SKU, activos, préstamos, eventos,
     expect(activos[0].tecnico_actual_id).toBe(MECH);
     expect(activos[0].orden_trabajo_actual_id).toBe(OT);
 
-    // Sin unidades DISPONIBLES del SKU → 422 (no duplica el préstamo).
+    // Un activo ya prestado no se puede prestar de nuevo → 422 (no duplica).
     const sinUnidades = await app.inject({
       method: "POST",
-      url: "/inventory/herramientas/prestar",
+      url: "/inventory/tool-loans/lend",
       headers: auth(),
-      body: { herramientaId: skuPrest, ordenTrabajoId: OT, mecanicoId: MECH },
+      body: { toolInstanceId: instPrest, ordenTrabajoId: OT, mecanicoId: MECH },
     });
     expect(sinUnidades.statusCode).toBe(422);
   });
@@ -542,31 +543,30 @@ describe("T-61 · inventario de herramientas (SKU, activos, préstamos, eventos,
     expect(prestada.statusCode).toBe(422);
   });
 
-  // ── 3c. POST /inventory/herramientas/control/:id/devolver ───────────────
-  it("devolver cierra el préstamo y devuelve la instancia a DISPONIBLE", async () => {
+  // ── 3c. POST /inventory/tool-loans/:id/return ──────────────────────────
+  it("return cierra el préstamo y devuelve la instancia a DISPONIBLE", async () => {
     const missing = await app.inject({
       method: "POST",
-      url: `/inventory/herramientas/control/${MISSING}/devolver`,
+      url: `/inventory/tool-loans/${MISSING}/return`,
       headers: auth(),
-      body: { estado: "Devuelto" },
+      body: { condicionRetorno: "BUENO" },
     });
     expect(missing.statusCode).toBe(404);
 
-    // El endpoint no acepta `costoReparacion` → "Dañado" nunca pasa la
-    // validación de returnTool (422): documentado para no enshrinuarlo.
+    // DANADO sin costo de reparación nunca pasa la validación (422).
     const danado = await app.inject({
       method: "POST",
-      url: `/inventory/herramientas/control/${controlId}/devolver`,
+      url: `/inventory/tool-loans/${controlId}/return`,
       headers: auth(),
-      body: { estado: "Dañado" },
+      body: { condicionRetorno: "DANADO" },
     });
     expect(danado.statusCode).toBe(422);
 
     const ok = await app.inject({
       method: "POST",
-      url: `/inventory/herramientas/control/${controlId}/devolver`,
+      url: `/inventory/tool-loans/${controlId}/return`,
       headers: auth(),
-      body: { estado: "Devuelto", observaciones: "Sin novedad" },
+      body: { condicionRetorno: "BUENO", observaciones: "Sin novedad" },
     });
     expect(ok.statusCode).toBe(200);
     expect(ok.json().loan).toMatchObject({
@@ -591,9 +591,9 @@ describe("T-61 · inventario de herramientas (SKU, activos, préstamos, eventos,
 
     const repetir = await app.inject({
       method: "POST",
-      url: `/inventory/herramientas/control/${controlId}/devolver`,
+      url: `/inventory/tool-loans/${controlId}/return`,
       headers: auth(),
-      body: { estado: "Devuelto" },
+      body: { condicionRetorno: "BUENO" },
     });
     expect(repetir.statusCode).toBe(422);
   });

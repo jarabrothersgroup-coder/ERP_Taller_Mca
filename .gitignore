@@ -44,3 +44,6 @@ Thumbs.db
 
 # ─── Deepwork ────────────────────────────────
 .slim/deepwork/
+
+# OCR artifact (3.3MB, no referenced in code)
+spa.traineddata

@@ -66,9 +66,12 @@ export async function getApiAuthHeaders(
     data: { tenantSlug: E2E_TENANT, email: E2E_ADMIN_EMAIL, password: E2E_ADMIN_PASSWORD },
   });
   const body = (await res.json()) as { token?: string };
+  // No fijar Content-Type aquí: Fastify rechaza (400 FST_ERR_CTP_EMPTY_JSON_BODY)
+  // las peticiones SIN body con Content-Type: application/json, lo que rompe
+  // DELETE/POST sin cuerpo. Playwright añade el header automáticamente cuando
+  // se pasa `data`.
   return {
     "X-Tenant-Slug": E2E_TENANT,
-    "Content-Type": "application/json",
     ...(body.token ? { Authorization: `Bearer ${body.token}` } : {}),
   };
 }

@@ -106,6 +106,35 @@ function initSearchBar() {
       document.getElementById('export-dropdown')?.classList.add('hidden');
     });
   });
+
+  // Server-driven options: GET /api/v1/export returns the tables configured
+  // for CSV export; replaces the static fallback list when reachable.
+  loadExportOptions();
+}
+
+async function loadExportOptions() {
+  try {
+    const res = await fetch('/api/v1/export', { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const tables = Array.isArray(data?.tables) ? data.tables : [];
+    const dd = document.getElementById('export-dropdown');
+    if (!tables.length || !dd) return;
+    dd.querySelectorAll('.export-option').forEach((el) => el.remove());
+    for (const table of tables) {
+      const btn = document.createElement('button');
+      btn.className = 'export-option w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 transition';
+      btn.dataset.table = table;
+      btn.textContent = table.charAt(0).toUpperCase() + table.slice(1).replace(/_/g, ' ');
+      btn.addEventListener('click', () => {
+        downloadCsvExport(table);
+        dd.classList.add('hidden');
+      });
+      dd.appendChild(btn);
+    }
+  } catch {
+    // Offline → las opciones estáticas siguen operativas
+  }
 }
 
 // ─── Toggle ─────────────────────────────────────

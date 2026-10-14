@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,8 @@ import {
   Search,
   ExternalLink,
   ArrowRight,
+  History,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +80,29 @@ interface FiscalDocument {
   moneda: string;
 }
 
+interface FiscalDocumentDetail extends FiscalDocument {
+  xmlOriginal?: string | null;
+  xmlFirmado?: string | null;
+  mensajeError?: string | null;
+  respuestaSifenXml?: string | null;
+  numeroTransaccion?: string | null;
+  fechaAprobacion?: string | null;
+  totalIva?: string | null;
+}
+
+interface SifenSyncLogEntry {
+  id: string;
+  documentoId: string;
+  operacion: string;
+  codigoResultado: string | null;
+  cdc: string | null;
+  httpStatus: number | null;
+  mensajeError: string | null;
+  duracionMs: number | null;
+  exitoso: boolean;
+  createdAt: string;
+}
+
 interface ContingenciaStatus {
   sifenDisponible: boolean;
   enCola: number;
@@ -111,7 +137,7 @@ export default function SifenDashboardPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { toast: t, ToastContainer } = useToast();
-  const [activeTab, setActiveTab] = React.useState<"dashboard" | "documentos" | "contingencia">("dashboard");
+  const [activeTab, setActiveTab] = React.useState<"dashboard" | "documentos" | "synclog" | "contingencia">("dashboard");
   const [estadoFilter, setEstadoFilter] = React.useState("");
 
   // Emitir DTE dialog
@@ -183,6 +209,73 @@ export default function SifenDashboardPage() {
       t.success("Contingencia reenviada");
     },
     onError: (err: any) => t.error(err?.message || "Error al reenviar contingencia"),
+  });
+
+  // ── Detalle de documento + acciones (GET /documentos/:id,
+  //    POST /anular, POST /contingencia/guardar) ──
+  const [selectedDoc, setSelectedDoc] = React.useState<FiscalDocument | null>(null);
+  const [anularOpen, setAnularOpen] = React.useState(false);
+  const [anularMotivo, setAnularMotivo] = React.useState("");
+
+  const docDetailQuery = useQuery<FiscalDocumentDetail>({
+    queryKey: ["sifen-doc-detail", selectedDoc?.id],
+    queryFn: () => api.request<FiscalDocumentDetail>(`/finance/sifen/documentos/${selectedDoc!.id}`),
+    enabled: !!selectedDoc,
+  });
+
+  const anularMut = useMutation({
+    mutationFn: () =>
+      api.request("/finance/sifen/anular", {
+        method: "POST",
+        body: JSON.stringify({ cdc: docDetailQuery.data?.cdc, motivo: anularMotivo }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sifen-documentos"] });
+      qc.invalidateQueries({ queryKey: ["sifen-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["sifen-doc-detail"] });
+      qc.invalidateQueries({ queryKey: ["sifen-sync-log"] });
+      setAnularOpen(false);
+      setAnularMotivo("");
+      setSelectedDoc(null);
+      t.success("Documento anulado en SIFEN");
+    },
+    onError: (err: any) => t.error(err?.message || "No se pudo anular el documento"),
+  });
+
+  const guardarContMut = useMutation({
+    mutationFn: () => {
+      const d = docDetailQuery.data;
+      return api.request<{ success: boolean; cdcAsignado?: string; queueSize?: number; error?: string }>(
+        "/finance/sifen/contingencia/guardar",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            documentoId: d?.id,
+            xmlOriginal: d?.xmlOriginal ?? "",
+            dteTipo: d?.dteTipo,
+            totalDocumento: String(d?.totalDocumento ?? "0"),
+            xmlFirmado: d?.xmlFirmado || undefined,
+            cdcOriginal: d?.cdc || undefined,
+          }),
+        },
+      );
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["sifen-contingencia"] });
+      if (res?.success) {
+        t.success(`Guardado en cola de contingencia${res.cdcAsignado ? ` (CDC ${res.cdcAsignado.slice(0, 8)}…)` : ""}`);
+      } else {
+        t.error(res?.error || "No se pudo guardar en contingencia");
+      }
+    },
+    onError: (err: any) => t.error(err?.message || "No se pudo guardar en contingencia"),
+  });
+
+  // ── Sync log (GET /finance/sifen/sync-log) ──
+  const syncLogQuery = useQuery<{ items: SifenSyncLogEntry[]; total: number }>({
+    queryKey: ["sifen-sync-log"],
+    queryFn: () => api.request<{ items: SifenSyncLogEntry[]; total: number }>("/finance/sifen/sync-log?limit=50"),
+    enabled: activeTab === "synclog",
   });
 
   // Nota credito mutation
@@ -360,6 +453,7 @@ export default function SifenDashboardPage() {
         {[
           { key: "dashboard" as const, label: "Dashboard", icon: Activity },
           { key: "documentos" as const, label: "Documentos", icon: FileText },
+          { key: "synclog" as const, label: "Sync Log", icon: History },
           { key: "contingencia" as const, label: "Contingencia", icon: Shield },
         ].map((tab) => (
           <button
@@ -507,8 +601,60 @@ export default function SifenDashboardPage() {
             pageSize={10}
             sortable
             className="shadow-sm"
+            onRowClick={(row) => setSelectedDoc(row)}
           />
         </>
+      )}
+
+      {/* ═══════════════════════════════════════ */}
+      {/* TAB: Sync Log (GET /finance/sifen/sync-log) */}
+      {/* ═══════════════════════════════════════ */}
+      {activeTab === "synclog" && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Log de sincronización con SIFEN
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {syncLogQuery.isLoading ? (
+              <Skeleton className="h-40" />
+            ) : syncLogQuery.isError ? (
+              <p className="text-sm text-muted-foreground">No se pudo cargar el log de sincronización</p>
+            ) : (syncLogQuery.data?.items ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin entradas de sincronización</p>
+            ) : (
+              <div className="space-y-2">
+                {(syncLogQuery.data?.items ?? []).map((entry) => (
+                  <div key={entry.id} className="flex items-start justify-between gap-3 rounded-lg border p-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={entry.exitoso ? "success" : "destructive"} className="text-[10px]">
+                          {entry.exitoso ? "OK" : "ERROR"}
+                        </Badge>
+                        <span className="font-medium">{entry.operacion}</span>
+                        {entry.httpStatus != null && (
+                          <span className="font-mono text-muted-foreground">HTTP {entry.httpStatus}</span>
+                        )}
+                        {entry.duracionMs != null && (
+                          <span className="text-muted-foreground">{entry.duracionMs} ms</span>
+                        )}
+                      </div>
+                      {entry.mensajeError && (
+                        <p className="mt-1 break-all text-red-600">{entry.mensajeError}</p>
+                      )}
+                      {entry.cdc && <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">CDC {entry.cdc}</p>}
+                    </div>
+                    <span className="shrink-0 text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleString("es-PY")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* ═══════════════════════════════════════ */}
@@ -580,6 +726,96 @@ export default function SifenDashboardPage() {
           </Card>
         </div>
       )}
+
+      {/* ── Detalle de Documento Dialog ──────── */}
+      <Dialog open={!!selectedDoc} onOpenChange={(open) => { if (!open) { setSelectedDoc(null); setAnularOpen(false); setAnularMotivo(""); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-500" />
+              {selectedDoc?.dteTipo} {selectedDoc?.serie}-{selectedDoc?.numero}
+            </DialogTitle>
+            <DialogDescription>Detalle del documento fiscal y acciones SIFEN</DialogDescription>
+          </DialogHeader>
+
+          {docDetailQuery.isLoading ? (
+            <Skeleton className="h-40" />
+          ) : docDetailQuery.isError ? (
+            <p className="text-sm text-red-600">No se pudo cargar el detalle del documento</p>
+          ) : docDetailQuery.data ? (
+            <div className="grid gap-3 py-2 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Estado</p>
+                  <Badge className={ESTADO_COLORS[docDetailQuery.data.estado]}>{docDetailQuery.data.estado}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total</p>
+                  <p className="font-mono font-semibold">₲ {Number(docDetailQuery.data.totalDocumento).toLocaleString("es-PY")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Receptor</p>
+                  <p>{docDetailQuery.data.receptorRazonSocial || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Fecha emisión</p>
+                  <p>{docDetailQuery.data.fechaEmision ? new Date(docDetailQuery.data.fechaEmision).toLocaleDateString("es-PY") : "—"}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">CDC</p>
+                <p className="break-all font-mono text-xs">{docDetailQuery.data.cdc || "—"}</p>
+              </div>
+              {docDetailQuery.data.mensajeError && (
+                <div className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                  {docDetailQuery.data.mensajeError}
+                </div>
+              )}
+
+              {anularOpen ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <label className="text-xs font-medium">Motivo de anulación *</label>
+                  <textarea
+                    value={anularMotivo}
+                    onChange={(e) => setAnularMotivo(e.target.value)}
+                    placeholder="Motivo (máx. 500 caracteres)…"
+                    rows={3}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" loading={anularMut.isPending} disabled={!anularMotivo.trim() || !docDetailQuery.data.cdc} onClick={() => anularMut.mutate()}>
+                      Confirmar anulación
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setAnularOpen(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1"
+                    disabled={!docDetailQuery.data.cdc || docDetailQuery.data.estado === "ANULADO"}
+                    onClick={() => setAnularOpen(true)}
+                  >
+                    <Ban className="h-3.5 w-3.5" /> Anular DTE
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    loading={guardarContMut.isPending}
+                    disabled={!docDetailQuery.data.xmlOriginal || docDetailQuery.data.estado === "ANULADO"}
+                    onClick={() => guardarContMut.mutate()}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" /> Guardar en contingencia
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Emitir DTE Dialog ────────────────── */}
       <Dialog open={emitirOpen} onOpenChange={setEmitirOpen}>

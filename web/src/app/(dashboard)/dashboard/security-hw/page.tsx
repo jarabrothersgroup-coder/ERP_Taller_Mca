@@ -1,15 +1,64 @@
 "use client";
 
 import * as React from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSecurityHWStatus } from "@/hooks/use-data";
+import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, Fingerprint, Usb, Key, AlertTriangle, CheckCircle } from "lucide-react";
 
+interface HardwareFingerprint {
+  hostname: string;
+  platform: string;
+  arch: string;
+  motherboardUuid: string;
+  cpuSerial: string;
+  diskSerial: string;
+}
+
+interface UsbDevice {
+  serial: string;
+  model: string;
+  mountPoint: string | null;
+}
+
+interface ValidateTokenResult {
+  valid: boolean;
+  message?: string;
+}
+
 export default function SecurityHWPage() {
   const { data: status, isLoading } = useSecurityHWStatus();
+
+  // GET /security/hw/fingerprint (T-63 S126)
+  const { data: fingerprint } = useQuery<HardwareFingerprint>({
+    queryKey: ["security-hw", "fingerprint"],
+    queryFn: () => api.request("/security/hw/fingerprint") as any,
+  });
+
+  // GET /security/hw/usb-devices (T-63 S126)
+  const { data: usbData } = useQuery<{ devices: UsbDevice[] }>({
+    queryKey: ["security-hw", "usb-devices"],
+    queryFn: () => api.request("/security/hw/usb-devices") as any,
+  });
+
+  const [tokenInput, setTokenInput] = React.useState("");
+  const [validateResult, setValidateResult] = React.useState<ValidateTokenResult | null>(null);
+
+  // POST /security/hw/validate-token (T-63 S126)
+  const validateMut = useMutation({
+    mutationFn: () =>
+      api.request("/security/hw/validate-token", {
+        method: "POST",
+        body: JSON.stringify({ token: tokenInput }),
+      }) as Promise<ValidateTokenResult>,
+    onSuccess: (r) => setValidateResult(r),
+    onError: (err: any) => setValidateResult({ valid: false, message: err?.message || "Error validando token" }),
+  });
 
   if (isLoading) {
     return (
@@ -60,9 +109,11 @@ export default function SecurityHWPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm font-mono truncate">
-              {status?.fingerprint ?? "No registrado"}
+              {fingerprint?.motherboardUuid ?? status?.fingerprint ?? "No registrado"}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Identificador único del servidor</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {fingerprint ? `${fingerprint.hostname} · ${fingerprint.platform}` : "Identificador único del servidor"}
+            </p>
           </CardContent>
         </Card>
 
@@ -74,8 +125,17 @@ export default function SecurityHWPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{status?.usbTokens ?? 0}</p>
+            <p className="text-2xl font-bold">{usbData?.devices?.length ?? status?.usbTokens ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Tokens registrados</p>
+            {usbData?.devices && usbData.devices.length > 0 && (
+              <ul className="mt-2 space-y-0.5">
+                {usbData.devices.map((d) => (
+                  <li key={d.serial} className="text-[10px] font-mono text-muted-foreground truncate">
+                    {d.serial} {d.model && `· ${d.model}`}
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -98,14 +158,28 @@ export default function SecurityHWPage() {
 
       <Card>
         <CardContent className="py-6">
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" className="gap-2">
-              <Fingerprint className="h-4 w-4" /> Generar Token
-            </Button>
-            <Button variant="outline" className="gap-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Input
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Token a validar…"
+              className="w-64"
+            />
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => validateMut.mutate()}
+              disabled={!tokenInput || validateMut.isPending}
+              loading={validateMut.isPending}
+            >
               <Usb className="h-4 w-4" /> Verificar USB
             </Button>
           </div>
+          {validateResult && (
+            <p className={`text-sm text-center mt-3 ${validateResult.valid ? "text-green-600" : "text-red-600"}`}>
+              {validateResult.valid ? "Token válido ✓" : `Inválido: ${validateResult.message || "token no reconocido"}`}
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

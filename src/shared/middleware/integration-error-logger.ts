@@ -24,6 +24,20 @@ import {
   type NewWhatsAppErrorLog,
 } from "../../modules/whatsapp/schema/whatsapp-error-log.js";
 
+/** Operation values allowed by the `error_operation` pgEnum. */
+const VALID_OPERATIONS = new Set([
+  "send_message",
+  "send_document",
+  "create_instance",
+  "get_qr",
+  "get_status",
+  "disconnect",
+  "crm_sync",
+  "crm_upsert",
+  "crm_create_contact",
+  "crm_add_note",
+]);
+
 // ─── Error Logger ──────────────────────────────────────
 
 export interface IntegrationErrorContext {
@@ -71,7 +85,9 @@ export async function logIntegrationError(
   try {
     const entry: NewWhatsAppErrorLog = {
       source: context.source,
-      operation: context.operation as any,
+      operation: VALID_OPERATIONS.has(context.operation)
+        ? (context.operation as NewWhatsAppErrorLog["operation"])
+        : "send_message",
       ordenId: context.ordenId || null,
       clientName: context.clientName || null,
       phoneNumber: context.phoneNumber || null,

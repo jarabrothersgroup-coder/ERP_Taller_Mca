@@ -561,7 +561,7 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
                 required: ["concepto", "lineas"],
                 properties: {
                   concepto: { type: "string" },
-                  lineas: { type: "array", minItems: 2, items: { type: "object" } },
+                  lineas: { type: "array", minItems: 2, items: { type: "object", additionalProperties: true } },
                 },
               },
             },

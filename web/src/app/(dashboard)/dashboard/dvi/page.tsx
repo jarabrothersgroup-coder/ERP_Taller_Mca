@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDVIInspections } from "@/hooks/use-data";
+import { useToast } from "@/hooks/use-toast";
 import { DVICreateDialog } from "./dvi-create-dialog";
 import { DVIItemStatusControl } from "./dvi-item-status-control";
 import { api, type DVIInspection, type DVIItem as DVIItemApi } from "@/lib/api";
@@ -25,6 +26,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Activity,
+  Plus,
+  Share2,
+  RefreshCw,
 } from "lucide-react";
 
 /* ─── Types ──────────────────────────────────── */
@@ -280,6 +284,64 @@ export default function DVIPage() {
     enabled: viewMode === "compare" && !!selectedInspection,
   });
 
+  // ── DVI: alta de ítem + score + compartir (POST /dvi/:id/...) ──
+  const qc = useQueryClient();
+  const { toast, ToastContainer } = useToast();
+  const [itemForm, setItemForm] = React.useState({
+    categoria: "",
+    descripcion: "",
+    estado: "OK",
+    peso: 5,
+    notas: "",
+  });
+
+  const refreshDvi = (id: string) => {
+    qc.invalidateQueries({ queryKey: ["dvi-detail", id] });
+    qc.invalidateQueries({ queryKey: ["dvi-inspections"] });
+  };
+
+  const addItemMut = useMutation({
+    mutationFn: (inspectionId: string) =>
+      api.request(`/dvi/${inspectionId}/items`, {
+        method: "POST",
+        body: JSON.stringify({
+          categoria: itemForm.categoria,
+          descripcion: itemForm.descripcion,
+          estado: itemForm.estado,
+          peso: itemForm.peso,
+          notas: itemForm.notas || undefined,
+        }),
+      }),
+    onSuccess: (_d, inspectionId) => {
+      refreshDvi(inspectionId);
+      setItemForm({ categoria: "", descripcion: "", estado: "OK", peso: 5, notas: "" });
+      toast.success("Ítem agregado a la inspección");
+    },
+    onError: (err: any) => toast.error(err?.message || "No se pudo agregar el ítem"),
+  });
+
+  const scoreMut = useMutation({
+    mutationFn: (inspectionId: string) =>
+      api.request<{ healthScore: number }>(`/dvi/${inspectionId}/calculate-score`, {
+        method: "POST",
+      }),
+    onSuccess: (d, inspectionId) => {
+      refreshDvi(inspectionId);
+      toast.success(`Score de salud recalculado: ${d.healthScore}`);
+    },
+    onError: (err: any) => toast.error(err?.message || "No se pudo recalcular el score"),
+  });
+
+  const shareMut = useMutation({
+    mutationFn: (inspectionId: string) =>
+      api.request<{ url: string }>(`/dvi/${inspectionId}/share`, { method: "POST" }),
+    onSuccess: (d) => {
+      if (d?.url) window.open(d.url, "_blank", "noopener");
+      toast.success("Enlace de compartir generado");
+    },
+    onError: (err: any) => toast.error(err?.message || "No se pudo compartir la inspección"),
+  });
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -442,6 +504,94 @@ export default function DVIPage() {
             </CardContent>
           </Card>
 
+          {/* Acciones DVI: agregar ítem / recalcular score / compartir */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Agregar Ítem y Acciones
+              </CardTitle>
+              <CardDescription>
+                Sumá puntos de control a esta inspección, recalculá el score o compartila
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Categoría *</label>
+                  <Input
+                    value={itemForm.categoria}
+                    onChange={(e) => setItemForm({ ...itemForm, categoria: e.target.value })}
+                    placeholder="Ej: Frenos, Motor, Carrocería…"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Descripción *</label>
+                  <Input
+                    value={itemForm.descripcion}
+                    onChange={(e) => setItemForm({ ...itemForm, descripcion: e.target.value })}
+                    placeholder="Ej: Pastillas de freno delanteras"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Estado</label>
+                  <select
+                    value={itemForm.estado}
+                    onChange={(e) => setItemForm({ ...itemForm, estado: e.target.value })}
+                    className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="OK">OK</option>
+                    <option value="REQUIERE_ATENCION">Requiere atención</option>
+                    <option value="CRITICO">Crítico</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Peso (1-10): {itemForm.peso}</label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={itemForm.peso}
+                    onChange={(e) => setItemForm({ ...itemForm, peso: Number(e.target.value) })}
+                    className="w-full"
+                    aria-label="Peso del ítem"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  disabled={!itemForm.categoria.trim() || !itemForm.descripcion.trim() || addItemMut.isPending}
+                  loading={addItemMut.isPending}
+                  onClick={() => selectedInspection && addItemMut.mutate(selectedInspection.id)}
+                >
+                  <Plus className="h-3 w-3" /> Agregar ítem
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  loading={scoreMut.isPending}
+                  onClick={() => selectedInspection && scoreMut.mutate(selectedInspection.id)}
+                >
+                  <RefreshCw className="h-3 w-3" /> Recalcular score
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  loading={shareMut.isPending}
+                  onClick={() => selectedInspection && shareMut.mutate(selectedInspection.id)}
+                >
+                  <Share2 className="h-3 w-3" /> Compartir
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Gallery of photos */}
           {selectedExtended?.fotos && selectedExtended.fotos.length > 0 && (
             <Card>
@@ -566,6 +716,7 @@ export default function DVIPage() {
           })}
         </div>
       )}
+      {ToastContainer}
     </div>
   );
 }

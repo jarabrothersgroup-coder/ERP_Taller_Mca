@@ -1,19 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable, type Column } from "@/components/ui/data-table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 import {
   Search,
   Filter,
   FileText,
   Download,
   Printer,
+  Ban,
 } from "lucide-react";
-import { useInvoices } from "@/hooks/use-data";
+import { useInvoices, queryKeys } from "@/hooks/use-data";
 import { NewInvoiceDialog } from "./new-invoice-dialog";
 import { InvoiceStats } from "./stats";
 import type { UIMappedInvoice } from "@/lib/data-service";
@@ -36,7 +41,7 @@ const tipoLabels: Record<string, string> = {
 
 /* ── Columns ──────────────────────────────────── */
 
-const columns: Column<UIMappedInvoice>[] = [
+const baseColumns: Column<UIMappedInvoice>[] = [
   { header: "Factura", accessor: "numero", sortable: true, className: "font-mono text-xs" },
   {
     header: "Cliente",
@@ -124,6 +129,85 @@ export default function FacturacionPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: allInvoices = [], isLoading } = useInvoices();
+
+  // ── Anular factura (POST /finance/invoices/:id/void) ──
+  const qc = useQueryClient();
+  const { toast: t, ToastContainer } = useToast();
+  const [voidTarget, setVoidTarget] = useState<UIMappedInvoice | null>(null);
+  const [voidMotivo, setVoidMotivo] = useState("");
+  const [voidSifenOk, setVoidSifenOk] = useState(false);
+
+  const voidMut = useMutation({
+    mutationFn: () =>
+      api.request<{ success: boolean }>(`/finance/invoices/${voidTarget!.id}/void`, {
+        method: "POST",
+        body: JSON.stringify({
+          motivo: voidMotivo,
+          ...(voidTarget?.tipo === "ELECTRONICA" ? { sifenAnulado: voidSifenOk } : {}),
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.invoices });
+      setVoidTarget(null);
+      setVoidMotivo("");
+      setVoidSifenOk(false);
+      t.success("Factura anulada y reverso contable generado");
+    },
+    onError: (err: any) => t.error(err?.message || "No se pudo anular la factura"),
+  });
+
+  const columns: Column<UIMappedInvoice>[] = [
+    ...baseColumns,
+    {
+      header: "",
+      accessor: "id",
+      className: "w-10",
+      cell: (_val, row) => (
+        /* GET /reports/factura/:id — PDF de factura (T-63 S126) */
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-7 p-0"
+          title="Descargar PDF"
+          onClick={(e) => {
+            e.stopPropagation();
+            api.downloadFile(`/reports/factura/${row.id}`).then((blob) => {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `factura-${row.numero || row.id.slice(0, 8)}.pdf`;
+              a.click();
+              URL.revokeObjectURL(url);
+            });
+          }}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+      ),
+    },
+    {
+      header: "",
+      accessor: "id",
+      className: "w-10",
+      cell: (_val, row) =>
+        row.estado === "ANULADA" || row.estadoPago === "PAGADA" ? null : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-red-600"
+            title="Anular factura"
+            onClick={(e) => {
+              e.stopPropagation();
+              setVoidTarget(row);
+              setVoidMotivo("");
+              setVoidSifenOk(false);
+            }}
+          >
+            <Ban className="h-3.5 w-3.5" />
+          </Button>
+        ),
+    },
+  ];
 
   const filtered = allInvoices.filter((inv) => {
     const matchSearch =
@@ -231,6 +315,60 @@ export default function FacturacionPage() {
           />
         </div>
       </div>
+
+      {/* ── Anular Factura Dialog ─────────────── */}
+      <Dialog open={!!voidTarget} onOpenChange={(open) => { if (!open) { setVoidTarget(null); setVoidMotivo(""); setVoidSifenOk(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Ban className="h-5 w-5" />
+              Anular Factura {voidTarget?.numero}
+            </DialogTitle>
+            <DialogDescription>
+              Se generará el asiento de reversión contable. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Motivo *</label>
+              <textarea
+                value={voidMotivo}
+                onChange={(e) => setVoidMotivo(e.target.value)}
+                placeholder="Motivo de la anulación (máx. 500 caracteres)…"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+            {voidTarget?.tipo === "ELECTRONICA" && (
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={voidSifenOk}
+                  onChange={(e) => setVoidSifenOk(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <span>
+                  Confirmo que este DTE ya fue anulado ante la DNIT/SIFEN (sif-03)
+                </span>
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVoidTarget(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              loading={voidMut.isPending}
+              disabled={!voidMotivo.trim() || (voidTarget?.tipo === "ELECTRONICA" && !voidSifenOk)}
+              onClick={() => voidMut.mutate()}
+            >
+              Anular Factura
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {ToastContainer}
     </div>
   );
 }

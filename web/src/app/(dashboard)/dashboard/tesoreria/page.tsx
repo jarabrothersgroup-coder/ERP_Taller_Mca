@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   Landmark,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ import type { Tab } from "./columns";
 /* ── Main Page ──────────────────────────────── */
 
 export default function TesoreriaPage() {
+  const { toast } = useToast();
   const { data: cuentas = [], isLoading: cuentasLoading } = useBankAccounts();
   const { data: movimientos = [], isLoading: movimientosLoading } = useMovements();
   const loading = cuentasLoading || movimientosLoading;
@@ -44,6 +46,53 @@ export default function TesoreriaPage() {
   const cxc: CxcRecord[] = [];
   const [search, setSearch] = React.useState("");
   const [editingCuenta, setEditingCuenta] = React.useState<CUentaRecord | null>(null);
+
+  // ── Donaciones CRUD (T-63 S126) ──
+  interface DonacionRecord {
+    id: string;
+    beneficiario: string;
+    descripcion?: string | null;
+    monto: number | string;
+    deducible?: boolean;
+    fecha?: string | null;
+  }
+  const [donOpen, setDonOpen] = React.useState(false);
+  const [donBeneficiario, setDonBeneficiario] = React.useState("");
+  const [donMonto, setDonMonto] = React.useState("");
+  const [donObs, setDonObs] = React.useState("");
+  const { data: donData, refetch: refetchDon } = useQuery<{ items?: DonacionRecord[]; donaciones?: DonacionRecord[]; total?: number }>({
+    queryKey: ["finance", "donaciones"],
+    queryFn: () => api.request("/finance/donaciones?limit=100") as any,
+  });
+  const createDonMut = useMutation({
+    mutationFn: () =>
+      api.request("/finance/donaciones", {
+        method: "POST",
+        body: JSON.stringify({ beneficiario: donBeneficiario, monto: Number(donMonto), descripcion: donObs || undefined }),
+      }),
+    onSuccess: () => {
+      toast.success("Donación registrada");
+      setDonOpen(false);
+      setDonBeneficiario("");
+      setDonMonto("");
+      setDonObs("");
+      refetchDon();
+    },
+    onError: (err: any) => toast.error(err?.message || "No se pudo registrar la donación"),
+  });
+  const deleteDonMut = useMutation({
+    mutationFn: (id: string) => api.request(`/finance/donaciones/${id}`, { method: "DELETE" }),
+    onSuccess: () => { toast.success("Donación eliminada"); refetchDon(); },
+    onError: (err: any) => toast.error(err?.message || "No se pudo eliminar"),
+  });
+
+  // ── Saldo histórico (T-63 S126) ──
+  const [saldoCuentaId, setSaldoCuentaId] = React.useState<string | null>(null);
+  const { data: saldoHist } = useQuery<{ cuentaId: string; saldo: number; fecha: string }>({
+    queryKey: ["finance", "saldo-historico", saldoCuentaId],
+    queryFn: () => api.request(`/finance/treasury/movimientos/saldo-historico/${saldoCuentaId}`) as any,
+    enabled: !!saldoCuentaId,
+  });
 
   // Filter data
   const filteredData = React.useMemo(() => {
@@ -130,6 +179,7 @@ export default function TesoreriaPage() {
           { id: "movimientos" as Tab, label: "Movimientos", icon: DollarSign },
           { id: "cxc" as Tab, label: "CxC Pendientes", icon: AlertTriangle },
           { id: "conciliacion" as Tab, label: "Conciliación", icon: Landmark },
+          { id: "donaciones" as Tab, label: "Donaciones", icon: Heart },
         ].map((tab) => (
           <Button
             key={tab.id}
@@ -154,7 +204,7 @@ export default function TesoreriaPage() {
       {/* ── Data Table ───────────────────────── */}
       {activeTab === "cuentas" && (
         <DataTable<CUentaRecord>
-          columns={buildCuentasColumns(setEditingCuenta)}
+          columns={buildCuentasColumns(setEditingCuenta, setSaldoCuentaId)}
           data={filteredData as CUentaRecord[]}
           rowKey="id"
           loading={loading}
@@ -221,6 +271,94 @@ export default function TesoreriaPage() {
       )}
 
       {/* ── Diálogo: Editar Cuenta ──────────────── */}
+      {/* ── Donaciones (T-63 S126) ──────────────── */}
+      {activeTab === "donaciones" && (
+        <Card>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Heart className="h-4 w-4 text-red-500" aria-hidden="true" />
+              Donaciones deducibles de IRE ({(donData?.items || donData?.donaciones || []).length})
+            </CardTitle>
+            <Button size="sm" className="gap-1.5" onClick={() => setDonOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" /> Nueva Donación
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {(donData?.items || donData?.donaciones || []).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No hay donaciones registradas</p>
+            ) : (
+              <div className="space-y-2">
+                {(donData?.items || donData?.donaciones || []).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium">{d.beneficiario}</p>
+                      <p className="text-xs text-muted-foreground">{d.descripcion || (d.fecha ? new Date(d.fecha).toLocaleDateString("es-PY") : "")}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm">₲ {Number(d.monto).toLocaleString("es-PY")}</span>
+                      {d.deducible && <Badge variant="success" className="text-[10px]">Deducible</Badge>}
+                      <Button variant="ghost" size="sm" className="h-7 text-xs text-red-600" onClick={() => deleteDonMut.mutate(d.id)}>
+                        Borrar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Dialog: Nueva Donación (T-63 S126) ── */}
+      <Dialog open={donOpen} onOpenChange={setDonOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Heart className="h-5 w-5 text-red-500" /> Nueva Donación</DialogTitle>
+            <DialogDescription>Registrá una donación deducible de IRE</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="don-ben">Beneficiario *</label>
+              <Input id="don-ben" value={donBeneficiario} onChange={(e) => setDonBeneficiario(e.target.value)} placeholder="Fundación / institución" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="don-mon">Monto (₲) *</label>
+              <Input id="don-mon" type="number" value={donMonto} onChange={(e) => setDonMonto(e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="don-obs">Descripción</label>
+              <Input id="don-obs" value={donObs} onChange={(e) => setDonObs(e.target.value)} placeholder="Opcional" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDonOpen(false)}>Cancelar</Button>
+            <Button onClick={() => createDonMut.mutate()} disabled={!donBeneficiario || !donMonto || createDonMut.isPending} loading={createDonMut.isPending}>
+              Registrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Saldo histórico (T-63 S126) ── */}
+      <Dialog open={!!saldoCuentaId} onOpenChange={(open) => !open && setSaldoCuentaId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Saldo Histórico</DialogTitle>
+            <DialogDescription>Cuenta {saldoCuentaId?.slice(0, 8)}</DialogDescription>
+          </DialogHeader>
+          {saldoHist ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-muted-foreground">Saldo al {new Date(saldoHist.fecha).toLocaleDateString("es-PY")}</span><span className="font-mono">₲ {Number(saldoHist.saldo).toLocaleString("es-PY")}</span></div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-2">Cargando…</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaldoCuentaId(null)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <EditAccountDialog cuenta={editingCuenta} onClose={() => setEditingCuenta(null)} />
     </div>
   );

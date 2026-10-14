@@ -109,8 +109,17 @@ export async function csrfVerifyHook(
   const authHeader = request.headers.authorization as string | undefined;
   if (authHeader && authHeader.startsWith("Bearer ")) return;
 
-  // Get token from cookie
-  const cookieToken = (request as any).cookies?.[CSRF_COOKIE_NAME];
+  // Get token from cookie (parse Cookie header directly — no @fastify/cookie)
+  const cookieHeader = request.headers.cookie ?? "";
+  const cookieToken = cookieHeader
+    .split(";")
+    .map((c) => {
+      const eq = c.indexOf("=");
+      return eq === -1
+        ? { key: c.trim(), value: "" }
+        : { key: c.slice(0, eq).trim(), value: c.slice(eq + 1).trim() };
+    })
+    .find((c) => c.key === CSRF_COOKIE_NAME)?.value;
 
   // Get token from header
   const headerToken = request.headers[CSRF_HEADER_NAME] as string | undefined;

@@ -122,6 +122,14 @@ export default function OrdenDetailPage() {
   // Add/remove state
   const [addingServicio, setAddingServicio] = React.useState(false);
   const [addingRepuesto, setAddingRepuesto] = React.useState(false);
+  const [showStockPreview, setShowStockPreview] = React.useState(false);
+
+  // Vista previa de consumo de stock (GET /workshop/ordenes/:id/stock-preview)
+  const stockPreviewQuery = useQuery<any[]>({
+    queryKey: ["stock-preview", id],
+    queryFn: () => api.request<any[]>(`/workshop/ordenes/${id}/stock-preview`),
+    enabled: showStockPreview,
+  });
   const [newServicioId, setNewServicioId] = React.useState("");
   const [newRepuestoNombre, setNewRepuestoNombre] = React.useState("");
   const [newRepuestoPrecio, setNewRepuestoPrecio] = React.useState(0);
@@ -232,16 +240,30 @@ export default function OrdenDetailPage() {
         }
       } catch { /* no signatures yet */ }
 
-      // Build timeline from known events
-      const timeline: any[] = [
-        { fecha: ot.createdAt, estado: "Creada", usuario: "Sistema", descripcion: "Orden de trabajo creada" },
-      ];
-      if (checklistData) {
-        timeline.push({ fecha: ot.createdAt, estado: "Checklist", usuario: "Sistema", descripcion: "Checklist de recepción completado" });
+      // Transiciones reales de estado (GET /workshop/ordenes/:id/historial)
+      let historialRows: any[] = [];
+      try {
+        historialRows = await api.request<any[]>(`/workshop/ordenes/${id}/historial`);
+      } catch { /* historial vacío */ }
+
+      // Timeline: eventos reales del historial (más reciente primero) + hitos
+      const timeline: any[] = historialRows.map((h: any) => ({
+        fecha: h.createdAt,
+        estado: h.estadoNuevo,
+        anterior: h.estadoAnterior,
+        usuario: h.usuarioId ? h.usuarioId.slice(0, 8) : "—",
+        descripcion: h.observaciones || (h.estadoAnterior ? `${h.estadoAnterior} → ${h.estadoNuevo}` : `Estado: ${h.estadoNuevo}`),
+      }));
+      if (timeline.length === 0) {
+        timeline.push({ fecha: ot.createdAt, estado: "Creada", usuario: "Sistema", descripcion: "Orden de trabajo creada" });
+        if (checklistData) {
+          timeline.push({ fecha: ot.createdAt, estado: "Checklist", usuario: "Sistema", descripcion: "Checklist de recepción completado" });
+        }
+        if (firmaRetiroData) {
+          timeline.push({ fecha: ot.updatedAt, estado: "Entregado", usuario: "Sistema", descripcion: "Vehículo entregado al cliente" });
+        }
       }
-      if (firmaRetiroData) {
-        timeline.push({ fecha: ot.updatedAt, estado: "Entregado", usuario: "Sistema", descripcion: "Vehículo entregado al cliente" });
-      }        return {
+      return {
         ...ot,
         assignedTo: (ot as unknown as { assignedTo?: string | null }).assignedTo ?? null,
         clienteEmail: (clientHistory as any)?.client?.email ?? null,
@@ -396,6 +418,23 @@ export default function OrdenDetailPage() {
             >
               <FileText className="h-4 w-4" />
               Imprimir OT
+            </Button>
+            {/* GET /reports/ot/:id — PDF oficial (T-63 S126) */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => api.downloadFile(`/reports/ot/${orden.id}`).then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `OT-${orden.id.slice(0, 8)}.pdf`;
+                a.click();
+                URL.revokeObjectURL(url);
+              })}
+            >
+              <FileText className="h-4 w-4" />
+              PDF OT
             </Button>
             {orden.status === "Listo" && (
               <Button
@@ -564,6 +603,33 @@ export default function OrdenDetailPage() {
               </CardContent>
             </Card>
           )}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center justify-between">
+                <span>Historial de estados</span>
+                <span className="text-muted-foreground font-normal text-xs">{orden.timeline.length} movimiento{orden.timeline.length !== 1 ? "s" : ""}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {orden.timeline.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Sin movimientos registrados</p>
+              ) : (
+                <div className="space-y-2">
+                  {orden.timeline.map((ev: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3 text-sm border-l-2 pl-3 py-1">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+                        {new Date(ev.fecha).toLocaleString("es-PY", { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                      <div>
+                        <Badge variant="outline" className="text-xs mr-2">{ev.estado}</Badge>
+                        <span className="text-xs text-muted-foreground">{ev.descripcion} · {ev.usuario}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -672,6 +738,9 @@ export default function OrdenDetailPage() {
               <span>Repuestos</span>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground font-normal">₲ {totalRepuestos.toLocaleString("es-PY")}</span>
+                <Button variant="ghost" size="sm" onClick={() => setShowStockPreview(!showStockPreview)} className="h-7 text-xs">
+                  {showStockPreview ? "Ocultar stock" : "Ver stock"}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => setAddingRepuesto(!addingRepuesto)} className="h-7 text-xs">
                   <Plus className="h-3 w-3 mr-1" />
                   {addingRepuesto ? "Cancelar" : "Agregar"}
@@ -680,6 +749,29 @@ export default function OrdenDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Stock preview — consumo al completar la OT */}
+            {showStockPreview && (
+              <div className="rounded-lg border p-3 bg-accent/30">
+                <p className="text-xs font-medium mb-2">Vista previa de consumo de stock</p>
+                {stockPreviewQuery.isLoading && <p className="text-xs text-muted-foreground">Calculando…</p>}
+                {stockPreviewQuery.isError && <p className="text-xs text-red-600">No se pudo calcular la vista de stock</p>}
+                {stockPreviewQuery.data && stockPreviewQuery.data.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Esta OT no consume stock de almacén</p>
+                )}
+                {stockPreviewQuery.data && stockPreviewQuery.data.length > 0 && (
+                  <div className="space-y-1.5">
+                    {stockPreviewQuery.data.map((p: any) => (
+                      <div key={p.repuestoId} className="flex items-center justify-between text-xs">
+                        <span>{p.repuestoNombre} {p.codigo ? `(${p.codigo})` : ""} × {p.cantidad}</span>
+                        <span className="font-mono">
+                          stock {p.stockActual} → <span className={p.stockAfter < 0 ? "text-red-600 font-bold" : p.puntoReorden != null && p.stockAfter <= p.puntoReorden ? "text-amber-600" : "text-green-600"}>{p.stockAfter}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Add repuesto form */}
             {addingRepuesto && (
               <div className="grid grid-cols-3 gap-2 items-end rounded-lg border p-3 bg-accent/30">
@@ -1133,6 +1225,19 @@ function TrabajoTerceroCard({
     },
   });
 
+  // Cambio de estado del trabajo tercerizado (PATCH)
+  const estadoMut = useMutation({
+    mutationFn: (estado: string) =>
+      api.request(`/workshop/ordenes/${ordenId}/trabajos-terceros/${trabajo.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ estado }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orden-detail", ordenId] });
+    },
+    onError: (err: any) => alert(err?.message || "No se pudo actualizar el estado"),
+  });
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1146,7 +1251,20 @@ function TrabajoTerceroCard({
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium">{trabajo.descripcion}</p>
-          <p className="text-xs text-muted-foreground">Proveedor: {trabajo.proveedor} · Estado: {trabajo.estado}</p>
+          <p className="text-xs text-muted-foreground">
+            Proveedor: {trabajo.proveedor} ·{" "}
+            <select
+              value={trabajo.estado}
+              onChange={(e) => { if (e.target.value !== trabajo.estado) estadoMut.mutate(e.target.value); }}
+              disabled={estadoMut.isPending}
+              className="h-6 rounded border border-input bg-background px-1 text-xs"
+              title="Cambiar estado del trabajo tercerizado"
+            >
+              <option value="Pendiente">Pendiente</option>
+              <option value="En_Proceso">En Proceso</option>
+              <option value="Completado">Completado</option>
+            </select>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium">₲ {Number(trabajo.costo).toLocaleString("es-PY")}</span>

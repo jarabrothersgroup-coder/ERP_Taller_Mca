@@ -42,6 +42,14 @@ describe("auth-gate — isPublicRoute", () => {
     expect(isPublicRoute("/metrics")).toBe(true);
   });
 
+  it("allows i18n translation JSON (fetched unauthenticated by i18n.js + SW)", () => {
+    expect(isPublicRoute("/api/v1/locale/es")).toBe(true);
+    expect(isPublicRoute("/api/v1/locale/gu")).toBe(true);
+    // prefix boundary: /api/v1/locale/ must not leak other paths
+    expect(isPublicRoute("/api/v1/locale-evil")).toBe(false);
+    expect(isPublicRoute("/api/v1/locales")).toBe(false);
+  });
+
   it("allows static assets of the legacy SPA", () => {
     expect(isPublicRoute("/js/app.js")).toBe(true);
     expect(isPublicRoute("/css/tailwind.min.css")).toBe(true);

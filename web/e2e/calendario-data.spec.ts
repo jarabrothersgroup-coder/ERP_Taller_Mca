@@ -145,9 +145,16 @@ test.describe("Calendario — crear y verificar turno", () => {
     // día (no hay DELETE: ver afterEach).
     // `tbody tr` y no `getByRole("row")`: `DataTable` marca cada `<tr>` de datos
     // con `role="button"` cuando hay `onRowClick`, y eso les quita el rol `row`.
+    // Ancla por HORA + fecha + badge "Reservado". La hora 10:45 es única del
+    // turno del test: el seed usa 09:00/11:30/15:00. La fecha NO basta: el seed
+    // calcula offsets con toISOString() (UTC) y futureOpenDay() en hora local;
+    // cuando la máquina va detrás de UTC tras las 20:00 el offset +3 del seed
+    // cae en el MISMO día que el turno del test (regresión por zona horaria,
+    // sprint 119).
     const row = page
       .locator("tbody tr")
       .filter({ hasText: fecha })
+      .filter({ hasText: HORA })
       .filter({ hasText: "Reservado" });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(CLIENTE);

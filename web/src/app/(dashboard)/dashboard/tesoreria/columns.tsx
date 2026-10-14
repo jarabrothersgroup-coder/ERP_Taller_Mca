@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   CheckCircle2,
   Pencil,
+  History,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import type { UIMappedBankAccount, UIMappedMovement } from "@/lib/data-service";
 
 /* ── Types ──────────────────────────────────── */
 
-export type Tab = "cuentas" | "movimientos" | "cxc" | "conciliacion";
+export type Tab = "cuentas" | "movimientos" | "cxc" | "conciliacion" | "donaciones";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CUentaRecord extends UIMappedBankAccount {
@@ -58,7 +59,7 @@ export const badgeMovimiento: Record<string, "success" | "destructive" | "second
 
 /* ── Columns: Cuentas ───────────────────────── */
 
-export function buildCuentasColumns(onEdit: (row: CUentaRecord) => void): Column<CUentaRecord>[] {
+export function buildCuentasColumns(onEdit: (row: CUentaRecord) => void, onSaldoHistorico?: (cuentaId: string) => void): Column<CUentaRecord>[] {
   return [
   {
     header: "Código",
@@ -124,9 +125,17 @@ export function buildCuentasColumns(onEdit: (row: CUentaRecord) => void): Column
     header: "Acciones",
     accessor: "id",
     cell: (_, row) => (
-      <Button variant="ghost" size="sm" className="gap-1 h-7" onClick={() => onEdit(row)}>
-        <Pencil className="h-3 w-3" aria-hidden="true" /> Editar
-      </Button>
+      <div className="flex items-center gap-1">
+        {/* GET /finance/treasury/movimientos/saldo-historico/:cuentaId (T-63 S126) */}
+        {onSaldoHistorico && (
+          <Button variant="ghost" size="sm" className="gap-1 h-7" onClick={() => onSaldoHistorico(row.id)} title="Saldo histórico">
+            <History className="h-3 w-3" aria-hidden="true" /> Histórico
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="gap-1 h-7" onClick={() => onEdit(row)}>
+          <Pencil className="h-3 w-3" aria-hidden="true" /> Editar
+        </Button>
+      </div>
     ),
   },
   ];

@@ -1,22 +1,83 @@
 "use client";
 
 import * as React from "react";
-import { ShieldAlert, ShieldCheck, Download, Lock } from "lucide-react";
+import { ShieldAlert, ShieldCheck, Download, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useAuditLog } from "@/hooks/use-data";
+import { api } from "@/lib/api";
 import { ErrorState } from "@/components/ui/error-state";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { AuditStats, actionConfig } from "./stats";
+import { TwoFactorCard } from "./two-factor-card";
 import { columns } from "./columns";
 import type { UIMappedAuditEntry as AuditRecord } from "@/lib/data-service";
+
+type VerifyResult = { valid: boolean; verified: number; brokenAt?: string };
 
 export default function SeguridadPage() {
   const { data: entries = [], isLoading: loading, isError, error, refetch } = useAuditLog();
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "el registro de auditoría");
+  const [exporting, setExporting] = React.useState(false);
+  const [verifying, setVerifying] = React.useState(false);
+  const [verifyResult, setVerifyResult] = React.useState<VerifyResult | null>(null);
+  const [verifyError, setVerifyError] = React.useState<string | null>(null);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await api.downloadFile("/audit/export");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : "No se pudo exportar");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // GET /export/audit-log — export CSV filtrado por acción (T-63 S126)
+  const handleExportFiltered = async () => {
+    setExporting(true);
+    try {
+      const qs = actionFilter ? `?accion=${encodeURIComponent(actionFilter)}&limit=5000` : "?limit=5000";
+      const blob = await api.downloadFile("/export/audit-log" + qs);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-log-filtered-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : "No se pudo exportar el CSV filtrado");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const result = await api.request<VerifyResult>("/audit/verify");
+      setVerifyResult(result);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : "No se pudo verificar la integridad");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   if (isError) {
     return (
@@ -58,11 +119,71 @@ export default function SeguridadPage() {
           <h1 className="text-2xl font-bold tracking-tight">Seguridad y Auditoría</h1>
           <p className="text-sm text-muted-foreground">Registro de actividad, eventos críticos y trazabilidad del sistema</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          Exportar Auditoría
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleVerify}
+            loading={verifying}
+          >
+            {verifying ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            Verificar Integridad
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExport}
+            loading={exporting}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Exportar Auditoría
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExportFiltered}
+            loading={exporting}
+            title={actionFilter ? `Exportar solo acciones ${actionFilter}` : "Exportar todo el log (hasta 5000 filas)"}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Exportar {actionFilter || "CSV"}
+          </Button>
+        </div>
       </div>
+
+      {verifyResult && (
+        <Alert
+          variant={verifyResult.valid ? "default" : "error"}
+          className={verifyResult.valid ? "border-emerald-500/30 bg-emerald-500/10" : undefined}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          <AlertTitle>
+            {verifyResult.valid
+              ? "Cadena de integridad verificada"
+              : "Cadena de integridad rota"}
+          </AlertTitle>
+          <AlertDescription>
+            {verifyResult.verified} registro{verifyResult.verified !== 1 ? "s" : ""} verificado
+            {verifyResult.verified !== 1 ? "s" : ""} (hash chain)
+            {verifyResult.brokenAt ? ` · roto en ${verifyResult.brokenAt}` : ""}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {verifyError && (
+        <Alert variant="error">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{verifyError}</AlertDescription>
+        </Alert>
+      )}
 
       {criticalActions.length > 0 && !loading && (
         <Alert variant="warning">
@@ -76,6 +197,8 @@ export default function SeguridadPage() {
       )}
 
       {!loading && <AuditStats entries={filtered} />}
+
+      {!loading && <TwoFactorCard />}
 
       {!loading && (
         <div className="rounded-lg border bg-card p-4 flex items-center justify-between">

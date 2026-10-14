@@ -8,8 +8,6 @@
  *   GET    /inventory/herramientas/:id                — Get tool by ID
  *   PATCH  /inventory/herramientas/:id                — Update tool
  *   DELETE /inventory/herramientas/:id                — Baja lógica de la herramienta (manager+)
- *   POST   /inventory/herramientas/prestar            — Lend tool to mechanic for OT
- *   POST   /inventory/herramientas/control/:id/devolver — Return tool
  *   GET    /inventory/herramientas/control            — List checkout records (filtered)
  *
  * All routes require `X-Tenant-Slug` header (resolved by tenant-resolver).
@@ -25,8 +23,6 @@ import {
   listHerramientas,
   updateHerramienta,
   bajaHerramienta,
-  prestarHerramienta,
-  devolverHerramienta,
   listControlHerramientas,
 } from "../services/herramientas.service.js";
 
@@ -68,18 +64,6 @@ interface UpdateBody {
   imagenUrl?: string | null;
 }
 
-interface PrestarBody {
-  herramientaId: string;
-  ordenTrabajoId: string;
-  mecanicoId: string;
-  observaciones?: string;
-}
-
-interface DevolverBody {
-  observaciones?: string;
-  estado?: "Devuelto" | "Perdido" | "Dañado";
-}
-
 interface ListQuery {
   search?: string;
   categoria?: string;
@@ -98,10 +82,6 @@ interface ControlQuery {
 }
 
 interface IdParams {
-  id: string;
-}
-
-interface ControlIdParams {
   id: string;
 }
 
@@ -314,79 +294,6 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // ── POST /inventory/herramientas/prestar — Lend tool ──
-  app.post<{ Body: PrestarBody }>(
-    "/inventory/herramientas/prestar",
-    {
-      schema: {
-        body: {
-          type: "object",
-          required: ["herramientaId", "ordenTrabajoId", "mecanicoId"],
-          properties: {
-            herramientaId: { type: "string", format: "uuid" },
-            ordenTrabajoId: { type: "string", format: "uuid" },
-            mecanicoId: { type: "string", format: "uuid" },
-            observaciones: { type: "string", maxLength: 500 },
-          },
-        },
-        // FIX (T-61): el schema de respuesta declaraba `control`, pero
-        // lendTool()/returnTool() devuelven `{ loan }` → fast-json-stringify
-        // serializaba `{}` y el cliente nunca recibía el préstamo.
-      },
-    },
-    async (
-      request: FastifyRequest<{ Body: PrestarBody }>,
-      reply: FastifyReply,
-    ) => {
-      const result = await prestarHerramienta(request.body, request.tenantSlug);
-      return reply.status(201).send(result);
-    },
-  );
-
-  // ── POST /inventory/herramientas/control/:id/devolver — Return tool ──
-  app.post<{ Params: ControlIdParams; Body: DevolverBody }>(
-    "/inventory/herramientas/control/:id/devolver",
-    {
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: { id: { type: "string", format: "uuid" } },
-        },
-        body: {
-          type: "object",
-          properties: {
-            observaciones: { type: "string", maxLength: 500 },
-            estado: {
-              type: "string",
-              // FIX (T-61): el literal original estaba en Unicode NFD (n +
-              // U+0303); un cliente que enviara la forma NFC recibía 400. Se
-              // aceptan ambas formas y el servicio normaliza a NFC.
-              enum: ["Devuelto", "Perdido", "Dañado", "Dañado"],
-            },
-          },
-        },
-        // FIX (T-61): el schema de respuesta declaraba `control`, pero
-        // lendTool()/returnTool() devuelven `{ loan }` → fast-json-stringify
-        // serializaba `{}` y el cliente nunca recibía el préstamo.
-      },
-    },
-    async (
-      request: FastifyRequest<{
-        Params: ControlIdParams;
-        Body: DevolverBody;
-      }>,
-      reply: FastifyReply,
-    ) => {
-      const result = await devolverHerramienta(
-        request.params.id,
-        request.body,
-        request.tenantSlug,
-      );
-      return reply.send(result);
-    },
-  );
-
   // ── GET /inventory/herramientas/control — List checkout records ──
   app.get<{ Querystring: ControlQuery }>(
     "/inventory/herramientas/control",
@@ -433,6 +340,7 @@ export async function herramientasRoutes(app: FastifyInstance): Promise<void> {
         limit,
       } = request.query;
       const result = await listControlHerramientas({
+        tenantSlug: request.tenantSlug,
         ordenTrabajoId,
         mecanicoId,
         herramientaId,

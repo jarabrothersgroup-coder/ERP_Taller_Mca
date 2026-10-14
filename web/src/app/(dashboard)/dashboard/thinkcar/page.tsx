@@ -41,6 +41,23 @@ interface DtcLookupResult {
 
 /* ─── Helpers ──────────────────────────────────── */
 
+/** Registro completo de `GET /thinkcar/imports/:id` (fila expandida). */
+interface ThinkcarImportDetail {
+  id: string;
+  fileName: string;
+  fileHash?: string;
+  fileSize?: number | null;
+  sourceChannel?: string;
+  vin?: string | null;
+  brand?: string | null;
+  model?: string | null;
+  reportType?: string | null;
+  scanDate?: string | null;
+  dtcCodes?: string[] | null;
+  status?: string;
+  createdAt?: string;
+}
+
 function HealthDot({ healthy }: { healthy: boolean }) {
   return healthy ? (
     <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -82,6 +99,24 @@ export default function ThinkcarPage() {
   const { data: health, isLoading: healthLoading } = useThinkcarHealth();
   const { data: stats, isLoading: statsLoading } = useThinkcarStats();
   const loading = importsLoading || healthLoading || statsLoading;
+
+  // Conteo rápido de importes en revisión manual (para el badge del tab)
+  const { data: pending } = useQuery<{ count: number }>({
+    queryKey: ["thinkcar-pending-count"],
+    queryFn: () => api.request<{ count: number }>("/thinkcar/pending/count"),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  // Detalle del import expandido (GET /thinkcar/imports/:id)
+  const [expandedImportId, setExpandedImportId] = React.useState<string | null>(null);
+  const { data: importDetail, isLoading: importDetailLoading } = useQuery<ThinkcarImportDetail>({
+    queryKey: ["thinkcar-import", expandedImportId],
+    queryFn: () =>
+      api.request<ThinkcarImportDetail>(`/thinkcar/imports/${expandedImportId}`),
+    enabled: !!expandedImportId,
+    retry: 1,
+  });
 
   const [feedback, setFeedback] = React.useState<{ type: "ok" | "error"; msg: string } | null>(null);
 
@@ -181,6 +216,11 @@ export default function ThinkcarPage() {
           <TabsTrigger value="imports" className="gap-1.5">
             <BookOpen className="h-3.5 w-3.5" />
             Importaciones
+            {pending && pending.count > 0 && (
+              <Badge variant="warning" className="ml-1 px-1.5 py-0 text-[10px]">
+                {pending.count}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -477,19 +517,86 @@ export default function ThinkcarPage() {
               ) : (
                 <div className="space-y-2">
                   {imports.map((imp) => (
-                    <div key={imp.id} className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{imp.fileName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {imp.source} · {new Date(imp.createdAt).toLocaleDateString("es-PY", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        </p>
+                    <div key={imp.id} className="space-y-1">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          setExpandedImportId((cur) => (cur === imp.id ? null : imp.id))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedImportId((cur) => (cur === imp.id ? null : imp.id));
+                          }
+                        }}
+                        className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/30 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{imp.fileName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {imp.source} · {new Date(imp.createdAt).toLocaleDateString("es-PY", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <Badge variant={imp.status === "COMPLETED" ? "success" : imp.status === "PENDING" ? "warning" : "secondary"} className="text-[10px]">
+                            {imp.status === "COMPLETED" ? "Completado" : imp.status === "PENDING" ? "Pendiente" : imp.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground font-mono">{imp.dtcCount} DTCs</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <Badge variant={imp.status === "COMPLETED" ? "success" : imp.status === "PENDING" ? "warning" : "secondary"} className="text-[10px]">
-                          {imp.status === "COMPLETED" ? "Completado" : imp.status === "PENDING" ? "Pendiente" : imp.status}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground font-mono">{imp.dtcCount} DTCs</span>
-                      </div>
+
+                      {expandedImportId === imp.id && (
+                        <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-2">
+                          {importDetailLoading && (
+                            <p className="text-muted-foreground">Cargando detalle…</p>
+                          )}
+                          {!importDetailLoading && importDetail && (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <p>
+                                <span className="text-muted-foreground">VIN:</span>{" "}
+                                <span className="font-mono">{importDetail.vin || "—"}</span>
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Vehículo:</span>{" "}
+                                {importDetail.brand
+                                  ? `${importDetail.brand} ${importDetail.model ?? ""}`
+                                  : "—"}
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Canal:</span>{" "}
+                                {importDetail.sourceChannel || "—"}
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Tipo de reporte:</span>{" "}
+                                {importDetail.reportType || "—"}
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Hash del archivo:</span>{" "}
+                                <span className="font-mono break-all">
+                                  {importDetail.fileHash
+                                    ? `${importDetail.fileHash.slice(0, 12)}…`
+                                    : "—"}
+                                </span>
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Tamaño:</span>{" "}
+                                {importDetail.fileSize
+                                  ? `${(importDetail.fileSize / 1024).toFixed(1)} KB`
+                                  : "—"}
+                              </p>
+                              {importDetail.dtcCodes && importDetail.dtcCodes.length > 0 && (
+                                <p className="sm:col-span-2">
+                                  <span className="text-muted-foreground">Códigos DTC:</span>{" "}
+                                  <span className="font-mono">
+                                    {importDetail.dtcCodes.join(", ")}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -156,6 +156,10 @@ export default function ServiciosPage() {
   const [form, setForm] = useState<ServicioFormData>({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
 
+  // Marcas compatibles del servicio (GET/PUT /workshop/service-brand-map/:servicioId)
+  const [brandMap, setBrandMap] = useState<string[]>([]);
+  const [brandInput, setBrandInput] = useState("");
+
   // Toast
   const { toast, ToastContainer } = useToast();
 
@@ -204,6 +208,8 @@ export default function ServiciosPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM });
+    setBrandMap([]);
+    setBrandInput("");
     setDialogOpen(true);
   };
 
@@ -220,6 +226,13 @@ export default function ServiciosPage() {
       duracionEstimada: s.duracionEstimada,
       activo: s.activo,
     });
+    // Carga las marcas compatibles del servicio
+    setBrandMap([]);
+    setBrandInput("");
+    api
+      .request<Array<{ servicioId: string; marca: string }>>(`/workshop/service-brand-map/${s.id}`)
+      .then((rows) => setBrandMap((rows ?? []).map((r) => r.marca)))
+      .catch(() => setBrandMap([]));
     setDialogOpen(true);
   };
 
@@ -239,6 +252,11 @@ export default function ServiciosPage() {
             precioEstimado: form.precioEstimado ?? undefined,
             duracionEstimada: form.duracionEstimada ?? undefined,
           }),
+        });
+        // Sincroniza las marcas compatibles (PUT reemplaza el set completo)
+        await api.request(`/workshop/service-brand-map/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify({ marcas: brandMap }),
         });
         toast.success("Servicio actualizado");
       } else {
@@ -657,6 +675,58 @@ export default function ServiciosPage() {
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
+
+            {/* Marcas compatibles (solo al editar) */}
+            {editingId && (
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Marcas compatibles</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {brandMap.length === 0 && (
+                    <span className="text-xs text-muted-foreground">Sin marcas asignadas — se aplicará a todos los vehículos</span>
+                  )}
+                  {brandMap.map((marca) => (
+                    <Badge key={marca} variant="secondary" className="gap-1 text-xs">
+                      {marca}
+                      <button
+                        type="button"
+                        aria-label={`Quitar ${marca}`}
+                        className="ml-0.5 hover:text-destructive"
+                        onClick={() => setBrandMap((prev) => prev.filter((m) => m !== marca))}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={brandInput}
+                    onChange={(e) => setBrandInput(e.target.value)}
+                    placeholder="Ej: Toyota, Kia…"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const v = brandInput.trim();
+                        if (v && !brandMap.includes(v)) setBrandMap((prev) => [...prev, v]);
+                        setBrandInput("");
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const v = brandInput.trim();
+                      if (v && !brandMap.includes(v)) setBrandMap((prev) => [...prev, v]);
+                      setBrandInput("");
+                    }}
+                  >
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

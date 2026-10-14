@@ -185,7 +185,8 @@ async function calcularAjustesNoEfectivo(desde: Date, hasta: Date): Promise<Cash
         lte(asientosContables.fecha, hasta),
         sql`${planCuentas.codigo} LIKE '6.2.%'`,
       ),
-    );
+    )
+    .groupBy(planCuentas.codigo, planCuentas.nombre);
 
   for (const m of depreciacionMovs) {
     const montoNeto = Number(m.total);
@@ -215,7 +216,8 @@ async function calcularAjustesNoEfectivo(desde: Date, hasta: Date): Promise<Cash
         lte(asientosContables.fecha, hasta),
         sql`${planCuentas.codigo} LIKE '6.3.%'`,
       ),
-    );
+    )
+    .groupBy(planCuentas.codigo, planCuentas.nombre);
 
   for (const m of provisionMovs) {
     const montoNeto = Number(m.total);

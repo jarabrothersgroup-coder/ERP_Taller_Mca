@@ -314,60 +314,6 @@ export interface DepreciationCalculationResponse {
   periodo: string;
 }
 
-// ─── Legacy Compatibility ──────────────────────
-// The following types are kept for backward compatibility but
-// are DEPRECATED. Use LendToolRequest / ReturnToolRequest instead.
-
-/** @deprecated Use LendToolRequest — specifiy toolInstanceId instead of herramientaId */
-export interface PrestarHerramientaRequest {
-  /** Tool UUID (catalog SKU) */
-  herramientaId: string;
-  /** Work order UUID */
-  ordenTrabajoId: string;
-  /** Mechanic profile UUID */
-  mecanicoId: string;
-  /** Optional notes */
-  observaciones?: string | null;
-}
-
-/** @deprecated Use ReturnToolRequest */
-export interface DevolverHerramientaRequest {
-  /** Return condition notes */
-  observaciones?: string | null;
-  /** Estado: Devuelto, Perdido, or Dañado */
-  estado?: "Devuelto" | "Perdido" | "Dañado";
-}
-
-/** @deprecated Use LendToolResponse */
-export interface PrestarHerramientaResponse {
-  control: {
-    id: string;
-    herramientaId: string;
-    herramientaNombre: string;
-    ordenTrabajoId: string;
-    mecanicoId: string;
-    mecanicoNombre: string;
-    fechaAsignacion: string;
-    estado: string;
-  };
-}
-
-/** @deprecated Use ReturnToolResponse */
-export interface DevolverHerramientaResponse {
-  control: {
-    id: string;
-    herramientaId: string;
-    herramientaNombre: string;
-    ordenTrabajoId: string;
-    mecanicoId: string;
-    mecanicoNombre: string;
-    fechaAsignacion: string;
-    fechaDevolucion: string;
-    estado: string;
-    observaciones: string | null;
-  };
-}
-
 // ─── Common ───────────────────────────────────
 
 /** Query params for listing endpoints */

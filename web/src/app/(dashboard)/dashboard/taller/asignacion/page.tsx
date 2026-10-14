@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   UserCheck,
   Brain,
@@ -40,6 +40,12 @@ export default function AsignacionPage() {
   const [certInput, setCertInput] = React.useState("");
   const [certificaciones, setCertificaciones] = React.useState<string[]>([]);
   const [preferredId, setPreferredId] = React.useState("");
+
+  // Técnicos activos del taller (GET /workshop/tecnicos) — pobla el select
+  const { data: tecnicos = [] } = useQuery<Array<{ id: string; nombre: string; activo: boolean }>>({
+    queryKey: ["workshop", "tecnicos"],
+    queryFn: () => api.request("/workshop/tecnicos?limit=100"),
+  });
 
   const assignMut = useMutation({
     mutationFn: (input: AssignmentInput) =>
@@ -132,7 +138,17 @@ export default function AsignacionPage() {
 
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Mecánico Preferido (opcional)</label>
-              <Input placeholder="UUID del mecánico..." value={preferredId} onChange={(e) => setPreferredId(e.target.value)} />
+              <select
+                value={preferredId}
+                onChange={(e) => setPreferredId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                aria-label="Mecánico preferido"
+              >
+                <option value="">Automático (mejor score)</option>
+                {tecnicos.map((tec) => (
+                  <option key={tec.id} value={tec.id}>{tec.nombre}</option>
+                ))}
+              </select>
               <p className="text-[10px] text-muted-foreground mt-1">Si se especifica, recibe +30 puntos de bonus</p>
             </div>
 

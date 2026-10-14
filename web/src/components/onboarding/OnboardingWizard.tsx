@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 import { useAuth } from "@/components/providers/session-provider";
 import { useRouter } from "next/navigation";
@@ -56,6 +57,31 @@ export default function OnboardingWizard() {
     setData((prev) => ({ ...prev, ...partial }));
     setError(null);
   };
+
+  // GET /api/onboarding/check/:slug — disponibilidad del slug (T-63 S126)
+  const [slugStatus, setSlugStatus] = React.useState<"idle" | "checking" | "available" | "taken">("idle");
+  React.useEffect(() => {
+    const slug = data.tenantSlug;
+    if (!slug || slug.length < 3) {
+      setSlugStatus("idle");
+      return;
+    }
+    setSlugStatus("checking");
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/onboarding/check/${slug}`);
+        if (res.ok) {
+          const result = await res.json();
+          setSlugStatus(result.available ? "available" : "taken");
+        } else {
+          setSlugStatus("idle");
+        }
+      } catch {
+        setSlugStatus("idle");
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [data.tenantSlug]);
 
   const validateStep1 = (): boolean => {
     if (!data.tenantSlug || !data.ruc || !data.dv || !data.razonSocial) {
@@ -239,6 +265,13 @@ export default function OnboardingWizard() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Se genera automáticamente, podés editarlo
+                  {slugStatus === "checking" && " · verificando disponibilidad…"}
+                  {slugStatus === "available" && (
+                    <span className="text-emerald-600"> · disponible ✓</span>
+                  )}
+                  {slugStatus === "taken" && (
+                    <span className="text-red-600"> · ya está en uso</span>
+                  )}
                 </p>
               </div>
 

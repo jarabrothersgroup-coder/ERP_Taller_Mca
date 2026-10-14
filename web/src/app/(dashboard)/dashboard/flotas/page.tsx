@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Truck,
   Plus,
@@ -12,12 +13,14 @@ import {
   Mail,
   Download,
   MapPin,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import { useFleets } from "@/hooks/use-data";
 import { ErrorState } from "@/components/ui/error-state";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -28,6 +31,25 @@ import type { UIMappedFleet } from "@/lib/data-service";
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface FleetRecord extends UIMappedFleet {
   // Extended from base type (extends UIMappedFleet)
+}
+
+/* ── Billing stats + contracts (T-63 S126) ─── */
+
+interface BillingStats {
+  totalFacturado?: number;
+  contratosActivos?: number;
+  facturasGeneradas?: number;
+  proximoCiclo?: string | null;
+}
+
+interface FleetContract {
+  id: string;
+  fleetId?: string;
+  montoMensual?: number | string;
+  descuentoPorcentaje?: number | string;
+  fechaInicio?: string;
+  fechaFin?: string | null;
+  estado?: string;
 }
 
 /* ── Contract Type Colors ───────────────────── */
@@ -179,6 +201,20 @@ export default function FlotasPage() {
   // T-53: feedback visible al fallar la carga
   useErrorToast(isError, "las flotas");
 
+  // GET /fleet/billing/stats (T-63 S126)
+  const { data: billingStats } = useQuery<BillingStats>({
+    queryKey: ["fleet", "billing", "stats"],
+    queryFn: () => api.request("/fleet/billing/stats") as any,
+  });
+
+  // GET /fleet/:fleetId/contracts (T-63 S126) — del primer filtro de flota seleccionada
+  const [contractsFleetId, setContractsFleetId] = React.useState<string | null>(null);
+  const { data: contractsData, isFetching: contractsLoading } = useQuery<{ items?: FleetContract[]; contracts?: FleetContract[]; total?: number }>({
+    queryKey: ["fleet", "contracts", contractsFleetId],
+    queryFn: () => api.request(`/fleet/${contractsFleetId}/contracts`) as any,
+    enabled: !!contractsFleetId,
+  });
+
   if (isError) {
     return (
       <ErrorState
@@ -228,6 +264,58 @@ export default function FlotasPage() {
 
       {/* Stats */}
       {!loading && <FleetStats fleets={filtered} />}
+
+      {/* ── Billing stats + contracts (T-63 S126) ── */}
+      {!loading && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+              Facturación recurrente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              {billingStats?.totalFacturado !== undefined && (
+                <span className="font-mono">₲ {Number(billingStats.totalFacturado).toLocaleString("es-PY")} facturado</span>
+              )}
+              {billingStats?.contratosActivos !== undefined && (
+                <span className="text-muted-foreground">{billingStats.contratosActivos} contratos activos</span>
+              )}
+              {billingStats?.facturasGeneradas !== undefined && (
+                <span className="text-muted-foreground">{billingStats.facturasGeneradas} facturas generadas</span>
+              )}
+              {filtered.length > 0 && (
+                <Button
+                  variant="outline" size="sm" className="h-7 gap-1 ml-auto"
+                  onClick={() => setContractsFleetId(filtered[0].id)}
+                >
+                  <FileText className="h-3 w-3" aria-hidden="true" /> Ver contratos
+                </Button>
+              )}
+            </div>
+            {contractsFleetId && (
+              <div className="mt-3 rounded border p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Contratos de la flota {contractsFleetId.slice(0, 8)} {contractsLoading && "(cargando…)"}
+                </p>
+                {(contractsData?.items || contractsData?.contracts || []).length === 0 && !contractsLoading ? (
+                  <p className="text-sm text-muted-foreground">Sin contratos</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {(contractsData?.items || contractsData?.contracts || []).map((c) => (
+                      <li key={c.id} className="text-sm flex justify-between">
+                        <span>₲ {Number(c.montoMensual ?? 0).toLocaleString("es-PY")}/mes</span>
+                        <span className="text-xs text-muted-foreground">{c.estado || "—"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Contract filter tabs */}
       {!loading && (

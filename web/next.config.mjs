@@ -99,6 +99,10 @@ const nextConfig = {
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/enterprise/:path*`,
       },
       {
+        source: '/2fa/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/2fa/:path*`,
+      },
+      {
         source: '/import/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/import/:path*`,
       },
@@ -137,6 +141,14 @@ const nextConfig = {
       {
         source: '/config/:path*',
         destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/config/:path*`,
+      },
+      {
+        source: '/email/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/email/:path*`,
+      },
+      {
+        source: '/docs/:path*',
+        destination: `http://${BACKEND_HOST}:${BACKEND_PORT}/docs/:path*`,
       },
       ],
       // `fallback` se evalúa DESPUÉS de las rutas dinámicas de la app (a

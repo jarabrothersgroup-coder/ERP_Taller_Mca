@@ -6,20 +6,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Printer, Barcode, QrCode } from "lucide-react";
+import { Printer, Barcode, QrCode, Wifi, WifiOff } from "lucide-react";
+
+type PrinterHealth = {
+  status: "ready" | "not_configured";
+  printer: { address: string | null; model: string; protocol: string };
+  message: string;
+};
 
 export default function LabelPrintingPage() {
   const [repuestoId, setRepuestoId] = React.useState("");
   const [herramientaId, setHerramientaId] = React.useState("");
   const [generating, setGenerating] = React.useState(false);
-  const [result, setResult] = React.useState<{ type: string; label: string } | null>(null);
+  const [result, setResult] = React.useState<{ type: string; label: string; payload?: string } | null>(null);
+  const [copied, setCopied] = React.useState(false);
+  const [health, setHealth] = React.useState<PrinterHealth | null>(null);
+
+  React.useEffect(() => {
+    api
+      .request<PrinterHealth>("/label-printing/health")
+      .then(setHealth)
+      .catch(() => setHealth(null));
+  }, []);
 
   const handleGenerate = async (type: "repuesto" | "herramienta", id: string) => {
     if (!id.trim()) return;
     setGenerating(true);
     try {
       const res = await api.generateLabel({ type, id: id.trim(), copies: 1 });
-      setResult({ type, label: res.label });
+      setResult({ type, label: res.label, payload: res.payload });
     } catch (err) {
       console.error("Error generating label:", err);
     } finally {
@@ -27,11 +42,40 @@ export default function LabelPrintingPage() {
     }
   };
 
+  const handlePrint = async () => {
+    if (!result?.payload) return;
+    try {
+      await navigator.clipboard.writeText(result.payload);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Impresión de Etiquetas</h1>
-        <p className="text-sm text-muted-foreground">Generar etiquetas de código de barras y QR</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Impresión de Etiquetas</h1>
+          <p className="text-sm text-muted-foreground">Generar etiquetas de código de barras y QR</p>
+        </div>
+        {health && (
+          <Badge
+            variant={health.status === "ready" ? "success" : "secondary"}
+            className="gap-1.5 w-fit"
+            title={health.message}
+          >
+            {health.status === "ready" ? (
+              <Wifi className="h-3 w-3" aria-hidden="true" />
+            ) : (
+              <WifiOff className="h-3 w-3" aria-hidden="true" />
+            )}
+            {health.status === "ready"
+              ? `${health.printer.model} lista (${health.printer.address})`
+              : "Sin impresora configurada"}
+          </Badge>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -99,8 +143,9 @@ export default function LabelPrintingPage() {
             </div>
             <div className="flex justify-center mt-4 gap-2">
               <Badge variant="secondary">{result.type}</Badge>
-              <Button size="sm" variant="outline">
-                <Printer className="h-3 w-3 mr-1" /> Imprimir
+              <Button size="sm" variant="outline" onClick={handlePrint} disabled={!result.payload}>
+                <Printer className="h-3 w-3 mr-1" />
+                {copied ? "Payload copiado" : "Copiar payload ESC/POS"}
               </Button>
             </div>
           </CardContent>

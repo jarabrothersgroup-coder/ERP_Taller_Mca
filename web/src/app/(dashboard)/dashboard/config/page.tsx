@@ -1,29 +1,93 @@
 "use client";
 
 import * as React from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Settings, Save, Building2, FileText, Image as ImageIcon,
   CheckCircle2, Phone, Mail, MapPin, FileSignature, Hash,
+  Upload, Download, MailCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { useConfigSettings } from "@/hooks/use-data";
 import type { UIMappedConfigSettings } from "@/lib/data-service";
 import { LogoUpload } from "@/components/dashboard/config/logo-upload";
 import { FormField } from "@/components/dashboard/config/form-field";
-import { authHeaders } from "@/lib/api";
+import { api, authHeaders } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 import { SucursalesSection } from "./sucursales-section";
+
+/* ── Types (T-63 S126) ── */
+interface EmailStatus {
+  configured: boolean;
+  providers: string[];
+  resendConfigured: boolean;
+  smtpConfigured: boolean;
+}
+interface ImportResult {
+  inserted: number;
+  errors: string[];
+  skipped: number;
+}
+
+const IMPORT_TABLES = [
+  { key: "vehiculos", label: "Vehículos" },
+  { key: "clientes", label: "Clientes" },
+] as const;
 
 export default function ConfigPage() {
   const { data: settingsData, isLoading: loading } = useConfigSettings();
   const [saving, setSaving] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const { toast: t, ToastContainer } = useToast();
   const [form, setForm] = React.useState<UIMappedConfigSettings>({
     companyName: "", companyRuc: "", companyAddress: "", companyPhone: "",
     companyEmail: "", companyLogo: null, fiscalRegimen: "General", timbrado: "", facturaInicio: "",
   });
+
+  // GET /email/status — estado de proveedores de email (T-63 S126)
+  const emailStatusQuery = useQuery<EmailStatus>({
+    queryKey: ["email-status"],
+    queryFn: () => api.request<EmailStatus>("/email/status"),
+  });
+
+  // GET /import/:table/template + POST /import/:table (T-63 S126)
+  const [importTable, setImportTable] = React.useState<string>("vehiculos");
+  const [importCsv, setImportCsv] = React.useState("");
+  const importMut = useMutation({
+    mutationFn: (table: string) =>
+      api.request<ImportResult>(`/import/${table}`, {
+        method: "POST",
+        body: JSON.stringify({ csv: importCsv }),
+      }),
+    onSuccess: (d) => {
+      if (d.errors.length > 0) {
+        t.error(`Importadas ${d.inserted} fila(s), ${d.skipped} omitida(s), ${d.errors.length} error(es): ${d.errors.slice(0, 3).join(" · ")}`);
+      } else {
+        t.success(`Importadas ${d.inserted} fila(s) · ${d.skipped} omitida(s)`);
+      }
+      setImportCsv("");
+    },
+    onError: (err: Error) => t.error(err.message),
+  });
+  const downloadTemplate = async () => {
+    try {
+      const blob = await api.downloadFile(`/import/${importTable}/template`);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${importTable}_template.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      t.error(e instanceof Error ? e.message : "No se pudo descargar la plantilla");
+    }
+  };
 
   React.useEffect(() => {
     if (settingsData) setForm(settingsData);
@@ -166,6 +230,105 @@ export default function ConfigPage() {
       </div>
 
       <SucursalesSection />
+
+      {/* ── Email status + Import CSV (T-63 S126) ── */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MailCheck className="h-4 w-4" aria-hidden="true" />Estado del Email
+            </CardTitle>
+            <CardDescription>Proveedores de envío configurados (Resend / SMTP)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {emailStatusQuery.isLoading ? (
+              <div className="h-12 rounded-md bg-muted animate-pulse" />
+            ) : emailStatusQuery.data ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <Badge variant={emailStatusQuery.data.configured ? "success" : "warning"}>
+                  {emailStatusQuery.data.configured ? "Configurado" : "Sin configurar"}
+                </Badge>
+                {emailStatusQuery.data.providers.length === 0 ? (
+                  <span className="text-muted-foreground">No hay proveedores de email activos</span>
+                ) : (
+                  emailStatusQuery.data.providers.map((p) => (
+                    <Badge key={p} variant="secondary" className="font-mono text-xs">{p}</Badge>
+                  ))
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No se pudo consultar el estado</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4" aria-hidden="true" />Importar CSV
+            </CardTitle>
+            <CardDescription>Carga masiva de vehículos o clientes desde un archivo CSV</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={importTable}
+                onChange={(e) => setImportTable(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                aria-label="Tabla a importar"
+              >
+                {IMPORT_TABLES.map((tb) => (
+                  <option key={tb.key} value={tb.key}>{tb.label}</option>
+                ))}
+              </select>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                Plantilla
+              </Button>
+            </div>
+            <textarea
+              value={importCsv}
+              onChange={(e) => setImportCsv(e.target.value)}
+              placeholder="Pegá el contenido del CSV acá (con encabezados)…"
+              className="min-h-24 w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
+              aria-label="Contenido CSV a importar"
+            />
+            <Button
+              size="sm"
+              className="gap-1.5"
+              loading={importMut.isPending}
+              disabled={!importCsv.trim()}
+              onClick={() => importMut.mutate(importTable)}
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              Importar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* API docs (T-63 S126) — links a Swagger UI y OpenAPI JSON */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4" aria-hidden="true" /> API Docs
+          </CardTitle>
+          <CardDescription>Documentación OpenAPI del backend</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open("/docs/", "_blank")}>
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" /> Swagger UI
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open("/docs/json", "_blank")}>
+            <Download className="h-3.5 w-3.5" aria-hidden="true" /> OpenAPI JSON
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.open("/docs/yaml", "_blank")}>
+            <Download className="h-3.5 w-3.5" aria-hidden="true" /> OpenAPI YAML
+          </Button>
+        </CardContent>
+      </Card>
+
+      {ToastContainer}
     </div>
   );
 }

@@ -7,7 +7,6 @@
 
   const DEFAULT_LOCALE = 'es';
   const SUPPORTED_LOCALES = ['es', 'gu'];
-  const LOCALE_API = '/api/v1/locale';
   const STORAGE_KEY = 'automotiveos_locale';
 
   let _currentLocale = DEFAULT_LOCALE;
@@ -50,7 +49,7 @@
     if (_loaded[locale]) return _translations[locale];
 
     try {
-      const response = await fetch(`${LOCALE_API}/${locale}`);
+      const response = await fetch(`/api/v1/locale/${locale}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       _translations[locale] = await response.json();
       _loaded[locale] = true;

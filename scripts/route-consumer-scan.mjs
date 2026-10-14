@@ -124,6 +124,8 @@ const EXCLUDED = [
   "/crm/retry",
   "/finance/contabilidad/cron/*", // cierre-mensual
   "/workshop/cron/*", // mantenimientos-recordatorios
+  // Swagger UI — assets estáticos internos del motor de docs (no endpoints de negocio)
+  "/docs/static/*", // index.html, swagger-initializer.js, etc.
 ];
 
 /** @param {string} path @returns {boolean} */

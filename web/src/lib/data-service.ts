@@ -919,7 +919,7 @@ export async function fetchAuditLog(
 ): Promise<UIMappedAuditEntry[]> {
   const { data, source } = await fetchOrMock(
     async (slug, token) => {
-      const res = await fetch("/audit/log", {
+      const res = await fetch("/audit/", {
         headers: { "X-Tenant-Slug": slug, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -150,6 +150,12 @@ export default function PredictiveMLPage() {
     queryFn: () => api.request("/workshop/predictions/ml/training-data"),
   });
 
+  // Alertas de mantenimiento programado por reglas (GET /workshop/predictions)
+  const rulePredictionsQuery = useQuery<{ total: number; items: any[] }>({
+    queryKey: ["workshop-predictions"],
+    queryFn: () => api.request("/workshop/predictions"),
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
@@ -196,7 +202,7 @@ export default function PredictiveMLPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-md grid-cols-4">
           <TabsTrigger value="predictions" className="gap-1.5">
             <Search className="h-3.5 w-3.5" />
             Por Vehículo
@@ -204,6 +210,10 @@ export default function PredictiveMLPage() {
           <TabsTrigger value="fleet" className="gap-1.5">
             <Car className="h-3.5 w-3.5" />
             Flota
+          </TabsTrigger>
+          <TabsTrigger value="alerts" className="gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Alertas
           </TabsTrigger>
           <TabsTrigger value="stats" className="gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
@@ -619,6 +629,65 @@ export default function PredictiveMLPage() {
                 <p className="text-xs text-muted-foreground/60 mt-1">El modelo ML necesita datos históricos de servicio para generar predicciones</p>
               </CardContent>
             </Card>
+          )}
+        </TabsContent>
+
+        {/* ════════════════════════════════════════ */}
+        {/* TAB: Alertas por reglas (/workshop/predictions) */}
+        {/* ════════════════════════════════════════ */}
+        <TabsContent value="alerts" className="space-y-6 mt-6">
+          {rulePredictionsQuery.isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {[1, 2].map((i) => <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />)}
+            </div>
+          ) : rulePredictionsQuery.isError ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-sm text-red-600">No se pudieron cargar las alertas de mantenimiento</p>
+              </CardContent>
+            </Card>
+          ) : (rulePredictionsQuery.data?.items ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <CheckCircle2 className="h-12 w-12 text-green-500/60 mx-auto mb-3" />
+                <p className="text-muted-foreground font-medium">Sin alertas — ningún vehículo requiere servicio próximo</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {(rulePredictionsQuery.data?.items ?? []).map((p: any) => (
+                <Card key={p.vehiculoId}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      <span>{p.vehiculo} <span className="font-mono text-xs text-muted-foreground">{p.placa}</span></span>
+                      <Badge variant="outline" className="text-xs">{p.kmActual.toLocaleString("es-PY")} km</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {p.kmPorMes.toLocaleString("es-PY")} km/mes · {p.kmReal ? "odómetro real" : "estimado"}
+                    </p>
+                    {p.proximoServicio ? (
+                      <div className="flex items-center justify-between rounded border p-2 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                          {p.proximoServicio.servicio}
+                        </span>
+                        <span className="font-mono">
+                          {p.proximoServicio.kmObjetivo != null ? `a ${p.proximoServicio.kmObjetivo.toLocaleString("es-PY")} km` : ""}
+                          {p.proximoServicio.fechaObjetivo ? ` · ${new Date(p.proximoServicio.fechaObjetivo).toLocaleDateString("es-PY")}` : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-green-600">✓ Sin servicio pendiente</p>
+                    )}
+                    {p.programados?.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground">{p.programados.length} mantenimiento(s) programado(s)</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </TabsContent>
       </Tabs>

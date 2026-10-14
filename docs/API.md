@@ -495,24 +495,13 @@ Listar herramientas disponibles para préstamo.
 
 ### `GET /inventory/herramientas/:id`
 ### `PATCH /inventory/herramientas/:id`
-### `POST /inventory/herramientas/prestar`
 
-Prestar herramienta a mecánico para una OT.
-
-**Request:**
-```json
-{ "herramientaId": "uuid", "ordenTrabajoId": "uuid", "mecanicoId": "uuid" }
-```
-**Response `201`:** Objeto control con fecha de asignación.
-
-### `POST /inventory/herramientas/control/:id/devolver`
-
-Registrar devolución (o pérdida/daño).
-
-**Request:**
-```json
-{ "estado": "Devuelto", "observaciones": "En buen estado" }
-```
+> Sprint 119: los préstamos/devoluciones de herramientas usan el sistema de
+> activos (`tool-instances`). Las rutas legadas
+> `POST /inventory/herramientas/prestar` y
+> `POST /inventory/herramientas/control/:id/devolver` fueron eliminadas en
+> favor de `POST /inventory/tool-loans/lend` y `POST /inventory/tool-loans/:id/return`
+> (ver sección Tool Loans).
 
 ### `GET /inventory/herramientas/control`
 

@@ -445,17 +445,23 @@ cableó a pantallas reales en `web/` (alcance "balde completo" aprobado).
 Lo que quedó fuera de alcance y por qué:
 
 - `POST /inventory/herramientas/prestar` y `POST
-  /inventory/herramientas/control/:id/devolver` — duplicados legados de
-  `/inventory/tool-loans/lend|/:id/return` (el servicio los marca
-  `@deprecated` y delega). La UI de herramientas ya consume los tool-loans
-  canónicos (`api.lendTool`/`api.returnTool`); doble-wiring duplicaría el
-  flujo. Candidatos a eliminarse (balde "legado/duplicado").
+  /inventory/herramientas/control/:id/devolver` — **eliminados en Sprint
+  119** (balde "legado/duplicado"): eran duplicados de
+  `/inventory/tool-loans/lend|/:id/return` que el servicio delegaba
+  (`@deprecated`). La UI de herramientas consume los tool-loans canónicos
+  (`api.lendTool`/`api.returnTool`), que ya quedaban cubiertos por
+  `tests/fase6-t61-inventario.test.ts` (repuntado a `tool-loans/lend` y
+  `tool-loans/:id/return` en Sprint 119).
 - `PATCH /dvi/photos/:photoId/markup` — eliminada en Sprint 108 junto con
   el flujo de anotación de fotos. DVI solo necesita `PATCH
   /dvi/items/:itemId/status` (conectado).
 - Reportes/mappings GET de contabilidad (`cuadratura`, `rentabilidad/*`,
-  `libro-*-iva`, `mappings`, `validar`, `audit-log`, `devengamiento/ajustes`)
-  — lecturas especializadas fuera del balde de cierre; siguen en la cola.
+  `libro-*-iva`, `mappings`, `audit-log`, `libro-diario/mayor/inventario`)
+  — lecturas especializadas fuera del balde de cierre. **Cerradas en
+  Sprint 119** (`tests/fase7-s119-reportes-contabilidad.test.ts`, 23 tests):
+  dejan `sin test` (sin consumidor permanece, los tests de backend no
+  agregan consumidores de UI). Quedan en cola solo `validar`,
+  `asientos/automatico` y `devengamiento/ajustes` (escrituras de cierre).
 
 Lo cableado (archivos clave en `web/src`):
 
@@ -701,3 +707,477 @@ cambios) · sin test 186 → **172** (−14) · escritura sin test 41 → **27**
 (−14) · clase D 0 · excluidas 41. Techos del guard congelados en
 **113/172/27/0** (piso de exclusiones 36). Validación: backend 122 ficheros
 / 2392 PASS + 4 skip + guard 7/7 + tsc 0. Web no se tocó.
+
+## Sprint 119 — Lote 6 de escritura + eliminar duplicados + cierre reportes GET (2026-10-11)
+
+**Alcance:** tres frentes (candidatos del sprint en `engram.json`):
+
+1. **(a) Lote 6 de escritura** (`tests/fase7-s119-write-coverage.test.ts`):
+   whatsapp instance/disconnect/queue/send, sso discover/authorize/logout/
+   validate-domain, portal invoices/pay + aplicar magic, api-keys create/
+   revoke/reset-scope, config upload-logo, migration import/file, email
+   send + send-reminder/invoice/estimate, billing 4 ops, intelligence
+   manuals/ingest, thinkcar ingest/usb.
+2. **(c) Eliminar duplicados legados**: `POST /inventory/herramientas/prestar`
+   y `POST /inventory/herramientas/control/:id/devolver` (duplicados de
+   tool-loans; ver balde "Legado → eliminar" §"Conectar a UI").
+3. **(d) Cierre reportes GET de contabilidad del balde de cierre**
+   (`tests/fase7-s119-reportes-contabilidad.test.ts`): cuadratura,
+   rentabilidad ot/cliente/mecanico/dashboard, libro-diario/mayor/inventario,
+   libro-compras-iva/ventas-iva (JSON + CSV), mappings, audit-log —
+   **23 tests**, salen de `sin test` (el consumidor de UI sigue pendiente;
+   los tests de backend no agregan consumidores).
+
+### Bugs de producción corregidos (RED → fix → GREEN)
+
+1. **Dashboard de rentabilidad siempre 500** (`GET
+   /finance/contabilidad/rentabilidad/dashboard/:anho/:mes`): el `<where>`
+   encadenaba un fragmento `sql\`…\`` con parámetros `Date` de JS; la capa
+   driver de postgres-js aborta los parámetros `Date` bindeados en fragmentos
+   sql con `ERR_INVALID_ARG_TYPE` (drizzle `DrizzleQueryError`) → el fix
+   pasó el filtro de período a column operations `gte(createdAt, desde)` /
+   `lte(createdAt, hasta)` (`profitability.service.ts`). El binding de Date
+   por parámetro de fragmento está roto en drizzle; los operadores de columna
+   sí lo serializan.
+2. **`/api/config/upload-logo` → 415 con multipart real**: el parser
+   `@fastify/multipart` se registraba al final de `src/app.ts`, DESPUÉS de
+   `registerConfigModule`, y Fastify snapshot-ea los content-type parsers al
+   registrar el schema/rutas del módulo → el endpoint no reconocía el
+   multipart. Fix: registrar `@fastify/multipart` antes del módulo config.
+
+### Ajustes de expectativas (no bugs)
+
+- `ValidationError` mapea a **422** (no 400): año/mes fuera de rango e
+  IDs inexistentes en los reportes devuelven 422. Los UUID "inexistentes"
+  de test deben ser válidos en formato (uno malformado → PG `22P02` → 500).
+- `libro-compras/ventas-iva` con `?formato=CSV` sobre período VACÍO
+  devuelve `emptyReport` (formato "JSON", sin `contenido`): los tests CSV
+  siembran el período (2030/12); los tests "ceros" usan 2020/01.
+- Escritura: endpoint 201 vs 200, api-keys scope/session, migration sin
+  archivo → 400, status OCR puede quedar `processing` (race, aserción
+  `[201,500]` con `WHATSAPP_API_URL` sin stubeo).
+
+**Efecto en métricas (Sprint 119):** total 522 → **520** (−2 legacy
+eliminadas) · sin consumidor 113 → **111** (−2) · sin test 172 → **138**
+(−34: 22 de escritura lote 6 + 12 reportes GET de contabilidad) · escritura
+sin test 27 → **5** (−22; quedan solo las 5 externas SIFEN/DNIT) · clase D 0 ·
+excluidas 41. Techos del guard congelados en **111/138/5/0** (piso de
+exclusiones 36). Validación: backend 123 ficheros / 2447 PASS + 4 skip +
+guard 7/7 + tsc 0. Web no se tocó (pendiente e2e Playwright del sprint).
+
+### Parte Web del sprint (candidato (b), completado 2026-10-11)
+
+Cuatro specs nuevos en `web/e2e/` (los cinco flujos del balde "Conectar a
+UI" de Sprint 113 que no tenían cobertura): `treasury-transfer.spec.ts`
+(transferencia con egreso+ingreso en movimientos filtrando `medioPago
+TRANSFERENCIA`), `config-sucursales-crud.spec.ts` (3 tests: crear por
+diálogo, editar, eliminar con verificación by-id), `inventory-adjustments.spec.ts`
+(adjustments approve/reject con umbrales `CANTIDAD_THRESHOLD=10` /
+`VALOR_THRESHOLD=500_000`), `contabilidad-cierre.spec.ts` (cierre contable).
+E2E total: 61 → **77/77 verdes** (workers=1, retries=2).
+
+**Dos bugs de producción de cliente (RED → fix → GREEN):**
+
+1. **Fastify rechaza 400 cualquier petición SIN body que lleve
+   `Content-Type: application/json`** (`FST_ERR_CTP_EMPTY_JSON_BODY`,
+   mapeado a `{"error":"ValidationError","message":"Datos de entrada
+   inválidos"}`). Reproducido por curl: DELETE sin Content-Type → 204; con
+   Content-Type y cuerpo vacío → 400; con `{}` → 204. Fix en
+   `web/src/lib/api.ts` (`request()`): solo añade el header si
+   `options?.body != null`. Afectaba a `deleteSucursal` (DELETE sin cuerpo)
+   y `approveAdjustment` (POST sin cuerpo) desde el navegador.
+2. **`getApiAuthHeaders` en `web/e2e/auth.setup.ts`** imponía
+   `Content-Type: application/json` en TODAS las peticiones de test: cada
+   `request.delete` devolvía 400 y la limpieza de filas sucursales era
+   silenciosamente inútil. Fix: no fijar el header (Playwright lo añade
+   desde `data`).
+
+**Ajustes de robustez del spec sucursales (no bugs de producto):** el
+`DataTable` pagina de a 10 y su `searchValue/onSearchChange` **no está
+cableado en `sucursales-section.tsx`** (el cuadro de búsqueda es decorativo),
+así que la fila fixture no se podía aislar por texto: `ensureSucursal` ahora
+soft-deleta por API las filas de corridas anteriores (`codigo` con prefijo
+`0*`/`E2E-*`) y el test ordena por Código (asc) para que el fixture caiga en
+la página 1.
+
+**Flake latente de `calendario-data.spec.ts` (test base, no nuevo):** el seed
+calcula fechas con `toISOString()` (UTC) y offset +3 a las 15:00; con la
+máquina local tras las 20:00 (UTC+1/−4) esa fecha cae en el día siguiente y
+colisiona con el turno del test → `toHaveCount(1)` veía 2. Fix: anclar la
+fila por `fecha + HORA (10:45, que el seed nunca usa) + "Reservado"`.
+
+## Sprint 120 — Lote 7 de lectura: GETs de finance sin test (2026-10-12)
+
+**Alcance:** las **31 rutas GET** de `/finance/**` que el escáner T-63
+reportaba en `withoutTest` y que no estaban en EXCLUDED — cierre del balde
+"GETs de lectura sin test" elegido como sprint. `tests/fase7-s120-read-finance.test.ts`
+(**39 tests**, tenant propio `e2e-s120fin`):
+
+| Bloque | Rutas cubiertas |
+|---|---|
+| Estados financieros | `balance-general/:fecha`, `estado-resultados/:anho/:mes` (+`acumulado`), `flujo-efectivo/:anho/:mes`, `evolucion-patrimonio/:anho/:mes`, `notas-financieras/:anho/:mes` |
+| Integración / consolidado | `centros-costo/arbol` (+`soloActivos`), `integracion/resumen`, `integracion/check/:modulo`, `consolidado/balance|pnl/:groupId/:anho/:mes` (404 grupo inexistente), `depreciacion/activos/:id` (404) |
+| FX / reserva | `tipos-cambio/actual` (read-after-write), `reserva-legal/saldo` |
+| RG 90 | `ventas|compras|retenciones/:anho/:mes` (JSON + CSV + 422 año) |
+| Fiscal DNIT | `form120`, `ire`, `idu`, `isc`, `inr` (listados) |
+| Treasury | `cxc-pendientes`, `flujo-caja`, `movimientos/saldo-historico/:cuentaId` (404) |
+| Presupuestos | `:id/comparativa` (404), `alertas` |
+| SIFEN | `consultar` (solo validación de query → 400; la rama feliz es SOAP DNIT), `documentos`, `documentos/:id` (404), `sync-log`, `contingencia/status` |
+
+### Bug de producción corregido (RED → fix → GREEN)
+
+1. **`GET /finance/contabilidad/flujo-efectivo/:anho/:mes` devolvía SIEMPRE
+   500** (`InternalServerError`): `calcularAjustesNoEfectivo` en
+   `cash-flow.service.ts` seleccionaba `SUM(...), plan_cuentas.codigo,
+   plan_cuentas.nombre` **sin `.groupBy()`** en las consultas de
+   depreciación (`LIKE '6.2.%'`) y provisiones (`LIKE '6.3.%'`) → PG 42803
+   *"column plan_cuentas.codigo must appear in the GROUP BY clause"*. La
+   consulta hermana de activos fijos (`1.2.%`) sí llevaba
+   `.groupBy(codigo, nombre)` — el grupo era el que faltaba. Fix: mismo
+   `.groupBy(planCuentas.codigo, planCuentas.nombre)` en ambas.
+
+### Notas de diseño (no bugs, deuda conocida)
+
+- **`asientos_contables` / `asientos_detalle` / `plan_cuentas` /
+  `fiscal_documentos` no tienen columna `tenant_slug` ni política RLS**: el
+  módulo contable/fiscal es global a nivel de tabla (el aislamiento app-level
+  de esas lecturas está en el techo de 372 lookups sin filtro de tenant de
+  `tests/tenant-filter-audit.test.ts`). Por eso los reportes financieros
+  (`balance-general`, `estado-resultados`, etc.) no reciben `tenantSlug`.
+- `GET /finance/sifen/consultar` y `contingencia/status` hacen health-checks
+  SOAP contra la DNIT: con red bloqueada fallan rápido y determinista
+  (`consultarDTE` captura el error → 200 `ERROR_CONEXION`); el test de
+  `consultar` solo ejercita la validación de la querystring (400) para no
+  depender de la latencia externa.
+- `tenant_groups` / `tenant_group_members` / `sifen_contingencia_queue` /
+  `configurador_modulo` / `cuenta_mapping` tienen **FORCE RLS** con
+  `current_setting('app.current_tenant')` → consolidado con grupo ajeno =
+  404 y `integracion/resumen` ve los módulos globales (`tenant_slug IS NULL`).
+
+**Efecto en métricas (Sprint 120):** total 520 · sin consumidor **111**
+(sin cambio: los tests de backend no agregan consumidores de UI) · sin test
+138 → **107** (−31: 0 GET de finance restantes) · escritura sin test
+**5** (sin cambio) · clase D 0 · excluidas 41. Techos del guard
+**111/107/5/0** (piso de exclusiones 36), actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+Validación: 39/39 del fichero nuevo + guard 7/7.
+
+## Sprint 121 — Lote 8 de lectura: GETs de workshop + inventory (2026-10-12)
+
+**Alcance:** las **43 rutas GET** de `/workshop/**` (24) e `/inventory/**` (19)
+que el escáner T-63 reportaba en `withoutTest` y no estaban en EXCLUDED —
+cierre de "workshop/inventory" del balde de lectura.
+`tests/fase7-s121-read-taller-inventario.test.ts` (**34 tests**, tenant propio
+`e2e-s121`, fixtures cliente+vehiculo+OT+2 repuestos+venta reciente):
+
+| Bloque | Rutas cubiertas |
+|---|---|
+| Inventory analytics | `analytics/turnover`, `analytics/dead-stock`, `analytics/reorder` (con fixtures que prueban ventas reales de 30/90 días) |
+| Inventario general | `auto-po/pending`, `herramientas/control` (+400 uuid), `initial-load/batches` + `batches/:batchId` (pattern `LOAD-…` → 400 inválido) |
+| Reportes PDF | `reports/stock`, `reports/movements?from&to`, `reports/valuation` → `application/pdf` + `%PDF` |
+| TecDoc | `search/vin` + `search/brand` (400 por schema; 200 sin red sin API key), `status` (local) |
+| Herramientas | `tool-instances/disponibles` + `due-for-calibration`, `tool-loans/overdue` + `mechanic/:mecanicoId`, `tool-service-events/calibration/:id`, `tools/depreciation/book-value/:id` (404) |
+| Workshop analytics | `top-servicios`, `top-clientes`, `productividad?desde&hasta`, `scorecard` |
+| Historiales | `clientes/:id/history` (inexistente → `client:null`; real → OTs), `vehiculos/:id/history` |
+| Flat rate | `technician/:id`, `bay/:number` (400 no-numérico) |
+| Hub | `hub/board` (OT fixture visible), `hub/board/stream` (SSE: `payloadAsStream:true` resuelve en `writeHead`, primer evento `connected`, abort → cleanup) |
+| OT / QR | `ingresos/:id/qr` (404 "no encontrado"), `ordenes/:id/historial` (→ `[]`), `ordenes/:id/pdf` (404 o 503 sin Chromium), `ordenes/:id/stock-preview` (→ `[]`) |
+| Predictions | `predictions`, `predictions/ml`, `ml/:vehiculoId` (404 + 200 real), `ml/training-data` |
+| Pricing / reference | `pricing-matrix` (400 sin params, 200 `null` sin regla), `pricing-suggest` (400/404), `reference/vehicle-types|fuel-types|mileage-intervals`, `tecnicos` |
+
+### Bugs de producción corregidos (RED → fix → GREEN)
+
+Los tres endpoints de **inventory analytics devolvían 500 siempre**
+(`batch-inventory.service.ts`, Sprint 54 — nunca ejercitados):
+
+1. **Tabla fantasma**: las tres consultas referenciaban `orden_items` +
+   `ordenes_trabajo.fecha_ingreso`, que **no existen en el schema** (el modelo
+   real es `orden_repuestos` + `created_at`; `orden_items` solo sobrevive como
+   referencia en este fichero). Reescritas sobre `orden_repuestos`.
+2. **`.rows` inexistente**: `db().execute()` con postgres-js devuelve **el
+   array de filas directamente**; el código leía `(execute()).rows || []`
+   (siempre `undefined` → ventas siempre 0 en turnover/reorder) y
+   `(lastSale).rows[0].last_sale` (siempre `undefined` → TODO marcado
+   dead-stock con 999 días). Iterado el array directo.
+3. Basura de tipado: `BulkPriceUpdate` tenía un campo `固定Price` heredado de
+   una edición corrupta (interfaz sin uso) — eliminado.
+
+Verificación: con fixtures (repuesto vendido ×5 recientemente + repuesto sin
+ventas), `turnover` reporta `ventas30d=5/times 0.5/daysOfStock=60`, `dead-stock`
+solo incluye el sin ventas (`count=1`, `valorTotal=250000`) y `reorder` da
+`promedioDiario>0` para el vendido — datos imposibles con el código anterior.
+
+**Efecto en métricas (Sprint 121):** total 520 · sin consumidor **111**
+(sin cambio) · sin test 107 → **64** (−43: 0 GET de workshop/inventory
+restantes) · escritura sin test **5** (sin cambio: las 5 externas SIFEN/DNIT) ·
+clase D 0 · excluidas 41. Techos del guard **111/64/5/0**, actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+Validación: 34/34 del fichero nuevo + guard 7/7.
+
+## Sprint 122 — Lote 9 de lectura: cierre del balde T-61/T-63 (2026-10-12)
+
+**Alcance:** las **59 rutas** que el escáner T-63 reportaba en `withoutTest`
+fuera de EXCLUDED (57 GET + 2 POST de validación SIFEN). Cierra el balde de
+lectura: **0 rutas no-excluidas sin test**. `tests/fase7-s122-read-remaining.test.ts`
+(**51 tests**, tenant propio `e2e-s122`, fixtures solo tenant+perfil; shapes
+verificados con sonda empírica `app.inject` antes de escribir las aserciones):
+
+| Bloque | Rutas cubiertas |
+|---|---|
+| Analytics | `kpis/revenue\|ots\|avg-value\|completion`, `trends/ots`, `mechanics?limit` |
+| Audit | `/audit` (+ `/audit/`), `log`, `verify`, `stats?days`, `export` (`text/csv`) |
+| Thinkcar | `health`, `imports` (+ `:id` → 404 `NotFoundError`), `pending/count`, `stats`, `dtc/lookup/P0300` (found) + `/Z9999` (not found) |
+| Portal cliente | `vehicles\|orders\|invoices` (200 con sesión / 401 sin ella), `availability` (400 sin date / 200 slots), `orders/:id` 404, `api/auth/magic/:token` inválido → 401 (sesión = `x-portal-session` base64url JSON) |
+| Docs Swagger | `/docs/` (HTML), `static/index.html` (302), `static/swagger-initializer.js`, `yaml` |
+| WhatsApp | `qr` (200 o 500 `WhatsAppError` sin Evolution API), `followups/stats`, `templates/variables` |
+| Billing | `plans` (403 sin tenant), `subscription`, `invoices` |
+| Config | `dashboard/consolidated`, `dashboard/role`, `api/config/logo` |
+| CRM | `status` (200 `{connected}` o 500 sin conector), `stats` |
+| WebSocket | `ws/notifications`, `ws/financial-dashboard`, `api/v1/visual/stream` con GET HTTP plano → rechazo (asertado [400\|404\|426]: sin handshake) |
+| Reports PDF | `client-statement/:id` y `vehicle-history/:id` (404 o 503 sin Chromium; uuid malo → 400) |
+| API misc | `notifications/poll`, `notifications/stream` (SSE: primer chunk `connected` + tenant), `finance/dashboard/break-even`, `locale/es` + `locale/xx` |
+| Suelto | `dvi/orden`, `marketing/sequences/:id/enrollments`, `mobile/push-tokens`, `email/status`, `label-printing/factura`, `sync/config`, `scheduling/stats`, `fleet/:id/contracts` (400 uuid malo), `2fa/time-remaining` |
+| SIFEN (2 POST) | `nota-credito` (solo schema → 400), `contingencia/reenviar` (cola vacía → 200 `enviados:0`, sin llamada al DNIT) |
+
+### Bug de producción corregido (RED → fix → GREEN)
+
+**`GET /api/v1/locale/:lang` devolvía 401 SIEMPRE.** La ruta se registra en el
+scope raíz (`app.ts`), sin hook `resolveTenant`, y no estaba en `PUBLIC_PATHS`
+del authGate: `resolveProfile` no encontraba `request.tenantSlug`, se quedaba
+sin perfil y el gate rechazaba con 401. Sus consumidores — `public/js/i18n.js`
+del SPA legacy y `sw.js` (caché cache-first) — la fetchan con `fetch()` plano
+**sin Authorization**, así que las traducciones ES/GU nunca cargaban y todo
+caía al default hardcodeado. Fix: `"/api/v1/locale/"` en `PUBLIC_PATHS`
+(`src/shared/middleware/auth-gate.ts`), con aserciones de límite de prefijo en
+`tests/auth-gate.test.ts` (`/api/v1/locale-evil` y `/api/v1/locales` siguen
+protegidos).
+
+### Ajustes de expectativas (no bugs)
+
+- Rutas `{websocket:true}` con GET HTTP plano → rechazo sin handshake
+  (asertado [400|404|426] según versión de Fastify).
+- `whatsapp/qr` sin Evolution API → 500 `WhatsAppError`; `crm/status` sin
+  conector → [200|500]; `reports/*` PDF sin Chromium → [404|503].
+- SSE (`notifications/stream`): `payloadAsStream:true` resuelve en `writeHead`;
+  se lee el primer chunk con el stream de Node (`once("data")`) y se aborta
+  (mismo patrón que `hub/board/stream` en Sprint 121).
+- El error global de `NotFoundError` sale como `{error: "NotFoundError",
+  message: "…"}` — se aserta por `message`, no por `error`.
+
+**Efecto en métricas (Sprint 122):** total 520 · sin consumidor **111**
+(sin cambio) · sin test 64 → **5** (−59: 0 rutas no-excluidas sin test; las 5
+restantes — `api-keys/:id/usage`, `ocr/jobs/:id` y las 3 externas del DNIT —
+están en EXCLUDED del triaje) · escritura sin test 5 → **3** (−2: `reenviar` y
+`nota-credito` quedan ejercitados) · clase D 0 · excluidas 41 · behavior
+97/97. Techos del guard **111/5/3/0**, actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+Validación: 51/51 del fichero nuevo + auth-gate 7/7 + guard 7/7.
+
+## Sprint 123 — Consumidores UI: cablear la UI a los GETs ya testeados (2026-10-12)
+
+**Alcance:** opción (a) de los candidatos — la UI pasa a consumir rutas que ya
+tenían test de backend pero ningún consumidor. **Sin tests nuevos** (las rutas
+ya estaban ejercitadas); el guard T-63 congela el nuevo techo. `withoutConsumer`
+**111 → 80 (−31)** en 4 lotes, con `npm run typecheck` de web limpio tras cada
+lote:
+
+| Lote | − | Consumidores |
+|---|---|---|
+| A | 5 | `i18n.js` (locale inline), `notifications.js` (poll → `unreadCount`), `search.js` (export options dinámicos), `data-service.ts` + `api.ts` (audit log con querystring), tarjeta de tenant en perfil |
+| B | 7 | `api.ts` refactor `buildHeaders`/`downloadFile`; seguridad: Verificar Integridad (`/audit/verify`) + Exportar CSV (`/audit/export`); `seguridad/stats.tsx` server-first; KPIs de taller (`/analytics/kpis/*` ×4) en `taller/kpi-cards.tsx` |
+| C | 11 | `generateLabel` con URLs explícitas (cura repuesto/herramienta) + payload ESC/POS en label-printing; CRM sync stats + cierre de deals (`/crm/deals/:id/close`); Thinkcar badge + detalle de import; `TwoFactorCard` (`/2fa/status/setup/time-remaining`) |
+| D | 8 | Órdenes de compra reales: lista/detalle/receive/cancel/borrar (`/inventory/purchase-orders` ×4 paths); `herramientas/control` como fuente del tab Préstamos (+ chips de filtro por estado); `tool-loans/overdue` (badge en el tab); `book-value/:toolInstanceId` (diálogo); `tool-instances/:id/calibrate` (botón Calibrar) |
+
+**Mecánica del scanner aprendida en este sprint** (costó 2 curaciones):
+`routeToRegex(route).test(literal)` no casa rutas paramétricas si el segmento
+fijo queda *dentro* de `` `${…}` `` — hay que sacarlo fuera
+(`?estado=x` → querystring aparte, `` `${var}/detalle` `` → ternario con
+literales explícitos). Y un template literal anidado
+(``${a ? `?${a}` : ""}` ``) no se extrae completo: reescribir como
+`query ? \`/path?${query}\` : "/path"` (el string simple sí se extrae).
+
+### 2 bugs de producción corregidos (RED → fix → GREEN)
+
+- **Fuga cross-tenant en `GET /inventory/herramientas/control`:**
+  `listControlHerramientas` no filtraba por `tenant_slug` (la tabla sí tiene
+  columna + índice) y el handler no pasaba `request.tenantSlug` → cualquier
+  tenant autenticado listaba los checkouts de *todos* los tenants. Fix:
+  `tenantSlug` obligatorio en las options del servicio (condición siempre
+  presente) + handler pasa `request.tenantSlug`. El test S121 sigue verde
+  (esperaba `total: 0`).
+- **Falta el rewrite de `/2fa` en `next.config.mjs`:** `TwoFactorCard` (lote C)
+  llamaba `/2fa/status|setup|time-remaining` y sin rewrite Next respondía la
+  página HTML en vez del backend (2FA roto en producción). Lo detectó el
+  contrato `fe-be-contract` ("3 llamadas de web/ sin rewrite"). Fix: rewrite
+  `/2fa/:path* → BACKEND` en `afterFiles`.
+
+**Efecto en métricas (Sprint 123):** total 520 · sin consumidor 111 → **80**
+(−31) · sin test **5** (sin cambio, todas en EXCLUDED) · escritura sin test
+**3** · clase D **0** · excluidas **41** · behavior **97/97**. Techos del
+guard **80/5/3/0**, actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+Validación: suite 2574 PASS + 4 skip (128 files) · guard 7/7 ·
+fe-be-contract 5/5 · `npx tsc --noEmit` 0 · lint 0 errores/821 warnings ·
+web typecheck 0 · web lint 0 errores/178 warnings.
+
+## Sprint 124 — Consumidores UI: lotes workshop/marketing/DVI (2026-10-13)
+
+**Alcance:** bajar `withoutConsumer` **80 → 60 (−20)** cableando la UI a rutas
+que ya existían en el backend (sin tests nuevos — el behavior seguía en 97/97).
+Tres lotes, con `npm run typecheck` de web limpio tras cada uno:
+
+| Lote | − | Consumidores |
+|---|---|---|
+| 1 workshop | 9 | `taller/[id]/page.tsx`: historial de estados real (GET `ordenes/:id/historial` + Card Timeline), stock-preview antes de confirmar repuestos, PATCH `trabajos-terceros/:id` (select Pendiente/En proceso/Completado); `api.ts` `updateWorkOrderStatus` → PATCH `ordenes/:id/status`; selección múltiple + acciones batch en `taller/page.tsx` (POST `batch/status` y `batch/delete`); select de mecánicos en `taller/asignacion/page.tsx` (GET `tecnicos`); tab "Alertas" en `predictive-ml` (GET `predictions`); marcas compatibles en diálogo de `servicios/page.tsx` (GET/PUT `service-brand-map/:servicioId`) |
+| 2 marketing | 8 | `marketing/page.tsx`: tab Secuencias (GET/POST `sequences`, POST `:id/enroll`, GET `:id/enrollments`); responder/quitar respuesta en reseñas (POST/DELETE `reviews/:id/respond`); acreditar/canjear puntos + historial (POST `loyalty/:id/points`, `redeem`, `redeem/:rewardId`, GET `movements`); botón "Canjear recompensa" en el catálogo |
+| 3 DVI | 3 | `dvi/page.tsx` panel de detalle: alta de ítem (POST `dvi/:id/items` con categoría/estado/peso), recalcular score (POST `calculate-score`), compartir (POST `share` + abre la URL) |
+
+**Efecto en métricas (Sprint 124):** total 520 · sin consumidor 80 → **60**
+(−20) · sin test **5** (sin cambio, todas en EXCLUDED) · escritura sin test
+**3** · clase D **0** · excluidas **41** · behavior **97/97**. Techos del
+guard **60/5/3/0**, actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+
+## Sprint 125 — Consumidores UI: lotes SIFEN/nómina/diagnóstico contable (2026-10-13)
+
+**Alcance:** bajar `withoutConsumer` **60 → 36 (−24)** cableando la UI de
+finanzas a rutas que ya existían en el backend (sin tests nuevos). Tres
+lotes, con `npm run typecheck` de web limpio y re-scan T-63 tras cada uno:
+
+| Lote | − | Consumidores |
+|---|---|---|
+| 1 SIFEN + facturación + nómina | 7 | `finance/sifen/page.tsx`: detalle de documento (GET `documentos/:id` con xmlOriginal/mensajeError/cdc), tab Sync Log (GET `sync-log`), anular DTE (POST `anular`), guardar en contingencia (POST `contingencia/guardar`) con acciones en el diálogo de detalle; `facturacion/page.tsx`: anular factura (POST `invoices/:id/void` con motivo y checkbox `sifenAnulado` para electrónicas); `nomina/page.tsx`: resumen del período (GET `payroll/summary?month&year` con estado vacío, editar PATCH `summary/:id`, eliminar DELETE `summary/:id` en `NominaMensualTab`) |
+| 2 diagnóstico contable | 7 | Nueva `contabilidad/diagnostico/page.tsx` (link "Diagnóstico Cont." en el sidebar): cuadratura del período (GET `cuadratura/:anho/:mes`), mappings de cuentas (GET `mappings` con filtro `?modulo=`), validador pre-transacción (POST `validar`), audit-log por entidad (GET `audit-log/:entidad/:entidadId`), asiento automático desde OT (POST `asientos/automatico`), ajustes de devengamiento con selector de cuentas (POST `devengamiento/ajustes`), detalle de depreciación de activo fijo (GET `depreciacion/activos/:id`) |
+| 3 rentabilidad + libros + RG90 | 10 | `contabilidad/diagnostico/page.tsx`: rentabilidad por período/OT/cliente/mecánico (GET `rentabilidad/dashboard/:anho/:mes`, `/ot/:id`, `/cliente/:id`, `/mecanico/:id`) y libros de IVA de compras/ventas (GET `libro-compras-iva/:anho/:mes?formato=JSON`, `libro-ventas-iva/...`); `contabilidad/integracion/page.tsx`: sección RG 90 (POST `rg90/exportar` con preview del TXT, GET `rg90/ventas|compras|retenciones/:anho/:mes`) |
+
+**Gotchas T-63 reconfirmados:** el literal `` `ruta${qs}` `` con template al
+final NO matchea rutas ancladas sin `:param` (el `*` sobrante rompe el
+regex `^…$`) — usar ternario con literal puro `"/ruta"`; los backticks
+anidados siguen sin extraerse.
+
+**Efecto en métricas (Sprint 125):** total 520 · sin consumidor 60 → **36**
+(−24) · sin test **5** (sin cambio) · escritura sin test **3** · clase D
+**0** · excluidas **41** · behavior **97/97**. Techos del guard
+**36/5/3/0**, actualizados en
+`tests/contract/route-consumer-guard.test.ts` y `.github/workflows/ci.yml`.
+Las 36 restantes (inventory 6, api 3, security 3, reports 4, presets 3,
+whatsapp 2, import 2, fleet 2, email 1, export 1, portal 1, backup 1, docs 6,
+treasury saldo-historico, donaciones ×2) son el piso del triaje actual.
+
+## Sprint 126 — Consumidores UI: cierre del balde T-63 (2026-10-13)
+
+**Alcance:** bajar `withoutConsumer` **36 → 0 (−36)** cableando el resto de
+rutas backend a la UI. Cuatro lotes, con `npm run typecheck` de web limpio
+y re-scan T-63 tras cada uno:
+
+| Lote | − | Consumidores |
+|---|---|---|
+| 1 rutas pequeñas | 7 | `config/page.tsx`: estado del email (GET `email/status`), import CSV (POST `import/:table`, GET `import/:table/template` con tabla vehiculos/clientes); `seguridad/page.tsx`: export CSV filtrado (GET `export/audit-log?accion&limit=5000`); `backup/page.tsx`: validar backup (POST `backup/validate` con filePath de la lista); `portal/dashboard/page.tsx`: validar sesión al montar (GET `portal/session` con header X-Portal-Session); `OnboardingWizard.tsx`: disponibilidad del slug (GET `api/onboarding/check/:slug` con debounce 500 ms y hint verde/rojo) |
+| 2 inventory + security + whatsapp | 11 | `herramientas/page.tsx`: completar calibración (POST `tool-instances/:id/complete-calibration` con próxima fecha/observaciones), completar reparación (POST `complete-repair`), dar de baja (POST `decommission` con motivo), préstamos por mecánico (GET `tool-loans/mechanic/:mecanicoId` con filtro por ID), historial de calibración (GET `tool-service-events/calibration/:toolInstanceId`), actualizar evento (PATCH `tool-service-events/:id` con botón "Completar"); `security-hw/page.tsx`: fingerprint (GET `security/hw/fingerprint`), USB devices (GET `usb-devices` con lista de seriales), validar token (POST `validate-token` con input); `whatsapp/page.tsx`: resolver error (POST `errors/:errorId/resolve`), eliminar instancia (DELETE `instance`) |
+| 3 reports + presets + fleet | 9 | `taller/[id]/page.tsx`: PDF de OT (GET `reports/ot/:id`); `facturacion/page.tsx`: PDF de factura (GET `reports/factura/:id`); `vehiculos/page.tsx`: historial PDF (GET `reports/vehicle-history/:vehicleId`); `clientes/page.tsx`: estado de cuenta PDF (GET `reports/client-statement/:clientId`); `taller/page.tsx`: panel de presets (POST/GET `presets`, GET `presets/quick/:entity`, DELETE `presets/:id`); `flotas/page.tsx`: billing stats (GET `fleet/billing/stats`), contratos por flota (GET `fleet/:fleetId/contracts`) |
+| 4 finance + docs | 9 | `tesoreria/page.tsx`: tab Donaciones con CRUD (POST/GET `finance/donaciones`, DELETE `:id`), saldo histórico por cuenta (GET `finance/treasury/movimientos/saldo-historico/:cuentaId`); `config/page.tsx`: links a Swagger UI (`/docs/`), OpenAPI JSON (`/docs/json`), OpenAPI YAML (`/docs/yaml`); rewrite `/docs/*` añadido a `next.config.mjs`; `docs/static/*` (index.html, swagger-initializer.js) movidos a EXCLUDED como assets internos de Swagger |
+
+**Gotchas T-63 reconfirmados:** el template `` `/ruta${var}` `` con variable
+al final genera literal `/ruta*` que NO matchea rutas ancladas sin `:param`
+(corregido con `"/ruta" + qs`); `t.warning` no existe en `ToastActions`
+(usar `t.error`); `React.useQueryClient` no existe (importar de
+`@tanstack/react-query`).
+
+**Efecto en métricas (Sprint 126):** total 520 · sin consumidor 36 → **0**
+(−36, **balde cerrado**) · sin test **5** · escritura sin test **3** ·
+clase D **0** · excluidas **41 → 43** (+2 assets swagger) ·
+**sin consumidor = 0** (primera vez en la historia del proyecto).
+Techos del guard **0/5/3/0**,
+actualizados en `tests/contract/route-consumer-guard.test.ts`
+y `.github/workflows/ci.yml`. Guard 7/7 verde.
+
+## Sprint 127 — Cierre de `withoutTest` (2026-10-13)
+
+**Alcance:** bajar `withoutTest` **5 → 0 (−5)** y
+`writeWithoutTest` **3 → 0 (−3)** añadiendo tests que ejerciten las 5
+rutas que quedaban sin cobertura. Todas eran las últimas 5 del balde
+T-63/T-61 (las 3 escritura eran las externas SIFEN/DNIT que habían quedado
+pendientes desde Sprint 122).
+
+**Test único** `tests/fase7-s127-close-without-test.test.ts` (10 asserts,
+patrón fase7: tenant propio `e2e-s127t`, fixtures SQL idempotentes,
+`app.inject` con literals):
+
+| Ruta | Método | Tipo de test |
+|---|---|---|
+| `/api-keys/:id/usage` | GET | 200 con UsageStats en ceros (key inexistente devuelve zeros, no 404 — el handler no valida existencia); 200 con stats reales tras insertar key en DB |
+| `/intelligence/ocr/jobs/:id` | GET | 404 job inexistente; 400/404/422 con id vacío |
+| `/finance/sifen/emitir` | POST | 400/422 body vacío (campos requeridos); 400/422 body incompleto (faltan items/regimenIVA) |
+| `/finance/sifen/firmar` | POST | 404 documento fiscal inexistente; 400/422 body sin documentoId |
+| `/finance/sifen/consultar-lote` | POST | 400/422 body vacío; 400/422 body sin lista de CDCs |
+
+**Ramas felices de SIFEN** (emitir/firmar/consultar-lote con flujo
+completo DNIT + worker criptográfico) siguen fuera de alcance de tests
+deterministas — se ejercitan solo las ramas de validación de entrada,
+consistente con la política de EXCLUDED desde Sprint 112.
+
+**Gotcha del sprint:** el handler de `GET /api-keys/:id/usage` devuelve
+200 con stats en ceros cuando la key no existe en el tenant (no lanza
+404). Aceptado como comportamiento actual; si se desea 404, cambiaría el
+handler (no es cambio de sprint de tests).
+
+**Efecto en métricas (Sprint 127):** total 520 · sin consumidor **0**
+(sin cambio) · sin test 5 → **0** (−5) · escritura sin test 3 → **0**
+(−3) · clase D **0** · excluidas **43** · behavior coverage sube.
+Techos del guard **0/0/0/0**,
+actualizados en `tests/contract/route-consumer-guard.test.ts`
+y `.github/workflows/ci.yml`. Guard 7/7 verde. **Balde T-63/T-61
+cerrado en todas sus dimensiones: 0 sin consumidor, 0 sin test,
+0 escritura sin test.**
+
+---
+
+## Sprint 128 — Triple: E2E + backend tests + hardening (2026-10-13)
+
+**Alcance triple elegido:** ampliar cobertura E2E Playwright, añadir tests
+backend de funciones puras, y aplicar hardening de seguridad/robustez.
+No incluye feature nueva. El balde T-63 permanece cerrado (0/0/0/0).
+
+### Lote A — E2E Playwright (19 tests nuevos en 3 specs)
+
+Páginas de dashboard sin E2E previo identificadas en recon (backup, billing,
+contabilidad, crm, dvi, ejecutivo, enterprise, facturacion, finance,
+inventario, marketing, perfil, presupuestos, recepcion, security-hw,
+servicios, taller). Se crearon 3 specs con smoke tests (login + render):
+
+| Spec | Tests | Páginas cubiertas |
+|---|---|---|
+| `web/e2e/dashboard-smoke-s128.spec.ts` | 8 | herramientas, presupuestos, servicios, taller/mecanicos, crm, security-hw, recepcion, marketing |
+| `web/e2e/facturacion-smoke-s128.spec.ts` | 5 | facturacion/{configurador,reimpresion}, taller/[id] (UUID inexistente), taller/asignacion, taller/flat-rate |
+| `web/e2e/inventario-contabilidad-smoke-s128.spec.ts` | 6 | inventario/{conteo,ordenes-compra,tecdoc}, contabilidad/{diagnostico,evolucion-patrimonio,notas-financieras} |
+
+Patrón: `loginAsAdmin(page)` de `auth.setup.ts`, `page.goto(url, {timeout: 30000})`,
+asserts de render (h1 o elemento clave). Timeouts amplios (20000-30000) por
+primera compilación en dev. **NO ejecutados en este sprint** — requieren
+dev server + seed; pendiente de CI.
+
+### Lote B — Tests backend de funciones puras (43 tests en 2 archivos)
+
+| Archivo | Tests | Funciones cubiertas |
+|---|---|---|
+| `tests/fase7-s128-capa3-formatters.test.ts` | 30 | `capa3-formatters.ts`: parseMoneyToCentavos, centavosToString, buildTxtRecord, stripAccents, montoFixed, fechaDDMMAAAA, marangatuHeader, marangatuTrailer, csvEscape, csvRow |
+| `tests/fase7-s128-sifen-xml.test.ts` | 13 | `sifen-xml.service.ts`: buildDTEXml (XML DTE), validateDTEXml (validación estructural), parseSifenSoapResponse (respuesta SOAP DNIT) |
+
+Gotchas descubiertos:
+- `stripAccents` usa NFD + remove combining marks — `ñç` → `nc` (no conserva ñ/ç).
+- `csvEscape(null/undefined)` retorna `""` string vacío, no `\"\"` con comillas.
+- `csvRow` une con `,` simple, no siempre comilla valores.
+
+### Lote C — Hardening (2 fixes de tipado/robustez)
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `src/shared/middleware/csrf.ts:113` | `(request as any).cookies?.[CSRF_COOKIE_NAME]` | Parseo directo del header `Cookie` (split por `;`), sin depender de `@fastify/cookie` |
+| `src/shared/middleware/integration-error-logger.ts:74` | `context.operation as any` | Validación runtime contra `VALID_OPERATIONS` (pgEnum `error_operation`), fallback `send_message` |
+
+`csrf-double-submit.test.ts` 6/6 verde tras el cambio. `npx tsc --noEmit` 0 errores.
+
+**Efecto en métricas (Sprint 128):** total 520 · sin consumidor **0**
+(sin cambio) · sin test **0** · escritura sin test **0** · clase D **0**
+· excluidas **43**. Behavior coverage 97/97 = **100%** (sin gaps). Guard
+**0/0/0/0** sin cambios. Sin feature nueva — solo tests y hardening.

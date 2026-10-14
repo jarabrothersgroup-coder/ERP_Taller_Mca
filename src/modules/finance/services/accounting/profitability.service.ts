@@ -25,7 +25,7 @@ import { clients } from "../../../../shared/database/schema/clients.js";
 import { vehiculos } from "../../../workshop/schema/vehiculos.js";
 import { mechanicProfiles } from "../../schema/mechanic-profiles.js";
 import { profiles } from "../../../../shared/database/schema/profiles.js";
-import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { ValidationError } from "../../../../shared/errors/app-error.js";
 
 // ─── Types ──────────────────────────────────────
@@ -385,7 +385,8 @@ export async function getDashboardProfitability(
     .where(
       and(
         eq(ordenesTrabajo.tenantSlug, tenantSlug),
-        sql`${ordenesTrabajo.createdAt} >= ${desde} AND ${ordenesTrabajo.createdAt} <= ${hasta}`,
+        gte(ordenesTrabajo.createdAt, desde),
+        lte(ordenesTrabajo.createdAt, hasta),
       ),
     );
 
