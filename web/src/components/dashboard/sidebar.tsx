@@ -97,8 +97,9 @@ const navSections: { title: string; items: NavItem[] }[] = [
   {
     title: "Operaciones",
     items: [
+      { label: "Mi Panel", href: "/dashboard", icon: LayoutDashboard },
       { label: "Hub de Operaciones", href: "/dashboard/hub", icon: Zap },
-      { label: "Panel Ejecutivo", href: "/dashboard/ejecutivo", icon: LayoutDashboard },
+      { label: "Panel Ejecutivo", href: "/dashboard/ejecutivo", icon: BarChart3, minRole: "manager" },
       { label: "Recepción", href: "/dashboard/recepcion", icon: ClipboardCheck },
       { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
       { label: "WhatsApp", href: "/dashboard/whatsapp", icon: MessageSquare },

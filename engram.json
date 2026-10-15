@@ -172,8 +172,8 @@
         }
       }
     },
-    "current_sprint": "Sprint 130 — COMPLETADO (FB-1 recepción móvil: checklist + firma + etiqueta QR)",
-    "next_sprint": "Sprint 131 — FB-2 (dashboards por rol ADM-04, 2-3d) y FB-3 (E2E de datos en CI con seed, 2d) siguen PLANNED en state.feature_backlog. Único pendiente de auditoría: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130 commiteados y pusheados 2026-10-14.",
+    "current_sprint": "Sprint 131 — COMPLETADO (FB-2 dashboards por rol ADM-04 + FB-3 E2E en CI)",
+    "next_sprint": "Sin sprint planificado. Único pendiente de la auditoría heredada: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130 commiteados y pusheados 2026-10-14; S131 pendiente de commit (incluye .github/workflows/ci.yml, que sólo se puede pushear con un PAT con scope `workflow`).",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -4105,7 +4105,8 @@
           ],
           "effort_days": "2-3",
           "priority": "P2",
-          "status": "PLANNED"
+          "status": "DONE (Sprint 131)",
+          "done_on": "2026-10-14"
         },
         {
           "id": "FB-3",
@@ -4118,7 +4119,8 @@
           ],
           "effort_days": "2",
           "priority": "P2",
-          "status": "PLANNED"
+          "status": "DONE (Sprint 131)",
+          "done_on": "2026-10-14"
         }
       ]
     },
@@ -4178,6 +4180,49 @@
         "Firma mobile en SVG (data:image/svg+xml;utf8) vs PNG del web: el backend la guarda como texto opaco, nunca se rasteriza",
         "kilometrajeFoto en mobile = Switch manual (web lo deduce de fotos subidas; G-01 fotos no portado)",
         "Firma de retiro solo visible en OT status COMPLETADA (entrega antes de CERRADA)"
+      ]
+    },
+    "sprint_131_completed": {
+      "sprint": 131,
+      "closed_on": "2026-10-14",
+      "objetivo": "Cerrar el feature backlog operativo: FB-2 (dashboards por rol ADM-04) y FB-3 (E2E de datos en CI con seed determinista)",
+      "fb_2_dashboards_por_rol": {
+        "gap_confirmada": "/config/dashboard/role y /config/dashboard/consolidated existían en backend sin consumidor en la web Next: la ruta /dashboard redirigía a todos a /dashboard/ejecutivo, así que gerente, mecánico y vendedor veían el mismo tablero financiero",
+        "entregables": [
+          "web/src/lib/api.ts: interfaces BranchKpi/ConsolidatedDashboard/RoleDashboard + métodos getRoleDashboard({sucursalId?}) y getConsolidatedDashboard()",
+          "web/src/hooks/use-data.ts: useRoleDashboard(sucursalId?) y useConsolidatedDashboard(enabled) (queryKey separada)",
+          "web/src/app/(dashboard)/dashboard/page.tsx: header con saludo + badge de rol y cuatro vistas por `view` (admin: consolidado multi-sucursal + eficiencia promedio + tabla por sucursal; manager: KPIs de sucursal o consolidado; mechanic: 'Mis OTs activas' + CTAs a hub/asignación; user: stats base) con SkeletonCard, ErrorState+useErrorToast y estados vacíos",
+          "Sidebar: entrada 'Mi Panel' → /dashboard (todos los roles, primera de Operaciones) y 'Panel Ejecutivo' pasa a minRole manager (el menú también es permisos)",
+          "Tests contrato: web/tests/dashboard-role.test.ts (5 — sin sucursalId no agrega querystring, con sucursalId lo propaga, preserva payload, consolidated) + web/tests/components/dashboard-role.test.tsx (5 — render por rol admin/manager/mechanic/user + estado de error)"
+        ],
+        "endpoints_consumidos": [
+          "GET /config/dashboard/role (backend resuelve la vista desde request.profile.role)",
+          "GET /config/dashboard/consolidated (sólo vista admin: eficienciaPromedio, dato que /role no expone)"
+        ]
+      },
+      "fb_3_e2e_en_ci": {
+        "gap_confirmada": "La suite Playwright de web/e2e (19 specs) sólo corría a mano: requería backend arriba + web build + dataset sembrado, y el workflow de CI no la ejecutaba",
+        "entregables": [
+          ".github/workflows/ci.yml: job `e2e` (needs null, paralelo) con servicio pgvector/pg16 propio, npm ci raíz + web, db:migrate, `npx playwright install --with-deps chromium`, `npm run test:e2e` y upload-artifact del playwright-report",
+          "El webServer de playwright.config levanta backend (npm run start:dev) y web (next build && next start) con el DATABASE_URL/JWT_SECRET del job (Playwright fusiona process.env); globalSetup corre scripts/seed-e2e.ts (ya existente)",
+          "Fix de bug de CI: los step names `Lint (cuello de puerta: 0 errores...)` no estaban entrecomillados y rompían el parseo YAML de TODO el workflow — corregido (el archivo nunca había sido YAML válido)"
+        ],
+        "dataset": "scripts/seed-e2e.ts (existente, T-62) — tenant demo + admin + OTs + payroll_summary, idempotente"
+      },
+      "verificacion": {
+        "web_tsc": "0 errores",
+        "web_lint": "0 errores / 177 warnings (baseline 193 → bajó; la página nueva aporta 0)",
+        "web_vitest": "166/166 (20 ficheros) — 156 baseline + 10 tests nuevos de FB-2",
+        "root_tsc": "0 errores (backend intacto)",
+        "scanner_t63": "sin cambios (backend intacto); el FE ahora consume /config/dashboard/role y /consolidated",
+        "ci_yaml": "validado con yaml.safe_load — 3 jobs (backend, web, e2e)"
+      },
+      "no_commit": false,
+      "commit": "S131 (FB-2 + FB-3) 2026-10-14 — pendiente de push: .github/workflows/ci.yml requiere PAT con scope `workflow`",
+      "notas": [
+        "FB-2 no tocó el backend (ambos endpoints ya existían y estaban cubiertos por el scanner vía el frontend legacy)",
+        "El job `e2e` en CI no se pudo ejecutar localmente; el YAML se validó con un parser y la suite E2E ya estaba verde localmente (61 tests / 19 specs)",
+        ".github/ está sin trackear: el PAT del remote origin sólo tiene scope `repo`, y GitHub rechaza pushear .github/workflows/* sin scope `workflow`"
       ]
     }
   }

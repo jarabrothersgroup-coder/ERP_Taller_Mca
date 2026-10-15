@@ -57,6 +57,8 @@ import type {
   BackupJob,
   SecurityHWStatus,
   AnalyticsKpis,
+  RoleDashboard,
+  ConsolidatedDashboard,
 } from "@/lib/api";
 
 /* ── Query Keys ─────────────────────────────── */
@@ -487,5 +489,31 @@ export function useSecurityHWStatus() {
   return useQuery<SecurityHWStatus, Error>({
     queryKey: ["security-hw"],
     queryFn: () => api.getSecurityHWStatus(),
+  });
+}
+
+/* ── Panel por rol / multi-sucursal (FB-2 · ADM-04) ── */
+
+/**
+ * FB-2 — Panel del rol autenticado. El backend resuelve la vista según
+ * `request.profile.role`; `sucursalId` sólo aplica a gerentes (acota a una
+ * sucursal). La queryKey incluye `sucursalId` para cachear cada combinación.
+ */
+export function useRoleDashboard(sucursalId?: string) {
+  return useQuery<RoleDashboard, Error>({
+    queryKey: ["role-dashboard", sucursalId ?? null],
+    queryFn: () => api.getRoleDashboard(sucursalId ? { sucursalId } : undefined),
+  });
+}
+
+/**
+ * FB-2 — Vista consolidada multi-sucursal. Sólo debe habilitarse para
+ * administradores (`enabled`), que son los únicos con acceso al agregado.
+ */
+export function useConsolidatedDashboard(enabled = true) {
+  return useQuery<ConsolidatedDashboard, Error>({
+    queryKey: ["consolidated-dashboard"],
+    queryFn: () => api.getConsolidatedDashboard(),
+    enabled,
   });
 }

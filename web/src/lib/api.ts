@@ -1634,6 +1634,24 @@ export const api = {
   getModuleHealth: (modulo: string) =>
     request<ModuloHealth>(`/finance/contabilidad/integracion/check/${modulo}`),
 
+  /* ── Multi-sucursal / panel por rol (FB-2 · ADM-04) ── */
+
+  /**
+   * Panel según el rol del perfil autenticado. El backend decide la vista a
+   * partir de `request.profile.role`; el FE sólo opcionalmente acota a una
+   * sucursal (gerente).
+   */
+  getRoleDashboard: (params?: { sucursalId?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.sucursalId) qs.set("sucursalId", params.sucursalId);
+    const query = qs.toString();
+    return request<RoleDashboard>(`/config/dashboard/role${query ? `?${query}` : ""}`);
+  },
+
+  /** Vista consolidada multi-sucursal (agregados + eficiencia promedio). */
+  getConsolidatedDashboard: () =>
+    request<ConsolidatedDashboard>("/config/dashboard/consolidated"),
+
   /* ── Health ────────────────────────────────── */
 
   getHealth: () => request<HealthStatus>("/health"),
@@ -2561,4 +2579,56 @@ export interface CommissionRecordEntry {
   commissionAmount: string;
   status: string;
   createdAt: string;
+}
+
+/* ── Multi-sucursal / panel por rol (FB-2 · ADM-04) ── */
+
+/** KPI de una sucursal — ítem de `sucursales` en consolidated/role. */
+export interface BranchKpi {
+  sucursalId: string;
+  sucursalNombre: string;
+  otActivas: number;
+  otCompletadasMes: number;
+  ingresoMes: number;
+  eficienciaMecanicos: number;
+  stockBajo: number;
+}
+
+/** Respuesta de GET /config/dashboard/consolidated — vista multi-sucursal. */
+export interface ConsolidatedDashboard {
+  totalSucursales: number;
+  totalOTActivas: number;
+  totalOTCompletadasMes: number;
+  totalIngresoMes: number;
+  eficienciaPromedio: number;
+  sucursales: BranchKpi[];
+}
+
+/**
+ * Respuesta de GET /config/dashboard/role.
+ *
+ * La forma depende del rol del perfil autenticado, discriminada por `view`:
+ *  - `admin`    → `branches` + `totalSucursales`/`totalIngresoMes`/`totalOTCompletadasMes`
+ *  - `manager`  → `branch` (si se envió `sucursalId`) o `branches` + `totalIngresoMes`
+ *  - `mechanic` → `myActiveOTs`
+ *  - `user`     → sólo las stats base
+ */
+export interface RoleDashboard {
+  view: "admin" | "manager" | "mechanic" | "user";
+  /** Total de OTs del tenant (todas las vistas). */
+  totalOTs: number;
+  /** OTs activas del tenant (todas las vistas). */
+  otActivas: number;
+  /** OTs activas asignadas al mecánico autenticado — sólo `mechanic`. */
+  myActiveOTs?: number;
+  /** Desglose por sucursal — `admin` y `manager` (sin `sucursalId`). */
+  branches?: BranchKpi[];
+  /** Sucursal puntual — `manager` con `sucursalId`. */
+  branch?: BranchKpi | null;
+  /** Sucursales activas del tenant — `admin`. */
+  totalSucursales?: number;
+  /** Ingreso del mes consolidado — `admin` y `manager`. */
+  totalIngresoMes?: number;
+  /** OTs completadas en el mes (consolidado) — `admin`. */
+  totalOTCompletadasMes?: number;
 }
