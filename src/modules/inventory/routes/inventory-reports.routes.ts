@@ -15,6 +15,17 @@ import {
   generateMovementsReport,
   generateValuationReport,
 } from "../services/inventory-report.service.js";
+import { isPdfAvailable } from "../../../shared/services/pdf-report.service.js";
+
+/**
+ * Contrato común de los reportes PDF: sin motor de PDF (Chromium) el endpoint
+ * degrada a 503, nunca 500. Es el mismo contrato que ya usan las rutas PDF de
+ * OT/factura (src/shared/routes/pdf-report.routes.ts, workshop/routes/ordenes);
+ * estas tres lo omitían y filtraban un InternalServerError opaco.
+ */
+const PDF_UNAVAILABLE = {
+  error: "PDF generation unavailable — Chromium not installed",
+} as const;
 
 export async function inventoryReportRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /inventory/reports/stock — Stock summary PDF ──
@@ -22,6 +33,7 @@ export async function inventoryReportRoutes(app: FastifyInstance): Promise<void>
     "/inventory/reports/stock",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const tenantSlug = request.tenantSlug;
+      if (!isPdfAvailable()) return reply.status(503).send(PDF_UNAVAILABLE);
       const pdf = await generateStockReport(tenantSlug);
       const date = new Date().toISOString().slice(0, 10);
 
@@ -44,6 +56,7 @@ export async function inventoryReportRoutes(app: FastifyInstance): Promise<void>
     ) => {
       const tenantSlug = request.tenantSlug;
       const { from, to } = request.query;
+      if (!isPdfAvailable()) return reply.status(503).send(PDF_UNAVAILABLE);
       const pdf = await generateMovementsReport(tenantSlug, { from, to });
       const date = new Date().toISOString().slice(0, 10);
 
@@ -62,6 +75,7 @@ export async function inventoryReportRoutes(app: FastifyInstance): Promise<void>
     "/inventory/reports/valuation",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const tenantSlug = request.tenantSlug;
+      if (!isPdfAvailable()) return reply.status(503).send(PDF_UNAVAILABLE);
       const pdf = await generateValuationReport(tenantSlug);
       const date = new Date().toISOString().slice(0, 10);
 

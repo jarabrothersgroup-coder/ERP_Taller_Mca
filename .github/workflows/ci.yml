@@ -83,6 +83,18 @@ jobs:
       - name: Migraciones sobre DB fresca
         run: npm run db:migrate
 
+      - name: Instalar Chromium para los PDF (puppeteer-core)
+        # El suite incluye tests que piden PDFs reales (inventario stock/
+        # movements/valuation). Sin un motor de PDF, esos endpoints degradan a
+        # 503 y el test falla. Se instala el Chromium de Playwright CON sus libs
+        # del sistema (--with-deps) y se apunta PUPPETEER_EXECUTABLE_PATH a él:
+        # `findChromiumPath()` lo lee primero, así el motor es el mismo que usa
+        # la suite E2E y no depende del Chrome preinstalado del runner.
+        run: |
+          npx playwright install --with-deps chromium
+          echo "PUPPETEER_EXECUTABLE_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+        working-directory: web
+
       - name: Typecheck
         run: npx tsc --noEmit
 

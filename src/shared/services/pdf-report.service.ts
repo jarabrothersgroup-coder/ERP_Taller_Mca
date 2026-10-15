@@ -19,6 +19,14 @@ import { existsSync } from "fs";
 // ─── Chromium Detection ────────────────────────
 
 function findChromiumPath(): string | null {
+  // 1. Override explícito. El mensaje de error de `generatePdf` prometía esta
+  //    variable, pero no estaba implementada: sólo se buscaban rutas fijas.
+  //    CI la usa para apuntar al Chromium de Playwright (instalado con
+  //    `--with-deps`), porque el Chrome preinstalado en `ubuntu-latest` no
+  //    siempre lanza con puppeteer-core.
+  const override = process.env["PUPPETEER_EXECUTABLE_PATH"];
+  if (override && existsSync(override)) return override;
+
   const candidates = [
     // System Chromium
     "/usr/bin/chromium-browser",

@@ -45,6 +45,15 @@ const ADMIN_EMAIL = "admin@e2e-s120fin.test";
 const NO_EXISTE = "00000000-0000-0000-0000-0000dead0001";
 const PERIODO = { anho: 2030, mes: 12 };
 
+/**
+ * `plan_cuentas` es global (sin tenant ni RLS). El estado de evolución
+ * patrimonial (`equity-statement.service`) devuelve 422 si no existe NINGUNA
+ * cuenta de tipo PATRIMONIO, así que este test siembra la suya y la borra.
+ * Antes no lo hacía: sólo pasaba por filas que otro suite dejaba en la DB
+ * local, y en una DB fresca (CI) fallaba con 422.
+ */
+const CUENTA_PATRIMONIO_CODIGO = "E2E-S120-PATRIMONIO";
+
 let app: FastifyInstance;
 let bearer: string;
 
@@ -83,6 +92,12 @@ beforeAll(async () => {
     VALUES (${ADMIN_ID}, ${TENANT_ID}, ${ADMIN_EMAIL}, 'Admin Sprint 120 Lectura', 'admin', true)
     ON CONFLICT (tenant_id, email) DO UPDATE SET role = EXCLUDED.role, is_active = true`;
 
+  // Fixture: cuenta patrimonial mínima (ver CUENTA_PATRIMONIO_CODIGO).
+  await sql`DELETE FROM plan_cuentas WHERE codigo = ${CUENTA_PATRIMONIO_CODIGO}`;
+  await sql`
+    INSERT INTO plan_cuentas (codigo, nombre, tipo, nivel, activo)
+    VALUES (${CUENTA_PATRIMONIO_CODIGO}, 'Patrimonio fixture S120', 'PATRIMONIO', 3, true)`;
+
   bearer = generateToken({
     id: ADMIN_ID,
     email: ADMIN_EMAIL,
@@ -96,6 +111,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await q`DELETE FROM plan_cuentas WHERE codigo = ${CUENTA_PATRIMONIO_CODIGO}`;
   await q`DELETE FROM tipos_cambio WHERE tenant_slug = ${TENANT}`;
   await q`DELETE FROM profiles WHERE id = ${ADMIN_ID}`;
   await q`DELETE FROM tenants WHERE id = ${TENANT_ID}`;

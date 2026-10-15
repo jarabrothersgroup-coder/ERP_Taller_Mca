@@ -28,7 +28,9 @@ test.describe("Facturación — configurador y reimpresión (smoke)", () => {
     await page.goto("/dashboard/taller/00000000-0000-0000-0000-000000000000", { timeout: 30000 });
     await expect(page.locator("body")).toBeVisible();
     // Should render something (empty state, error message, or loading) — not a white page
-    await expect(page.locator("main, [role=main], body")).toBeVisible({ timeout: 10000 });
+    // `.first()`: `body` y `main` coexisten en una página normal, y el
+    // selector múltiple en modo estricto lanzaría strict mode violation.
+    await expect(page.locator("main, [role=main], body").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("taller/asignacion renders", async ({ page }) => {
