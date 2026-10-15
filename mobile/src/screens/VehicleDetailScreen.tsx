@@ -8,10 +8,13 @@ import {
   Text,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius, fontSize } from "../theme";
 import { useVehicle } from "../hooks/use-data";
+import { api } from "../api/client";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorView from "../components/ErrorView";
 
@@ -27,12 +30,32 @@ const engineColors: Record<string, string> = {
 export default function VehicleDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
   const { data: vehicle, isLoading, error, refetch } = useVehicle(id);
+  const [openingChecklist, setOpeningChecklist] = React.useState(false);
 
   React.useEffect(() => {
     navigation.setOptions({
       title: vehicle ? `${vehicle.brand} ${vehicle.model}` : "Vehículo",
     });
   }, [navigation, vehicle]);
+
+  const handleOpenChecklist = async () => {
+    try {
+      setOpeningChecklist(true);
+      // Último ingreso del vehículo (backend ordena por fecha DESC); si no
+      // existe, se crea uno nuevo para arrancar la recepción.
+      const ingresos = await api.listIngresosByVehicle(id);
+      let ingresoId = ingresos[0]?.id;
+      if (!ingresoId) {
+        const created = await api.createIngreso({ vehicleId: id });
+        ingresoId = created.ingreso.id;
+      }
+      navigation.navigate("RecepcionChecklist", { ingresoId });
+    } catch (e) {
+      Alert.alert("Recepción", e instanceof Error ? e.message : "No se pudo abrir el checklist");
+    } finally {
+      setOpeningChecklist(false);
+    }
+  };
 
   if (isLoading) return <LoadingSpinner message="Cargando vehículo..." />;
   if (error || !vehicle) return <ErrorView message="No se pudo cargar el vehículo" onRetry={refetch} />;
@@ -85,6 +108,24 @@ export default function VehicleDetailScreen({ route, navigation }: any) {
             <Text style={[styles.infoValue, styles.mono]}>{vehicle.vin}</Text>
           </View>
         )}
+      </View>
+
+      {/* Reception */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recepción</Text>
+        <TouchableOpacity
+          style={[styles.receptionButton, openingChecklist && { opacity: 0.6 }]}
+          onPress={() => void handleOpenChecklist()}
+          disabled={openingChecklist}
+        >
+          <Ionicons name="clipboard-outline" size={16} color={colors.textInverse} />
+          <Text style={styles.receptionButtonText}>
+            {openingChecklist ? "Abriendo…" : "Checklist de recepción"}
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.receptionHint}>
+          Paneles, neumáticos, accesorios y firma del cliente.
+        </Text>
       </View>
 
       {/* Timestamps */}
@@ -165,4 +206,15 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: fontSize.sm, color: colors.textSecondary },
   infoValue: { fontSize: fontSize.sm, color: colors.text, flex: 1 },
   mono: { fontFamily: "monospace" },
+  receptionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.md,
+  },
+  receptionButtonText: { color: colors.textInverse, fontSize: fontSize.sm, fontWeight: "600" },
+  receptionHint: { fontSize: fontSize.xs, color: colors.textMuted, marginTop: spacing.sm },
 });

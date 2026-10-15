@@ -15,7 +15,7 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
-import { sql, eq, and, gte, lte } from "drizzle-orm";
+import { sql, eq, and, gte, lte, desc } from "drizzle-orm";
 import {
   fiscalDocumentos,
   asientosContables,
@@ -24,8 +24,73 @@ import {
   periodosFiscales,
   liquidacionesIva,
 } from "../../schema/index.js";
-import { ValidationError } from "../../../../shared/errors/app-error.js";
+import { NotFoundError, ValidationError } from "../../../../shared/errors/app-error.js";
 import type { CalcularForm120Request, Form120Result } from "../../types.js";
+
+// ─── Estado de la liquidación (workflow DDJJ) ──
+
+/** Estados posibles del período fiscal (enum `liquidacion_estado`). */
+export type EstadoForm120 = "BORRADOR" | "PRESENTADO" | "PAGADO" | "RECTIFICADO";
+
+/**
+ * Transiciones permitidas del workflow de declaración jurada:
+ *
+ *   BORRADOR → PRESENTADO
+ *   PRESENTADO → PAGADO | RECTIFICADO
+ *   RECTIFICADO → PRESENTADO  (re-presentación tras rectificación)
+ *   PAGADO → (estado final, sin transiciones)
+ */
+const TRANSICIONES_ESTADO: Record<EstadoForm120, readonly EstadoForm120[]> = {
+  BORRADOR: ["PRESENTADO"],
+  PRESENTADO: ["PAGADO", "RECTIFICADO"],
+  RECTIFICADO: ["PRESENTADO"],
+  PAGADO: [],
+};
+
+/** Retorna las transiciones permitidas desde un estado (vacío si es final). */
+export function transicionesPermitidas(estado: string): EstadoForm120[] {
+  return [...(TRANSICIONES_ESTADO[estado as EstadoForm120] ?? [])];
+}
+
+/**
+ * Valida una transición de estado del Formulario 120.
+ *
+ * @param desde - Estado actual del período fiscal
+ * @param hasta - Estado destino deseado
+ * @throws {ValidationError} Si `desde` o `hasta` no son estados válidos,
+ *   o si la transición no está permitida por el workflow
+ */
+export function assertTransicionForm120(desde: string, hasta: string): void {
+  if (!(desde in TRANSICIONES_ESTADO)) {
+    throw new ValidationError(`Estado actual inválido: ${desde}`);
+  }
+  if (!(hasta in TRANSICIONES_ESTADO)) {
+    throw new ValidationError(`Estado inválido: ${hasta}`);
+  }
+  const permitidas = transicionesPermitidas(desde);
+  if (!permitidas.includes(hasta as EstadoForm120)) {
+    const detalle =
+      permitidas.length > 0
+        ? `Transiciones permitidas desde ${desde}: ${permitidas.join(", ")}`
+        : `${desde} es un estado final`;
+    throw new ValidationError(`Transición de estado no permitida: ${desde} → ${hasta} (${detalle})`);
+  }
+}
+
+/** Request de actualización de estado (PATCH /finance/fiscal/form120/estado). */
+export interface ActualizarEstadoForm120Request {
+  anho: number;
+  mes: number;
+  estado: EstadoForm120;
+}
+
+/** Respuesta de actualización de estado. */
+export interface EstadoForm120Result {
+  periodo: { anho: number; mes: number };
+  estado: EstadoForm120;
+  liquidacionId: string;
+  updatedAt: string;
+}
 
 // ─── Core ──────────────────────────────────────
 
@@ -313,6 +378,85 @@ export async function listarLiquidacionesIva(
     .where(eq(liquidacionesIva.tenantSlug, tenantSlug))
     .orderBy(sql`${periodosFiscales.anho} DESC, ${periodosFiscales.mes} DESC`)
     .limit(limit);
+}
+
+/**
+ * Actualiza el estado del período fiscal (workflow DDJJ) del Formulario 120.
+ *
+ * Solo acepta períodos que ya tengan una liquidación calculada. Valida la
+ * transición según el workflow (BORRADOR → PRESENTADO → PAGADO/RECTIFICADO).
+ *
+ * @param req - Período y estado destino
+ * @param tenantSlug - Tenant slug
+ * @returns Estado actualizado y liquidación asociada
+ * @throws {NotFoundError} Si no existe liquidación para el período
+ * @throws {ValidationError} Si la transición de estado no está permitida
+ */
+export async function actualizarEstadoForm120(
+  req: ActualizarEstadoForm120Request,
+  tenantSlug: string,
+): Promise<EstadoForm120Result> {
+  const { anho, mes, estado } = req;
+
+  if (anho < 2020 || anho > 2100) {
+    throw new ValidationError("Año inválido. Debe ser entre 2020 y 2100");
+  }
+  if (mes < 1 || mes > 12) {
+    throw new ValidationError("Mes inválido. Debe ser entre 1 y 12");
+  }
+  if (!(estado in TRANSICIONES_ESTADO)) {
+    throw new ValidationError(`Estado inválido: ${estado}`);
+  }
+
+  // ── Buscar período fiscal con liquidación ──
+  const [row] = await db()
+    .select({
+      periodoFiscalId: periodosFiscales.id,
+      liquidacionId: liquidacionesIva.id,
+      estadoActual: periodosFiscales.estado,
+    })
+    .from(periodosFiscales)
+    .innerJoin(
+      liquidacionesIva,
+      eq(liquidacionesIva.periodoFiscalId, periodosFiscales.id),
+    )
+    .where(
+      and(
+        eq(periodosFiscales.formulario, "FORM_120_IVA"),
+        eq(periodosFiscales.anho, anho),
+        eq(periodosFiscales.mes, mes),
+        eq(periodosFiscales.tenantSlug, tenantSlug),
+        eq(liquidacionesIva.tenantSlug, tenantSlug),
+      ),
+    )
+    .orderBy(desc(liquidacionesIva.createdAt))
+    .limit(1);
+
+  if (!row) {
+    throw new NotFoundError(
+      `No existe liquidación del Formulario 120 para ${anho}-${String(mes).padStart(2, "0")}. Calcule la liquidación antes de actualizar su estado.`,
+    );
+  }
+
+  // ── Validar transición del workflow ──
+  assertTransicionForm120(row.estadoActual, estado);
+
+  // ── Persistir ──
+  const [upd] = await db()
+    .update(periodosFiscales)
+    .set({ estado, updatedAt: sql`NOW()` })
+    .where(eq(periodosFiscales.id, row.periodoFiscalId))
+    .returning({
+      estado: periodosFiscales.estado,
+      updatedAt: periodosFiscales.updatedAt,
+    });
+
+  return {
+    periodo: { anho, mes },
+    estado: upd.estado as EstadoForm120,
+    liquidacionId: row.liquidacionId,
+    updatedAt: upd.updatedAt.toISOString(),
+  };
 }
 
 /**

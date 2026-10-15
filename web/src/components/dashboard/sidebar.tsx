@@ -150,6 +150,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
       { label: "Nota Crédito", href: "/dashboard/contabilidad/nota-credito", icon: Receipt, minRole: "manager" },
       { label: "Contabilidad", href: "/dashboard/contabilidad", icon: Landmark, minRole: "manager" },
       { label: "Diagnóstico Cont.", href: "/dashboard/contabilidad/diagnostico", icon: Search, minRole: "manager" },
+      { label: "Cumplimiento Fiscal", href: "/dashboard/contabilidad/cumplimiento", icon: ClipboardCheck, minRole: "manager" },
       { label: "Tesorería", href: "/dashboard/tesoreria", icon: DollarSign, minRole: "manager" },
       { label: "Nómina", href: "/dashboard/nomina", icon: Calculator, minRole: "manager" },
       { label: "Consolidación", href: "/dashboard/finance/consolidation", icon: Building2, minRole: "manager" },

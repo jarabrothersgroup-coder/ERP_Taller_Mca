@@ -172,8 +172,8 @@
         }
       }
     },
-    "current_sprint": "Sprint 128 — CERRADO 2026-10-13 · triple (E2E + backend tests + hardening). Sin feature nueva; balde T-63 permanece 0/0/0/0. Lote A E2E: 19 tests en 3 specs Playwright (dashboard-smoke-s128, facturacion-smoke-s128, inventario-contabilidad-smoke-s128) — 19 páginas sin E2E previo ahora con smoke; NO ejecutados (requieren dev server + seed, pendiente CI). Lote B backend: 43 tests en 2 archivos de funciones puras — tests/fase7-s128-capa3-formatters.test.ts (30 asserts: parseMoneyToCentavos, centavosToString, buildTxtRecord, stripAccents, montoFixed, fechaDDMMAAAA, marangatuHeader/Trailer, csvEscape, csvRow) y tests/fase7-s128-sifen-xml.test.ts (13 asserts: buildDTEXml, validateDTEXml, parseSifenSoapResponse). Gotchas: stripAccents normaliza ñç→nc vía NFD; csvEscape(null) retorna '' vacío; csvRow une con ',' simple. Lote C hardening: csrf.ts eliminado as any — parseo directo header Cookie sin @fastify/cookie; integration-error-logger.ts eliminado as any — validación runtime contra VALID_OPERATIONS (pgEnum error_operation) con fallback send_message. csrf-double-submit 6/6 verde tras cambio; tsc 0 errores. Métricas: total 520 · sin consumidor 0 · sin test 0 · escritura sin test 0 · clase D 0 · excluidas 43 · behavior 97/97=100%. Guard 0/0/0/0 sin cambios. Docs T47 § Sprint 128.",
-    "next_sprint": "Sprint 129 — Opciones: (1) ejecutar los 19 tests E2E en CI con dev server + seed (requiere configurar globalSetup y dataset determinista); (2) ampliar behavior coverage a servicios con tests de integración DB (analytics, backup, crm, dvi, email, enterprise/sso+2fa); (3) nueva feature de negocio; (4) hardening avanzado (821 lint warnings restantes: no-explicit-any, etc.).",
+    "current_sprint": "Sprint 130 — COMPLETADO (FB-1 recepción móvil: checklist + firma + etiqueta QR)",
+    "next_sprint": "Sprint 131 — FB-2 (dashboards por rol ADM-04, 2-3d) y FB-3 (E2E de datos en CI con seed, 2d) siguen PLANNED en state.feature_backlog. Único pendiente de auditoría: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130 commiteados y pusheados 2026-10-14.",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -4074,6 +4074,111 @@
       "lint_root": "0 errores / 819 warnings (reducción de 2 no-explicit-any: 821→819)",
       "lint_web": "0 errores / 175 warnings",
       "vitest_web": "156 tests PASS (18 files)"
+    },
+    "feature_backlog": {
+      "registered_on": "2026-10-13",
+      "source": "Verificación post-auditoría 2026-09-25 + gaps reales de producto confirmados contra código",
+      "items": [
+        {
+          "id": "FB-1",
+          "title": "Recepción móvil (checklist + firma + etiqueta)",
+          "gap": "App RN tiene 15 pantallas pero NO checklist de recepción ni captura de firma (P1.1 es solo web); el recepcionista en la bahía no puede completar el ingreso desde el teléfono",
+          "deliverables": [
+            "Screen checklist con paneles neumáticos/accesorios/combustible",
+            "Captura de firma touch",
+            "POST /workshop/ingresos/:id/checklist + /firma-retiro",
+            "Trigger impresión de etiqueta"
+          ],
+          "effort_days": "4-5",
+          "priority": "P1",
+          "status": "DONE (Sprint 130)",
+          "done_on": "2026-10-14"
+        },
+        {
+          "id": "FB-2",
+          "title": "Dashboards por rol (ADM-04)",
+          "gap": "/config/dashboard/consolidated y /role existen en backend sin consumidor FE — gerente, mecánico y vendedor ven el mismo panel",
+          "deliverables": [
+            "Página /dashboard con vista según rol",
+            "Consumo de /config/dashboard/role",
+            "Tests contrato"
+          ],
+          "effort_days": "2-3",
+          "priority": "P2",
+          "status": "PLANNED"
+        },
+        {
+          "id": "FB-3",
+          "title": "Sprint QA: E2E de datos en CI",
+          "gap": "Los 19 tests E2E de Sprint 128 (3 specs smoke) + los 4 specs data de la deuda T-62 no corren en CI (requieren dev server + seed determinista)",
+          "deliverables": [
+            "job CI con playwright + globalSetup seed",
+            "dataset determinista (scripts/seed-e2e.ts)",
+            "19+ tests en CI"
+          ],
+          "effort_days": "2",
+          "priority": "P2",
+          "status": "PLANNED"
+        }
+      ]
+    },
+    "sprint_129_completed": {
+      "sprint": 129,
+      "closed_on": "2026-10-14",
+      "objetivo": "Centro de cumplimiento fiscal: cerrar el ciclo de declaración jurada IVA (Formulario 120) que era el único paso manual restante del mes",
+      "gap_confirmada": "Backend fiscal completo (POST/GET /finance/fiscal/form120 + ire/idu/isc/inr) con UI solo en el frontend legacy src/shared/public; web (Next) no consumía /finance/fiscal/* y el estado del período (BORRADOR/PRESENTADO/PAGADO/RECTIFICADO) era inamovible — sin endpoint que lo actualizara",
+      "entregables": [
+        "Servicio: transiciones del workflow (TRANSICIONES_ESTADO, transicionesPermitidas, assertTransicionForm120) + actualizarEstadoForm120 con 404 si no hay liquidación",
+        "Ruta: PATCH /finance/fiscal/form120/estado (enum PRESENTADO|PAGADO|RECTIFICADO, headers x-tenant-slug)",
+        "Web: /dashboard/contabilidad/cumplimiento — checklist previo (cuadratura + liquidación + estado), cálculo F-120 con resultado Rubro 1/2/3, alertas de pre-auditoría, acciones de estado, export CSV BOM, historial de 12 liquidaciones",
+        "Sidebar: entrada 'Cumplimiento Fiscal' (minRole manager)",
+        "Tests: tests/fase7-s129-fiscal-ddjj.test.ts — 15 tests (unidad de transiciones 7 + flujo HTTP 8: calcular→listar→BORRADOR→PRESENTADO→PAGADO→422 estado final→404 sin liquidación→400 enum→403 sin tenant→historial PAGADO)"
+      ],
+      "workflow": "BORRADOR → PRESENTADO → PAGADO | RECTIFICADO → PRESENTADO; PAGADO es estado final",
+      "verificacion": {
+        "test_suite": "2642 PASS / 4 skip (132 archivos; baseline 2627 + 15 nuevos)",
+        "scan": "521 rutas · withoutConsumer 0 · withoutTest 0 · excluded 43",
+        "root_tsc": "0 errores",
+        "root_lint": "0 errores / 819 warnings (baseline exacto, sin nuevos)",
+        "web": "typecheck 0 · lint 0 errores / 175 warnings · vitest 156/156",
+        "pagina_nueva_eslint": "0 errores/0 warnings"
+      },
+      "commit": "S129 (Fiscal DDJJ) + S130 (FB-1 recepción móvil) commiteados y pusheados 2026-10-14"
+    },
+    "sprint_130_completed": {
+      "sprint": 130,
+      "closed_on": "2026-10-14",
+      "objetivo": "FB-1 Recepción móvil: el recepcionista completa el ingreso desde el teléfono (checklist visual de paneles, neumáticos/combustible/accesorios, firma del cliente, firma de retiro y etiqueta QR) — cierre del flujo P1.1 en mobile",
+      "gap_confirmada": "Backend tenía todo (POST/GET /workshop/ingresos/:id/checklist, POST /firma-retiro, GET /ingresos?vehicleId, GET /ingresos/:id/qr PNG) pero la app RN (15 pantallas) no exponía ningún punto de entrada; web era su único consumidor",
+      "entregables": [
+        "api/client.ts: tipos Ingreso/PanelEstado/RecepcionChecklist + métodos listIngresosByVehicle, createIngreso, get/saveIngresoChecklist, saveFirmaRetiro, fetchIngresoQR (PNG→dataURL con buildHeaders reutilizado y bytesToBase64 propio)",
+        "components/SignaturePad.tsx: firma táctil PanResponder + react-native-svg → data URL SVG (formato opaco para el backend, igual que la PNG del web)",
+        "screens/RecepcionChecklistScreen.tsx: 3 pasos (Exterior con ciclo de estados por panel y leyenda · Detalles neumáticos/combustible 0-100%/accesorios/obs · Firma + resumen), hidratación única desde GET existente, guardado POST con Alert de éxito",
+        "Impresión de etiqueta: expo-print con HTML embebiendo el QR autenticado (data URL) — evita URL remota sin headers de tenant/JWT",
+        "screens/FirmaRetiroScreen.tsx: resuelve el último ingreso del vehículo (DESC), nombre + firma → POST /firma-retiro",
+        "Entry points: VehicleDetail botón 'Checklist de recepción' (reusa último ingreso o crea POST /workshop/ingresos) · WorkOrderDetail sección Entrega con 'Firma de retiro' (solo status COMPLETADA)",
+        "Navegación: RecepcionChecklist en VehiclesStack, FirmaRetiro en WorkOrdersStack (RootNavigation.tsx)",
+        "Deps: expo-print ~57.0.2 instalado (expo-file-system instalado y removido: innecesario con impresión vía HTML)"
+      ],
+      "verificacion": {
+        "mobile_tsc": "0 errores",
+        "mobile_lint": "0 errores / 56 warnings (patrón ({route, navigation}: any) de todas las screens)",
+        "root_tsc": "0 errores",
+        "root_lint": "0 errores / 819 warnings (baseline exacto)",
+        "root_vitest": "2642 PASS / 4 skip (132 ficheros)",
+        "scanner_t63": "521 rutas · withoutConsumer 0 · withoutTest 0 · excluded 43 (sin cambios: backend intacto)",
+        "web_tsc": "0 errores",
+        "web_lint": "0 errores / 175 warnings (baseline)",
+        "web_vitest": "156/156 (18 ficheros)",
+        "tests_backend": "sin cambios — checklist/firma-retiro ya cubiertos por tests/fase6-t61-ingresos.test.ts y tests/sprint87.test.ts"
+      },
+      "no_commit": false,
+      "commit": "S129+S130 commiteados y pusheados 2026-10-14",
+      "notas": [
+        "Firma mobile en SVG (data:image/svg+xml;utf8) vs PNG del web: el backend la guarda como texto opaco, nunca se rasteriza",
+        "kilometrajeFoto en mobile = Switch manual (web lo deduce de fotos subidas; G-01 fotos no portado)",
+        "Firma de retiro solo visible en OT status COMPLETADA (entrega antes de CERRADA)"
+      ]
     }
   }
 }

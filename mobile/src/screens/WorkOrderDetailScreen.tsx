@@ -172,6 +172,23 @@ export default function WorkOrderDetailScreen({ route, navigation }: any) {
         </View>
       )}
 
+      {/* Entrega — firma de retiro (Sprint 130 — FB-1) */}
+      {workOrder.status === "COMPLETADA" && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Entrega</Text>
+          <Text style={styles.description}>
+            Registra la firma del cliente al retirar el vehículo.
+          </Text>
+          <TouchableOpacity
+            style={styles.entregaButton}
+            onPress={() => navigation.navigate("FirmaRetiro", { vehicleId: workOrder.vehicleId })}
+          >
+            <Ionicons name="create-outline" size={14} color={colors.textInverse} />
+            <Text style={styles.entregaButtonText}>Firma de retiro</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Timestamps */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Fechas</Text>
@@ -272,4 +289,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   dtcText: { fontSize: fontSize.xs, fontWeight: "600", color: colors.warning, fontFamily: "monospace" },
+  entregaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  entregaButtonText: { color: colors.textInverse, fontSize: fontSize.sm, fontWeight: "600" },
 });

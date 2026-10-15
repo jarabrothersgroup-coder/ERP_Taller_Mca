@@ -18,6 +18,8 @@ import ClientsScreen from "../screens/ClientsScreen";
 import ClientDetailScreen from "../screens/ClientDetailScreen";
 import VehiclesScreen from "../screens/VehiclesScreen";
 import VehicleDetailScreen from "../screens/VehicleDetailScreen";
+import RecepcionChecklistScreen from "../screens/RecepcionChecklistScreen";
+import FirmaRetiroScreen from "../screens/FirmaRetiroScreen";
 import AppointmentsScreen from "../screens/AppointmentsScreen";
 import AccountingScreen from "../screens/AccountingScreen";
 import RG90ExportScreen from "../screens/RG90ExportScreen";
@@ -40,6 +42,7 @@ function WorkOrdersStack() {
     <Stack.Navigator screenOptions={{ headerStyle, headerTintColor, headerTitleStyle }}>
       <Stack.Screen name="WorkOrdersList" component={WorkOrdersScreen} options={{ title: "Órdenes de Trabajo" }} />
       <Stack.Screen name="WorkOrderDetail" component={WorkOrderDetailScreen} options={{ title: "Detalle" }} />
+      <Stack.Screen name="FirmaRetiro" component={FirmaRetiroScreen} options={{ title: "Firma de Retiro" }} />
     </Stack.Navigator>
   );
 }
@@ -58,6 +61,7 @@ function VehiclesStack() {
     <Stack.Navigator screenOptions={{ headerStyle, headerTintColor, headerTitleStyle }}>
       <Stack.Screen name="VehiclesList" component={VehiclesScreen} options={{ title: "Vehículos" }} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} options={{ title: "Detalle" }} />
+      <Stack.Screen name="RecepcionChecklist" component={RecepcionChecklistScreen} options={{ title: "Checklist de Recepción" }} />
     </Stack.Navigator>
   );
 }

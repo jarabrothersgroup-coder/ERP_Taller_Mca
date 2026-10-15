@@ -2,16 +2,17 @@
  * Fiscal Routes — Motor Fiscal DNIT endpoints.
  *
  * Endpoints:
- *   POST /finance/fiscal/form120/calcular  — Calculate IVA for a period
- *   GET  /finance/fiscal/form120           — List monthly IVA settlements
- *   POST /finance/fiscal/ire/calcular       — Calculate IRE for a year
- *   GET  /finance/fiscal/ire                — List annual IRE settlements
- *   POST /finance/fiscal/idu/calcular       — Calculate IDU
- *   GET  /finance/fiscal/idu                — List IDU settlements
- *   POST /finance/fiscal/isc/calcular       — Calculate ISC
- *   GET  /finance/fiscal/isc                — List ISC settlements
- *   POST /finance/fiscal/inr/calcular       — Calculate INR
- *   GET  /finance/fiscal/inr                — List INR settlements
+ *   POST  /finance/fiscal/form120/calcular  — Calculate IVA for a period
+ *   GET   /finance/fiscal/form120           — List monthly IVA settlements
+ *   PATCH /finance/fiscal/form120/estado    — Update settlement status (DDJJ workflow)
+ *   POST  /finance/fiscal/ire/calcular       — Calculate IRE for a year
+ *   GET   /finance/fiscal/ire                — List annual IRE settlements
+ *   POST  /finance/fiscal/idu/calcular       — Calculate IDU
+ *   GET   /finance/fiscal/idu                — List IDU settlements
+ *   POST  /finance/fiscal/isc/calcular       — Calculate ISC
+ *   GET   /finance/fiscal/isc                — List ISC settlements
+ *   POST  /finance/fiscal/inr/calcular       — Calculate INR
+ *   GET   /finance/fiscal/inr                — List INR settlements
  *
  * All routes require `X-Tenant-Slug` header (resolved by tenant-resolver).
  *
@@ -19,7 +20,12 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { calcularForm120, listarLiquidacionesIva } from "../services/fiscal/form120.service.js";
+import {
+  calcularForm120,
+  listarLiquidacionesIva,
+  actualizarEstadoForm120,
+  type EstadoForm120,
+} from "../services/fiscal/form120.service.js";
 import { calcularIre, listarLiquidacionesIre } from "../services/fiscal/ire.service.js";
 import { calcularIdu, listarLiquidacionesIdu } from "../services/fiscal/idu.service.js";
 import { calcularIsc, listarLiquidacionesIsc } from "../services/fiscal/isc.service.js";
@@ -86,6 +92,50 @@ export async function fiscalRoutes(app: FastifyInstance): Promise<void> {
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 12;
       const list = await listarLiquidacionesIva(tenantSlug, limit);
       return reply.status(200).send(list);
+    },
+  );
+
+  // ── PATCH /finance/fiscal/form120/estado — DDJJ workflow status ──
+  app.patch<{ Body: { anho: number; mes: number; estado: string } }>(
+    "/finance/fiscal/form120/estado",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["anho", "mes", "estado"],
+          properties: {
+            anho: { type: "integer", minimum: 2020, maximum: 2100, description: "Año fiscal" },
+            mes: { type: "integer", minimum: 1, maximum: 12, description: "Mes fiscal (1-12)" },
+            estado: {
+              type: "string",
+              enum: ["PRESENTADO", "PAGADO", "RECTIFICADO"],
+              description: "Estado destino (workflow: BORRADOR → PRESENTADO → PAGADO/RECTIFICADO)",
+            },
+          },
+        },
+        headers: {
+          type: "object",
+          required: ["x-tenant-slug"],
+          properties: {
+            "x-tenant-slug": { type: "string" },
+          },
+        },
+      },
+    },
+    async (
+      req: FastifyRequest<{ Body: { anho: number; mes: number; estado: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const tenantSlug = req.headers["x-tenant-slug"] as string;
+      const result = await actualizarEstadoForm120(
+        {
+          anho: req.body.anho,
+          mes: req.body.mes,
+          estado: req.body.estado as EstadoForm120,
+        },
+        tenantSlug,
+      );
+      return reply.status(200).send(result);
     },
   );
 

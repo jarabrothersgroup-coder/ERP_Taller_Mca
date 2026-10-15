@@ -28,13 +28,11 @@ function unwrapItems<T>(res: PaginatedItems<T> | T[]): T[] {
   return Array.isArray(res) ? res : (res.items ?? []);
 }
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+/** Headers de tenant (slug de sesión → env → "demo") + JWT si existe. */
+async function buildHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
   const session = await getSession();
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options?.headers as Record<string, string> | undefined),
-  };
+  const headers: Record<string, string> = { ...extra };
 
   // Tenant resolution: explicit slug from session, else fall back to header/env.
   if (session?.slug) {
@@ -49,6 +47,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     headers["Authorization"] = `Bearer ${session.token}`;
   }
 
+  return headers;
+}
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers = await buildHeaders({
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  });
+
   const res = await fetch(`${BACKEND_URL}${url}`, {
     ...options,
     headers,
@@ -60,6 +67,22 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   }
 
   return res.json() as Promise<T>;
+}
+
+/** base64 de bytes puros (Hermes no expone btoa de forma confiable). */
+function bytesToBase64(bytes: Uint8Array): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    out += chars[b0 >> 2];
+    out += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    out += i + 1 < bytes.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : "=";
+    out += i + 2 < bytes.length ? chars[b2 & 63] : "=";
+  }
+  return out;
 }
 
 /* ── Types ──────────────────────────────────── */
@@ -104,6 +127,47 @@ export interface Vehicle {
   clientId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/* ── Ingresos / Checklist de recepción (Sprint 130 — FB-1) ── */
+
+export interface Ingreso {
+  id: string;
+  fechaIngreso: string;
+  kilometraje: number | null;
+  nivelCombustible: string | null;
+  estadoExterior: string | null;
+  observaciones: string | null;
+  ordenTrabajo: { id: string; status: string } | null;
+}
+
+export type PanelEstado = "BUENO" | "RAYADO" | "ABOLLADO" | "ROTO" | "ABOLLADO_RAYADO";
+
+export interface PanelState {
+  estado: PanelEstado;
+  fotoUrl?: string;
+  observaciones?: string;
+}
+
+export interface RecepcionChecklist {
+  panels: Record<string, PanelState>;
+  neumaticos: Record<string, string>;
+  /** 0.0 – 1.0 */
+  nivelCombustibleExacto: number;
+  kilometrajeFoto: boolean;
+  accesorios: {
+    gato: boolean;
+    triangulos: boolean;
+    extintor: boolean;
+    ruedaRepuesto: boolean;
+    herramientas: boolean;
+    manual: boolean;
+    radioCodigo?: string;
+    otros?: string;
+  };
+  observacionesCliente?: string;
+  firmaCliente?: string;
+  firmaClienteNombre?: string;
 }
 
 export interface DashboardStats {
@@ -510,4 +574,52 @@ export const api = {
 
   listThinkcarPending: () =>
     request<{ data: any[]; total: number }>("/thinkcar/pending"),
+
+  // ── Ingresos / Checklist de recepción (Sprint 130 — FB-1) ──
+  listIngresosByVehicle: (vehicleId: string) =>
+    request<Ingreso[]>(`/workshop/ingresos?vehicleId=${encodeURIComponent(vehicleId)}`),
+
+  createIngreso: (data: {
+    vehicleId: string;
+    kilometraje?: number;
+    nivelCombustible?: string;
+    estadoExterior?: string;
+    observaciones?: string;
+    crearOrden?: boolean;
+    descripcionTrabajo?: string;
+  }) =>
+    request<{ ingreso: Ingreso; ordenTrabajo: { id: string; status: string } | null }>(
+      "/workshop/ingresos",
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+
+  getIngresoChecklist: (ingresoId: string) =>
+    request<RecepcionChecklist>(`/workshop/ingresos/${ingresoId}/checklist`),
+
+  saveIngresoChecklist: (ingresoId: string, body: RecepcionChecklist) =>
+    request<RecepcionChecklist>(`/workshop/ingresos/${ingresoId}/checklist`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  saveFirmaRetiro: (ingresoId: string, firma: string, nombre: string) =>
+    request<unknown>(`/workshop/ingresos/${ingresoId}/firma-retiro`, {
+      method: "POST",
+      body: JSON.stringify({ firma, nombre }),
+    }),
+
+  /**
+   * QR del ingreso (PNG) como data URL autenticado — el endpoint exige
+   * tenant + JWT, así que no sirve una URL remota cruda para imprimir.
+   */
+  fetchIngresoQR: async (ingresoId: string): Promise<string> => {
+    const headers = await buildHeaders();
+    const res = await fetch(`${BACKEND_URL}/workshop/ingresos/${ingresoId}/qr`, { headers });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(body.error ?? body.message ?? "No se pudo generar el QR");
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return `data:image/png;base64,${bytesToBase64(bytes)}`;
+  },
 };
