@@ -1,0 +1,182 @@
+# CI — materializa el gate de T-63 (Sprint 112, item 3).
+#
+# El guard tests/contract/route-consumer-guard.test.ts congela los techos del
+# triaje de rutas (Docs/T47). Hasta ahora solo corría localmente; este gate los
+# hace obligatorios en cada PR:
+#   · rutas sin consumidor ≤ 0     · sin test ≤ 0
+#   · escritura sin test ≤ 0       · clase D ≤ 0   · exclusiones ≥ 43
+# (baseline T-63 → Sprints 107-124; el guard test lleva el historial completo)
+# Si un número baja, Congelar el nuevo valor aquí (comentario del guard) y en
+# la sección de métricas de Docs/T47.
+#
+# El servicio postgres usa la MISMA imagen que dev local (erp-audit-pg):
+# pgvector/pg16 — la migración 0000 ejecuta `CREATE EXTENSION vector`.
+#
+# `e2e` (FB-3) corre la suite Playwright de `web/e2e` contra un backend real y
+# un dataset determinista (`scripts/seed-e2e.ts`, vía `globalSetup`). Playwright
+# levanta las dos dependencias (backend + build de producción de web), así que
+# este job instala los node_modules de la raíz Y de `web`, migra la DB del
+# servicio y siembra antes de correr un solo test.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend · typecheck, lint, tests, guard T-63
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: erp_user
+          POSTGRES_PASSWORD: erp_pass
+          POSTGRES_DB: automotive_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_user -d automotive_os"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # dotenv NO corre (no hay .env en el runner) — todo se inyecta aquí.
+      DATABASE_URL: postgresql://erp_user:erp_pass@127.0.0.1:5432/automotive_os?sslmode=disable
+      JWT_SECRET: ci-only-not-a-secret
+      STORAGE_PATH: /tmp/erp-storage-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Misma versión mayor que dev local (engines: >=20).
+          node-version: 26
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Migraciones sobre DB fresca
+        run: npm run db:migrate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: "Lint (cuello de puerta: 0 errores; warnings de baseline OK)"
+        run: npm run lint
+
+      - name: Tests + guard T-63 (techos 0/0/0/0, exclusiones ≥43)
+        run: npx vitest run
+
+  web:
+    name: Web · typecheck, lint, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: "Lint (cuello de puerta: 0 errores)"
+        run: npm run lint
+
+      - name: Unit tests (vitest)
+        run: npm test
+
+  # ── FB-3 · E2E (Playwright) ──────────────────────────────────────────────
+  # 19+ specs de `web/e2e` (smoke + data) que hasta ahora sólo corrían en local.
+  # Playwright arranca backend (`npm run start:dev`) y web (`next build && next
+  # start`) vía `webServer`; `globalSetup` siembra el dataset determinista con
+  # el DATABASE_URL del servicio. `CI=true` (implícito) fuerza 1 worker y
+  # reintentos, porque varios workers se pisan los datos entre sí.
+  e2e:
+    name: E2E · Playwright (backend + web + seed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: erp_user
+          POSTGRES_PASSWORD: erp_pass
+          POSTGRES_DB: automotive_os
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_user -d automotive_os"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # El seed (globalSetup) y el backend del webServer heredan esto.
+      DATABASE_URL: postgresql://erp_user:erp_pass@127.0.0.1:5432/automotive_os?sslmode=disable
+      JWT_SECRET: ci-only-not-a-secret
+      STORAGE_PATH: /tmp/erp-storage-ci
+      # Playwright inyecta su propio STORAGE_PATH al backend de la suite
+      # (storage e2e); se fija aquí para que sea explícito y estable.
+      E2E_STORAGE_PATH: /tmp/erp-e2e-storage
+      BACKEND_PORT: "4000"
+      WEB_PORT: "3000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          # Playwright corre desde `web/`, pero su webServer lanza el backend
+          # desde la raíz: se cachean los dos lockfiles.
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Instalar dependencias (backend)
+        run: npm ci
+
+      - name: Instalar dependencias (web)
+        run: npm ci
+        working-directory: web
+
+      - name: Migraciones sobre DB fresca
+        run: npm run db:migrate
+
+      - name: Instalar Chromium de Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      - name: E2E — Playwright (levanta backend + web y siembra el dataset)
+        run: npm run test:e2e
+        working-directory: web
+
+      - name: Subir reporte de Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
