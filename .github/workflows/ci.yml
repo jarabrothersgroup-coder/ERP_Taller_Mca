@@ -56,6 +56,10 @@ jobs:
       DATABASE_URL: postgresql://erp_user:erp_pass@127.0.0.1:5432/automotive_os?sslmode=disable
       JWT_SECRET: ci-only-not-a-secret
       STORAGE_PATH: /tmp/erp-storage-ci
+      # TOKEN_SECRET no es opcional: hardware-fingerprint.service y two-factor
+      # lo validan (>32 chars) al importar y hacen throw en el import. Sin él,
+      # 43 ficheros de test (csrf, t61-*, contrato) ni siquiera cargaban.
+      TOKEN_SECRET: ci-only-token-secret-at-least-32-chars-long
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +71,14 @@ jobs:
 
       - name: Instalar dependencias
         run: npm ci
+
+      - name: Instalar dependencias (web)
+        # Sin web/node_modules, 2 tests de contrato no resuelven: el scanner de
+        # T-63 (route-consumer-guard) y single-rewrite-config importan
+        # web/next.config.mjs, que hace `import createNextIntlPlugin from
+        # "next-intl/plugin"` (ERR_MODULE_NOT_FOUND en el runner).
+        run: npm ci
+        working-directory: web
 
       - name: Migraciones sobre DB fresca
         run: npm run db:migrate
@@ -137,6 +149,10 @@ jobs:
       DATABASE_URL: postgresql://erp_user:erp_pass@127.0.0.1:5432/automotive_os?sslmode=disable
       JWT_SECRET: ci-only-not-a-secret
       STORAGE_PATH: /tmp/erp-storage-ci
+      # El backend real (`npm run start:dev`) no arranca sin TOKEN_SECRET: el
+      # servicio de hardware-fingerprint hace throw al importar. Fue lo que dejó
+      # el webServer en "Exit code: 1 / could not start".
+      TOKEN_SECRET: ci-only-token-secret-at-least-32-chars-long
       # Playwright inyecta su propio STORAGE_PATH al backend de la suite
       # (storage e2e); se fija aquí para que sea explícito y estable.
       E2E_STORAGE_PATH: /tmp/erp-e2e-storage
