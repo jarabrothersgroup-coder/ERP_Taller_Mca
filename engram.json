@@ -173,7 +173,7 @@
       }
     },
     "current_sprint": "Sprint 131 — COMPLETADO (FB-2 dashboards por rol ADM-04 + FB-3 E2E en CI)",
-    "next_sprint": "Sin sprint planificado. Único pendiente de la auditoría heredada: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130+S131 commiteados y pusheados 2026-10-14; el workflow de CI (.github/workflows/ci.yml, job `e2e` de FB-3) ya está en origin/main y corre en Actions. Se pushea por clave de despliegue SSH (deploy key 'erp-taller-agent-deploy'), no por el PAT clásico (que nunca tuvo scope `workflow`).",
+    "next_sprint": "Sin sprint planificado. CI EN VERDE (2026-10-15, run 38821325730 @ 237280a: backend·web·e2e success). Único pendiente de la auditoría heredada: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130+S131 commiteados y pusheados; el workflow de CI (.github/workflows/ci.yml, job `e2e` de FB-3) ya corre en Actions sobre origin/main. Se pushea por clave de despliegue SSH (deploy key 'erp-taller-agent-deploy'), no por el PAT clásico (que nunca tuvo scope `workflow`). Backlog menor: el baseline de AGENTS.md para E2E (61 tests/19 specs) está desactualizado — en CI corren ~96 tests.",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -4215,7 +4215,9 @@
         "web_vitest": "166/166 (20 ficheros) — 156 baseline + 10 tests nuevos de FB-2",
         "root_tsc": "0 errores (backend intacto)",
         "scanner_t63": "sin cambios (backend intacto); el FE ahora consume /config/dashboard/role y /consolidated",
-        "ci_yaml": "validado con yaml.safe_load — 3 jobs (backend, web, e2e); pusheado a origin/main y disparado en Actions (run 38818640143, sha 395017c)"
+        "ci_yaml": "validado con yaml.safe_load — 3 jobs (backend, web, e2e)",
+        "ci_verde": "2026-10-15 — CI EN VERDE (run 38821325730, sha 237280a): los 3 jobs (backend · web · e2e) success. El PRIMER run real del workflow (nunca había corrido: sólo existía en disco) destapó 3 rojos preexistentes que la suite local tapaba, y se cerraron: (1) faltaba TOKEN_SECRET en los jobs backend/e2e y faltaban los node_modules de web en el job backend (next-intl/plugin al parsear web/next.config.mjs); (2) 2 tests no herméticos que fallan en DB fresca pero pasan en local por estado filtrado — s120 evolucion-patrimonio dependía de filas de plan_cuentas (tabla GLOBAL, sin tenant/RLS) que dejaban otros suites (→422), y GET /inventory/reports/{stock,movements,valuation} devolvía 500 opaco sin motor PDF (ahora 503, igual que el resto de rutas PDF); (3) e2e facturacion-smoke-s128: selector múltiple `main, [role=main], body` sin .first() → strict mode violation. Fix de producto: findChromiumPath() ahora honra PUPPETEER_EXECUTABLE_PATH (su propio mensaje de error lo prometía y no estaba implementado). Fix de CI: el job backend instala el Chromium de Playwright (--with-deps) y exporta PUPPETEER_EXECUTABLE_PATH, para que los tests de PDF corran de verdad. Verificación local = set de CI: 2642 PASS / 4 skip (2646, 132 ficheros) + spec e2e 5/5. Commits: 303f3d7 (TOKEN_SECRET + deps web) y 237280a (los 3 fixes + Chromium).",
+        "push_ssh": "origin es SSH (git@github-erp:...) vía deploy key 'erp-taller-agent-deploy' (id 166598175, read_only=false) y alias en ~/.ssh/config. El PAT clásico (scope `repo`) no puede empujar workflows (`without 'workflow' scope`) pero sí pudo crear la deploy key por API; ya no vive en .git/config."
       },
       "no_commit": false,
       "commit": "S131 (FB-2 + FB-3) 2026-10-14 — dd4c29e (web FB-2 + engram) y 395017c (.github/workflows/ci.yml, job e2e); ambos pusheados a origin/main",
