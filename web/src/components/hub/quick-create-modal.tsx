@@ -24,6 +24,20 @@ interface QuickCreateModalProps {
   onCreated: () => void;
 }
 
+/**
+ * Normaliza una respuesta de listado del backend a un array.
+ *
+ * `GET /workshop/clientes` y `GET /workshop/vehiculos` paginan y devuelven un
+ * envelope `{ items, total, page, limit, totalPages }` — NO un array. Se
+ * tolera además un array pelado (tests/mocks) para que los consumidores
+ * siempre reciban un array y `.slice()`/`.map()`/`.length` sean seguros.
+ */
+function asItems<T>(res: unknown): T[] {
+  if (Array.isArray(res)) return res as T[];
+  const items = (res as { items?: unknown } | null | undefined)?.items;
+  return Array.isArray(items) ? (items as T[]) : [];
+}
+
 export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateModalProps) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -38,16 +52,20 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
   const [createdVehicleId, setCreatedVehicleId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
 
+  // El backend pagina: la respuesta es `{ items, ... }`, no un array. Sin
+  // normalizar, `existingClients.slice(0, 5)` reventaba con
+  // "B.slice is not a function" al abrir el modal.
   const { data: existingClients = [] } = useQuery<any[]>({
     queryKey: ["hub-clients-search"],
-    queryFn: () => api.request<any[]>("/workshop/clientes?limit=50"),
+    queryFn: async () => asItems<any>(await api.request("/workshop/clientes?limit=50")),
   });
 
   const { data: existingVehicles = [] } = useQuery<any[]>({
     queryKey: ["hub-vehicles-search", createdClientId],
-    queryFn: () => createdClientId
-      ? api.request<any[]>(`/workshop/vehiculos?clientId=${createdClientId}&limit=50`)
-      : Promise.resolve([]),
+    queryFn: async () =>
+      createdClientId
+        ? asItems<any>(await api.request(`/workshop/vehiculos?clientId=${createdClientId}&limit=50`))
+        : [],
     enabled: !!createdClientId,
   });
 
