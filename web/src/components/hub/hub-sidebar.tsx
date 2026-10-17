@@ -9,7 +9,7 @@ import {
 import { GripVertical, PackageCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, ClipboardCheck } from "lucide-react";
-import { STATUS_FLOW, TERMINAL_STATUS, type KanbanOT, timeAgo, getStatusConfig, formatCurrency, toUiStatus, toBackendStatus } from "./types";
+import { STATUS_FLOW, type KanbanOT, timeAgo, getStatusConfig, formatCurrency, toUiStatus, toBackendStatus } from "./types";
 
 interface HubSidebarProps {
   ordenes: KanbanOT[];
@@ -18,6 +18,39 @@ interface HubSidebarProps {
   onStatusChange: (ordenId: string, newStatus: string) => void;
   /** Closes the OT: marks it Finalizado_Retirado (vehicle delivered) */
   onRetirar?: (ordenId: string) => void;
+}
+
+/**
+ * Resuelve el drop de una tarjeta del Kanban a un cambio de estado concreto.
+ *
+ * Los droppables de columna usan como `id` la key del flujo en UI
+ * (`budgeted`, `in_progress`, `quality`, `ready`), mientras que el backend
+ * habla en español (`Presupuestado`, `En_Proceso`, ...). Comparar el estado
+ * backend contra las keys UI nunca coincidía, así que el drag jamás cambiaba
+ * de estado (el `onStatusChange` nunca se llamaba).
+ *
+ * @param overId - `id` del droppable destino (columna) o de otra tarjeta
+ * @param activeId - `id` de la tarjeta arrastrada (id de la OT)
+ * @param ordenes - OTs visibles en el tablero
+ * @returns La OT y el estado backend destino, o `null` si el drop no cae en
+ *          una columna, la OT no existe o el estado no cambia
+ */
+export function resolveDropTarget(
+  overId: string,
+  activeId: string,
+  ordenes: Pick<KanbanOT, "id" | "status">[],
+): { ordenId: string; targetStatus: string } | null {
+  // Ignora drops que no caigan en una columna válida (p. ej. sobre otra tarjeta)
+  const column = STATUS_FLOW.find((s) => s.key === overId);
+  if (!column) return null;
+
+  const ot = ordenes.find((o) => o.id === activeId);
+  if (!ot) return null;
+
+  const targetStatus = toBackendStatus(column.key);
+  if (ot.status === targetStatus) return null;
+
+  return { ordenId: ot.id, targetStatus };
 }
 
 export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange, onRetirar }: HubSidebarProps) {
@@ -52,15 +85,11 @@ export function HubSidebar({ ordenes, selectedId, onSelect, onStatusChange, onRe
     setActiveDraggingId(null);
     const { active, over } = event;
     if (!over || !active) return;
-    const ordenId = String(active.id);
-    const targetStatus = toBackendStatus(String(over.id));
-    const ot = ordenes.find(o => o.id === ordenId);
-    if (!ot || ot.status === targetStatus) return;
-    // Only allow valid forward/backward moves within the flow (terminal state
-    // is reached via the explicit "Retirar" action, not by dragging)
-    const validStatuses = STATUS_FLOW.map(s => s.key);
-    if (!validStatuses.includes(targetStatus)) return;
-    onStatusChange(ordenId, targetStatus);
+    // El estado terminal (Finalizado_Retirado) no es columna del flujo: se
+    // alcanza con la acción explícita "Retirar", nunca arrastrando.
+    const result = resolveDropTarget(String(over.id), String(active.id), ordenes);
+    if (!result) return;
+    onStatusChange(result.ordenId, result.targetStatus);
   }, [ordenes, onStatusChange]);
 
   return (
