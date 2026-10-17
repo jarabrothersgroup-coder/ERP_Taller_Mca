@@ -62,7 +62,7 @@ export interface OrdenListRow {
 export interface ListOrdenesParams {
   status?: string;
   excludeStatus?: ExcludeStatus[];
-  /** Búsqueda por descripción o placa (T-54) */
+  /** Búsqueda libre por id de OT, descripción, patente o nombre del cliente (T-54) */
   search?: string;
   /** Página 1-based */
   page?: number;
@@ -112,6 +112,9 @@ export async function listOrdenes(
         ilike(ordenesTrabajo.description, pattern),
         ilike(vehiculos.plate, pattern),
         ilike(clients.name, pattern),
+        // Búsqueda por número de OT: el Hub muestra `#<8 primeros del uuid>`,
+        // así que el id debe ser buscable (si no, "fbc0771d" no encuentra nada).
+        ilike(sql<string>`${ordenesTrabajo.id}::text`, pattern),
       )!,
     );
   }
@@ -122,9 +125,9 @@ export async function listOrdenes(
   const offset = (page - 1) * limit;
 
   // El count reutiliza los mismos LEFT JOIN que la data: `search` filtra por
-  // columnas de vehiculos/clients. Son muchos-a-uno por PK, así que el join no
-  // duplica filas y count() sigue siendo el total real de órdenes. El `where`
-  // es el mismo que usa la data e incluye el filtro de tenantSlug.
+  // columnas de ordenes_trabajo/vehiculos/clients. Son muchos-a-uno por PK, así
+  // que el join no duplica filas y count() sigue siendo el total real de
+  // órdenes. El `where` es el mismo que usa la data e incluye el tenantSlug.
   const [totalRow] = await db()
     .select({ total: count() })
     .from(ordenesTrabajo)

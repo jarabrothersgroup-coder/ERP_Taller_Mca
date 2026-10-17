@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { OtSearchSelect } from "@/components/taller/ot-search-select";
 
 interface AssignmentInput {
   ordenId: string;
@@ -104,10 +105,15 @@ export default function AsignacionPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
+              <label htmlFor="ot-search" className="text-xs text-muted-foreground mb-1 block">
                 ID de Orden de Trabajo <span className="text-destructive">*</span>
               </label>
-              <Input placeholder="UUID de la OT..." value={ordenId} onChange={(e) => setOrdenId(e.target.value)} />
+              <OtSearchSelect
+                inputId="ot-search"
+                value={ordenId}
+                onChange={setOrdenId}
+                onSelectOt={(ot) => setHvAlert(ot.hvAlert)}
+              />
             </div>
 
             <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
