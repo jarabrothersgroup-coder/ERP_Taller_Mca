@@ -143,6 +143,14 @@ else
   warn "Accounting seeding had issues"
 fi
 
+# ── Extra domain tables (finance, inventory, workshop, purchasing, fiscal, admin, marketing) ──
+info "Seeding extra domain tables (Sprint 7+)..."
+if bash scripts/seed-extra-all.sh "${TENANT_SLUG}" 2>&1; then
+  ok "Extra domain seeds loaded"
+else
+  warn "Extra domain seeding had issues"
+fi
+
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 
