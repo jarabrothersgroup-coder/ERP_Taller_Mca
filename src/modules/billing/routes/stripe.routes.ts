@@ -38,7 +38,12 @@ const billingPlanSchema = {
     priceAnnualPyg: { type: "integer", nullable: true, description: "Annual price in PYG (discounted)" },
     maxUsers: { type: "integer", description: "Maximum number of users allowed" },
     maxBranches: { type: "integer", description: "Maximum number of branches allowed" },
-    features: { type: "array", items: { type: "string" }, description: "List of included features" },
+    features: {
+      type: "object",
+      nullable: true,
+      additionalProperties: { type: "boolean" },
+      description: "Map of feature flags included in the plan (e.g. { sifen: true, analytics: false })",
+    },
     isActive: { type: "boolean", description: "Whether the plan is currently available" },
     sortOrder: { type: "integer", description: "Display order (ascending)" },
   },
