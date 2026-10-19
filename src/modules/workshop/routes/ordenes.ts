@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden, setAssignedTo, type ExcludeStatus } from "../services/orden.service.js";
+import { signHvLockout, updateOrdenStatus, listOrdenes, getOrden, createOrden, setAssignedTo, deleteOrden, type ExcludeStatus } from "../services/orden.service.js";
 import { previewStockConsumption } from "../../inventory/services/ot-stock-consumer.js";
 import { BadRequestError } from "../../../shared/errors/app-error.js";
+import { requireManager } from "../../../shared/middleware/rbac.js";
 import { generateOtPdf, isPdfAvailable } from "../../../shared/services/pdf-report.service.js";
 import { db } from "../../../shared/database/drizzle.js";
 import { ordenesTrabajo, vehiculos, ordenServicios, ordenRepuestos } from "../schema/index.js";
@@ -442,6 +443,25 @@ export async function ordenesRoutes(app: FastifyInstance): Promise<void> {
         .header("Content-Type", "application/pdf")
         .header("Content-Disposition", `attachment; filename="OT-${id.slice(0, 8)}-${date}.pdf"`)
         .send(pdf);
+    },
+  );
+
+  // ── DELETE /workshop/ordenes/:id — Delete work order ──
+  app.delete<{ Params: OrdenParams }>(
+    "/workshop/ordenes/:id",
+    {
+      preHandler: requireManager,
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", format: "uuid" } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Params: OrdenParams }>, reply: FastifyReply) => {
+      const result = await deleteOrden(request.params.id, request.tenantSlug);
+      return reply.send(result);
     },
   );
 }

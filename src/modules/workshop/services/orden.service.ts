@@ -4,10 +4,13 @@ import { getSettings, invalidateCache } from "../../config/services/TenantConfig
 import { ordenesTrabajo, vehiculos, type EstadoOrden, ordenEstadoHistorial, estadoOrdenEnum } from "../schema/index.js";
 import { clients } from "../../../shared/database/schema/clients.js";
 import { eq, sql, and, desc, notInArray, ilike, or, count } from "drizzle-orm";
-import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+import { ConflictError, NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
+import { logEntityAudit } from "../../finance/services/accounting/audit-log.service.js";
 import { consumeStockOnOTClose } from "../../inventory/services/ot-stock-consumer.js";
+import { stockMovements } from "../../inventory/schema/stock-movements.js";
 import { generarMantenimientosDeOT } from "./mantenimiento-programado.service.js";
 import { presupuestos } from "../../finance/schema/budget.js";
+import { facturas } from "../../finance/schema/facturas.js";
 import { workshopConfigurator } from "../../finance/services/index.js";
 import { smartSend } from "../../email/services/email.service.js";
 import { orderCompletedTemplate } from "../../email/templates/index.js";
@@ -906,6 +909,97 @@ export async function convertPresupuestoToOT(
       estado: "aprobado",
     },
   };
+}
+
+/**
+ * Elimina una orden de trabajo (hard delete, tenant-scoped).
+ *
+ * Las tablas hijas con `ON DELETE CASCADE` caen con ella: `orden_servicios`,
+ * `orden_repuestos`, `orden_estado_historial`, `dvi_inspections`,
+ * `digital_signatures`, `control_herramientas` y `trabajos_terceros`.
+ *
+ * Guarda referencial (espejo de `deleteClient`): se bloquea con 409 cuando la
+ * OT tiene facturas (`RESTRICT`) o movimientos de stock (`NO ACTION`)
+ * asociados, porque en ese caso el DELETE fallaría con un 500 de la base.
+ *
+ * @param id          UUID de la orden de trabajo
+ * @param tenantSlug  Tenant que debe poseer la orden (aislamiento multi-tenant)
+ * @returns `{ deleted: true }` si la fila se eliminó
+ * @throws {NotFoundError} si la orden no existe o no pertenece al tenant
+ * @throws {ConflictError} si tiene facturas o movimientos de stock asociados
+ */
+export async function deleteOrden(
+  id: string,
+  tenantSlug?: string,
+): Promise<{ deleted: boolean }> {
+  const conditions = [eq(ordenesTrabajo.id, id)];
+  if (tenantSlug) {
+    conditions.push(eq(ordenesTrabajo.tenantSlug, tenantSlug));
+  }
+
+  // Fila completa: queda como `valorAnterior` de la entrada de auditoría T-33.
+  const [existing] = await db()
+    .select()
+    .from(ordenesTrabajo)
+    .where(and(...conditions))
+    .limit(1);
+
+  if (!existing) {
+    throw new NotFoundError(
+      `Orden de trabajo con ID ${id} no encontrada o no pertenece al taller`,
+    );
+  }
+
+  // ── Guarda referencial: FKs RESTRICT / NO ACTION hacia ordenes_trabajo ──
+  // Filtro de tenant inline (visible para scripts/audit-tenant-filters.mjs).
+  const [facturasCount] = await db()
+    .select({ total: count() })
+    .from(facturas)
+    .where(
+      and(
+        eq(facturas.ordenId, id),
+        ...(tenantSlug ? [eq(facturas.tenantSlug, tenantSlug)] : []),
+      ),
+    );
+
+  if (facturasCount && Number(facturasCount.total) > 0) {
+    throw new ConflictError(
+      `No se puede eliminar la orden: posee ${facturasCount.total} factura(s) asociada(s). ` +
+        `Anule la factura antes de borrar la orden de trabajo.`,
+    );
+  }
+
+  const [stockCount] = await db()
+    .select({ total: count() })
+    .from(stockMovements)
+    .where(
+      and(
+        eq(stockMovements.ordenTrabajoId, id),
+        ...(tenantSlug ? [eq(stockMovements.tenantSlug, tenantSlug)] : []),
+      ),
+    );
+
+  if (stockCount && Number(stockCount.total) > 0) {
+    throw new ConflictError(
+      `No se puede eliminar la orden: posee ${stockCount.total} movimiento(s) de stock asociado(s). ` +
+        `Revierta el consumo de repuestos antes de borrar la orden de trabajo.`,
+    );
+  }
+
+  await db()
+    .delete(ordenesTrabajo)
+    .where(and(...conditions));
+
+  await logEntityAudit({
+    tenantSlug: tenantSlug ?? "default",
+    accion: "DELETE",
+    entidad: "ordenes_trabajo",
+    entidadId: id,
+    valorAnterior: existing as unknown as Record<string, unknown>,
+    descripcion: `Orden de trabajo eliminada: ${existing.description ?? id}`.trim(),
+  });
+
+  return { deleted: true };
 }
 
 /** True when `usuarioId` identifies a real profile (not system/anonymous). */

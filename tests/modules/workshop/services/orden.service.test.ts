@@ -31,12 +31,17 @@ vi.mock("../../../../src/modules/workshop/schema/index.js", () => ({
     status: "ot.status", hvAlert: "ot.hvAlert", hvLockoutSigned: "ot.hvLockoutSigned",
     description: "ot.description", dtcCodes: "ot.dtcCodes",
     createdAt: "ot.createdAt", updatedAt: "ot.updatedAt", assignedTo: "ot.assignedTo",
+    tenantSlug: "ot.tenantSlug",
   },
   vehiculos: { id: "v.id", brand: "v.brand", model: "v.model", plate: "v.plate" },
   estadoOrdenEnum: { enumValues: ["Presupuestado", "Aprobado", "En_Proceso", "Control_Calidad", "Listo", "Finalizado_Retirado"] },
 }));
 
-const { listOrdenes, getOrden } = await import(
+vi.mock("../../../../src/modules/finance/services/accounting/audit-log.service.js", () => ({
+  logEntityAudit: vi.fn(() => Promise.resolve()),
+}));
+
+const { listOrdenes, getOrden, deleteOrden } = await import(
   "../../../../src/modules/workshop/services/orden.service.js"
 );
 
@@ -86,6 +91,18 @@ function makeSelectQuery(returnValue: unknown[]) {
     limit: vi.fn(() => limitResult),
   };
 
+  return chain;
+}
+
+/**
+ * Mock chain for `select({ total: count() }).from(T).where(...)` — the
+ * `where()` terminal resolves directly to a count row.
+ */
+function makeCountQuery(total: number) {
+  const chain: { from: ReturnType<typeof vi.fn>; where?: ReturnType<typeof vi.fn> } = {
+    from: vi.fn(() => chain),
+  };
+  chain.where = vi.fn(() => Promise.resolve([{ total }]));
   return chain;
 }
 
@@ -205,6 +222,67 @@ describe("Orden Service", () => {
       await expect(getOrden("nonexistent")).rejects.toThrow(
         "no encontrada",
       );
+    });
+  });
+
+  describe("deleteOrden", () => {
+    function mockDelete() {
+      mockDb.delete.mockReturnValue({ where: vi.fn(() => Promise.resolve()) });
+    }
+
+    it("deletes the orden when it has no related facturas or stock movements", async () => {
+      mockDb.select
+        .mockReturnValueOnce(makeSelectQuery([makeOrdenRow()]))
+        .mockReturnValueOnce(makeCountQuery(0))
+        .mockReturnValueOnce(makeCountQuery(0));
+      mockDelete();
+
+      const result = await deleteOrden("ot-001", "demo");
+
+      expect(result).toEqual({ deleted: true });
+      expect(mockDb.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws NotFoundError when the orden does not exist", async () => {
+      mockDb.select.mockReturnValueOnce(makeSelectQuery([]));
+
+      await expect(deleteOrden("missing", "demo")).rejects.toThrow(
+        "no encontrada",
+      );
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws ConflictError (409) when the orden has facturas", async () => {
+      mockDb.select
+        .mockReturnValueOnce(makeSelectQuery([makeOrdenRow()]))
+        .mockReturnValueOnce(makeCountQuery(2));
+
+      await expect(deleteOrden("ot-001", "demo")).rejects.toThrow(
+        /factura/,
+      );
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws ConflictError (409) when the orden has stock movements", async () => {
+      mockDb.select
+        .mockReturnValueOnce(makeSelectQuery([makeOrdenRow()]))
+        .mockReturnValueOnce(makeCountQuery(0))
+        .mockReturnValueOnce(makeCountQuery(3));
+
+      await expect(deleteOrden("ot-001", "demo")).rejects.toThrow(
+        /movimiento/,
+      );
+      expect(mockDb.delete).not.toHaveBeenCalled();
+    });
+
+    it("conflict errors carry HTTP status 409", async () => {
+      mockDb.select
+        .mockReturnValueOnce(makeSelectQuery([makeOrdenRow()]))
+        .mockReturnValueOnce(makeCountQuery(1));
+
+      await expect(deleteOrden("ot-001", "demo")).rejects.toMatchObject({
+        statusCode: 409,
+      });
     });
   });
 });
