@@ -4,7 +4,7 @@
 #
 # Runs the "extra" seed scripts that populate the remaining
 # domain tables which had no seed coverage (Sprint 7+):
-#   finance, inventory, workshop, purchasing, fiscal, admin, marketing
+#   finance, inventory, workshop, purchasing, fiscal, admin, marketing, coverage
 #
 # Each script is idempotent (safe to re-run) and resolves foreign
 # keys from the base demo data created by seed-demo-all.sh, so this
@@ -57,13 +57,14 @@ echo -e "  Date:    ${CYAN}$(date '+%Y-%m-%d %H:%M:%S')${NC}"
 echo ""
 
 # Order matters: finance creates activos_fijos (needed by inventory revaluaciones).
-run_seed "1/7" "seed-finance-extra"            "Finance & accounting (activos fijos, asientos, presupuestos…)"
-run_seed "2/7" "seed-inventory-extra"          "Inventory (almacenes, stock movements, tools, cycle counts…)"
-run_seed "3/7" "seed-workshop-extra"           "Workshop (orden_servicios, DVI, checklists, mantenimientos…)"
-run_seed "4/7" "seed-purchasing-extra"         "Purchasing (proveedores, compras, purchase orders, terceros…)"
-run_seed "5/7" "seed-fiscal-extra"             "Fiscal (SIFEN, liquidaciones IVA/IRE/INR/IDU/ISC, periodos…)"
-run_seed "6/7" "seed-admin-extra"              "Admin / CRM / Security (api keys, audit, sso, labels…)"
-run_seed "7/7" "seed-marketing-backup-extra"   "Marketing / WhatsApp / Billing / Backup / Otros…"
+run_seed "1/8" "seed-finance-extra"            "Finance & accounting (activos fijos, asientos, presupuestos…)"
+run_seed "2/8" "seed-inventory-extra"          "Inventory (almacenes, stock movements, tools, cycle counts…)"
+run_seed "3/8" "seed-workshop-extra"           "Workshop (orden_servicios, DVI, checklists, mantenimientos…)"
+run_seed "4/8" "seed-purchasing-extra"         "Purchasing (proveedores, compras, purchase orders, terceros…)"
+run_seed "5/8" "seed-fiscal-extra"             "Fiscal (SIFEN, liquidaciones IVA/IRE/INR/IDU/ISC, periodos…)"
+run_seed "6/8" "seed-admin-extra"              "Admin / CRM / Security (api keys, audit, sso, labels…)"
+run_seed "7/8" "seed-marketing-backup-extra"   "Marketing / WhatsApp / Billing / Backup / Otros…"
+run_seed "8/8" "seed-coverage-extra"           "Cobertura final (fleet, loyalty, marketing, grupo, RAG…)"
 
 echo ""
 echo -e "${GREEN}  ✅  Extra domain seeds complete${NC}"
