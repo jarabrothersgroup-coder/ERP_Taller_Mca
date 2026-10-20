@@ -19,7 +19,7 @@ import {
   updateSucursal,
   deleteSucursal,
 } from "../services/sucursal.service.js";
-import { requireAdmin } from "../../../shared/middleware/rbac.js";
+import { requireAdmin, requireManager, requireAuth } from "../../../shared/middleware/rbac.js";
 import { getConsolidatedKPIs, getRoleDashboard } from "../services/multi-branch-dashboard.service.js";
 
 interface CreateBody {
@@ -51,13 +51,23 @@ interface IdParams {
 }
 
 export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
-  // ── RBAC: Only admin users can manage branches ──
-  app.addHook("preHandler", requireAdmin);
+  // ── RBAC ────────────────────────────────────────────────
+  // El guard se aplica POR RUTA, no como hook de plugin. Un
+  // `addHook("preHandler", requireAdmin)` aquí bloqueaba también a
+  // manager/mechanic en los dashboards registrados en este plugin
+  // (`/config/dashboard/role`, `/config/dashboard/consolidated`),
+  // que están diseñados para resolver la vista según el rol del
+  // usuario → 403 "Acceso denegado" en /dashboard para un gerente.
+  //
+  //   · CRUD de sucursales       → requireAdmin (gestión de sucursales)
+  //   · /config/dashboard/role  → requireAuth (la vista la decide el rol)
+  //   · /dashboard/consolidated → requireManager (admin/manager)
 
   // ── POST /config/sucursales — Create branch ──
   app.post<{ Body: CreateBody }>(
     "/config/sucursales",
     {
+      preHandler: requireAdmin,
       schema: {
         body: {
           type: "object",
@@ -86,6 +96,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/config/sucursales",
     {
+      preHandler: requireAdmin,
       schema: {
         response: {
           200: {
@@ -105,6 +116,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: IdParams }>(
     "/config/sucursales/:id",
     {
+      preHandler: requireAdmin,
       schema: {
         params: {
           type: "object",
@@ -123,6 +135,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   app.patch<{ Params: IdParams; Body: UpdateBody }>(
     "/config/sucursales/:id",
     {
+      preHandler: requireAdmin,
       schema: {
         params: {
           type: "object",
@@ -155,6 +168,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   app.delete<{ Params: IdParams }>(
     "/config/sucursales/:id",
     {
+      preHandler: requireAdmin,
       schema: {
         params: {
           type: "object",
@@ -173,6 +187,7 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/config/dashboard/consolidated",
     {
+      preHandler: requireManager,
       schema: {
         response: {
           200: {
@@ -195,9 +210,10 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // ── GET /config/dashboard/role — Role-based dashboard data ──
-  app.get(
+  app.get<{ Querystring: { sucursalId?: string } }>(
     "/config/dashboard/role",
     {
+      preHandler: requireAuth,
       schema: {
         querystring: {
           type: "object",
@@ -206,11 +222,14 @@ export async function sucursalesRoutes(app: FastifyInstance): Promise<void> {
           },
         },
         response: {
-          200: { type: "object" },
+          // additionalProperties: true — sin esto fast-json-stringify
+          // descarta todos los campos (view/totalOTs/branches/…) y el
+          // panel recibe {} aunque el handler calcule los datos.
+          200: { type: "object", additionalProperties: true },
         },
       },
     },
-    async (request: FastifyRequest<{ Querystring: { sucursalId?: string } }>, reply: FastifyReply) => {
+    async (request, reply) => {
       const role = request.profile?.role || "user";
       const email = request.profile?.email;
       const result = await getRoleDashboard(
