@@ -9,7 +9,6 @@ export {
 } from "./profiles.js";
 export {
   clients,
-  clientsRelations,
   type Client,
   type NewClient,
 } from "./clients.js";
@@ -22,6 +21,7 @@ export {
   tipoMotorEnum,
   estadoOrdenEnum,
   estadoTerceroEnum,
+  clientsRelations,
   vehiculosRelations,
   ordenesTrabajoRelations,
   ingresosRelations,

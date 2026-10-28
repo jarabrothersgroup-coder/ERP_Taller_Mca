@@ -172,8 +172,200 @@
         }
       }
     },
-    "current_sprint": "Sprint 131 — COMPLETADO (FB-2 dashboards por rol ADM-04 + FB-3 E2E en CI)",
-    "next_sprint": "Sin sprint planificado. CI EN VERDE (2026-10-15, run 38821325730 @ 237280a: backend·web·e2e success). Único pendiente de la auditoría heredada: resolver vercel.json (outputDirectory '.next' vs build en web/). Operativo: S129+S130+S131 commiteados y pusheados; el workflow de CI (.github/workflows/ci.yml, job `e2e` de FB-3) ya corre en Actions sobre origin/main. Se pushea por clave de despliegue SSH (deploy key 'erp-taller-agent-deploy'), no por el PAT clásico (que nunca tuvo scope `workflow`). Backlog menor: el baseline de AGENTS.md para E2E (61 tests/19 specs) está desactualizado — en CI corren ~96 tests.",
+    "audit_arquitectura_tricapa_20261028": {
+      "doc": "docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md",
+      "scope": "Auditoría estática tricapa: backend (521 rutas volcadas con dump-routes) ↔ frontend web/mobile/SPA legacy (501 call-sites) ↔ BD (133 tablas, 36 migraciones) ↔ documentación canónica. 5 frentes explorados en paralelo + verificación puntual de hallazgos críticos en working tree @ ae53563",
+      "baseline": "tsc raíz PASS (0 errores) · contrato FE↔BE: 0 endpoints rotos (test T-00 + re-scan independiente, 15/15) · guard T-63 con techos en 0 · CI verde 2026-10-15 · engram.json + AGENTS.md al día",
+      "conclusion": "Contrato FE↔BE sano y blindado (0 rotos). Deuda concentrada en 3 bordes: (1) BD — discriminador de tenant inconsistente, hueco de aislamiento fiscal, RLS inefectivo (BYPASSRLS), drift de migraciones; (2) documentación — dos verdades: engram/AGENTS al día vs vault Obsidian caduco (2026-06-19), docs/API.md 6× por debajo con 5 endpoints fantasma, DAS describe Arquitectura B; (3) shape silencioso — WIP order-items (precioUnitario/notas ignorados por el BE), mocks que inventan datos, fallback tenant 'demo'",
+      "strengths": [
+        "Contrato FE↔BE: 0 endpoints rotos en 501 call-sites (test T-00 + re-scan independiente + guard T-63 con techos en 0)",
+        "Backend estructurado (26 módulos plugin→routes→services→schema), firma SIFEN en worker_thread (límite 50MB explícito hasta en --max-old-space-size=48)",
+        "CI 3 jobs verde, npm audit clean, engram.json como memoria viva con trazabilidad T-XX cerrada (auditoría 09-25 completa)",
+        "Trazabilidad excepcional de decisiones vía comentarios con tickets (T-XX, D1, FB-N)"
+      ],
+      "findings_p1": [
+        "BD-1: 3 convenciones de tenant coexisten — tenant_slug sin FK (~100 tablas) / tenant_id uuid con FK / tenant_id uuid sin FK; defaults .default(\"demo\") en repuestos y herramientas; email_log y cuenta_mapping nullable",
+        "BD-2: núcleo fiscal SIN columna tenant — fiscal_documentos, fiscal_documento_detalles, sifen_sync_log identifican tenant solo por emisor_ruc; sin policy RLS posible; header fiscal-docs.ts aún dice 'schema por tenant' (Arquitectura B stale)",
+        "BD-3: RLS fail-closed de 0019_rls_security.sql inefectivo — rol erp_user conecta con BYPASSRLS (la propia migración lo admite 0019:27-29); app.current_tenant lleva slug nunca UUID → 4 tablas tenant_id (profiles, commission_records, fixed_expenses, payroll_summary) excluidas de policies; 3 tablas financieras excluidas por webhooks",
+        "FE-1: shape drift en WIP sin commitear — api.ts:669-690 declara precioUnitario/notas para ítems de servicio de OT pero el backend solo lee cantidad (order-items.routes.ts:110-117); Fastify no rechaza additionalProperties → se ignoran sin error",
+        "FE-2: fallback tenant 'demo' silencioso — web/src/lib/api.ts:198-208: si TenantResolver no corrió (SSR/primer render), todas las llamadas salen con X-Tenant-Slug: demo"
+      ],
+      "findings_p2": [
+        "BD-4: drift de migraciones — snapshots detenidos en 0001 con journal de 36 entradas (0002+ SQL a mano, drizzle-kit generate produciría diff espurio); 3 trackers coexisten (__drizzle_migrations/_migrations/public.migrations); scripts apply-* stale (apply-0008 apunta a SQL inexistente y recrea tabla existente)",
+        "BD-5: schemas TS fuera de drizzle.config — billing (3 tablas), fleet, mobile, marketing (4), analytics, intelligence/rag; dobles creaciones SQL (billing en migration.sql.ts y 0030_feature_tables.sql con IF NOT EXISTS)",
+        "BD-6: FKs faltantes — orden_repuestos.repuesto_id, ordenes_trabajo.sucursal_id, assigned_to/hv_lockout_signed_by en text, fiscal_documentos.cliente_id; ninguna FK de tenant_slug→tenants.slug; bug confirmado clientsRelations.vehicles: many(clients) auto-referencia (clients.ts:72)",
+        "FE-3: mocks que inventan datos en vez de degradar — data-service mapea year 2024 / 'Sin asignar' / estimatedCost 0; flotas/page.tsx:78 calcula vehículos como total*8; ocultó bug real de envelope (T-62: calendario vacío con 3 turnos en BD)",
+        "FE-4: fragilidad de envelopes paginados — {items|entries,...} vs array asumido en /scheduling/appointments y /audit (T-62); riesgo latente en cualquier cambio de forma",
+        "FE-5: 3 mecanismos de dirección de backend — BACKEND_HOST/BACKEND_PORT (rewrites, default 3000 que colisiona con el web), BACKEND_URL (solo route handlers onboarding), NEXT_PUBLIC_API_URL (WS financiero bypass, use-financial-ws.ts:28)",
+        "FE-6: doble capa HTTP competidora — api.ts (2777 líneas, tipos a mano) + data-service.ts (fetchs crudos propios, variantes duplicadas listCxcPendientes≡listCxcPendientesTreasury) + 42 fetches dispersos en 17 archivos; sin contrato generado (origen de FE-1)",
+        "FE-7: UI stub/fake — /forgot-password simula envío con setTimeout (residuo Clerk, no llama a nada); /register estático; /dashboard/perfil sin API; analytics/mock-data.ts con mocks sin importar",
+        "DC-1: docs/API.md 6× por debajo — ~96 endpoints documentados vs 521 reales, omite 82% de la superficie; 5 endpoints fantasma (parse-dtc renombrado; herramientas/prestar + control/:id/devolver eliminados S119; thinkcar/import + retry-link renombrados); fechado 2026-06-09",
+        "FN-3: gaps auditoría 2026-09-25 sin tarea T- asignada — OPS-05 (ingresos sin PATCH/DELETE), OPS-07 (calendario sin DELETE de cita), SRV-05 (flat-rate sin corrección de reloj), FIN-06 (tesorería: cuentas sin DELETE, transferencias sin GET)",
+        "FN-4: vercel.json — outputDirectory '.next' vs build en web/ (único pendiente explícito de auditoría heredada)"
+      ],
+      "findings_p3": [
+        "DC-2: vault Obsidian caduco — _🎯_START_HERE_MOC.md (2026-06-19) reporta '59 sprints / 1398 tests' (hoy 131 / 2642+); MOCs enlazan ~20 notas que no existen físicamente; queries Dataview vacías",
+        "DC-3: contradicciones internas — conteos de rutas irreconciliables entre docs (520/528/564/635); convención de slugs de tenant inconsistente (guión vs guion bajo); tech_stack/pdf_engine corregidos en S132-4",
+        "DC-4: Informes/auditoria-2026-08-14.md inválida — nació de prompt equivocado (repo 'GestionIRP' Go/Kafka), sin marca de invalidez ni trazabilidad en engram",
+        "DC-5: DAS docs/Proyecto/02_DAS v3.0 (2026-06-22) describe Arquitectura B (schema por tenant + RLS) vs Arquitectura A real (schema único, tenant_slug)",
+        "BD-7: restos Arquitectura B — tenants.schema_name, TENANT_SCHEMA_PREFIX en compose, seed.ts LEGACY por tenant_<slug> con search_path",
+        "BD-8: 12 tablas solo-SQL sin TS (transferencias_almacen, marketing_campaigns, loyalty_*, google_reviews, fleets, tenant_groups*, consolidated_report_snapshots, sifen_contingencia_queue, digital_signatures)",
+        "FE-8: i18n declarada no aplicada — messages/{es,en,gu}.json + next-intl v4 configurados pero solo 4 archivos usan useTranslations; toda la UI hardcodeada en español",
+        "FE-9: SPA legacy como segundo frontend — legacy-vanilla-frontend/ + src/shared/public/ pegando a los mismos endpoints (9 paths exclusivos), doble mantenimiento del contrato",
+        "FN-1: 18 rutas operativas solo por script sin UI — secuencias marketing (run+CRUD), retry CRM, colas WhatsApp, emisión/firma/consulta SIFEN, validación 2FA hardware, data-retention cleanup",
+        "FN-2: módulo /api/v1/migration/* (5 rutas) completo sin interfaz — migración entre tenants solo invocable por API/script",
+        "Higiene: ~40 reply.send sin return (deuda e2e_wedge_20261007); E2E de datos T-62 pendiente (label-printing, storage/uploads, portal/profile, móvil); baseline E2E AGENTS.md (61) vs CI real (~96)"
+      ]
+    },
+    "sprint_132_plan": {
+      "goal": "Auditoría tricapa 2026-10-28 — cerrar deuda de BD (tenant/RLS/migraciones), contrato FE↔BE (shape/mocks/config) y documentación canónica. Convertido del informe docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md (state.audit_arquitectura_tricapa_20261028)",
+      "priority": "HIGH",
+      "planned_date": "2026-10-28",
+      "estimated_effort": "~6 semanas (Fase 0: 1 sem · Fase 1: 2-3 sem · Fase 2: 2-3 sem · Fase 3: continua)",
+      "status": "IN_PROGRESS",
+      "progress_20261028": "Fase 0 COMPLETADA (S132-1..4 + S132-5 parcial). Verificación: tsc raíz + web PASS · web vitest 197/197 · eslint web 0 err (174 warn, bajó de 175) + eslint src/ 0 err (819 warn) · drizzle-kit check OK. Backend 2646 PASS / 5 FAIL — los 5 son PREEXISTENTES (verificado con stash: initial-load/contabilidad/thinkcar esperan tablas limpias y la BD de prueba tiene filas residuales de corridas previas; thinkcar espera total:0 y hay 2). Nota de entorno: la BD local de tests corre en :5435 (container erp_taller_mca-postgres-1), no en :5433 como declara .env — .env desalineado, otro síntoma del drift documentado.",
+      "tasks": [
+        {
+          "id": "S132-1",
+          "phase": "F0",
+          "name": "Cerrar o revertir WIP order-items (precioUnitario/notas)",
+          "status": "COMPLETED",
+          "description": "FE-1: el cliente FE (sin commitear) declara precioUnitario/notas para crear/actualizar ítems de servicio de OT pero el backend solo lee cantidad (order-items.routes.ts:110-117). Completar el contrato en backend (order-items.service + schema) o revertir los cambios de web/src/lib/api.ts. Bloquea el commit del trabajo en curso del Hub.",
+          "resolution": "2026-10-28 — REVERTIDO el drift (no el WIP). Se conserva todo el feature del Hub (combobox de catálogo, CRUD de servicios, alta/baja de líneas de OT) y se ajusta el contrato FE a lo que el backend realmente hace: createOrdenServicio body {servicioId, cantidad}, updateOrdenServicio body {cantidad}, y Eliminados notas/updatedAt de OrdenServicioItem (no existen en orden_servicios ni en SERVICIO_ITEM_RESPONSE_PROPS). deleteOrdenServicio corrige {success}→{deleted} (el servicio devuelve {deleted}). Nadie enviaba precioUnitario/notas (los 2 callers solo pasan servicioId+cantidad) ni usaba updateOrdenServicio/listOrdenServicios (sin consumidores). Completar en backend exigiría migración (columna notas) → fuera de F0."
+        },
+        {
+          "id": "S132-2",
+          "phase": "F0",
+          "name": "Eliminar fallback tenant 'demo' en api.ts",
+          "status": "COMPLETED",
+          "description": "FE-2: web/src/lib/api.ts:198-208 cae silenciosamente a _tenantSlug='demo' si TenantResolver no corrió. Fallar ruidosamente (throw + toast) cuando no hay tenant en sesión; el backend ya blinda por JWT pero la trampa no debe existir.",
+          "resolution": "2026-10-28 — getTenantSlug() ya NO hace `?? 'demo'`: lanza 'Tenant no resuelto…' si _tenantSlug está vacío. Para no romper el primer render (shell/layout no gatean por loading y las queries disparan antes del efecto de TenantResolver), se añadió un seed EAGER al cargar el módulo que lee auth_user.tenantSlug de localStorage (sólo browser; SSR no usa el cliente API). TenantResolver y shell.tsx siguen seteando en cada cambio de usuario. Tests: data-service.test.ts reemplaza el caso 'falls back to demo' por un assert de throw con módulo aislado (resetModules); d1/t54/dashboard-role setean tenant en beforeEach (probaban construcción de URL, no resolución de tenant)."
+        },
+        {
+          "id": "S132-3",
+          "phase": "F0",
+          "name": "Marcar documentos caducos como históricos",
+          "status": "COMPLETED",
+          "description": "DC-1/2/4: banner '⚠️ HISTÓRICO — ver engram.json' en AutomotiveOS_Vault/_🎯_START_HERE_MOC.md, auditorías de junio-agosto (docs/*2026-07-*, Docs/auditoria-general.md), Informes/auditoria-2026-08-14.md (inválida) y docs/API.md; o moverlos a docs/_historico/.",
+          "resolution": "2026-10-28 — Banners prependeados (in-place, sin romper referencias): 7 auditorías de junio/julio (6 en docs/*2026-07-* + Docs/auditoria-general.md) con banner HISTÓRICO; vault MOC con banner HISTÓRICO insertado tras el frontmatter YAML; Informes/auditoria-2026-08-14.md con banner 🚫 INVÁLIDA (prompt equivocado, repo Go/Kafka 'GestionIRP'); docs/API.md con banner DESACTUALIZADO (puntero a S132-15). Script: /tmp/opencode/banner_docs.py."
+        },
+        {
+          "id": "S132-4",
+          "phase": "F0",
+          "name": "Corregir tech_stack en engram + pdf_engine",
+          "status": "COMPLETED",
+          "description": "DC-3: plans.conejo_de_india.tech_stack declaraba Next 14 + React 18 + Clerk + Stripe + Upstash + Cloudflare R2 + Vercel/Railway (obsoleto desde S98/S105). Corregido 2026-10-28 a Next 16 + React 19 + JWT propio + Redis/storage/hosting on-premise Podman. visual_orchestration.pdf_engine 'Cloud-Rendered Headless Chromium via OpenCode' → puppeteer-core local con degradación 503."
+        },
+        {
+          "id": "S132-5",
+          "phase": "F0",
+          "name": "Fix puntuales de schema y baselines",
+          "status": "PARTIAL",
+          "description": "BD-6/BD-1: clientsRelations.vehicles → many(vehiculos) (clients.ts:72, auto-referencia); quitar .default(\"demo\") en repuestos.ts:121 y herramientas.ts:101; baseline E2E en AGENTS.md (61) → ~96 real en CI.",
+          "resolution": "2026-10-28 — clientsRelations FIXED: la auto-referencia many(clients) pasó a many(vehiculos) y se MOVIÓ de shared/schema/clients.ts a modules/workshop/schema/relations.ts (el archivo central creado para evitar ciclos; clients.ts ya no importa vehiculos ni relations, y el re-export shared/schema/index.ts la toma ahora del módulo workshop). Nadie consumía with:{vehicles} sobre clients, así que es 100% declarativo. Baseline E2E: AGENTS.md ya declara 96/27 specs (la nota '61' era del vault caduco), sin cambio. .default(\"demo\") DIFERIDO a S132-7 — ver note_20261028 allí."
+        },
+        {
+          "id": "S132-6",
+          "phase": "F1",
+          "name": "Columna tenant al núcleo fiscal con backfill",
+          "status": "PENDING",
+          "description": "BD-2: añadir tenant_slug a fiscal_documentos, fiscal_documento_detalles y sifen_sync_log con backfill desde emisor_ruc→tenants, índice, y extensión de 0019_rls_security.sql. Limpiar header stale de fiscal-docs.ts. Cierra el hueco de aislamiento del módulo más regulatorio (DNIT SIFEN, RG 90)."
+        },
+        {
+          "id": "S132-7",
+          "phase": "F1",
+          "name": "Consolidar discriminador de tenant",
+          "status": "PENDING",
+          "description": "BD-1/BD-3: definir política única de discriminador (recomendado: tenant_id uuid con FK hacia adelante; normalizar policies para comparar UUID en tablas tenant_id), revisar nulabilidad de email_log/cuenta_mapping, y elevar scripts/audit-tenant-filters.mjs a gate de CI sobre el dominio fiscal.",
+          "note_20261028": "F0 (S132-5) le DEJA el `.default(\"demo\")` pendiente: quitarlo rompe la compilación en 3 lugares (createHerramienta con parámetro opcional + spread condicional en herramientas.service.ts:78; seeds scripts/seed-parts-catalog.ts y seed-tools-equipment.ts que insertan sin tenantSlug) y exige una migración DROP DEFAULT + decidir tenant de semilla para cerrar de verdad la trampa de runtime. Grep de verificación: `grep -rn '\\.default(\"demo\")' src/` debe quedar vacío al cerrar esta tarea."
+        },
+        {
+          "id": "S132-8",
+          "phase": "F1",
+          "name": "Rol least-privilege sin BYPASSRLS",
+          "status": "PENDING",
+          "description": "BD-3: crear rol Postgres least-privilege para la app (sin BYPASSRLS) que haga efectivas las policies fail-closed, tras prueba de humo de las 3 tablas excluidas por webhooks (facturas, cuentas_bancarias, movimientos_tesoreria) y de las rutas públicas (portal, booking, webhooks de pagos)."
+        },
+        {
+          "id": "S132-9",
+          "phase": "F1",
+          "name": "Recuperación de contraseña real",
+          "status": "PENDING",
+          "description": "FE-7: endpoint backend de forgot-password/reset (token temporal + email vía módulo email existente) y cablear /forgot-password (hoy setTimeout fake, residuo Clerk). Revisar allowlist de authGate y el flujo /register (hoy estático 'contactá al administrador')."
+        },
+        {
+          "id": "S132-10",
+          "phase": "F2",
+          "name": "Regenerar snapshots drizzle y unificar trackers",
+          "status": "PENDING",
+          "description": "BD-4: reconstruir migrations/meta/ desde una DB con las 36 migraciones aplicadas para rehabilitar drizzle-kit generate; unificar en __drizzle_migrations como único tracker con chequeo de paridad en CI; retirar o corregir scripts/apply-*.ts stale."
+        },
+        {
+          "id": "S132-11",
+          "phase": "F2",
+          "name": "Schemas fuera de drizzle.config → incluirlos",
+          "status": "PENDING",
+          "description": "BD-5: agregar a drizzle.config los schemas de billing (3 tablas), fleet, mobile, marketing (4), analytics e intelligence/rag; eliminar dobles creaciones SQL (billing en migration.sql.ts y 0030_feature_tables.sql)."
+        },
+        {
+          "id": "S132-12",
+          "phase": "F2",
+          "name": "Mocks honestos y envelopes tipados",
+          "status": "PENDING",
+          "description": "FE-3/FE-4: fetchOrMock debe fallar visiblemente (toast 'modo demo') en vez de mapear datos inventados; eliminar mocks sin importar; tipar PaginatedResponse<T> en el cliente FE y normalizar envelopes en backend donde aplique; eliminar cálculo inventado flotas total*8."
+        },
+        {
+          "id": "S132-13",
+          "phase": "F2",
+          "name": "Contrato generado desde JSON Schema de Fastify",
+          "status": "PENDING",
+          "description": "FE-6: derivar tipos del cliente FE desde los JSON Schema ya presentes en cada ruta, o publicar OpenAPI en prod (swagger hoy solo en dev). Elimina la clase de drift FE-1/FE-6 (tipos escritos a mano). Evaluar extensión del test T-00 a shapes de request/response, no solo rutas."
+        },
+        {
+          "id": "S132-14",
+          "phase": "F2",
+          "name": "FKs faltantes en puntos calientes",
+          "status": "PENDING",
+          "description": "BD-6: FK orden_repuestos.repuesto_id→repuestos, ordenes_trabajo.sucursal_id→sucursales, fiscal_documentos.cliente_id y orden_trabajo_id; política de FK para tenant_slug→tenants.slug en tablas nuevas. Requiere limpieza de huérfanos previa."
+        },
+        {
+          "id": "S132-15",
+          "phase": "F3",
+          "name": "docs:api generado desde dump-routes.ts en CI",
+          "status": "PENDING",
+          "description": "DC-1: script npm run docs:api que regenera docs/API.md desde scripts/dump-routes.ts + JSDoc de rutas, con fecha = último commit; correr en CI para que no vuelva a pudrirse (hoy ~96/521 rutas documentadas y 5 fantasmas)."
+        },
+        {
+          "id": "S132-16",
+          "phase": "F3",
+          "name": "Actualizar DAS o declararlo histórico",
+          "status": "PENDING",
+          "description": "DC-5: alinear docs/Proyecto/02_DAS (v3.0, 2026-06-22) a Arquitectura A real (schema único, tenant_slug, stack Next 16), o marcarlo histórico con puntero a engram.json. Decidir futuro del vault Obsidian (regenerar MOCs desde engram o archivarlo)."
+        },
+        {
+          "id": "S132-17",
+          "phase": "F3",
+          "name": "Cerrar deuda residual auditoría 09-25 + vercel.json",
+          "status": "PENDING",
+          "description": "FN-3/FN-4: OPS-05 (ingresos PATCH/DELETE), OPS-07 (DELETE de cita), SRV-05 (flat-rate corrección de reloj), FIN-06 (DELETE cuentas tesorería, GET transferencias) y vercel.json (outputDirectory '.next' vs build en web/)."
+        },
+        {
+          "id": "S132-18",
+          "phase": "F3",
+          "name": "Backlog UI para funcionalidad huérfana",
+          "status": "PENDING",
+          "description": "FN-1/FN-2: UI para las 18 rutas solo-script según demanda del taller — prioridad: migración entre tenants (/api/v1/migration/*), secuencias de marketing, monitoreo de colas WhatsApp y emisión SIFEN manual. Confirmar con operación cuáles se usan."
+        }
+      ],
+      "exit_metrics": [
+        "F0: WIP order-items commiteado con contrato completo o revertido · 0 fallbacks 'demo' · 0 documentos sin marca de vigencia · clientsRelations fix verde",
+        "F1: 100% de tablas tenant-scoped con discriminador consistente · rol app sin BYPASSRLS efectivo · forgot-password operativo de punta a punta",
+        "F2: drizzle-kit generate reproducible sin diff espurio · 1 solo tracker de migraciones · 0 schemas fuera de drizzle.config · mocks que nunca inventan datos",
+        "F3: API.md generado con fecha ≤ último commit · DAS alineado o histórico · FN-3/FN-4 en 0"
+      ]
+    },
+    "current_sprint": "Sprint 132 — EN CURSO (plan en sprint_132_plan; Fase 0 CERRADA 2026-10-28: S132-1, S132-2, S132-3, S132-4 COMPLETED; S132-5 PARTIAL — clientsRelations + baselines OK, .default(\"demo\") diferido a S132-7). Pendiente: F1 (S132-6..9), F2 (S132-10..14), F3 (S132-15..18).",
+    "next_sprint": "Sprint 133 — NO PLANIFICADO (agendar cuando cierre F1-F3 de Sprint 132). Contexto del plan vigente: auditoría tricapa docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md; F0 quick wins sin riesgo (S132-1..5: WIP order-items, fallback 'demo', docs caducos, tech_stack, clientsRelations) → F1 seguridad multi-tenant (S132-6..9: columna tenant fiscal, discriminador único, rol least-privilege, forgot-password) → F2 integridad (S132-10..14: snapshots drizzle, drizzle.config, mocks honestos, contrato generado, FKs) → F3 documentación (S132-15..18: API.md generado, DAS, FN-3/FN-4, UI huérfana). CI seguía verde 2026-10-15 (run 38821325730 @ 237280a). Deploy: origin/main vía deploy key 'erp-taller-agent-deploy'.",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
@@ -1592,15 +1784,16 @@
         }
       },
       "tech_stack": {
-        "frontend": "Next.js 14 + React 18 + Tailwind + shadcn/ui",
+        "frontend": "Next.js 16 + React 19 (Turbopack) + Tailwind + shadcn/ui — migrado desde Next 14 en Sprint 98 (ago 2026)",
         "mobile": "React Native (Expo)",
-        "backend": "Fastify + TypeScript (existing, refactor)",
-        "database": "Supabase PostgreSQL",
-        "cache": "Upstash Redis (serverless)",
-        "auth": "Clerk",
-        "billing": "Stripe",
-        "storage": "Cloudflare R2",
-        "hosting": "Vercel (frontend) + Railway (backend)"
+        "backend": "Fastify 5 + TypeScript ESM (existing, refactor)",
+        "database": "PostgreSQL remoto (Neon/Supabase vía Supavisor) + drizzle-orm 0.45; réplica on-premise en compose",
+        "cache": "Redis local (docker-compose.onpremise.yml)",
+        "auth": "JWT propio (login /api/auth/login, scrypt) + verificación JWKS en prod; migrado desde Clerk (S105)",
+        "billing": "Módulo propio (/billing, /finance/payments) + Stripe para pagos online",
+        "storage": "Filesystem local (src/plugins/storage.ts, reemplaza Supabase Storage); Samba para importación de PDFs (configs/smb.conf)",
+        "hosting": "On-premise Podman rootless (docker-compose.onpremise.yml: web 3100 · api 3000/4000 · pg 5434 · grafana 3300). Vercel heredado pendiente (vercel.json → S132-17)",
+        "last_reviewed": "2026-10-28 (S132-4, auditoría tricapa) — corrige Next 14/Clerk/Upstash/R2/Vercel+Railway que quedó obsoleto desde S98/S105"
       },
       "budget_total": "$66,000 (desarrollo + infra primer año)"
     },

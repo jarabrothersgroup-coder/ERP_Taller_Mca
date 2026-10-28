@@ -1,3 +1,7 @@
+> ⚠️ **DESACTUALIZADO** — Documenta ~96 de los 521 endpoints reales e incluye endpoints fantasma ya eliminados. Se regenerará automáticamente desde `scripts/dump-routes.ts` en CI (tarea S132-15, Fase 3). No usar como referencia de la superficie API. Fuente de verdad: `engram.json` + el volcado de rutas. [S132-3]
+
+---
+
 # AutomotiveOS Cloud ERP — API Reference
 
 > Backend: Fastify 5 + TypeScript 6 · ESM · PostgreSQL (Neon/Supabase)

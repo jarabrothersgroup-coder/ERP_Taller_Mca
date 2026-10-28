@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { api } from "@/lib/api";
+import { api, setTenantSlug } from "@/lib/api";
 
 function mockFetch(response: unknown, ok = true, status = 200) {
   vi.stubGlobal(
@@ -29,6 +29,8 @@ function lastUrl(): string {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // S132-2: getTenantSlug() ya no cae en "demo" — sin tenant lanza.
+  setTenantSlug("test-tenant");
 });
 
 afterEach(() => {

@@ -17,6 +17,7 @@
  * @module web/tests/t54-server-side-filters
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { setTenantSlug } from "@/lib/api";
 
 /** El límite que el data-service pide a los listados paginados */
 const MAX_LIMIT = 100;
@@ -40,6 +41,9 @@ const orderRow = { id: "ot-1", cliente: "Juan", vehiculo: "Toyota Corolla", plat
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // S132-2: getTenantSlug() ya no cae en "demo" — sin tenant lanza. Estos tests
+  // prueban la construcción de URL, no la resolución de tenant, así que setean uno.
+  setTenantSlug("test-tenant");
 });
 
 afterEach(() => {

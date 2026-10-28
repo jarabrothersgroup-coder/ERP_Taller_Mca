@@ -27,7 +27,13 @@ import { ordenServicios } from "./orden-servicios.js";
 import { ordenRepuestos } from "./orden-repuestos.js";
 
 // ─── clients (extend shared relations) ────────
-// clientsRelations already exists in shared/schema/clients.ts
+// S132-5 (BD-6): relación clients→vehículos definida acá para evitar el import
+// circular clients.ts ⇄ vehiculos.ts. La definición anterior (en clients.ts) era
+// `many(clients)` — una auto-referencia. La FK real es vehiculos.client_id →
+// clients.id (vehiculos.ts), así que el lado `many` vive en clients.
+export const clientsRelations = relations(clients, ({ many }) => ({
+  vehicles: many(vehiculos),
+}));
 
 // ─── vehiculos → client, ordenesTrabajo ───────
 

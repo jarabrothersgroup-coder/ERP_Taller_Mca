@@ -17,6 +17,7 @@
  * @module web/tests/d1-server-side-pages
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { setTenantSlug } from "@/lib/api";
 
 /** El tamaño de página D1 que el data-service debe pedir al backend */
 const PAGE_SIZE = 25;
@@ -39,6 +40,9 @@ const orderRow = { id: "ot-1", cliente: "Juan", vehiculo: "Toyota Corolla", plat
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // S132-2: getTenantSlug() ya no cae en "demo" — sin tenant lanza. Estos tests
+  // prueban la construcción de URL, no la resolución de tenant, así que setean uno.
+  setTenantSlug("test-tenant");
 });
 
 afterEach(() => {

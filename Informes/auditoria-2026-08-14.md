@@ -1,3 +1,7 @@
+> 🚫 **INVÁLIDA — NO USAR** — Este informe nació de un prompt equivocado: describe un repo Go/Kafka ("GestionIRP"), no AutomotiveOS. Circula sin valor técnico ni trazabilidad. Ver la auditoría vigente en `docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md` y `engram.json`. [S132-3]
+
+---
+
 # Auditoría Técnica Integral — AutomotiveOS Cloud ERP (ERP_Taller_Mca)
 
 Fecha: 2026-08-14

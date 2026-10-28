@@ -6,6 +6,11 @@ tags:
 cssclass: centrar-moc
 ---
 
+> ⚠️ **HISTÓRICO** — Documento de junio/julio 2026, superado por la auditoría tricapa 2026-10-28 (`docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md`) y por `engram.json`. Los conteos de rutas/tests y el stack que describe ya no reflejan la realidad (hoy: Next 16 + React 19 + JWT propio, 521 rutas, 2642+ tests). No usar como referencia actual. [S132-3]
+
+---
+
+
 # 🎯 AutomotiveOS — Knowledge Graph
 
 > *El grafo de conocimiento del ERP Automotriz más completo de Paraguay.*

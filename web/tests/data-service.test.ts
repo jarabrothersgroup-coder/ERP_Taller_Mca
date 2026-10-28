@@ -353,9 +353,12 @@ describe("setTenantSlug / getTenantSlug", () => {
     expect(getApiTenantSlug()).toBe("test-tenant");
   });
 
-  it("falls back to demo slug when not set", () => {
-    // Reset by setting to demo
-    setApiTenantSlug("demo");
-    expect(getApiTenantSlug()).toBe("demo");
+  // S132-2: sin tenant en sesión ya NO cae en "demo" — lanza en voz alta.
+  // Se usa un módulo fresco (resetModules) para arrancar con _tenantSlug sin
+  // resolver, tal como pasaría si TenantResolver no corrió.
+  it("throws instead of silently falling back to 'demo' when unresolved", async () => {
+    vi.resetModules();
+    const fresh = await import("@/lib/api");
+    expect(() => fresh.getTenantSlug()).toThrow(/Tenant no resuelto/);
   });
 });

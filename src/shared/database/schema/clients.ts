@@ -10,7 +10,6 @@
  */
 
 import { pgTable, text, timestamp, uuid, index } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 
 /**
  * Clients — vehicle owners / customers of the workshop.
@@ -64,10 +63,8 @@ export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 
 // ─── Relations ────────────────────────────────
-
-/**
- * Relations for eager-loading with Drizzle query builder.
- */
-export const clientsRelations = relations(clients, ({ many }) => ({
-  vehicles: many(clients),
-}));
+// S132-5 (BD-6): la relación `clients.vehicles` se define en
+// modules/workshop/schema/relations.ts (junto a las demás relations del
+// workshop) para no crear un import circular: vehiculos.ts ya importa clients.
+// La definición previa aquí era `many(clients)` — una auto-referencia sin
+// sentido que no apuntaba a la tabla vehiculos.

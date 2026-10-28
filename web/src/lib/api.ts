@@ -198,14 +198,41 @@ export interface Client {
 
 let _tenantSlug: string | undefined;
 
+// S132-2: seed eagerly from the persisted session so the FIRST data fetch
+// after a page reload already carries the right X-Tenant-Slug. TenantResolver's
+// effect runs a tick after mount (and shell.tsx does not gate rendering on
+// `loading`), so without this seed the first queries would race and — antes de
+// este cambio — salían con el slug "demo" equivocado. Browser-only: SSR has no
+// localStorage and never drives the API client.
+if (typeof window !== "undefined") {
+  try {
+    const raw = localStorage.getItem("auth_user");
+    if (raw) _tenantSlug = (JSON.parse(raw) as { tenantSlug?: string })?.tenantSlug;
+  } catch {
+    // storage bloqueado o JSON inválido — getTenantSlug() fallará en voz alta
+  }
+}
+
 /** Set the tenant slug from JWT user data or session */
 export function setTenantSlug(slug: string): void {
   _tenantSlug = slug;
 }
 
-/** Get the current tenant slug, falling back to "demo" */
+/**
+ * Get the current tenant slug.
+ *
+ * S132-2: ya NO cae en "demo". Sin tenant resuelto (sesión ausente o
+ * TenantResolver no corrió) lanza un error explícito en vez de emitir llamadas
+ * con el slug equivocado — que es una fuga cross-tenant silenciosa. El backend
+ * además blinda por JWT, pero la trampa no debe existir en el cliente.
+ */
 export function getTenantSlug(): string {
-  return _tenantSlug ?? "demo";
+  if (!_tenantSlug) {
+    throw new Error(
+      "Tenant no resuelto: cerrá sesión y volvé a entrar (falta el slug del taller en la sesión).",
+    );
+  }
+  return _tenantSlug;
 }
 
 /* ── Auth headers for direct fetch() calls ── */

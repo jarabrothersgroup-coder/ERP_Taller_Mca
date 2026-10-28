@@ -78,6 +78,7 @@ export type {
 
 // ─── Relations ────────────────────────────────
 export {
+  clientsRelations,
   vehiculosRelations,
   ordenesTrabajoRelations,
   ingresosRelations,
