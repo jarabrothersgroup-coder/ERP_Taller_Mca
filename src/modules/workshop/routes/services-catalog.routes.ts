@@ -30,6 +30,7 @@ interface ParamsWithId {
 interface CatalogQuery {
   categoria?: string;
   activo?: string;
+  search?: string;
   limit?: string;
   offset?: string;
 }
@@ -115,6 +116,9 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
           properties: {
             categoria: { type: "string" },
             activo: { type: "string", enum: ["true", "false"] },
+            // Búsqueda de texto (≥3 letras). El Hub filtra en el cliente;
+            // este parámetro queda para catálogos grandes.
+            search: { type: "string" },
             limit: { type: "string" },
             offset: { type: "string" },
           },
@@ -132,6 +136,7 @@ export async function servicesCatalogRoutes(app: FastifyInstance): Promise<void>
       const services = await listServicios({
         categoria: q.categoria,
         activo: q.activo !== undefined ? q.activo === "true" : undefined,
+        search: q.search,
         limit: q.limit ? parseInt(q.limit, 10) : undefined,
         offset: q.offset ? parseInt(q.offset, 10) : undefined,
       }, request.tenantSlug);

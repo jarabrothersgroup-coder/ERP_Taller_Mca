@@ -12,10 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LayoutDashboard, Wrench, Package, Receipt, MessageCircle,
   Send, DollarSign, Car, User, UserCheck, Phone, ExternalLink,
-  ChevronRight, Camera, Printer, X, Building2, PackageCheck,
+  ChevronRight, Camera, Printer, X, Building2, PackageCheck, Trash2,
 } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { STATUS_FLOW, TERMINAL_STATUS, getStatusConfig, formatCurrency, type KanbanOT } from "./types";
+import { ServicioCombobox, formatGs } from "@/components/hub/servicio-combobox";
+import type { ServicioCatalogo } from "@/lib/api";
 
 /* ── Cobro Actions (Invoice + Payment) ───── */
 
@@ -103,6 +105,13 @@ export function OTDetailPanel({ orden, tecnicos, onAssigned, onClose, onRefresh 
   const [terceroCosto, setTerceroCosto] = React.useState(0);
   const [tecnicoSel, setTecnicoSel] = React.useState("");
 
+  // ── Agregar servicio desde catálogo ──
+  const [addingServicio, setAddingServicio] = React.useState(false);
+  const [servSearchTerm, setServSearchTerm] = React.useState("");
+  const [servSelected, setServSelected] = React.useState<ServicioCatalogo | null>(null);
+  const [servCantidad, setServCantidad] = React.useState(1);
+  const [addingServ, setAddingServ] = React.useState(false);
+
   // T-52: asignación EXPLÍCITA — seleccionar una OT ya no la asigna sola
   const asignarTecnico = useMutation({
     mutationFn: (mechanicId: string) => {
@@ -120,7 +129,7 @@ export function OTDetailPanel({ orden, tecnicos, onAssigned, onClose, onRefresh 
   });
 
   // Fetch full detail
-  const { data: fullOrden, isLoading } = useQuery<any>({
+  const { data: fullOrden, isLoading, refetch: refetchFull } = useQuery<any>({
     queryKey: ["hub-orden-detail", orden?.id],
     queryFn: async () => {
       if (!orden?.id) return null;
@@ -134,6 +143,43 @@ export function OTDetailPanel({ orden, tecnicos, onAssigned, onClose, onRefresh 
     },
     enabled: !!orden?.id,
   });
+
+  const addOrdenServicio = async () => {
+    if (!orden?.id) return;
+    if (!servSelected) { toast.error("Elegí un servicio del catálogo"); return; }
+    if (!Number.isFinite(servCantidad) || servCantidad <= 0) { toast.error("La cantidad debe ser mayor a cero"); return; }
+    setAddingServ(true);
+    try {
+      await api.createOrdenServicio(orden.id, { servicioId: servSelected.id, cantidad: servCantidad });
+      toast.success("Servicio agregado a la OT");
+      setAddingServicio(false);
+      setServSelected(null);
+      setServSearchTerm("");
+      setServCantidad(1);
+      await refetchFull();
+      qc.invalidateQueries({ queryKey: ["hub-board"] });
+      qc.invalidateQueries({ queryKey: ["hub-active-orders"] });
+      qc.invalidateQueries({ queryKey: ["work-orders"] });
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo agregar el servicio");
+    } finally {
+      setAddingServ(false);
+    }
+  };
+
+  const removeOrdenServicio = async (itemId: string) => {
+    if (!orden?.id) return;
+    try {
+      await api.deleteOrdenServicio(orden.id, itemId);
+      toast.success("Servicio eliminado de la OT");
+      await refetchFull();
+      qc.invalidateQueries({ queryKey: ["hub-board"] });
+      qc.invalidateQueries({ queryKey: ["hub-active-orders"] });
+      qc.invalidateQueries({ queryKey: ["work-orders"] });
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo eliminar el servicio");
+    }
+  };
 
   // Close OT — vehicle delivered (terminal state)
   const retirarOT = useMutation({
@@ -370,23 +416,86 @@ export function OTDetailPanel({ orden, tecnicos, onAssigned, onClose, onRefresh 
             </Card>
 
             {/* Services */}
-            {(fullOrden?.servicios?.length || 0) > 0 && (
-              <Card className="border-0 shadow-none">
-                <CardHeader className="p-3 pb-1">
-                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Wrench className="h-3 w-3" /> Servicios ({fullOrden.servicios.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 pt-0 space-y-1">
-                  {fullOrden.servicios.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between text-xs py-1 border-b last:border-0 border-dashed">
-                      <span className="truncate">{s.servicioNombre || "Servicio"}</span>
-                      <span className="font-medium ml-2 shrink-0">{formatCurrency(s.subtotal)}</span>
+            <Card className="border-0 shadow-none">
+              <CardHeader className="p-3 pb-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Wrench className="h-3 w-3" /> Servicios ({fullOrden?.servicios?.length || 0})
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px] gap-1"
+                    onClick={() => {
+                      setAddingServicio(!addingServicio);
+                      if (addingServicio) {
+                        setServSelected(null);
+                        setServSearchTerm("");
+                        setServCantidad(1);
+                      }
+                    }}
+                  >
+                    {addingServicio ? "Cancelar" : "+ Agregar"}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 space-y-1">
+                {addingServicio && (
+                  <div className="rounded-lg border p-2 bg-accent/30 mb-2 space-y-2">
+                    <ServicioCombobox
+                      value={servSelected?.id ?? null}
+                      onSelect={(s) => setServSelected(s)}
+                      searchTerm={servSearchTerm}
+                      onSearchTermChange={setServSearchTerm}
+                    />
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        min={1}
+                        value={servCantidad}
+                        onChange={(e) => setServCantidad(parseInt(e.target.value, 10) || 1)}
+                        className="w-14 h-7 rounded-md border bg-background text-center text-xs"
+                        aria-label="Cantidad"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {servSelected ? formatGs(Number(servSelected.precioEstimado ?? 0) * servCantidad) : "—"}
+                      </span>
+                      <Button size="sm" className="h-7 text-xs ml-auto" onClick={addOrdenServicio} disabled={addingServ || !servSelected}>
+                        {addingServ ? "Agregando..." : "Agregar"}
+                      </Button>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+                    <p className="text-[10px] text-muted-foreground">
+                      Precio tomado como snapshot (histórico). Se guarda nombre + precio unitario al agregar la línea.
+                    </p>
+                  </div>
+                )}
+                {(fullOrden?.servicios || []).length === 0 && !addingServicio ? (
+                  <p className="text-xs text-muted-foreground py-1">Sin servicios</p>
+                ) : (
+                  (fullOrden?.servicios || []).map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between text-xs py-1 border-b last:border-0 border-dashed">
+                      <div className="min-w-0">
+                        <p className="truncate">{s.servicioNombre || "Servicio"}</p>
+                        {s.cantidad > 1 && (
+                          <p className="text-[10px] text-muted-foreground">Cant. {s.cantidad}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        <span className="font-medium">{formatCurrency(s.subtotal)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeOrdenServicio(s.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label="Eliminar servicio"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
 
             {/* Parts */}
             <Card className="border-0 shadow-none">

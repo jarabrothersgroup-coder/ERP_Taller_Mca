@@ -82,6 +82,10 @@ export async function createOrdenServicio(
 ): Promise<OrdenServicio> {
   const { ordenTrabajoId, servicioId, cantidad, tenantSlug } = data;
 
+  if (cantidad !== undefined && cantidad <= 0) {
+    throw new ValidationError("La cantidad debe ser mayor a cero");
+  }
+
   // Fetch catalog service for denormalized snapshot
   const [catalogService] = await db()
     .select({
@@ -129,6 +133,10 @@ export async function updateOrdenServicio(
   data: UpdateOrdenServicioInput,
   tenantSlug?: string,
 ): Promise<OrdenServicio> {
+  if (data.cantidad !== undefined && data.cantidad <= 0) {
+    throw new ValidationError("La cantidad debe ser mayor a cero");
+  }
+
   const conditions = [eq(ordenServicios.id, id)];
   if (tenantSlug) conditions.push(eq(ordenServicios.tenantSlug, tenantSlug));
 

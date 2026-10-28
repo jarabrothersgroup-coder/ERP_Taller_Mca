@@ -26,6 +26,15 @@ vi.mock("@/lib/api", () => ({
     createClient: vi.fn(),
     createVehicle: vi.fn(),
     createWorkOrder: vi.fn(),
+    listServiciosCatalogo: vi.fn().mockResolvedValue([]),
+    getServicioCatalogo: vi.fn(),
+    createServicioCatalogo: vi.fn(),
+    updateServicioCatalogo: vi.fn(),
+    deleteServicioCatalogo: vi.fn(),
+    listOrdenServicios: vi.fn(),
+    createOrdenServicio: vi.fn(),
+    updateOrdenServicio: vi.fn(),
+    deleteOrdenServicio: vi.fn(),
   },
 }));
 

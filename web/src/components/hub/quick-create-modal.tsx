@@ -16,7 +16,19 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, ArrowRight, User, Car } from "lucide-react";
+import { Zap, ArrowRight, User, Car, Plus, Trash2 } from "lucide-react";
+import { ServicioCombobox, formatGs } from "@/components/hub/servicio-combobox";
+import type { ServicioCatalogo } from "@/lib/api";
+
+/**
+ * Línea de servicio en construcción dentro del modal (aún no persistida).
+ * Se persiste recién al crear la OT.
+ */
+interface DraftLine {
+  key: string;
+  servicio: ServicioCatalogo;
+  cantidad: number;
+}
 
 interface QuickCreateModalProps {
   open: boolean;
@@ -52,6 +64,54 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
   const [createdVehicleId, setCreatedVehicleId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
 
+  // ── Líneas de servicio (mano de obra) de la nueva OT ──
+  const [lines, setLines] = React.useState<DraftLine[]>([]);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [selectedServicio, setSelectedServicio] = React.useState<ServicioCatalogo | null>(null);
+  const [selectedCantidad, setSelectedCantidad] = React.useState(1);
+  const [lineError, setLineError] = React.useState<string | null>(null);
+
+  /** Total de la OT en construcción (suma de cantidad × precio unitario). */
+  const draftTotal = React.useMemo(
+    () =>
+      lines.reduce(
+        (sum, l) => sum + l.cantidad * Number(l.servicio.precioEstimado ?? 0),
+        0,
+      ),
+    [lines],
+  );
+
+  /** Agrega la línea seleccionada en el combobox. */
+  const addLine = () => {
+    if (!selectedServicio) {
+      setLineError("Elegí un servicio del catálogo");
+      return;
+    }
+    if (!Number.isFinite(selectedCantidad) || selectedCantidad <= 0) {
+      setLineError("La cantidad debe ser mayor a cero");
+      return;
+    }
+    setLineError(null);
+    setLines((prev) => [
+      ...prev,
+      {
+        key: `${selectedServicio.id}-${Date.now()}`,
+        servicio: selectedServicio,
+        cantidad: selectedCantidad,
+      },
+    ]);
+    // Limpiar el selector para la próxima línea.
+    setSelectedServicio(null);
+    setSearchTerm("");
+    setSelectedCantidad(1);
+  };
+
+  const removeLine = (key: string) =>
+    setLines((prev) => prev.filter((l) => l.key !== key));
+
+  const updateLineCantidad = (key: string, cantidad: number) =>
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, cantidad } : l)));
+
   // El backend pagina: la respuesta es `{ items, ... }`, no un array. Sin
   // normalizar, `existingClients.slice(0, 5)` reventaba con
   // "B.slice is not a function" al abrir el modal.
@@ -71,6 +131,7 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
 
   const handleCreate = async () => {
     setCreating(true);
+    setLineError(null);
     try {
       let clientId = createdClientId;
       if (!clientId && clientName.trim()) {
@@ -97,13 +158,27 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
       }
       if (!vehicleId) { toast.error("Debe seleccionar o crear un vehículo"); setCreating(false); return; }
 
-      if (service.trim() && vehicleId) {
-        await api.createWorkOrder({ vehicleId, clientId, description: service.trim() });
+      if (!service.trim()) { toast.error("La descripción del trabajo es obligatoria"); setCreating(false); return; }
+
+      const ot = await api.createWorkOrder({ vehicleId, clientId, description: service.trim() });
+
+      // Agregar líneas de servicio al catálogo (con snapshot histórico de precio).
+      for (const l of lines) {
+        try {
+          await api.createOrdenServicio(ot.id, {
+            servicioId: l.servicio.id,
+            cantidad: l.cantidad,
+          });
+        } catch (err) {
+          console.error("No se pudo agregar la línea de servicio", err);
+          toast.error(`No se pudo agregar "${l.servicio.nombre}" a la OT`);
+        }
       }
 
       qc.invalidateQueries({ queryKey: ["work-orders"] });
       qc.invalidateQueries({ queryKey: ["hub-clients-search"] });
       qc.invalidateQueries({ queryKey: ["hub-vehicles-search"] });
+      qc.invalidateQueries({ queryKey: ["hub-board"] });
       toast.success("Orden de trabajo creada exitosamente");
       resetForm();
       onOpenChange(false);
@@ -116,6 +191,11 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
   const resetForm = () => {
     setStep("cliente"); setClientName(""); setClientPhone(""); setClientEmail("");
     setVehicleName(""); setPlate(""); setService(""); setCreatedClientId(null); setCreatedVehicleId(null);
+    setLines([]);
+    setSearchTerm("");
+    setSelectedServicio(null);
+    setSelectedCantidad(1);
+    setLineError(null);
   };
 
   const steps = ["cliente", "vehiculo", "orden"];
@@ -235,6 +315,87 @@ export function QuickCreateModal({ open, onOpenChange, onCreated }: QuickCreateM
               <FormField label="Servicio a realizar" htmlFor="qs" required>
                 <Textarea id="qs" value={service} onChange={e => setService(e.target.value)} placeholder="Descripción del trabajo..." rows={2} />
               </FormField>
+
+              {/* Líneas de mano de obra desde el catálogo */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Servicios del catálogo</p>
+                  <p className="text-xs text-muted-foreground">{formatGs(draftTotal)}</p>
+                </div>
+                {lines.length > 0 && (
+                  <div className="rounded-md border divide-y">
+                    {lines.map((l) => {
+                      const pu = Number(l.servicio.precioEstimado ?? 0);
+                      const st = l.cantidad * pu;
+                      return (
+                        <div key={l.key} className="flex items-center gap-2 p-2 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{l.servicio.nombre}</p>
+                            {l.servicio.codigo && (
+                              <p className="text-[10px] text-muted-foreground">{l.servicio.codigo}</p>
+                            )}
+                          </div>
+                          <input
+                            type="number"
+                            min={1}
+                            value={l.cantidad}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (!Number.isFinite(v) || v <= 0) return;
+                              updateLineCantidad(l.key, v);
+                            }}
+                            className="w-12 h-7 rounded-md border bg-background text-center"
+                            aria-label="Cantidad"
+                          />
+                          <span className="w-20 text-right font-medium">{formatGs(st)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(l.key)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Quitar línea"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <ServicioCombobox
+                      value={selectedServicio?.id ?? null}
+                      onSelect={(s) => {
+                        setSelectedServicio(s);
+                        setLineError(null);
+                      }}
+                      searchTerm={searchTerm}
+                      onSearchTermChange={(t) => {
+                        setSearchTerm(t);
+                        setLineError(null);
+                      }}
+                      onCatalogChanged={() => qc.invalidateQueries({ queryKey: ["hub-board"] })}
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={selectedCantidad}
+                    onChange={(e) => setSelectedCantidad(parseInt(e.target.value, 10) || 1)}
+                    className="w-16 h-9 rounded-md border bg-background text-center text-sm"
+                    aria-label="Cantidad del servicio"
+                  />
+                  <Button size="sm" variant="outline" onClick={addLine} disabled={!selectedServicio}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                {lineError && <p className="text-[11px] text-destructive">{lineError}</p>}
+                <p className="text-[10px] text-muted-foreground">
+                  Se filtra desde 3 letras. Podés crear/editar/dar de baja servicios desde este combobox.
+                  Al cambiar el precio del catálogo, las OT ya creadas conservan el precio histórico.
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setStep("vehiculo")}>← Atrás</Button>
                 <Button className="flex-1" size="sm" disabled={!service.trim() || creating} loading={creating} onClick={handleCreate}>

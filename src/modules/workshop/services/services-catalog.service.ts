@@ -12,8 +12,8 @@ import {
   serviciosCatalogo,
   type ServicioCatalogo,
 } from "../schema/index.js";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { NotFoundError } from "../../../shared/errors/app-error.js";
+import { eq, and, or, ilike, desc, sql } from "drizzle-orm";
+import { NotFoundError, ValidationError } from "../../../shared/errors/app-error.js";
 
 // ─── Types ──────────────────────────────────────
 
@@ -22,6 +22,15 @@ export interface CatalogListOptions {
   activo?: boolean;
   limit?: number;
   offset?: number;
+  /**
+   * Búsqueda de texto (case-insensitive, substring) sobre nombre,
+   * descripción, código y categoría.
+   *
+   * El Hub de Operaciones (Paso 3) filtra **en el cliente** porque el
+   * catálogo es chico/medio (≤ ~200 activos); este parámetro existe para
+   * cuando el catálogo crezca y convenga delegar el filtro al servidor.
+   */
+  search?: string;
 }
 
 export interface CreateCatalogInput {
@@ -38,8 +47,21 @@ export interface CreateCatalogInput {
 
 // ─── List ───────────────────────────────────────
 
+/** Largo mínimo del término de búsqueda del catálogo (3 letras). */
+export const CATALOG_SEARCH_MIN_LENGTH = 3;
+
 /**
- * List services with optional category/active filters.
+ * Escapa los comodines de LIKE (`%`, `_`, `\`) para que un término
+ * tipeado por el usuario busque de forma literal.
+ */
+export function escapeLikePattern(term: string): string {
+  return term.replace(/([\\%_])/g, "\\$1");
+}
+
+/**
+ * List services with optional category/active/search filters.
+ *
+ * El filtro de tenant se aplica siempre que se reciba `tenantSlug`.
  */
 export async function listServicios(
   opts: CatalogListOptions = {},
@@ -49,6 +71,21 @@ export async function listServicios(
   if (tenantSlug) conditions.push(eq(serviciosCatalogo.tenantSlug, tenantSlug));
   if (opts.categoria) conditions.push(eq(serviciosCatalogo.categoria, opts.categoria));
   if (opts.activo !== undefined) conditions.push(eq(serviciosCatalogo.activo, opts.activo));
+
+  // Búsqueda de texto: sólo a partir de CATALOG_SEARCH_MIN_LENGTH letras,
+  // igual que el combobox del Hub (3 caracteres). Un término más corto se
+  // ignora en lugar de devolver un resultado gigante.
+  const term = opts.search?.trim() ?? "";
+  if (term.length >= CATALOG_SEARCH_MIN_LENGTH) {
+    const pattern = `%${escapeLikePattern(term)}%`;
+    const textMatch = or(
+      ilike(serviciosCatalogo.nombre, pattern),
+      ilike(serviciosCatalogo.descripcion, pattern),
+      ilike(serviciosCatalogo.codigo, pattern),
+      ilike(serviciosCatalogo.categoria, pattern),
+    );
+    if (textMatch) conditions.push(textMatch);
+  }
 
   const limit = opts.limit ?? 100;
   const offset = opts.offset ?? 0;
@@ -92,10 +129,21 @@ export async function getServicio(
 export async function createServicio(
   data: CreateCatalogInput & { tenantSlug: string },
 ): Promise<ServicioCatalogo> {
+  const nombre = data.nombre?.trim();
+  if (!nombre) {
+    throw new ValidationError("El nombre del servicio es obligatorio");
+  }
+  if (data.precioEstimado != null && data.precioEstimado < 0) {
+    throw new ValidationError("El precio unitario no puede ser negativo");
+  }
+  if (data.duracionEstimada != null && data.duracionEstimada < 0) {
+    throw new ValidationError("La duración estimada no puede ser negativa");
+  }
+
   const [row] = await db()
     .insert(serviciosCatalogo)
     .values({
-      nombre: data.nombre,
+      nombre,
       descripcion: data.descripcion ?? null,
       descripcionTecnica: data.descripcionTecnica ?? null,
       categoria: data.categoria ?? null,
@@ -121,13 +169,23 @@ export async function updateServicio(
   data: Partial<CreateCatalogInput> & { activo?: boolean },
   tenantSlug?: string,
 ): Promise<ServicioCatalogo> {
+  if (data.nombre !== undefined && !data.nombre.trim()) {
+    throw new ValidationError("El nombre del servicio es obligatorio");
+  }
+  if (data.precioEstimado != null && data.precioEstimado < 0) {
+    throw new ValidationError("El precio unitario no puede ser negativo");
+  }
+  if (data.duracionEstimada != null && data.duracionEstimada < 0) {
+    throw new ValidationError("La duración estimada no puede ser negativa");
+  }
+
   const conditions = [eq(serviciosCatalogo.id, id)];
   if (tenantSlug) conditions.push(eq(serviciosCatalogo.tenantSlug, tenantSlug));
 
   const [row] = await db()
     .update(serviciosCatalogo)
     .set({
-      ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
+      ...(data.nombre !== undefined ? { nombre: data.nombre.trim() } : {}),
       ...(data.descripcion !== undefined ? { descripcion: data.descripcion } : {}),
       ...(data.descripcionTecnica !== undefined
         ? { descripcionTecnica: data.descripcionTecnica }

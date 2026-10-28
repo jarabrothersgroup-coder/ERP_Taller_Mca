@@ -69,6 +69,59 @@ export interface WorkOrder {
   totalCost?: string | null;
 }
 
+/**
+ * Fila del catálogo de servicios (mano de obra) que alimenta el combobox del
+ * Hub de Operaciones. `precioEstimado` es el precio unitario en ₲; llega como
+ * string porque la columna es `numeric` en Postgres.
+ */
+export interface ServicioCatalogo {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  descripcionTecnica: string | null;
+  categoria: string | null;
+  categoriaId: string | null;
+  codigo: string | null;
+  thinkcarModulo: string | null;
+  precioEstimado: string | null;
+  duracionEstimada: number | null;
+  activo: boolean;
+  tenantSlug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Campos editables del catálogo (alta/edición desde el Hub). */
+export interface ServicioCatalogoInput {
+  nombre: string;
+  descripcion?: string;
+  descripcionTecnica?: string;
+  categoria?: string;
+  codigo?: string;
+  precioEstimado?: number;
+  duracionEstimada?: number;
+  activo?: boolean;
+}
+
+/**
+ * Línea de servicio de una OT. `servicioNombre` y `precioUnitario` son un
+ * **snapshot** tomado al agregar la línea: si el catálogo cambia de precio
+ * después, la OT conserva el precio histórico con el que se facturó.
+ *
+ * S132-1: sin `notas` ni `updatedAt` — el backend no los persiste ni los
+ * devuelve (ver `SERVICIO_ITEM_RESPONSE_PROPS` en order-items.routes.ts).
+ */
+export interface OrdenServicioItem {
+  id: string;
+  ordenTrabajoId: string;
+  servicioId: string;
+  servicioNombre: string | null;
+  precioUnitario: string | null;
+  cantidad: number;
+  subtotal: string | null;
+  createdAt: string;
+}
+
 export interface InventoryItem {
   id: string;
   codigo: string;
@@ -549,6 +602,100 @@ export const api = {
 
   deleteWorkOrder: (id: string) =>
     request<{ success: boolean }>(`/workshop/ordenes/${id}`, {
+      method: "DELETE",
+    }),
+
+  /* ── Catálogo de servicios (mano de obra) ─── */
+
+  /**
+   * Lista el catálogo de servicios del tenant.
+   *
+   * El Hub de Operaciones filtra **en el cliente** (el catálogo es chico/medio:
+   * ≈100 activos en el tenant demo), así que aquí se piden los activos de una
+   * sola vez. `search` queda disponible para catálogos grandes: el backend
+   * ignora términos de menos de 3 caracteres.
+   */
+  listServiciosCatalogo: (params?: {
+    categoria?: string;
+    activo?: boolean;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.categoria) qs.set("categoria", params.categoria);
+    if (params?.activo !== undefined) qs.set("activo", String(params.activo));
+    if (params?.search) qs.set("search", params.search);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    const query = qs.toString();
+    return request<ServicioCatalogo[]>(`/workshop/servicios${query ? `?${query}` : ""}`);
+  },
+
+  getServicioCatalogo: (id: string) =>
+    request<ServicioCatalogo>(`/workshop/servicios/${id}`),
+
+  createServicioCatalogo: (body: ServicioCatalogoInput) =>
+    request<ServicioCatalogo>("/workshop/servicios", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateServicioCatalogo: (id: string, body: Partial<ServicioCatalogoInput>) =>
+    request<ServicioCatalogo>(`/workshop/servicios/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Baja de un servicio del catálogo.
+   *
+   * El backend hace **soft-delete** (`activo = false`): la fila nunca se borra
+   * físicamente, así las OT históricas conservan su snapshot de nombre/precio.
+   */
+  deleteServicioCatalogo: (id: string) =>
+    request<ServicioCatalogo>(`/workshop/servicios/${id}`, {
+      method: "DELETE",
+    }),
+
+  /* ── Ítems de servicio por OT ─────────────── */
+
+  listOrdenServicios: (ordenId: string) =>
+    request<OrdenServicioItem[]>(`/workshop/ordenes/${ordenId}/servicios`),
+
+  /**
+   * Agrega una línea de servicio a la OT. El backend denormaliza el nombre y
+   * el precio unitario del catálogo en ese momento (snapshot histórico) y
+   * recalcula el `subtotal` de la línea y el `totalCost` de la OT.
+   *
+   * S132-1: el body es solo `servicioId` + `cantidad` — el backend no acepta
+   * `precioUnitario`/`notas` (los ignora; ver order-items.routes.ts).
+   */
+  createOrdenServicio: (
+    ordenId: string,
+    body: { servicioId: string; cantidad: number },
+  ) =>
+    request<OrdenServicioItem>(`/workshop/ordenes/${ordenId}/servicios`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Actualiza una línea. El backend hoy solo acepta `cantidad` y recalcula
+   * subtotal y total (S132-1: sin override de precio ni notas).
+   */
+  updateOrdenServicio: (
+    ordenId: string,
+    itemId: string,
+    body: { cantidad?: number },
+  ) =>
+    request<OrdenServicioItem>(`/workshop/ordenes/${ordenId}/servicios/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteOrdenServicio: (ordenId: string, itemId: string) =>
+    request<{ deleted: boolean }>(`/workshop/ordenes/${ordenId}/servicios/${itemId}`, {
       method: "DELETE",
     }),
 
