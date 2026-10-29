@@ -47,7 +47,7 @@ const tokens = {} as Record<Role, string>;
 
 interface MatrixRow {
   name: string;
-  method: "POST" | "DELETE";
+  method: "POST" | "DELETE" | "PATCH";
   url: string;
   payload?: unknown;
   guard: "manager" | "admin";
@@ -169,6 +169,40 @@ const MATRIX: MatrixRow[] = [
     payload: { anho: 2026, mes: 9 },
     guard: "admin",
     exec: false, // ejecutaría el cierre mensual real
+  },
+  // ── Sprint 132 · S132-20 — altas del plan de cuentas y asiento manual (B-4) ──
+  {
+    name: "POST /finance/contabilidad/asientos",
+    method: "POST",
+    url: "/finance/contabilidad/asientos",
+    payload: {
+      fecha: new Date().toISOString(),
+      concepto: "matriz roles S132-20",
+      // Payload válido para el schema (la validación corre antes que el hook
+      // CSRF); las cuentas inexistentes provocan error de negocio, nunca 401/403.
+      lineas: [
+        { cuentaId: FAKE_UUID, debe: "1000" },
+        { cuentaId: FAKE_UUID_2, haber: "1000" },
+      ],
+    },
+    guard: "manager",
+    exec: true,
+  },
+  {
+    name: "POST /finance/contabilidad/cuentas",
+    method: "POST",
+    url: "/finance/contabilidad/cuentas",
+    payload: { codigo: "9999", nombre: "matriz roles", tipo: "ACTIVO" },
+    guard: "manager",
+    exec: false, // crearía una cuenta real en el plan del tenant fixture
+  },
+  {
+    name: "PATCH /finance/contabilidad/cuentas/:id",
+    method: "PATCH",
+    url: `/finance/contabilidad/cuentas/${FAKE_UUID}`,
+    payload: { activo: false },
+    guard: "manager",
+    exec: true, // cuenta inexistente → 404
   },
   // ── Fase 4 · T-42 — destructivos nuevos (matriz CRUD por módulo) ──
   {

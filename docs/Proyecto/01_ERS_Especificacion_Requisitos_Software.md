@@ -142,7 +142,7 @@ El sistema ejecuta las siguientes funciones principales a lo largo del ciclo de 
 | ID | Nombre | Descripción | Prioridad |
 |---|---|---|---|
 | **RF-FISC-001** | Facturación SIFEN | El sistema debe emitir DTE conforme a la Resolución General N.º 90 (Marangatu) y al SIFEN de la DNIT, versión V150. | **Alta** |
-| **RF-FISC-002** | Asiento contable automático | Toda transacción (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN) debe generar su asiento contable automáticamente en estado `CONTABILIZADO`. | **Alta** |
+| **RF-FISC-002** | Asiento contable automático | Toda transacción (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN) debe generar su asiento contable automáticamente en estado `CONTABILIZADO`. Los asientos manuales son excepción de ajuste y exigen rol `manager`+ y periodo abierto (S132-20, 2026-10-28). | **Alta** |
 | **RF-FISC-003** | Plan de Cuentas Paraguayo | El sistema debe implementar el PUC paraguayo con estructura jerárquica de 5 niveles (Activo, Pasivo, Patrimonio, Ingresos, Gastos, Costos). | **Alta** |
 
 ### 2.3 Requisitos Funcionales — Fase 2

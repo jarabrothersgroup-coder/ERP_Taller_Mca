@@ -155,6 +155,9 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: CreateCuentaRequest }>(
     "/finance/contabilidad/cuentas",
     {
+      // S132-20: escritura del plan de cuentas restringida a manager+ (alineado
+      // con anular/cerrar-periodo; B-4 de la auditoría canónica).
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",
@@ -242,6 +245,10 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
     Body: { nombre?: string; activo?: boolean; aceptaMovimientos?: boolean; cuentaPadreId?: string | null };
   }>(
     "/finance/contabilidad/cuentas/:id",
+    {
+      // S132-20: modificación del plan de cuentas restringida a manager+ (B-4).
+      preHandler: requireManager,
+    },
     async (request, reply) => {
       const updated = await updateCuenta(request.params.id, request.body);
       return reply.send(updated);
@@ -252,6 +259,10 @@ export async function accountingRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: CreateAsientoRequest }>(
     "/finance/contabilidad/asientos",
     {
+      // S132-20: asiento manual restringido a manager+ (la regla «nunca manual»
+      // se matizó: el bus automático usa /asientos/automatico; el manual exige
+      // rol manager+ y periodo abierto — B-4 de la auditoría canónica).
+      preHandler: requireManager,
       schema: {
         body: {
           type: "object",

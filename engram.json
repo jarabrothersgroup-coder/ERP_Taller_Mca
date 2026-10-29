@@ -11,7 +11,7 @@
     "automotive": "EV/HEV High Voltage Safety, Launch/Thinkcar DTC Mapping",
     "labor": "MTESS Paraguay 2026 escalafón: Ayudante ₲3.253.717, Medio_Oficial ₲3.470.295, Oficial ₲3.773.989, Oficial_Certificado ₲4.800.000",
     "workshop_finance": "Umbral de Activación por Margen de Contribución — comisiones retroactivas solo si Facturación Neta >= Gastos Fijos + Salarios Base",
-    "auto_accounting": "Toda transacción genera su asiento contable automáticamente (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN). El usuario nunca crea asientos manualmente. Los asientos automáticos se crean CONTABILIZADOS, no BORRADOR.",
+    "auto_accounting": "Toda transacción genera su asiento contable automáticamente (VENTA, COMPRA, STOCK, NÓMINA, DEPRECIACIÓN) por el bus contable (POST /finance/contabilidad/asientos/automatico), en estado CONTABILIZADO, no BORRADOR. Los asientos MANUALES son excepción de ajuste: POST /finance/contabilidad/asientos exige rol manager+ y periodo abierto; anular exige manager+ y cerrar período admin (S132-20, 2026-10-28 — antes decía «el usuario nunca crea asientos manualmente», contradicha por la implementación y por el asiento manual #15 de la memoria).",
     "external_apis": {
       "nhtsa_vin": "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/",
       "carquery": "https://www.carqueryapi.com/api/0.3/"
