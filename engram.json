@@ -217,13 +217,62 @@
         "Higiene: ~40 reply.send sin return (deuda e2e_wedge_20261007); E2E de datos T-62 pendiente (label-printing, storage/uploads, portal/profile, móvil); baseline E2E AGENTS.md (61) vs CI real (~96)"
       ]
     },
+    "audit_canonica_3frentes_20261028": {
+      "doc": "docs/AUDITORIA_CANONICA_3_FRENTES_2026-10-28.md",
+      "scope": "Auditoría canónica como software architect en 3 frentes: A (diagramas), B (reglas de negocio), C (agrupación de funcionalidades/servicios). Contrasta implementación @ 95b6e76 vs fuentes canónicas (ERS v2.0, DAS v3.0, Plan Maestro, 2 PDFs formales MITIC, engram domain_rules, auditorías previas). Premisa del encargo «microservicios» verificada como aspiracional: el sistema es monolito modular de 24 módulos (app.ts:325-556) — el desajuste es el hallazgo central del Frente C.",
+      "method": "Inventario de fuentes (con tipo de cada una) → 2 exploraciones paralelas de documentación (~70 reglas catalogadas; 35 bloques ASCII, 0 drawio/UML/C4, 0 mermaid renderizables) → verificación directa en código → cruce con tricapa para no duplicar BD-x/FE-x/DC-x/FN-x",
+      "alignment": "General MEDIA (~60-65%): A baja ~30% (DAS contradice el sistema en estilo/tenant/stack/ERD), B media-alta ~75% (núcleo operativo verificado cumple; desviaciones documentales concentradas + 2 fallos de aislamiento heredados), C media ~60% (agrupación de facto coherente; docs prometen microservicios; ciclos reales workshop↔finance, inventory↔finance, backup↔enterprise)",
+      "not_verifiable": [
+        "Puente híbrido Supabase del DAS §4.1 (sin acceso al servidor)",
+        "Expiración JWT 8h (DAS §7) — no re-verificada en código esta sesión",
+        "Matriz de documentos en contingencia (RF-FISC-002) — sin implementación localizable",
+        "RNF-DISP-001 99,5% y RNF-REN-002 95% <200ms — sin evidencia de medición",
+        "OCR de placa (RFA-06) y archivos REI/IPS (RFA-10) de los PDFs — sin confirmación",
+        "Secuencia exacta de envío WA (síncrono vs cola WA_OUT) — no resuelta esta sesión",
+        "Suites E2E — lockout 422 y flat-rate tomados como evidencia secundaria de engram"
+      ],
+      "findings_A_diagramas": [
+        "A-1 (ALTO): DAS :16 dice microservicios; su propio diagrama :18-47 y app.ts muestran monolito de 24 módulos → S132-16",
+        "A-2 (ALTO): DAS :54 schema-per-tenant vs :555 RLS schema único; su ERD :208+ muestra tenant_slug — contradicción interna → S132-16",
+        "A-3 (ALTO): ERD del DAS :206-250 cubre ~15 tablas vs 121 pgTable + solo-SQL; MOC enlaza Diagrama_ERD_Completo inexistente → S132-25",
+        "A-4 (MEDIO): DAS :23-35 dibuja SPA puerto 3000 + cloud; real Next 16 web/ + backend 4000 + Podman on-premise → S132-16",
+        "A-5 (MEDIO): DAS §4.1 y Manual Despliegue «Puente Híbrido Supabase» vs deploy real podman-compose + CI; puente no verificable → S132-16",
+        "A-6 (MEDIO): única matriz de componentes (Auditoria_Arquitectonica_Completa:119-139, julio) desactualizada y omite ciclos → S132-21",
+        "A-7 (MEDIO): sin diagramas de secuencia del flujo fiscal ni auth multi-tenant → S132-26",
+        "A-8 (BAJO): enlaces de diagramas rotos en MOCs del vault → S132-16 (+ S132-25)",
+        "A-9 (MEDIO): DAS stale sin marca de vigencia mientras se marcaron docs menores → S132-16"
+      ],
+      "findings_B_reglas": [
+        "B-1 (ALTO): estados OT — ERS §2.2 RECIBIDO/EN_PRESUPUESTO/... vs enum real Presupuestado/Aprobado/En_Proceso/Control_Calidad/Listo/Finalizado_Retirado (workshop/schema/ordenes-trabajo.ts:40-47, default :74); no existe RECIBIDO → S132-27",
+        "B-2 (ALTO, hereda tricapa BD-3): RLS mitad cumplida — rol app BYPASSRLS → S132-8",
+        "B-3 (CRÍTICO, hereda tricapa BD-2): fiscal_documentos/detalles/sifen_sync_log sin columna tenant, identificados por emisor_ruc → S132-6",
+        "B-4 (MEDIO): POST /finance/contabilidad/asientos (:252) sin preHandler de rol mientras anular exige requireManager (:395); regla engram «nunca manual» contradicha por implementación y memoria → S132-20",
+        "B-5 (MEDIO): plan de cuentas 5 niveles (ERS RF-FISC-003 :146) vs 4 reales (seeds nivel 1..4, engram) → S132-24",
+        "B-6 (MEDIO): ERS RNF-SEG-003 :229 documenta auth por X-User-Email; real = JWT primario con fallback DEPRECATED (rbac.ts:52,88-93) → S132-19",
+        "B-7 (MEDIO): i18n incumplida — infra next-intl completa pero 0 usos de useTranslations/getTranslations/formatMessage en web/src (peor que los 4 archivos de FE-8) → S132-28",
+        "B-8 (MEDIO): contingencia SIFEN — servicio existe (contingencia.service.ts) pero matriz de documentos inexistente y reenvío solo manual (routes/sifen.ts:659, sin cron/on-recovery) → S132-23",
+        "B-9 (INFO): RF-COM-003 break-even — E2E T-62 en engram, no re-ejecutado (evidencia secundaria)",
+        "B-10 (BAJO): reglas vivas solo en engram (estados Aprobado/Control_Calidad, guard matrix, IVA 10%, MTESS) invisibles para integradores → anexo en S132-27",
+        "B.3: 9 contradicciones entre fuentes canónicas catalogadas en el informe (estados OT, aislamiento, PUC, asientos manuales, reintentos SIFEN, síncrono/cola WA, recordatorios, protocolo SIFEN, LLM local vs Gemini)"
+      ],
+      "findings_C_agrupacion": [
+        "C-1 (ALTO): premisa microservicios documentada (DAS :16, Plan Maestro :45/:168) vs monolito modular 24 módulos sin gateway y BD única compartida → S132-16",
+        "C-2 (ALTO): ciclos reales workshop↔finance (11/6), inventory↔finance (13/5), backup↔enterprise; finance ejecuta convertPresupuestoToOT (budget.routes.ts:36); analytics lee tablas finance directo (analytics.service.ts:18-22) → S132-21",
+        "C-3 (MEDIO): propiedad ambigua — presupuestos en finance/schema, mechanicProfiles en finance/schema con rutas workshop, triple superficie de portal, frontera thinkcar→intelligence partida → S132-22",
+        "C-4 (BAJO): 4 conteos distintos de módulos (14/17/24/26) entre fuentes → S132-16",
+        "C-5 (MEDIO): contrato FE↔BE sano y blindado (tricapa); contratos internos y propiedad de datos sin documentar → S132-22",
+        "C-6 (BAJO): cruces crm→thinkcar y analytics→finance no documentados; mecanismo WA síncrono vs cola contradictorio en DAS §5.2 vs §5.5 → S132-21/22 y S132-16"
+      ],
+      "tasks_registered": "S132-19..S132-28 (10 nuevas) + ampliación de S132-16; Fases 1-3 extendidas"
+    },
     "sprint_132_plan": {
-      "goal": "Auditoría tricapa 2026-10-28 — cerrar deuda de BD (tenant/RLS/migraciones), contrato FE↔BE (shape/mocks/config) y documentación canónica. Convertido del informe docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md (state.audit_arquitectura_tricapa_20261028)",
+      "goal": "Auditoría tricapa 2026-10-28 — cerrar deuda de BD (tenant/RLS/migraciones), contrato FE↔BE (shape/mocks/config) y documentación canónica. Convertido del informe docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md (state.audit_arquitectura_tricapa_20261028). Ampliado 2026-10-28 por la auditoría canónica 3 frentes (docs/AUDITORIA_CANONICA_3_FRENTES_2026-10-28.md, state.audit_canonica_3frentes_20261028): +10 tareas S132-19..28",
       "priority": "HIGH",
       "planned_date": "2026-10-28",
-      "estimated_effort": "~6 semanas (Fase 0: 1 sem · Fase 1: 2-3 sem · Fase 2: 2-3 sem · Fase 3: continua)",
+      "estimated_effort": "~6 semanas (Fase 0: 1 sem · Fase 1: 2-3 sem · Fase 2: 2-3 sem · Fase 3: continua) · Ampliación auditoría canónica: +2-3 semanas (S132-19..28)",
       "status": "IN_PROGRESS",
       "progress_20261028": "Fase 0 COMPLETADA (S132-1..4 + S132-5 parcial). Verificación: tsc raíz + web PASS · web vitest 197/197 · eslint web 0 err (174 warn, bajó de 175) + eslint src/ 0 err (819 warn) · drizzle-kit check OK. Backend 2646 PASS / 5 FAIL — los 5 son PREEXISTENTES (verificado con stash: initial-load/contabilidad/thinkcar esperan tablas limpias y la BD de prueba tiene filas residuales de corridas previas; thinkcar espera total:0 y hay 2). Nota de entorno: la BD local de tests corre en :5435 (container erp_taller_mca-postgres-1), no en :5433 como declara .env — .env desalineado, otro síntoma del drift documentado.",
+      "progress_20261028_auditoria_canonica": "Auditoría canónica 3 frentes cruzada (docs/AUDITORIA_CANONICA_3_FRENTES_2026-10-28.md): hallazgos A-1..A-9, B-1..B-10, C-1..C-6 registrados en state.audit_canonica_3frentes_20261028; +10 tareas S132-19..28 (F1: auth/guards · F2: ciclos/ownership/contingencia/PUC · F3: ERD/secuencias/estados OT/i18n); S132-16 ampliada.",
       "tasks": [
         {
           "id": "S132-1",
@@ -340,7 +389,7 @@
           "phase": "F3",
           "name": "Actualizar DAS o declararlo histórico",
           "status": "PENDING",
-          "description": "DC-5: alinear docs/Proyecto/02_DAS (v3.0, 2026-06-22) a Arquitectura A real (schema único, tenant_slug, stack Next 16), o marcarlo histórico con puntero a engram.json. Decidir futuro del vault Obsidian (regenerar MOCs desde engram o archivarlo)."
+          "description": "DC-5 + auditoría canónica (A-1/A-2/A-4/A-5/A-8/A-9/C-1/C-4/C-6b): alinear docs/Proyecto/02_DAS (v3.0, 2026-06-22) a Arquitectura A real (schema único, tenant_slug, stack Next 16 + backend 4000 + Podman on-premise) o marcarlo histórico con puntero a engram. Reescribir §1.1/§4.1 como monolito modular de 24 módulos (no microservicios), actualizar diagramas de stack y despliegue (verificar o borrar puente híbrido Supabase), unificar síncrono/cola WA (§5.2 vs §5.5), lista de módulos única (hoy 14/17/24/26 en docs) y marca de vigencia. Decidir futuro del vault Obsidian (regenerar MOCs desde engram o archivarlo; incluye enlaces de diagramas rotos). ERD completo → S132-25."
         },
         {
           "id": "S132-17",
@@ -355,17 +404,87 @@
           "name": "Backlog UI para funcionalidad huérfana",
           "status": "PENDING",
           "description": "FN-1/FN-2: UI para las 18 rutas solo-script según demanda del taller — prioridad: migración entre tenants (/api/v1/migration/*), secuencias de marketing, monitoreo de colas WhatsApp y emisión SIFEN manual. Confirmar con operación cuáles se usan."
+        },
+        {
+          "id": "S132-19",
+          "phase": "F1",
+          "name": "Auth canónica: JWT en ERS + retiro del fallback X-User-Email",
+          "status": "PENDING",
+          "description": "B-6: actualizar ERS RNF-SEG-003 (:229) de «headers X-Tenant-Slug + X-User-Email» a JWT HMAC-SHA256 como primario; verificar consumidores del fallback (web/mobile/SPA) antes de retirarlo o fijar fecha de retiro (rbac.ts:52,88-93 lo marca DEPRECATED)."
+        },
+        {
+          "id": "S132-20",
+          "phase": "F1",
+          "name": "Guard de rol en altas de asientos/cuentas + regla «nunca manual»",
+          "status": "PENDING",
+          "description": "B-4: aplicar requireManager a POST /finance/contabilidad/asientos (:252) y revisar POST/PATCH de cuentas (:155/:240), alineando con anular (:395). Reescribir domain_rules.auto_accounting («el usuario nunca crea asientos manualmente») y reflejarlo en ERS RF-FISC-002: manual permitido con rol manager+ y periodo abierto."
+        },
+        {
+          "id": "S132-21",
+          "phase": "F2",
+          "name": "Romper ciclos entre módulos + matriz de componentes en CI",
+          "status": "PENDING",
+          "description": "C-2/A-6/C-6d: dirección única de dependencias — romper workshop↔finance (orquestación de presupuesto→OT sale de finance: budget.routes.ts:36), inventory↔finance (analytics.service.ts:18-22 lee tablas directo), backup↔enterprise; policy de imports + script que regenera la matriz de componentes con fecha (hoy 25 aristas; la matriz de julio omite los ciclos)."
+        },
+        {
+          "id": "S132-22",
+          "phase": "F2",
+          "name": "Propiedad de datos: tabla→módulo + consolidar superficies ambiguas",
+          "status": "PENDING",
+          "description": "C-3/C-5/C-6c: tabla canónica tabla→módulo (contrato interno = exports públicos del plugin); consolidar presupuestos (¿workshop?), mechanic-profiles (schema finance/rutas workshop), triple portal (client-portal + workshop/portal/client + web/app/portal) y frontera thinkcar(ingesta)→intelligence(parsing DTC)."
+        },
+        {
+          "id": "S132-23",
+          "phase": "F2",
+          "name": "Contingencia SIFEN: matriz de documentos + auto-sync",
+          "status": "PENDING",
+          "description": "B-8: matriz de documentos en contingencia (ERS RF-FISC-002 §2.3.3) inexistente y reenvío solo manual (routes/sifen.ts:659, reenviarContingenciaGlobal sin cron/on-recovery). Implementar ambos o degradar alcance en ERS con decisión registrada; corregir nota engram «solo-SQL» de contingencia (obsoleta)."
+        },
+        {
+          "id": "S132-24",
+          "phase": "F2",
+          "name": "Plan de cuentas: fijar niveles canónicos (4 vs 5)",
+          "status": "PENDING",
+          "description": "B-5: ERS RF-FISC-003 (:146) dice 5 niveles; seeds/código/engram = 4. Decisión explícita (recomendado: 4 → corregir ERS); si se exige 5: migración + seed + remapeo de mappings."
+        },
+        {
+          "id": "S132-25",
+          "phase": "F3",
+          "name": "ERD completo generado desde Drizzle",
+          "status": "PENDING",
+          "description": "A-3/A-8: script → docs/ERD.md (mermaid) desde drizzle.config (121 pgTable + tablas solo-SQL); reemplaza el ERD simplificado del DAS §3.2 con puntero; cierra el enlace roto Diagrama_ERD_Completo del vault."
+        },
+        {
+          "id": "S132-26",
+          "phase": "F3",
+          "name": "Diagramas de secuencia core (SIFEN + auth/tenant)",
+          "status": "PENDING",
+          "description": "A-7: 2 diagramas mermaid en docs/ — (1) emisión SIFEN end-to-end con CDC y modo contingencia; (2) auth multi-tenant (JWT → tenant context → RLS/filtro de aplicación). Resuelven el hueco de los flujos de mayor riesgo."
+        },
+        {
+          "id": "S132-27",
+          "phase": "F3",
+          "name": "Máquina de estados de la OT unificada + anexo de reglas",
+          "status": "PENDING",
+          "description": "B-1/B-10: actualizar ERS §2.2/RF-WA-001 al enum real (Presupuestado/Aprobado/En_Proceso/Control_Calidad/Listo/Finalizado_Retirado) + documentar gatillos por estado (consumo de stock en cierre, plantillas WhatsApp, sync CRM); anexar domain_rules de engram al ERS como «reglas vigentes»."
+        },
+        {
+          "id": "S132-28",
+          "phase": "F3",
+          "name": "i18n: aplicar traducciones o degradar formalmente",
+          "status": "PENDING",
+          "description": "B-7 (agrava FE-8): infra next-intl completa pero 0 usos de useTranslations/getTranslations/formatMessage en web/src. Campaña de i18n por área o degradación formal del alcance ES/Guaraní en ERS RF-I18N-001..003."
         }
       ],
       "exit_metrics": [
         "F0: WIP order-items commiteado con contrato completo o revertido · 0 fallbacks 'demo' · 0 documentos sin marca de vigencia · clientsRelations fix verde",
-        "F1: 100% de tablas tenant-scoped con discriminador consistente · rol app sin BYPASSRLS efectivo · forgot-password operativo de punta a punta",
-        "F2: drizzle-kit generate reproducible sin diff espurio · 1 solo tracker de migraciones · 0 schemas fuera de drizzle.config · mocks que nunca inventan datos",
-        "F3: API.md generado con fecha ≤ último commit · DAS alineado o histórico · FN-3/FN-4 en 0"
+        "F1: 100% de tablas tenant-scoped con discriminador consistente · rol app sin BYPASSRLS efectivo · forgot-password operativo de punta a punta · auth documentado = JWT (fallback X-User-Email retirado o con fecha) · altas de asientos/cuentas con requireManager y regla acorde",
+        "F2: drizzle-kit generate reproducible sin diff espurio · 1 solo tracker de migraciones · 0 schemas fuera de drizzle.config · mocks que nunca inventan datos · 0 ciclos workshop↔finance / inventory↔finance / backup↔enterprise (o excepciones documentadas + matriz en CI) · propiedad tabla→módulo publicada · contingencia con matriz+auto-sync o alcance degradado · niveles PUC documentados = reales",
+        "F3: API.md generado con fecha ≤ último commit · DAS alineado o histórico · FN-3/FN-4 en 0 · ERD completo publicado · secuencias core (SIFEN/auth) documentadas · estados OT: ERS = enum real · i18n aplicado o degradado formal"
       ]
     },
-    "current_sprint": "Sprint 132 — EN CURSO (plan en sprint_132_plan; Fase 0 CERRADA 2026-10-28: S132-1, S132-2, S132-3, S132-4 COMPLETED; S132-5 PARTIAL — clientsRelations + baselines OK, .default(\"demo\") diferido a S132-7). Pendiente: F1 (S132-6..9), F2 (S132-10..14), F3 (S132-15..18).",
-    "next_sprint": "Sprint 133 — NO PLANIFICADO (agendar cuando cierre F1-F3 de Sprint 132). Contexto del plan vigente: auditoría tricapa docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md; F0 quick wins sin riesgo (S132-1..5: WIP order-items, fallback 'demo', docs caducos, tech_stack, clientsRelations) → F1 seguridad multi-tenant (S132-6..9: columna tenant fiscal, discriminador único, rol least-privilege, forgot-password) → F2 integridad (S132-10..14: snapshots drizzle, drizzle.config, mocks honestos, contrato generado, FKs) → F3 documentación (S132-15..18: API.md generado, DAS, FN-3/FN-4, UI huérfana). CI seguía verde 2026-10-15 (run 38821325730 @ 237280a). Deploy: origin/main vía deploy key 'erp-taller-agent-deploy'.",
+    "current_sprint": "Sprint 132 — EN CURSO (plan en sprint_132_plan; Fase 0 CERRADA 2026-10-28: S132-1, S132-2, S132-3, S132-4 COMPLETED; S132-5 PARTIAL — clientsRelations + baselines OK, .default(\"demo\") diferido a S132-7). Pendiente: F1 (S132-6..9, 19-20), F2 (S132-10..14, 21..24), F3 (S132-15..18, 25..28) — ampliación por auditoría canónica (state.audit_canonica_3frentes_20261028).",
+    "next_sprint": "Sprint 133 — NO PLANIFICADO (agendar cuando cierre F1-F3 de Sprint 132). Contexto del plan vigente: auditoría tricapa docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md; F0 quick wins sin riesgo (S132-1..5: WIP order-items, fallback 'demo', docs caducos, tech_stack, clientsRelations) → F1 seguridad multi-tenant (S132-6..9: columna tenant fiscal, discriminador único, rol least-privilege, forgot-password) → F2 integridad (S132-10..14: snapshots drizzle, drizzle.config, mocks honestos, contrato generado, FKs) → F3 documentación (S132-15..18: API.md generado, DAS, FN-3/FN-4, UI huérfana). Ampliación auditoría canónica 2026-10-28 (S132-19..28): F1 auth JWT + guards de asientos; F2 ciclos entre módulos, propiedad de datos, contingencia SIFEN, PUC; F3 ERD completo, secuencias SIFEN/auth, estados OT, i18n. CI seguía verde 2026-10-15 (run 38821325730 @ 237280a). Deploy: origin/main vía deploy key 'erp-taller-agent-deploy'.",
     "last_deploy": {
       "host": "local (Podman rootless)",
       "compose": "docker-compose.onpremise.yml",
