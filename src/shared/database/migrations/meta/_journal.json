@@ -253,6 +253,13 @@
       "when": 1790994479017,
       "tag": "0035_ingreso_checklist_ingreso_unico",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1793235829415,
+      "tag": "0036_fiscal_tenant_slug",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,10 @@
  * CDC (Código de Control), KUDE (Kude) PDF URL, and the full
  * lifecycle status of each fiscal document.
  *
- * Multi-tenant: these tables live in each tenant's schema.
+ * Multi-tenant: esquema ÚNICO con discriminador `tenant_slug` (S132-6,
+ * 2026-10-28) — antes se identificaba el tenant por `emisor_ruc`, lo que
+ * dejaba el módulo fiscal (el más regulatorio: DNIT SIFEN, RG 90) fuera
+ * del aislamiento. RLS fail-closed igual que el resto (migración 0019/0036).
  *
  * @module finance/schema/fiscal-docs
  */
@@ -82,6 +85,14 @@ export const fiscalDocumentos = pgTable(
   {
     /** Primary key UUID */
     id: uuid("id").primaryKey().defaultRandom(),
+
+    // ─── Multi-tenant ─────────────────────────
+    /**
+     * Tenant owner (slug discriminator, S132-6).
+     * Antes el tenant se deducía por `emisor_ruc`; ahora es columna propia
+     * con RLS fail-closed y filtro app obligatorio.
+     */
+    tenantSlug: text("tenant_slug").notNull(),
 
     // ─── Emisor (el taller) ───────────────────
     /** RUC del taller (emisor) */
@@ -189,6 +200,8 @@ export const fiscalDocumentos = pgTable(
       .defaultNow(),
   },
   (table) => ({
+    /** Index on tenant_slug — aislamiento y listados por tenant (S132-6) */
+    tenantIdx: index("fiscal_doc_tenant_idx").on(table.tenantSlug),
     /** Index on serie + numero — fast DTE lookup */
     serieNumeroIdx: index("fiscal_doc_serie_numero_idx").on(
       table.serie, table.numero,
@@ -218,6 +231,8 @@ export const fiscalDocumentoDetalles = pgTable(
   "fiscal_documento_detalles",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** Tenant owner (slug, S132-6) — espejo del documento padre (RLS no joins) */
+    tenantSlug: text("tenant_slug").notNull(),
     /** Parent DTE */
     documentoId: uuid("documento_id")
       .notNull()
@@ -254,6 +269,7 @@ export const fiscalDocumentoDetalles = pgTable(
   },
   (table) => ({
     documentoIdx: index("fiscal_detalle_documento_idx").on(table.documentoId),
+    tenantIdx: index("fiscal_detalle_tenant_idx").on(table.tenantSlug),
   }),
 );
 
@@ -269,6 +285,8 @@ export const sifenSyncLog = pgTable(
   "sifen_sync_log",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /** Tenant owner (slug, S132-6) — espejo del documento padre (RLS no joins) */
+    tenantSlug: text("tenant_slug").notNull(),
     /** DTE UUID */
     documentoId: uuid("documento_id")
       .notNull()
@@ -299,6 +317,7 @@ export const sifenSyncLog = pgTable(
   (table) => ({
     documentoIdx: index("sifen_log_documento_idx").on(table.documentoId),
     operacionIdx: index("sifen_log_operacion_idx").on(table.operacion),
+    tenantIdx: index("sifen_log_tenant_idx").on(table.tenantSlug),
   }),
 );
 

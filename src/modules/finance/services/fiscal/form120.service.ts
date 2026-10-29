@@ -157,6 +157,7 @@ export async function calcularForm120(
     .from(fiscalDocumentos)
     .where(
       and(
+        eq(fiscalDocumentos.tenantSlug, tenantSlug),
         eq(fiscalDocumentos.dteTipo, "FACTURA"),
         eq(fiscalDocumentos.estado, "APROBADO"),
         gte(fiscalDocumentos.fechaEmision, desde),
@@ -475,7 +476,7 @@ export async function actualizarEstadoForm120(
 export async function calcularProrrateoIva(
   anho: number,
   mes: number,
-  _tenantSlug: string,
+  tenantSlug: string,
 ): Promise<number | null> {
   const desde = new Date(anho, mes - 1, 1);
   const hasta = new Date(anho, mes, 0, 23, 59, 59);
@@ -489,6 +490,9 @@ export async function calcularProrrateoIva(
     .from(fiscalDocumentos)
     .where(
       and(
+        // S132-6: el prorrateo antes sumaba ventas de TODOS los tenants
+        // (parámetro `_tenantSlug` sin usar — B-3).
+        eq(fiscalDocumentos.tenantSlug, tenantSlug),
         eq(fiscalDocumentos.dteTipo, "FACTURA"),
         eq(fiscalDocumentos.estado, "APROBADO"),
         gte(fiscalDocumentos.fechaEmision, desde),

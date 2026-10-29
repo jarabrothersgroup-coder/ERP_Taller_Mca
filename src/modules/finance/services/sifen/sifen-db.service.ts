@@ -40,6 +40,8 @@ export async function createFiscalDocumento(
     .insert(fiscalDocumentos)
     .values({
       ...data,
+      // S132-6: discriminador de tenant explícito (NOT NULL desde 0036).
+      tenantSlug: data.tenantSlug,
       estado: data.estado ?? "BORRADOR",
     } as any)
     .returning();
@@ -48,17 +50,20 @@ export async function createFiscalDocumento(
 }
 
 /**
- * Retrieves a fiscal document by ID.
+ * Retrieves a fiscal document by ID within a tenant.
  *
  * @param id - Document UUID
+ * @param tenantSlug - Tenant owner (S132-6: filtro obligatorio, cerraba B-3)
  * @returns The fiscal document
- * @throws {NotFoundError} If not found
+ * @throws {NotFoundError} If not found (o pertenece a otro tenant)
  */
-export async function getFiscalDocumentoById(id: string) {
+export async function getFiscalDocumentoById(id: string, tenantSlug: string) {
   const [doc] = await db()
     .select()
     .from(fiscalDocumentos)
-    .where(eq(fiscalDocumentos.id, id))
+    .where(
+      and(eq(fiscalDocumentos.id, id), eq(fiscalDocumentos.tenantSlug, tenantSlug)),
+    )
     .limit(1);
 
   if (!doc) {
@@ -71,32 +76,29 @@ export async function getFiscalDocumentoById(id: string) {
 /**
  * Lists fiscal documents with optional status filter, pagination, and sorting.
  *
- * @param options - Filter, pagination, and sort options
+ * @param options - Filter (tenantSlug obligatorio), pagination, and sort options
  * @returns Paginated document list with metadata
  */
 export async function listFiscalDocumentos(options: {
+  tenantSlug: string;
   estado?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }) {
-  const { estado, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
+  const { tenantSlug, estado, page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
   const offset = (page - 1) * limit;
-
-  const conditions: ReturnType<typeof eq>[] = [];
-  if (estado) {
-    conditions.push(eq(fiscalDocumentos.estado, estado as any));
-  }
-
-  const whereClause = conditions.length > 0
-    ? and(...conditions)
-    : undefined;
 
   const [totalCount] = await db()
     .select({ total: count() })
     .from(fiscalDocumentos)
-    .where(whereClause);
+    .where(
+      and(
+        eq(fiscalDocumentos.tenantSlug, tenantSlug),
+        estado ? eq(fiscalDocumentos.estado, estado as FiscalDocStatus) : undefined,
+      ),
+    );
 
   // Map sortBy to actual column
   const sortColumn = (fiscalDocumentos as any)[sortBy] ?? fiscalDocumentos.createdAt;
@@ -105,7 +107,12 @@ export async function listFiscalDocumentos(options: {
   const items = await db()
     .select()
     .from(fiscalDocumentos)
-    .where(whereClause)
+    .where(
+      and(
+        eq(fiscalDocumentos.tenantSlug, tenantSlug),
+        estado ? eq(fiscalDocumentos.estado, estado as FiscalDocStatus) : undefined,
+      ),
+    )
     .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);
@@ -128,33 +135,35 @@ export async function listFiscalDocumentos(options: {
  *
  * @param id - Document UUID
  * @param estado - New status
- * @param xmlFirmado - Signed XML (optional)
- * @param cdc - Control code (optional)
- * @param numeroTransaccion - SIFEN transaction number (optional)
+ * @param opts - Tenant owner (obligatorio, S132-6) + optional fields:
+ *               xmlFirmado, cdc, numeroTransaccion
  * @returns The updated document
  */
 export async function updateFiscalDocumentoEstado(
   id: string,
   estado: FiscalDocStatus,
-  xmlFirmado?: string | null,
-  cdc?: string | null,
-  numeroTransaccion?: string | null,
+  opts: {
+    tenantSlug: string;
+    xmlFirmado?: string | null;
+    cdc?: string | null;
+    numeroTransaccion?: string | null;
+  },
 ) {
   const updateData: Record<string, unknown> = {
     estado,
     updatedAt: new Date(),
   };
 
-  if (xmlFirmado !== undefined) {
-    updateData["xmlFirmado"] = xmlFirmado;
+  if (opts.xmlFirmado !== undefined) {
+    updateData["xmlFirmado"] = opts.xmlFirmado;
   }
 
-  if (cdc !== undefined) {
-    updateData["cdc"] = cdc;
+  if (opts.cdc !== undefined) {
+    updateData["cdc"] = opts.cdc;
   }
 
-  if (numeroTransaccion !== undefined) {
-    updateData["numeroTransaccion"] = numeroTransaccion;
+  if (opts.numeroTransaccion !== undefined) {
+    updateData["numeroTransaccion"] = opts.numeroTransaccion;
   }
 
   if (estado === "ENVIADO" || estado === "APROBADO") {
@@ -168,7 +177,9 @@ export async function updateFiscalDocumentoEstado(
   const [doc] = await db()
     .update(fiscalDocumentos)
     .set(updateData)
-    .where(eq(fiscalDocumentos.id, id))
+    .where(
+      and(eq(fiscalDocumentos.id, id), eq(fiscalDocumentos.tenantSlug, opts.tenantSlug)),
+    )
     .returning();
 
   return doc;
@@ -179,10 +190,12 @@ export async function updateFiscalDocumentoEstado(
  *
  * @param documentoId - Parent document UUID
  * @param items - Array of line items
+ * @param tenantSlug - Tenant owner (S132-6: espejo del documento, RLS no joins)
  */
 export async function addFiscalDocumentoDetalles(
   documentoId: string,
-  items: Array<Omit<NewFiscalDocumentoDetalle, "id" | "documentoId" | "createdAt">>,
+  items: Array<Omit<NewFiscalDocumentoDetalle, "id" | "documentoId" | "tenantSlug" | "createdAt">>,
+  tenantSlug: string,
 ) {
   if (items.length === 0) return;
 
@@ -191,6 +204,7 @@ export async function addFiscalDocumentoDetalles(
     .values(
       items.map((item) => ({
         ...item,
+        tenantSlug,
         documentoId,
       })),
     );
@@ -209,7 +223,7 @@ export async function createSyncLogEntry(
 ) {
   const [entry] = await db()
     .insert(sifenSyncLog)
-    .values(data as any)
+    .values({ ...data, tenantSlug: data.tenantSlug } as any)
     .returning();
 
   return entry;
@@ -218,32 +232,29 @@ export async function createSyncLogEntry(
 /**
  * Retrieves sync log entries with optional filtering, pagination, and sorting.
  *
- * @param options - Filter, pagination, and sort options
+ * @param options - Filter (tenantSlug obligatorio), pagination, and sort options
  * @returns Paginated log entries with metadata
  */
 export async function getSyncLog(options: {
+  tenantSlug: string;
   documentoId?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }) {
-  const { documentoId, page = 1, limit = 50, sortBy = "createdAt", sortOrder = "desc" } = options;
+  const { tenantSlug, documentoId, page = 1, limit = 50, sortBy = "createdAt", sortOrder = "desc" } = options;
   const offset = (page - 1) * limit;
-
-  const conditions: ReturnType<typeof eq>[] = [];
-  if (documentoId) {
-    conditions.push(eq(sifenSyncLog.documentoId, documentoId));
-  }
-
-  const whereClause = conditions.length > 0
-    ? and(...conditions)
-    : undefined;
 
   const [totalCount] = await db()
     .select({ total: count() })
     .from(sifenSyncLog)
-    .where(whereClause);
+    .where(
+      and(
+        eq(sifenSyncLog.tenantSlug, tenantSlug),
+        documentoId ? eq(sifenSyncLog.documentoId, documentoId) : undefined,
+      ),
+    );
 
   // Map sortBy to actual column
   const sortColumn = (sifenSyncLog as any)[sortBy] ?? sifenSyncLog.createdAt;
@@ -252,7 +263,12 @@ export async function getSyncLog(options: {
   const items = await db()
     .select()
     .from(sifenSyncLog)
-    .where(whereClause)
+    .where(
+      and(
+        eq(sifenSyncLog.tenantSlug, tenantSlug),
+        documentoId ? eq(sifenSyncLog.documentoId, documentoId) : undefined,
+      ),
+    )
     .orderBy(orderFn(sortColumn))
     .limit(limit)
     .offset(offset);

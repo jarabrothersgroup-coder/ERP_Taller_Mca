@@ -40,7 +40,7 @@ import {
 } from "../services/sifen/sifen-db.service.js";
 import { parseMoneyToCentavos, centavosToString } from "../services/accounting/capa3-formatters.js";
 import { sifenConfigurator } from "../services/accounting/sifen.configurator.js";
-import { eq, count } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { db } from "../../../shared/database/drizzle.js";
 import { tenants, clients, fiscalDocumentos } from "../../../shared/database/schema/index.js";
 import { sifenSyncLog } from "../schema/fiscal-docs.js";
@@ -214,6 +214,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
 
       // ── 6. Save as BORRADOR in DB ──
       const documento = await createFiscalDocumento({
+        tenantSlug: request.tenantSlug,
         emisorRuc,
         emisorRazonSocial,
         clienteId: data.clienteId,
@@ -239,11 +240,15 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
       let xmlFirmado: string | null = null;
       try {
         xmlFirmado = await signXMLAsync(xmlOriginal);
-        await updateFiscalDocumentoEstado(documento.id, "FIRMADO", xmlFirmado);
+        await updateFiscalDocumentoEstado(documento.id, "FIRMADO", {
+          tenantSlug: request.tenantSlug,
+          xmlFirmado,
+        });
       } catch (err) {
         // XML signed async — continue with BORRADOR status if signing fails
         const msg = err instanceof Error ? err.message : "Error de firma";
         await createSyncLogEntry({
+          tenantSlug: request.tenantSlug,
           documentoId: documento.id,
           operacion: "FIRMA",
           codigoResultado: "ERROR",
@@ -262,15 +267,22 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
             await updateFiscalDocumentoEstado(
               documento.id,
               "APROBADO",
-              xmlFirmado,
-              resultadoSifen.cdc,
-              resultadoSifen.numeroTransaccion,
+              {
+                tenantSlug: request.tenantSlug,
+                xmlFirmado,
+                cdc: resultadoSifen.cdc,
+                numeroTransaccion: resultadoSifen.numeroTransaccion,
+              },
             );
           } else {
-            await updateFiscalDocumentoEstado(documento.id, "RECHAZADO", xmlFirmado);
+            await updateFiscalDocumentoEstado(documento.id, "RECHAZADO", {
+              tenantSlug: request.tenantSlug,
+              xmlFirmado,
+            });
           }
 
           await createSyncLogEntry({
+            tenantSlug: request.tenantSlug,
             documentoId: documento.id,
             operacion: "ENVIO",
             codigoResultado: resultadoSifen.codigoResultado,
@@ -282,6 +294,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         } catch (err) {
           const msg = err instanceof Error ? err.message : "SOAP error";
           await createSyncLogEntry({
+            tenantSlug: request.tenantSlug,
             documentoId: documento.id,
             operacion: "ENVIO",
             exitoso: false,
@@ -319,7 +332,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // ── 10. Respond ──
-      const docFinal = await getFiscalDocumentoById(documento.id);
+      const docFinal = await getFiscalDocumentoById(documento.id, request.tenantSlug);
 
       return reply.status(201).send({
         documento: docFinal,
@@ -344,7 +357,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const { documentoId } = request.body;
-      const doc = await getFiscalDocumentoById(documentoId);
+      const doc = await getFiscalDocumentoById(documentoId, request.tenantSlug);
 
       if (!doc.xmlOriginal) {
         return reply.status(400).send({
@@ -354,7 +367,10 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const xmlFirmado = await signXMLAsync(doc.xmlOriginal);
-      await updateFiscalDocumentoEstado(doc.id, "FIRMADO", xmlFirmado);
+      await updateFiscalDocumentoEstado(doc.id, "FIRMADO", {
+        tenantSlug: request.tenantSlug,
+        xmlFirmado,
+      });
 
       return reply.send({ id: doc.id, estado: "FIRMADO" });
     },
@@ -365,7 +381,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
     "/finance/sifen/enviar",
     async (request, reply) => {
       const { documentoId } = request.body;
-      const doc = await getFiscalDocumentoById(documentoId);
+      const doc = await getFiscalDocumentoById(documentoId, request.tenantSlug);
 
       if (!doc.xmlFirmado) {
         return reply.status(400).send({
@@ -380,15 +396,22 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
         await updateFiscalDocumentoEstado(
           doc.id,
           "APROBADO",
-          doc.xmlFirmado,
-          resultado.cdc,
-          resultado.numeroTransaccion,
+          {
+            tenantSlug: request.tenantSlug,
+            xmlFirmado: doc.xmlFirmado,
+            cdc: resultado.cdc,
+            numeroTransaccion: resultado.numeroTransaccion,
+          },
         );
       } else {
-        await updateFiscalDocumentoEstado(doc.id, "RECHAZADO", doc.xmlFirmado);
+        await updateFiscalDocumentoEstado(doc.id, "RECHAZADO", {
+          tenantSlug: request.tenantSlug,
+          xmlFirmado: doc.xmlFirmado,
+        });
       }
 
       await createSyncLogEntry({
+        tenantSlug: request.tenantSlug,
         documentoId: doc.id,
         operacion: "ENVIO",
         codigoResultado: resultado.codigoResultado,
@@ -452,10 +475,14 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
       const [doc] = await db()
         .select({ id: fiscalDocumentos.id })
         .from(fiscalDocumentos)
-        .where(eq(fiscalDocumentos.cdc, cdc))
+        .where(
+          and(eq(fiscalDocumentos.cdc, cdc), eq(fiscalDocumentos.tenantSlug, request.tenantSlug)),
+        )
         .limit(1);
       if (doc) {
-        await updateFiscalDocumentoEstado(doc.id, "ANULADO");
+        await updateFiscalDocumentoEstado(doc.id, "ANULADO", {
+          tenantSlug: request.tenantSlug,
+        });
       }
 
       return reply.send(resultado);
@@ -468,6 +495,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { estado, page, limit, sortBy, sortOrder } = request.query;
       const result = await listFiscalDocumentos({
+        tenantSlug: request.tenantSlug,
         estado,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 20,
@@ -482,7 +510,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>(
     "/finance/sifen/documentos/:id",
     async (request, reply) => {
-      const doc = await getFiscalDocumentoById(request.params.id);
+      const doc = await getFiscalDocumentoById(request.params.id, request.tenantSlug);
       return reply.send(doc);
     },
   );
@@ -493,6 +521,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { documentoId, page, limit, sortBy, sortOrder } = request.query;
       const result = await getSyncLog({
+        tenantSlug: request.tenantSlug,
         documentoId,
         page: page ? parseInt(page, 10) : 1,
         limit: limit ? parseInt(limit, 10) : 50,
@@ -682,7 +711,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
   // ── GET /finance/sifen/dashboard — Status dashboard ──
   app.get(
     "/finance/sifen/dashboard",
-    async (_request, reply) => {
+    async (request, reply) => {
       // Count documents by status
       const statusCounts = await db()
         .select({
@@ -690,6 +719,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
           total: count(),
         })
         .from(fiscalDocumentos)
+        .where(eq(fiscalDocumentos.tenantSlug, request.tenantSlug))
         .groupBy(fiscalDocumentos.estado);
 
       // Build status summary
@@ -720,6 +750,7 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
           createdAt: sifenSyncLog.createdAt,
         })
         .from(sifenSyncLog)
+        .where(eq(sifenSyncLog.tenantSlug, request.tenantSlug))
         .orderBy(sifenSyncLog.createdAt)
         .limit(10);
 
@@ -733,7 +764,9 @@ export async function sifenRoutes(app: FastifyInstance): Promise<void> {
           fechaEnvio: fiscalDocumentos.fechaEnvio,
         })
         .from(fiscalDocumentos)
-        .where(eq(fiscalDocumentos.estado, "ENVIADO"))
+        .where(
+          and(eq(fiscalDocumentos.estado, "ENVIADO"), eq(fiscalDocumentos.tenantSlug, request.tenantSlug)),
+        )
         .orderBy(fiscalDocumentos.fechaEnvio)
         .limit(20);
 

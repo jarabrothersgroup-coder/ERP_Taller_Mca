@@ -69,7 +69,9 @@ export async function emitirNotaCredito(
     const [docOriginal] = await db()
       .select()
       .from(fiscalDocumentos)
-      .where(eq(fiscalDocumentos.cdc, cdcOriginal))
+      .where(
+        and(eq(fiscalDocumentos.cdc, cdcOriginal), eq(fiscalDocumentos.tenantSlug, tenantSlug)),
+      )
       .limit(1);
 
     if (!docOriginal) {
@@ -104,6 +106,7 @@ export async function emitirNotaCredito(
       .select({ numero: fiscalDocumentos.numero })
       .from(fiscalDocumentos)
       .where(and(
+        eq(fiscalDocumentos.tenantSlug, tenantSlug),
         eq(fiscalDocumentos.dteTipo, "NOTA_CREDITO"),
         eq(fiscalDocumentos.serie, serieNC),
       ))
@@ -175,6 +178,7 @@ export async function emitirNotaCredito(
 
     // ── 7. Guardar como documento fiscal ──
     const documento = await createFiscalDocumento({
+      tenantSlug,
       emisorRuc: docOriginal.emisorRuc,
       emisorRazonSocial: docOriginal.emisorRazonSocial,
       clienteId: docOriginal.clienteId ?? undefined,
@@ -205,15 +209,22 @@ export async function emitirNotaCredito(
         await updateFiscalDocumentoEstado(
           documento.id,
           "APROBADO",
-          xmlFirmado,
-          resultadoSifen.cdc,
-          resultadoSifen.numeroTransaccion,
+          {
+            tenantSlug,
+            xmlFirmado,
+            cdc: resultadoSifen.cdc,
+            numeroTransaccion: resultadoSifen.numeroTransaccion,
+          },
         );
       } else {
-        await updateFiscalDocumentoEstado(documento.id, "RECHAZADO", xmlFirmado);
+        await updateFiscalDocumentoEstado(documento.id, "RECHAZADO", {
+          tenantSlug,
+          xmlFirmado,
+        });
       }
 
       await createSyncLogEntry({
+        tenantSlug,
         documentoId: documento.id,
         operacion: "ENVIO_NC",
         codigoResultado: resultadoSifen.codigoResultado ?? "",
@@ -223,8 +234,12 @@ export async function emitirNotaCredito(
         mensajeError: resultadoSifen.mensajeError ?? undefined,
       });
     } catch (err: any) {
-      await updateFiscalDocumentoEstado(documento.id, "FIRMADO", xmlFirmado);
+      await updateFiscalDocumentoEstado(documento.id, "FIRMADO", {
+        tenantSlug,
+        xmlFirmado,
+      });
       await createSyncLogEntry({
+        tenantSlug,
         documentoId: documento.id,
         operacion: "ENVIO_NC",
         codigoResultado: "ERROR",

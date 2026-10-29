@@ -204,13 +204,17 @@ export async function reenviarContingencia(
           await updateFiscalDocumentoEstado(
             row.documento_id,
             "APROBADO",
-            xmlFirmado,
-            resultado.cdc,
-            resultado.numeroTransaccion,
+            {
+              tenantSlug: row.tenant_slug,
+              xmlFirmado,
+              cdc: resultado.cdc,
+              numeroTransaccion: resultado.numeroTransaccion,
+            },
           );
         }
 
         await createSyncLogEntry({
+          tenantSlug: row.tenant_slug,
           documentoId: row.documento_id,
           operacion: "CONTINGENCIA_REENVIO",
           codigoResultado: resultado.codigoResultado ?? "OK",

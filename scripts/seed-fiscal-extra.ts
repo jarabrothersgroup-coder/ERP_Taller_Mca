@@ -20,6 +20,7 @@
 import { db } from "../src/shared/database/drizzle.js";
 import { closeDb } from "../src/shared/database/connection.js";
 import { eq } from "drizzle-orm";
+// (S132-6: los DTE del seed ahora son tenant-scoped)
 import {
   tenants,
   tenantConfig,
@@ -597,7 +598,8 @@ async function main() {
   } else {
     const existingDocs = await db()
       .select({ id: fiscalDocumentos.id, serie: fiscalDocumentos.serie, numero: fiscalDocumentos.numero })
-      .from(fiscalDocumentos);
+      .from(fiscalDocumentos)
+      .where(eq(fiscalDocumentos.tenantSlug, TENANT_SLUG));
     const docIdByKey = new Map(existingDocs.map((d) => [`${d.serie}|${d.numero}`, d.id]));
     const docIdByNumero = new Map<string, string>();
 
@@ -614,6 +616,7 @@ async function main() {
         const [row] = await db()
           .insert(fiscalDocumentos)
           .values({
+            tenantSlug: TENANT_SLUG,
             emisorRuc,
             emisorRazonSocial,
             clienteId: cliente.id,
@@ -653,7 +656,7 @@ async function main() {
         if (lineSet.has(l.numeroLinea)) continue;
         await db()
           .insert(fiscalDocumentoDetalles)
-          .values({ documentoId: docId, ...l } as any);
+          .values({ tenantSlug: TENANT_SLUG, documentoId: docId, ...l } as any);
         lineSet.add(l.numeroLinea);
         detallesInserted++;
       }
@@ -675,6 +678,7 @@ async function main() {
       await db()
         .insert(sifenSyncLog)
         .values({
+          tenantSlug: TENANT_SLUG,
           documentoId,
           operacion: def.operacion,
           codigoResultado: def.codigoResultado,
