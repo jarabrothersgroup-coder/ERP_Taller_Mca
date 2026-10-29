@@ -226,7 +226,7 @@ Los siguientes requisitos se agregan en Fase 2 (Sprints 50+) para cubrir funcion
 |---|---|---|---|
 | **RNF-SEG-001** | Aislamiento multi-tenant | Los datos de cada tenant deben aislarse mediante Row Level Security (RLS) en PostgreSQL y filtrado a nivel de aplicación. | **Alta** |
 | **RNF-SEG-002** | Cifrado en tránsito | Toda comunicación cliente-servidor debe utilizar TLS 1.2 o superior. Las APIs internas entre servicios Docker deben comunicarse por red privada. | **Alta** |
-| **RNF-SEG-003** | Autenticación por headers | La autenticación se realiza mediante headers HTTP (`X-Tenant-Slug`, `X-User-Email`) con validación a nivel de middleware. | **Alta** |
+| **RNF-SEG-003** | Autenticación por JWT | La autenticación se realiza mediante **JWT Bearer** (HMAC-SHA256 propio o Clerk RS256 en producción) verificado en middleware, junto con el header `X-Tenant-Slug` para el aislamiento multi-tenant. El header `X-User-Email` como mecanismo de autenticación fue **retirado** (S132-19, 2026-10-28) — permitía impersonación y estaba deshabilitado por defecto desde ALTO-03. | **Alta** |
 | **RNF-SEG-004** | Rate limiting | El sistema debe limitar las solicitudes a 200 por minuto por IP para prevenir abusos. | **Alta** |
 | **RNF-SEG-005** | Hashing de contraseñas | Las contraseñas deben cifrarse con scrypt (sal de 32 bytes, clave de 64 bytes) usando el módulo crypto de Node.js. | **Alta** |
 

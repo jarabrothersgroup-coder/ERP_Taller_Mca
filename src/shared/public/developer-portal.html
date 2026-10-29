@@ -141,11 +141,11 @@
             </div>
           </div>
           <div>
-            <h4 class="font-semibold mb-2 text-green-400">Tenant Header (Internal)</h4>
+            <h4 class="font-semibold mb-2 text-green-400">JWT (Internal)</h4>
             <div class="code-block">
-              <span class="comment"># For internal SPA communication</span><br>
+              <span class="comment"># For internal SPA communication (S132-19: el header X-User-Email fue retirado)</span><br>
               curl -H <span class="string">"X-Tenant-Slug: taller_oviedo"</span> \<br>
-              &nbsp;&nbsp;-H <span class="string">"X-User-Email: admin@taller.com"</span> \<br>
+              &nbsp;&nbsp;-H <span class="string">"Authorization: Bearer &lt;JWT de /api/auth/login&gt;"</span> \<br>
               &nbsp;&nbsp;http://localhost:3000/workshop/ordenes
             </div>
           </div>

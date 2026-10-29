@@ -94,10 +94,9 @@ async function api(path, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (state.auth.slug) headers['X-Tenant-Slug'] = state.auth.slug;
   // CRIT-02 FIX: Send JWT token instead of email header
+  // S132-19: el fallback X-User-Email fue retirado — sólo JWT.
   if (state.auth.token) {
     headers['Authorization'] = `Bearer ${state.auth.token}`;
-  } else if (state.auth.profile?.email) {
-    headers['X-User-Email'] = state.auth.profile.email;
   }
   // MED-03 FIX: Send CSRF token from cookie on state-changing requests
   const method = (opts.method || 'GET').toUpperCase();
@@ -149,8 +148,6 @@ function authHeaders() {
   if (state.auth.slug) h['X-Tenant-Slug'] = state.auth.slug;
   if (state.auth.token) {
     h['Authorization'] = `Bearer ${state.auth.token}`;
-  } else if (state.auth.profile?.email) {
-    h['X-User-Email'] = state.auth.profile.email;
   }
   const csrfToken = document.cookie.split('; ').find(c => c.startsWith('_csrf='))?.split('=')[1];
   if (csrfToken) h['X-CSRF-Token'] = csrfToken;

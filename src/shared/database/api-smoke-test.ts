@@ -25,6 +25,11 @@ const BASE_URL = process.argv.includes("--base-url")
 
 const TENANT_SLUG = process.env["TEST_TENANT"] || "taller-el-chero";
 const USER_EMAIL = process.env["TEST_EMAIL"] || "jaraju01@gmail.com";
+// S132-19: el header X-User-Email fue retirado del auth — el smoke test
+// obtiene un JWT via /api/auth/login y lo adjunta como Bearer.
+const USER_PASSWORD = process.env["TEST_PASSWORD"] ?? "";
+
+let authToken: string | null = null;
 
 interface TestResult {
   name: string;
@@ -68,7 +73,7 @@ async function api(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "X-Tenant-Slug": TENANT_SLUG,
-    "X-User-Email": USER_EMAIL,
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     ...(opts.headers as Record<string, string> || {}),
   };
 
@@ -114,9 +119,12 @@ async function runTests(): Promise<void> {
       body: JSON.stringify({
         tenantSlug: TENANT_SLUG,
         email: USER_EMAIL,
+        password: USER_PASSWORD,
       }),
     });
     if (!data.profile) throw new Error("No profile returned");
+    if (!data.token) throw new Error("No JWT returned");
+    authToken = data.token; // Bearer para el resto de los tests
   });
 
   // ── Workshop ──

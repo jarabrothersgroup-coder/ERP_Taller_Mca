@@ -49,7 +49,10 @@ const ROLE_HIERARCHY: Record<string, number> = {
  * Verification order:
  *   1. Clerk JWT (RS256 via JWKS) — production auth
  *   2. Custom HMAC-SHA256 JWT — legacy/internal auth
- *   3. X-User-Email header — DEPRECATED fallback (will be removed)
+ *
+ * S132-19 (2026-10-28): el fallback X-User-Email fue RETIRADO — permitía
+ * impersonación de cualquier usuario y no tenía consumidores restantes
+ * (estaba apagado por defecto desde ALTO-03; ningún entorno lo habilitaba).
  *
  * Security: Verifies JWT signature and expiry before trusting any claims.
  * Must run AFTER resolveTenant (needs `request.tenantSlug`).
@@ -85,18 +88,9 @@ export async function resolveProfile(
     throw new UnauthorizedError("Token inválido o expirado");
   }
 
-  // ── 3. DEPRECATED: X-User-Email header ─────────
-  // SECURITY FIX (ALTO-03): Disabled by default — allows impersonation of any user.
-  // Only re-enable temporarily with env ALLOW_X_USER_EMAIL_HEADER=true during migration.
-  const allowLegacyHeader = process.env["ALLOW_X_USER_EMAIL_HEADER"] === "true";
-  if (allowLegacyHeader) {
-    const email = request.headers["x-user-email"] as string | undefined;
-    if (email) {
-      request.log.warn({ email: email.slice(0, 3) + "***" }, "DEPRECATED: X-User-Email header used — migrate to JWT");
-      await resolveProfileFromEmail(request, email);
-      return;
-    }
-  }
+  // ── 3. No legacy fallback ─────────────────────
+  // S132-19: X-User-Email header fallback removed (impersonation risk,
+  // zero consumers — was env-gated off since ALTO-03).
 
   // No auth provided — allow unauthenticated routes (login, health, etc.)
 }
@@ -163,8 +157,7 @@ async function resolveProfileFromClerkClaims(
 }
 
 /**
- * Resolve user profile from email address.
- * Used by both custom JWT and deprecated X-User-Email header.
+ * Resolve user profile from email address (email claim del JWT verificado).
  */
 async function resolveProfileFromEmail(
   request: FastifyRequest,

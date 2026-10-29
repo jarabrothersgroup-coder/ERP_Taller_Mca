@@ -3,7 +3,7 @@
  *
  * Tests the full middleware pipeline end-to-end:
  *   1. Tenant isolation (X-Tenant-Slug validation)
- *   2. RBAC (X-User-Email → profile resolution)
+ *   2. RBAC (JWT → profile resolution; X-User-Email retirado en S132-19)
  *   3. Schema validation (request body/params/query validation)
  *   4. Error propagation (NotFound → 404, BadRequest → 400)
  *   5. Search empty query handling
@@ -192,7 +192,7 @@ function buildTestApp(): FastifyInstance {
 
 // ─── Headers ────────────────────────────────────
 
-const headers = { "x-tenant-slug": TENANT, "x-user-email": USER_EMAIL };
+const headers = { "x-tenant-slug": TENANT }; // S132-19: sin x-user-email (fallback retirado)
 
 // ─── Tests ─────────────────────────────────────
 

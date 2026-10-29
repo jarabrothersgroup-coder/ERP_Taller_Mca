@@ -61,7 +61,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return app;
 }
 
-const headers = { "x-tenant-slug": "test-tenant", "x-user-email": "admin@test.com" };
+const headers = { "x-tenant-slug": "test-tenant" }; // S132-19: sin x-user-email (fallback retirado)
 
 // ═════════════════════════════════════════════════
 //  PDF Report Routes

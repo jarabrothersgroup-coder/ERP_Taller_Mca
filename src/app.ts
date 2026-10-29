@@ -78,7 +78,6 @@ export async function buildApp() {
       "Content-Type",
       "Authorization",
       "X-Tenant-Slug",
-      "X-User-Email",
       "X-Request-ID",
       "Accept",
       "Origin",
@@ -230,15 +229,18 @@ export async function buildApp() {
               name: "X-Tenant-Slug",
               description: "Tenant slug for multi-tenant isolation",
             },
-            userHeader: {
-              type: "apiKey",
-              in: "header",
-              name: "X-User-Email",
-              description: "User email for RBAC resolution",
+            // S132-19: el header X-User-Email fue retirado del auth (antes
+            // documentado acá como userHeader); la resolución de usuario
+            // es por JWT Bearer (HMAC-SHA256 propio o Clerk RS256).
+            bearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "JWT",
+              description: "JWT (HS256 propio o Clerk RS256) con claim email",
             },
           },
         },
-        security: [{ tenantHeader: [], userHeader: [] }],
+        security: [{ tenantHeader: [], bearerAuth: [] }],
         tags: [
           { name: "Auth", description: "Autenticación y login" },
           { name: "Workshop", description: "Módulo de Taller (vehículos, OTs, ingresos)" },

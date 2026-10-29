@@ -73,7 +73,7 @@ describe("resolveProfile", () => {
   // NOTE: we do NOT use vi.clearAllMocks() here because it wipes
   // the db mock implementation. Each test sets its own mock via mockProfileResult().
 
-  it("skips when no X-User-Email header", async () => {
+  it("skips when no Authorization header", async () => {
     vi.clearAllMocks();
     const req = makeRequest({ headers: {} });
     await resolveProfile(req, makeReply());
@@ -81,33 +81,10 @@ describe("resolveProfile", () => {
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
-  it("skips when no tenantSlug", async () => {
+  it("ignores legacy X-User-Email header entirely — fallback retirado (S132-19)", async () => {
     vi.clearAllMocks();
-    const req = makeRequest({ headers: { "x-user-email": "test@test.com" }, tenantSlug: undefined });
-    await resolveProfile(req, makeReply());
-    expect(req.profile).toBeUndefined();
-  });
-
-  it("resolves profile from DB when email header present (legacy enabled)", async () => {
-    vi.clearAllMocks();
+    // Incluso con la env de migración puesta, el header ya no autentica.
     process.env.ALLOW_X_USER_EMAIL_HEADER = "true";
-    const fakeProfile = { id: "p1", email: "mech@test.com", fullName: "Mechanic", role: "mechanic", isActive: true, tenantId: "t1" };
-    mockProfileResult(fakeProfile);
-
-    const req = makeRequest({
-      headers: { "x-user-email": "mech@test.com" },
-      tenantSlug: "test-tenant",
-    });
-    await resolveProfile(req, makeReply());
-
-    expect(req.profile).toEqual(fakeProfile);
-    expect(mockSelect).toHaveBeenCalled();
-    delete process.env.ALLOW_X_USER_EMAIL_HEADER;
-  });
-
-  it("ignores X-User-Email header when ALLOW_X_USER_EMAIL_HEADER is not set", async () => {
-    vi.clearAllMocks();
-    delete process.env.ALLOW_X_USER_EMAIL_HEADER;
     const req = makeRequest({
       headers: { "x-user-email": "mech@test.com" },
       tenantSlug: "test-tenant",
@@ -116,32 +93,18 @@ describe("resolveProfile", () => {
 
     expect(req.profile).toBeUndefined();
     expect(mockSelect).not.toHaveBeenCalled();
+    delete process.env.ALLOW_X_USER_EMAIL_HEADER;
   });
 
-  it("sets profile to undefined when user not found", async () => {
+  it("rejects invalid Bearer token with UnauthorizedError", async () => {
     vi.clearAllMocks();
-    mockProfileResult(null);
-
     const req = makeRequest({
-      headers: { "x-user-email": "ghost@test.com" },
+      headers: { authorization: "Bearer token-invalido" },
       tenantSlug: "test-tenant",
     });
-    await resolveProfile(req, makeReply());
-
+    await expect(resolveProfile(req, makeReply())).rejects.toThrow("Token inválido o expirado");
     expect(req.profile).toBeUndefined();
-  });
-
-  it("does not block request when user inactive (filtered by DB)", async () => {
-    vi.clearAllMocks();
-    mockProfileResult(null);
-
-    const req = makeRequest({
-      headers: { "x-user-email": "inactive@test.com" },
-      tenantSlug: "test-tenant",
-    });
-    await resolveProfile(req, makeReply());
-
-    expect(req.profile).toBeUndefined();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 });
 

@@ -36,7 +36,9 @@ export async function requestTimingHook(request: FastifyRequest, reply: FastifyR
     const durationNs = Number(process.hrtime.bigint() - startTime);
     const durationMs = (durationNs / 1_000_000).toFixed(1);
     const tenantSlug = request.tenantSlug || "—";
-    const userEmail = (request.headers["x-user-email"] as string) || "—";
+    // S132-19: usuario desde el perfil resuelto por JWT (el header
+    // X-User-Email fue retirado del middleware de auth).
+    const userEmail = request.profile?.email ?? "—";
     const contentLength = reply.getHeader("content-length") || 0;
     const level = reply.statusCode >= 500 ? "error" : reply.statusCode >= 400 ? "warn" : "info";
 

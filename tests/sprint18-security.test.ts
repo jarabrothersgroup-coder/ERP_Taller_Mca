@@ -94,7 +94,7 @@ async function buildTestApp(): Promise<FastifyInstance> {
   return app;
 }
 
-const tenantHeaders = { "x-tenant-slug": "test-tenant", "x-user-email": "admin@test.com" };
+const tenantHeaders = { "x-tenant-slug": "test-tenant" }; // S132-19: sin x-user-email (fallback retirado)
 
 // ═════════════════════════════════════════════════
 //  Security Headers

@@ -551,7 +551,7 @@ El worker IMAP permite recibir archivos de diagnóstico Thinkcar enviados por em
 | Capa | Mecanismo |
 |---|---|
 | **Transporte** | TLS 1.2+ (HTTPS) para todas las comunicaciones externas |
-| **Autenticación** | JWT HMAC-SHA256 con expiración 8h + headers HTTP (`X-Tenant-Slug`, `X-User-Email`) |
+| **Autenticación** | JWT HMAC-SHA256 con expiración 8h (Bearer) + header `X-Tenant-Slug` para el aislamiento multi-tenant (el header `X-User-Email` fue retirado en S132-19) |
 | **Aislamiento de datos** | PostgreSQL RLS (Row Level Security) + filtrado por `tenant_slug` |
 | **Rate Limiting** | 200 req/min por IP (`@fastify/rate-limit`) con store persistente en JSON |
 | **CSRF** | Double-submit cookie pattern (stateless, compatible con JWT) |
