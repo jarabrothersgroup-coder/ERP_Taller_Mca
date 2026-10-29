@@ -17,6 +17,12 @@ export const emailLog = pgTable(
   "email_log",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    /**
+     * Tenant owner (slug). NULLable POR DISEÑO (revisión S132-7): los correos
+     * de sistema (crons, backups, platform alerts) no pertenecen a ningún
+     * tenant. Los correos transaccionales de un taller siempre pasan
+     * `request.tenantSlug` vía smartSend/sendEmail.
+     */
     tenantSlug: text("tenant_slug"),
     from: text("from").notNull(),
     to: jsonb("to").$type<string[]>().notNull(),

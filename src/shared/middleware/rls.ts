@@ -166,12 +166,15 @@ CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
 }
 
 /**
- * SQL helper to generate RLS policies for tables with tenant_id (UUID FK) instead of tenant_slug.
+ * SQL helper to generate RLS policies for tables with tenant_id (UUID FK)
+ * instead of tenant_slug.
  *
- * WARNING: `app.current_tenant` holds the tenant SLUG, never the UUID. Comparing
- * `tenant_id::text = current_tenant()` can never match, so this policy would
- * lock the table for everyone (including the correct tenant). Do NOT enable RLS
- * on tenant_id tables until the context is set to the tenant UUID.
+ * S132-7 (2026-10-28): las policies comparan `tenant_id` contra el UUID
+ * resuelto por SUBSELECT slug→id sobre `tenants`, usando el MISMO contexto
+ * `app.current_tenant` (slug) que el resto del esquema — sin requerir un
+ * segundo contexto UUID ni un lookup por request. Con el contexto NULL o ''
+ * la subconsulta no retorna fila → comparación NULL → fail-closed (cero
+ * filas visibles), igual que las policies de 0019.
  *
  * @param tableName - The table name
  * @param tenantColumn - The UUID column containing the tenant ID (default: 'tenant_id')
@@ -182,37 +185,35 @@ export function generateRlsPolicyUuidSql(
   tenantColumn: string = "tenant_id",
 ): string {
   return `
--- RLS policy for ${tableName} (UUID tenant column)
--- WARNING: current_tenant() holds the slug, not the UUID — this policy only
--- matches when app.current_tenant is set to the tenant UUID. Verify before use.
+-- RLS policy for ${tableName} (UUID tenant column, S132-7 slug→id subselect)
 ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY "${tableName}_tenant_isolation_select" ON ${tableName}
   FOR SELECT
   USING (
-    ${tenantColumn}::text = public.current_tenant()
+    ${tenantColumn} = (SELECT tn.id FROM tenants tn WHERE tn.slug = public.current_tenant())
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_insert" ON ${tableName}
   FOR INSERT
   WITH CHECK (
-    ${tenantColumn}::text = public.current_tenant()
+    ${tenantColumn} = (SELECT tn.id FROM tenants tn WHERE tn.slug = public.current_tenant())
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_update" ON ${tableName}
   FOR UPDATE
   USING (
-    ${tenantColumn}::text = public.current_tenant()
+    ${tenantColumn} = (SELECT tn.id FROM tenants tn WHERE tn.slug = public.current_tenant())
   )
   WITH CHECK (
-    ${tenantColumn}::text = public.current_tenant()
+    ${tenantColumn} = (SELECT tn.id FROM tenants tn WHERE tn.slug = public.current_tenant())
   );
 
 CREATE POLICY "${tableName}_tenant_isolation_delete" ON ${tableName}
   FOR DELETE
   USING (
-    ${tenantColumn}::text = public.current_tenant()
+    ${tenantColumn} = (SELECT tn.id FROM tenants tn WHERE tn.slug = public.current_tenant())
   );
 `;
 }

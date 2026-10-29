@@ -260,6 +260,13 @@
       "when": 1793235829415,
       "tag": "0036_fiscal_tenant_slug",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1793236676197,
+      "tag": "0037_rls_tenant_uuid",
+      "breakpoints": true
     }
   ]
 }

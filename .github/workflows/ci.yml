@@ -101,6 +101,14 @@ jobs:
       - name: "Lint (cuello de puerta: 0 errores; warnings de baseline OK)"
         run: npm run lint
 
+      - name: "Auditoría de filtros de tenant (techo 372; dominio fiscal incluido desde S132-6)"
+        # Gate estático (S132-7): sin filtro de tenant el número NO puede
+        # crecer — cada fix lo baja. Cubre las 95 tablas tenant-scoped,
+        # incluidas fiscal_documentos/fiscal_documento_detalles/sifen_sync_log
+        # desde que ganaron tenant_slug (S132-6). El mismo techo lo hace
+        # obligatorio tests/tenant-filter-audit.test.ts dentro de vitest.
+        run: node scripts/audit-tenant-filters.mjs --max 372
+
       - name: Tests + guard T-63 (techos 0/0/0/0, exclusiones ≥43)
         run: npx vitest run
 
