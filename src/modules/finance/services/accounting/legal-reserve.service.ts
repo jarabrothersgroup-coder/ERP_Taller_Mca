@@ -19,6 +19,7 @@ import { db } from "../../../../shared/database/drizzle.js";
 import { planCuentas, asientosContables, asientosDetalle } from "../../schema/index.js";
 import { liquidacionesIre, periodosFiscales } from "../../schema/index.js";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { resolvePostingAccount } from "./account-resolver.js";
 
 // ─── Interfaces ────────────────────────────────
 
@@ -100,25 +101,20 @@ export async function constituirReservaLegal(
     throw new Error(`La reserva legal del ejercicio ${anho} ya fue constituida (asiento #${existing.id.slice(0, 8)})`);
   }
 
-  // 3. Obtener cuentas contables
-  const [cuentaGananciasRetenidas] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(sql`${planCuentas.codigo} LIKE '3.4.%'`, eq(planCuentas.activo, true)))
-    .limit(1);
-
-  const [cuentaReservaLegal] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(sql`${planCuentas.codigo} LIKE '3.5.%'`, eq(planCuentas.activo, true)))
-    .limit(1);
-
-  if (!cuentaGananciasRetenidas || !cuentaReservaLegal) {
-    throw new Error(
-      "No se encontraron las cuentas contables necesarias. " +
-      "Verifique que existan cuentas 3.4.x (Ganancias Retenidas) y 3.5.x (Reserva Legal)",
-    );
-  }
+  // 3. Obtener cuentas contables imputables
+  // Los prefijos 3.4.x / 3.5.x apuntan a agrupadoras en el plan estándar
+  // (`3.4`, `3.5` no aceptan movimientos): el resolver baja al primer
+  // descendiente imputable en lugar de escribir en la agrupadora.
+  const cuentaGananciasRetenidas = await resolvePostingAccount({
+    codigos: ["3.4.99.01", "3.4.1.01"],
+    prefijos: ["3.4.", "3.1.02."],
+    etiqueta: "ganancias retenidas de la reserva legal",
+  });
+  const cuentaReservaLegal = await resolvePostingAccount({
+    codigos: ["3.5.99.01", "3.5.1.01"],
+    prefijos: ["3.5.", "3.1.1.02"],
+    etiqueta: "reserva legal",
+  });
 
   // 4. Generar asiento
   const fecha = new Date(anho, 11, 31); // 31-dic del ejercicio
@@ -143,14 +139,14 @@ export async function constituirReservaLegal(
   await db().insert(asientosDetalle).values([
     {
       asientoId: asiento.id,
-      cuentaId: cuentaGananciasRetenidas.id,
+      cuentaId: cuentaGananciasRetenidas,
       numeroLinea: 1,
       debe: monto,
       descripcion: `Reserva Legal ${anho} (5% × ₲${rentaNeta.toFixed(2)})`,
     },
     {
       asientoId: asiento.id,
-      cuentaId: cuentaReservaLegal.id,
+      cuentaId: cuentaReservaLegal,
       numeroLinea: 2,
       haber: monto,
       descripcion: `Reserva Legal ${anho}`,
@@ -168,7 +164,7 @@ export async function constituirReservaLegal(
       and(
         eq(asientosContables.moduloOrigen, "RESERVA_LEGAL"),
         eq(asientosContables.estado, "CONTABILIZADO"),
-        eq(asientosDetalle.cuentaId, cuentaReservaLegal.id),
+        eq(asientosDetalle.cuentaId, cuentaReservaLegal),
       ),
     );
 

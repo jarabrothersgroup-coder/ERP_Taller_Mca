@@ -40,10 +40,16 @@ function buildStandardTx() {
     return [v] as T[];
   }
 
+  // Orden real del servicio: (1) agregado de ventas, (2) próximo número,
+  // (3-4) resolución de cuentas imputables ANTES de escribir la cabecera,
+  // (5) INSERT del asiento. Resolver primero evita cabeceras «balanceadas»
+  // sin líneas de detalle.
   const results: Record<number, unknown> = {
     1: result(arr({ ingresoTotal: 5000000 })),
     2: result(arr({ maxNum: 5 })),
-    3: result(arr({
+    3: result(arr({ id: MOCK_CAJA_ID })),
+    4: result(arr({ id: MOCK_INGRESOS_ID })),
+    5: result(arr({
       id: MOCK_ASIENTO_ID,
       numero: 6,
       totalDebe: "5000000",
@@ -51,8 +57,6 @@ function buildStandardTx() {
       moduloOrigen: "CIERRE_MENSUAL",
       documentoRef: "CIERRE-2026-06",
     })),
-    4: result(arr({ id: MOCK_CAJA_ID })),
-    5: result(arr({ id: MOCK_INGRESOS_ID })),
   };
 
   return {
@@ -87,13 +91,29 @@ function buildStandardTx() {
 
 // ─── Mock db() — hoisted before imports ────────
 
-vi.mock("../../../src/shared/database/drizzle.js", () => ({
-  db: vi.fn(() => ({
-    transaction: vi.fn(
-      async (cb: (tx: unknown) => unknown) => cb(mockTxImpl.build()),
-    ),
-  })),
-}));
+// El servicio corre dentro de `db().transaction(...)` y los helpers de
+// resolución de cuentas (account-resolver) llaman `db()` esperando la
+// MISMA transacción — igual que `currentTx()` en producción. El mock
+// replica esa semántica: `db()` devuelve la transacción activa.
+vi.mock("../../../src/shared/database/drizzle.js", () => {
+  let current: any = null;
+
+  const root = {
+    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => {
+      current = mockTxImpl.build();
+      try {
+        return await cb(current);
+      } finally {
+        current = null;
+      }
+    }),
+    select: (...args: unknown[]) => current.select(...args),
+    insert: (...args: unknown[]) => current.insert(...args),
+    update: (...args: unknown[]) => current.update(...args),
+  };
+
+  return { db: vi.fn(() => root) };
+});
 
 // ─── Import after vi.mock (hoisted) ─────────────
 

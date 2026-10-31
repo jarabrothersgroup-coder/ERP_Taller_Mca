@@ -23,6 +23,7 @@ import {
 } from "../../schema/index.js";
 import { eq, and, isNull, desc, sql } from "drizzle-orm";
 import { createAsiento } from "./ledger.service.js";
+import { findPostingAccount } from "./account-resolver.js";
 import { logAudit } from "./audit-log.service.js";
 import type { AsientoLineaRequest } from "../../types.js";
 
@@ -139,18 +140,22 @@ export async function generarNotaCreditoDebito(
       cuentaDebeId = mapping[0]!.cuentaDebeId;
       cuentaHaberId = mapping[0]!.cuentaHaberId;
     } else {
-      // Fallback: cuentas por defecto
-      const [ctaClientes] = await db()
-        .select({ id: planCuentas.id })
-        .from(planCuentas)
-        .where(sql`${planCuentas.codigo} LIKE '1.1.02%' AND ${planCuentas.activo} = true`)
-        .limit(1);
-
-      const [ctaIngresos] = await db()
-        .select({ id: planCuentas.id })
-        .from(planCuentas)
-        .where(sql`${planCuentas.codigo} LIKE '4.1.%' AND ${planCuentas.activo} = true`)
-        .limit(1);
+      // Fallback: cuentas por defecto.
+      // Solo cuentas de movimiento: resolver por prefijo sin
+      // `acepta_movimientos` elegía la agrupadora `4.1.01`/`1.1.02` y
+      // createAsiento rechazaba la nota con 400 «no acepta movimientos».
+      const [ctaClientes, ctaIngresos] = await Promise.all([
+        findPostingAccount({
+          codigos: ["1.1.2.01", "1.1.02.001", "1.1.02"],
+          prefijos: ["1.1.2.", "1.1.02."],
+          etiqueta: "cuentas por cobrar de la nota de crédito/débito",
+        }),
+        findPostingAccount({
+          codigos: ["4.1.1.01", "4.1.01.001", "4.1.01"],
+          prefijos: ["4.1.1.", "4.1.01.", "4.1."],
+          etiqueta: "ingresos de la nota de crédito/débito",
+        }),
+      ]);
 
       if (!ctaClientes || !ctaIngresos) {
         return {
@@ -165,11 +170,11 @@ export async function generarNotaCreditoDebito(
       // NC: Debe a Ingresos (disminuye ingreso), Haber a Clientes (disminuye deuda)
       // ND: Debe a Clientes (aumenta deuda), Haber a Ingresos (aumenta ingreso)
       if (tipo === "CREDITO") {
-        cuentaDebeId = ctaIngresos.id;
-        cuentaHaberId = ctaClientes.id;
+        cuentaDebeId = ctaIngresos;
+        cuentaHaberId = ctaClientes;
       } else {
-        cuentaDebeId = ctaClientes.id;
-        cuentaHaberId = ctaIngresos.id;
+        cuentaDebeId = ctaClientes;
+        cuentaHaberId = ctaIngresos;
       }
     }
 

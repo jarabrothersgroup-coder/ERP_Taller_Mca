@@ -30,6 +30,7 @@ import {
   ValidationError,
   ConflictError,
 } from "../../../../shared/errors/app-error.js";
+import { resolvePostingAccount } from "./account-resolver.js";
 import type {
   CreateCuentaRequest,
   CreateAsientoRequest,
@@ -506,50 +507,43 @@ export async function generarAsientoAutomatico(
   }
 
   // ── 2. Find the relevant accounts ──
-  // We need: a revenue account, a cost account, and a receivable/payment account
-  const [cuentaIngresos] = await db()
-    .select({ id: planCuentas.id, codigo: planCuentas.codigo })
-    .from(planCuentas)
-    .where(sql`${planCuentas.codigo} LIKE '4.1.%' AND ${planCuentas.activo} = true`)
-    .limit(1);
-
-  const [cuentaCosto] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(sql`${planCuentas.codigo} LIKE '6.1.%' AND ${planCuentas.activo} = true`)
-    .limit(1);
-
-  const [cuentaCaja] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(sql`${planCuentas.codigo} LIKE '1.1.01.%' AND ${planCuentas.activo} = true`)
-    .limit(1);
-
-  const [cuentaInventario] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(
-      sql`${planCuentas.codigo} LIKE '1.1.03.%' AND ${planCuentas.activo} = true AND ${planCuentas.aceptaMovimientos} = true`,
-    )
-    .limit(1);
-
-  if (!cuentaIngresos || !cuentaCosto || !cuentaCaja || !cuentaInventario) {
-    throw new ValidationError(
-      "No se encontraron las cuentas contables necesarias. " +
-      "Verifique que el Plan de Cuentas tenga cuentas de Ingresos (4.1.x), " +
-      "Costos (6.1.x), Caja (1.1.01.x) e Inventario (1.1.03.x)",
-    );
-  }
+  // We need: a revenue account, a cost account, and a receivable/payment
+  // account. Solo cuentas de movimiento (`acepta_movimientos = true`):
+  // resolver por prefijo sin ese filtro elegía cuentas agrupadoras
+  // (`4.1.01`, `4.1.1`) y el asiento se rechazaba con 422.
+  const [cuentaIngresos, cuentaCosto, cuentaCaja, cuentaInventario] =
+    await Promise.all([
+      resolvePostingAccount({
+        codigos: ["4.1.1.01", "4.1.01.001", "4.1.01"],
+        prefijos: ["4.1.1.", "4.1.01.", "4.1."],
+        etiqueta: "ingresos (4.1.x)",
+      }),
+      resolvePostingAccount({
+        codigos: ["5.1.1.01", "6.1.01.001", "6.1.01"],
+        prefijos: ["5.1.1.", "6.1.01.", "5.1.", "6.1."],
+        etiqueta: "costos (5.1.x / 6.1.x)",
+      }),
+      resolvePostingAccount({
+        codigos: ["1.1.1.01", "1.1.01.001", "1.1.01"],
+        prefijos: ["1.1.1.", "1.1.01."],
+        etiqueta: "caja/bancos (1.1.1.x / 1.1.01.x)",
+      }),
+      resolvePostingAccount({
+        codigos: ["1.1.3.01", "1.1.03.001", "1.1.03"],
+        prefijos: ["1.1.3.", "1.1.03."],
+        etiqueta: "inventario (1.1.3.x / 1.1.03.x)",
+      }),
+    ]);
 
   // ── 3. Build the balanced lines ──
   // Cobro (Caja/Ingresos) + costo de mercadería (Costo/Inventario): cada par
   // suma `total`, de modo que el asiento cierra siempre debe = haber.
   const total = orden.total_cost ?? "0";
   const lines: AsientoLineaRequest[] = [
-    { cuentaId: cuentaCaja.id, debe: total },
-    { cuentaId: cuentaIngresos.id, haber: total },
-    { cuentaId: cuentaCosto.id, debe: total, ordenTrabajoId },
-    { cuentaId: cuentaInventario.id, haber: total },
+    { cuentaId: cuentaCaja, debe: total },
+    { cuentaId: cuentaIngresos, haber: total },
+    { cuentaId: cuentaCosto, debe: total, ordenTrabajoId },
+    { cuentaId: cuentaInventario, haber: total },
   ];
 
   return createAsiento({

@@ -626,6 +626,13 @@ async function resolveEquityAccount(
       );
     }
 
+    if (!account.aceptaMovimientos) {
+      throw new ValidationError(
+        `La cuenta "${account.nombre}" (${account.codigo}) es agrupadora y no acepta movimientos; ` +
+          'elegí una cuenta de movimiento del patrimonio',
+      );
+    }
+
     return account;
   }
 
@@ -633,19 +640,27 @@ async function resolveEquityAccount(
   const [byCode] = await db()
     .select()
     .from(planCuentas)
-    .where(eq(planCuentas.codigo, DEFAULT_EQUITY_ACCOUNT_CODE))
+    .where(and(
+      eq(planCuentas.codigo, DEFAULT_EQUITY_ACCOUNT_CODE),
+      eq(planCuentas.aceptaMovimientos, true),
+    ))
     .limit(1);
 
   if (byCode) return byCode;
 
-  // Priority 3: any PATRIMONIO account
+  // Priority 3: any posting PATRIMONIO account
+  // `aceptaMovimientos` es obligatorio: sin ese filtro se elegía la
+  // agrupadora raíz (`3 · PATRIMONIO`) y la carga inicial se rechazaba
+  // con 422 «la cuenta no acepta movimientos directos».
   const [anyEquity] = await db()
     .select()
     .from(planCuentas)
     .where(and(
       eq(planCuentas.tipo, 'PATRIMONIO'),
       eq(planCuentas.activo, true),
+      eq(planCuentas.aceptaMovimientos, true),
     ))
+    .orderBy(sql`${planCuentas.codigo} ASC`)
     .limit(1);
 
   if (anyEquity) return anyEquity;

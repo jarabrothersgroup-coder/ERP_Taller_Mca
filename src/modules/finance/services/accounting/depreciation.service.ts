@@ -15,7 +15,8 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
-import { planCuentas, asientosContables, asientosDetalle, activosFijos, depreciacionActivos } from "../../schema/index.js";
+import { resolvePostingAccountByCode } from "./account-resolver.js";
+import { asientosContables, asientosDetalle, activosFijos, depreciacionActivos } from "../../schema/index.js";
 import { toolInstances, herramientas, toolDepreciationEntries } from "../../../inventory/schema/index.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 
@@ -62,13 +63,10 @@ const CUENTAS_POR_TIPO: Record<string, { gasto: string; acumulada: string }> = {
 
 /** Resuelve ID de cuenta por código. */
 async function resolveCuenta(codigo: string): Promise<string> {
-  const [c] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(eq(planCuentas.codigo, codigo), eq(planCuentas.activo, true)))
-    .limit(1);
-  if (!c) throw new Error(`Cuenta contable ${codigo} no encontrada. Siembre las cuentas de depreciación.`);
-  return c.id;
+  return resolvePostingAccountByCode(
+    codigo,
+    `depreciación (${codigo}) — siembre las cuentas de depreciación`,
+  );
 }
 
 /** Obtiene próximo número de asiento */

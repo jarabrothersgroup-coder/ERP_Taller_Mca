@@ -18,8 +18,9 @@ import {
   facturas,
   asientosContables,
   asientosDetalle,
-  planCuentas,
 } from "../../../shared/database/schema/index.js";
+import { ValidationError } from "../../../shared/errors/app-error.js";
+import { resolvePostingAccount } from "./accounting/account-resolver.js";
 
 export interface ClosureResult {
   periodo: string;
@@ -83,7 +84,34 @@ export class AccountingClosureService {
 
       const nextNumero = (lastEntry?.maxNum ?? 0) + 1;
 
-      // ── 4. Create journal entry header (asiento contable) ──
+      // ── 4. Resolve chart-of-account IDs BEFORE writing the header ──
+      // Solo cuentas de movimiento: resolver una agrupadora (`1.1.01`,
+      // `4.1.01`) insertaba detalle en cuentas de consolidación, y si el
+      // código no existía el cierre quedaba con cabecera «balanceada»
+      // pero sin líneas de detalle.
+      let cajaCuentaId: string;
+      let ingresosCuentaId: string;
+      try {
+        [cajaCuentaId, ingresosCuentaId] = await Promise.all([
+          resolvePostingAccount({
+            codigos: ["1.1.1.01", "1.1.01.001", "1.1.01"],
+            prefijos: ["1.1.1.", "1.1.01."],
+            etiqueta: "caja/bancos del cierre mensual",
+          }),
+          resolvePostingAccount({
+            codigos: ["4.1.1.01", "4.1.01.001", "4.1.01"],
+            prefijos: ["4.1.1.", "4.1.01.", "4.1."],
+            etiqueta: "ingresos del cierre mensual",
+          }),
+        ]);
+      } catch (err) {
+        throw new ValidationError(
+          `No se puede ejecutar el cierre ${periodo}: ` +
+            (err instanceof Error ? err.message : String(err)),
+        );
+      }
+
+      // ── 5. Create journal entry header (asiento contable) ──
       const [asiento] = await tx
         .insert(asientosContables)
         .values({
@@ -99,52 +127,25 @@ export class AccountingClosureService {
         })
         .returning();
 
-      // ── 5. Look up chart-of-account IDs for the entry lines ──
-      // These accounts must exist in the plan_cuentas table.
-      // Codigos: 1.1.01 = Caja/Banco (activo), 4.1.01 = Ingresos por Servicios
-      const [cajaCuenta, ingresosCuenta] = await Promise.all([
-        tx
-          .select({ id: planCuentas.id })
-          .from(planCuentas)
-          .where(eq(planCuentas.codigo, "1.1.01"))
-          .limit(1)
-          .then((r) => r[0]),
-        tx
-          .select({ id: planCuentas.id })
-          .from(planCuentas)
-          .where(eq(planCuentas.codigo, "4.1.01"))
-          .limit(1)
-          .then((r) => r[0]),
-      ]);
-
-      // ── 6. Create double-entry detail lines ──
-      const lineas = [];
-
-      if (cajaCuenta) {
-        lineas.push({
+      // ── 6. Create double-entry detail lines (siempre 2, balanceadas) ──
+      await tx.insert(asientosDetalle).values([
+        {
           asientoId: asiento.id,
           numeroLinea: 1,
-          cuentaId: cajaCuenta.id,
+          cuentaId: cajaCuentaId,
           debe: String(totalMes),
           haber: null,
           descripcion: `Ingreso por ventas del periodo ${periodo}`,
-        });
-      }
-
-      if (ingresosCuenta) {
-        lineas.push({
+        },
+        {
           asientoId: asiento.id,
           numeroLinea: 2,
-          cuentaId: ingresosCuenta.id,
+          cuentaId: ingresosCuentaId,
           debe: null,
           haber: String(totalMes),
           descripcion: `Reconocimiento de ingresos del periodo ${periodo}`,
-        });
-      }
-
-      if (lineas.length > 0) {
-        await tx.insert(asientosDetalle).values(lineas);
-      }
+        },
+      ]);
 
       return {
         periodo,

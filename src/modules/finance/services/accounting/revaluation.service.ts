@@ -17,6 +17,7 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
+import { resolvePostingAccountByCode } from "./account-resolver.js";
 import { activosFijos, planCuentas, asientosContables, asientosDetalle, revaluaciones } from "../../schema/index.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 
@@ -167,13 +168,7 @@ export async function revaluarActivo(
 }
 
 async function resolveCuenta(codigo: string): Promise<string> {
-  const [c] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(eq(planCuentas.codigo, codigo), eq(planCuentas.activo, true)))
-    .limit(1);
-  if (!c) throw new Error(`Cuenta ${codigo} no encontrada`);
-  return c.id;
+  return resolvePostingAccountByCode(codigo, `revalúo (${codigo})`);
 }
 
 async function nextNumero(fecha: Date): Promise<number> {

@@ -29,13 +29,11 @@
  * @module finance/services/accounting/accounting-bus.service
  */
 
-import { db } from "../../../../shared/database/drizzle.js";
 import { inTransaction } from "../../../../shared/database/tx-context.js";
-import { planCuentas } from "../../schema/index.js";
 import { createAsiento } from "./ledger.service.js";
+import { findPostingAccount } from "./account-resolver.js";
 import { logAudit } from "./audit-log.service.js";
 import { resolveMapping } from "./mapping.service.js";
-import { eq } from "drizzle-orm";
 import type { CreateAsientoRequest, AsientoLineaRequest } from "../../types.js";
 
 // ─── Transaction Event ─────────────────────────
@@ -169,21 +167,19 @@ const MODULE_MAP: Record<AccountingEventType, string> = {
 // ─── Helper: resolve account by code ──────────
 
 /**
- * Busca una cuenta contable por su código.
+ * Busca una cuenta contable imputable por su código.
  * Útil para que los módulos no necesiten saber UUIDs de cuentas.
  *
- * @returns cuentaId si existe, null si no
+ * Si el código apunta a una cuenta agrupadora (nivel 1-3) se resuelve
+ * su primer descendiente imputable, para no escribir detalle en cuentas
+ * de consolidación.
+ *
+ * @returns cuentaId si existe una cuenta imputable, null si no
  */
 export async function resolveAccount(
   codigo: string,
 ): Promise<string | null> {
-  const [cuenta] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(eq(planCuentas.codigo, codigo))
-    .limit(1);
-
-  return cuenta?.id ?? null;
+  return findPostingAccount({ codigos: [codigo], etiqueta: codigo });
 }
 
 // ─── Core: emit ───────────────────────────────

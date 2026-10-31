@@ -13,12 +13,9 @@
  */
 
 import { db } from "../../../../shared/database/drizzle.js";
+import { resolvePostingAccount } from "./account-resolver.js";
 import { getDb } from "../../../../shared/database/connection.js";
-import {
-  planCuentas,
-  asientosContables,
-  asientosDetalle,
-} from "../../schema/index.js";
+import { asientosContables, asientosDetalle } from "../../schema/index.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 import type { CreateAsientoRequest, AsientoLineaRequest } from "../../types.js";
 
@@ -39,14 +36,17 @@ export interface AccrualResult {
  * Resuelve el ID de una cuenta por código.
  * Lanza error si no existe.
  */
-async function resolveCuenta(codigo: string): Promise<string> {
-  const [c] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(eq(planCuentas.codigo, codigo), eq(planCuentas.activo, true)))
-    .limit(1);
-  if (!c) throw new Error(`Cuenta contable ${codigo} no encontrada. Verifique el Plan de Cuentas.`);
-  return c.id;
+async function resolveCuenta(
+  codigo: string,
+  alternativas: string[] = [],
+  etiqueta = `devengamiento (${codigo})`,
+): Promise<string> {
+  // Solo cuentas imputables: si el código es agrupador, el resolver baja
+  // a su primer descendiente con movimientos (ver account-resolver.ts).
+  return resolvePostingAccount({
+    codigos: [codigo, ...alternativas],
+    etiqueta,
+  });
 }
 
 /**
@@ -107,8 +107,16 @@ export async function generarDevengamientoIngresos(
   }
 
   // Resolver IDs de cuentas
-  const cuentaCobrar = await resolveCuenta("1.1.02");       // Cuentas por Cobrar
-  const cuentaIngreso = await resolveCuenta("4.1.99");       // Ingresos Devengados (auxiliar)
+  const cuentaCobrar = await resolveCuenta(
+    "1.1.2.01",
+    ["1.1.02.001", "1.1.02"],
+    "cuentas por cobrar del devengamiento de ingresos",
+  );
+  const cuentaIngreso = await resolveCuenta(
+    "4.1.99",
+    ["4.1.9.01", "4.1.1.01", "4.1.01.001"],
+    "ingresos devengados",
+  );
 
   // Construir líneas
   const lineas: AsientoLineaRequest[] = [];
@@ -169,7 +177,13 @@ export async function generarDevengamientoGastos(
 
   for (const g of gastos) {
     if (g.monto <= 0) continue;
-    const pagarId = g.cuentaPagarId ?? await resolveCuenta("2.3.01"); // Gastos Acumulados
+    const pagarId =
+      g.cuentaPagarId ??
+      (await resolveCuenta(
+        "2.3.01",
+        ["2.3.1.01", "2.1.3.01", "2.1.01.001"],
+        "gastos acumulados por pagar",
+      ));
 
     lineas.push({
       cuentaId: g.cuentaGastoId,

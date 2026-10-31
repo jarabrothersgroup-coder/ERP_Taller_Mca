@@ -15,12 +15,12 @@
 import { db } from "../../../../shared/database/drizzle.js";
 import { getDb } from "../../../../shared/database/connection.js";
 import {
-  planCuentas,
   asientosContables,
   asientosDetalle,
   facturas,
 } from "../../schema/index.js";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { resolvePostingAccount } from "./account-resolver.js";
 
 // ─── Interfaces ────────────────────────────────
 
@@ -45,14 +45,17 @@ export interface MonthEndResult {
 
 // ─── Helpers ───────────────────────────────────
 
-async function resolveCuenta(codigo: string): Promise<string> {
-  const [c] = await db()
-    .select({ id: planCuentas.id })
-    .from(planCuentas)
-    .where(and(eq(planCuentas.codigo, codigo), eq(planCuentas.activo, true)))
-    .limit(1);
-  if (!c) throw new Error(`Cuenta ${codigo} no encontrada`);
-  return c.id;
+/**
+ * Resuelve una cuenta imputable del plan. Las cuentas agrupadoras
+ * (`4.1.01`, `1.1.01`, `6.2`) se bajan a su primer descendiente
+ * imputable: centralizar en una agrupadora descuadra el mayor.
+ */
+async function resolveCuenta(
+  codigos: string[],
+  prefijos: string[],
+  etiqueta: string,
+): Promise<string> {
+  return resolvePostingAccount({ codigos, prefijos, etiqueta });
 }
 
 async function nextNumero(fecha: Date): Promise<number> {
@@ -109,8 +112,16 @@ export async function centralizeSales(
   const num = await nextNumero(fecha);
 
   // Cuentas contables
-  const cuentaCaja = await resolveCuenta("1.1.01.001").catch(() => resolveCuenta("1.1.01"));
-  const cuentaIngresos = await resolveCuenta("4.1.01");
+  const cuentaCaja = await resolveCuenta(
+    ["1.1.1.01", "1.1.01.001", "1.1.01"],
+    ["1.1.1.", "1.1.01."],
+    "caja/bancos de la centralización de ventas",
+  );
+  const cuentaIngresos = await resolveCuenta(
+    ["4.1.1.01", "4.1.01.001", "4.1.01"],
+    ["4.1.1.", "4.1.01.", "4.1."],
+    "ingresos de la centralización de ventas",
+  );
 
   const [asiento] = await db()
     .insert(asientosContables)
@@ -186,8 +197,16 @@ export async function centralizePurchases(
 
   const fecha = end;
   const num = await nextNumero(fecha);
-  const cuentaInventario = await resolveCuenta("1.1.03.001").catch(() => resolveCuenta("1.1.03"));
-  const cuentaProveedores = await resolveCuenta("2.1.01.001").catch(() => resolveCuenta("2.1.01"));
+  const cuentaInventario = await resolveCuenta(
+    ["1.1.3.01", "1.1.03.001", "1.1.03"],
+    ["1.1.3.", "1.1.03."],
+    "inventario de la centralización de compras",
+  );
+  const cuentaProveedores = await resolveCuenta(
+    ["2.1.1.01", "2.1.01.001", "2.1.01"],
+    ["2.1.1.", "2.1.01."],
+    "proveedores de la centralización de compras",
+  );
 
   const [asiento] = await db()
     .insert(asientosContables)
@@ -253,8 +272,16 @@ export async function centralizeInventory(
 
   const fecha = end;
   const num = await nextNumero(fecha);
-  const cuentaInventario = await resolveCuenta("1.1.03.001").catch(() => resolveCuenta("1.1.03"));
-  const cuentaCostoVenta = await resolveCuenta("6.1.01.001").catch(() => resolveCuenta("6.1.01"));
+  const cuentaInventario = await resolveCuenta(
+    ["1.1.3.01", "1.1.03.001", "1.1.03"],
+    ["1.1.3.", "1.1.03."],
+    "inventario de la centralización de inventario",
+  );
+  const cuentaCostoVenta = await resolveCuenta(
+    ["5.1.1.01", "6.1.01.001", "6.1.01"],
+    ["5.1.1.", "6.1.01.", "5.1.", "6.1."],
+    "costo de ventas de la centralización de inventario",
+  );
 
   const lineas: Array<typeof asientosDetalle.$inferInsert> = [];
   if (netoValue > 0) {
@@ -333,8 +360,16 @@ export async function centralizePayroll(
 
   const fecha = new Date(anho, mes, 0);
   const num = await nextNumero(fecha);
-  const cuentaGasto = await resolveCuenta("6.2.01").catch(() => resolveCuenta("6.2"));
-  const cuentaPagar = await resolveCuenta("2.1.02");
+  const cuentaGasto = await resolveCuenta(
+    ["6.1.1.01", "5.1.01.001", "6.2.01"],
+    ["6.1.1.", "5.1.01.", "6.2.", "6.1.", "5.1."],
+    "gasto de la centralización de nómina",
+  );
+  const cuentaPagar = await resolveCuenta(
+    ["2.1.3.01", "2.1.02.001"],
+    ["2.1.3.", "2.1.02."],
+    "sueldos a pagar de la centralización de nómina",
+  );
 
   const [asiento] = await db()
     .insert(asientosContables)
