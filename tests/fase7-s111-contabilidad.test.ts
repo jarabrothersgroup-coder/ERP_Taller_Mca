@@ -178,7 +178,7 @@ async function limpiarTodo(): Promise<void> {
     `DELETE FROM facturas WHERE tenant_slug = '${TENANT}'`,
     `DELETE FROM asientos_detalle WHERE asiento_id IN (SELECT id FROM asientos_contables WHERE ${sweep})`,
     `DELETE FROM asientos_contables WHERE ${sweep}`,
-    `DELETE FROM plan_cuentas WHERE codigo IN (${codigos})`,
+    `DELETE FROM plan_cuentas WHERE codigo IN (${codigos}) AND tenant_slug = '${TENANT}' AND NOT EXISTS (SELECT 1 FROM asientos_detalle d WHERE d.cuenta_id = plan_cuentas.id)`,
     `DELETE FROM orden_repuestos WHERE tenant_slug = '${TENANT}'`,
     `DELETE FROM ordenes_trabajo WHERE tenant_slug = '${TENANT}'`,
     `DELETE FROM vehiculos WHERE tenant_slug = '${TENANT}'`,
