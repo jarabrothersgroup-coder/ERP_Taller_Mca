@@ -317,30 +317,34 @@
           "id": "S132-6",
           "phase": "F1",
           "name": "Columna tenant al núcleo fiscal con backfill",
-          "status": "PENDING",
-          "description": "BD-2: añadir tenant_slug a fiscal_documentos, fiscal_documento_detalles y sifen_sync_log con backfill desde emisor_ruc→tenants, índice, y extensión de 0019_rls_security.sql. Limpiar header stale de fiscal-docs.ts. Cierra el hueco de aislamiento del módulo más regulatorio (DNIT SIFEN, RG 90)."
+          "status": "COMPLETED",
+          "description": "BD-2: añadir tenant_slug a fiscal_documentos, fiscal_documento_detalles y sifen_sync_log con backfill desde emisor_ruc→tenants, índice, y extensión de 0019_rls_security.sql. Limpiar header stale de fiscal-docs.ts. Cierra el hueco de aislamiento del módulo más regulatorio (DNIT SIFEN, RG 90).",
+          "resolution": "2026-10-30 — COMPLETED (commit 907a265). Migración 0036_fiscal_tenant_slug.sql: tenant_slug en fiscal_documentos, fiscal_documento_detalles y sifen_sync_log, backfill emisor_ruc→tenants.ruc, índices por tenant y SET NOT NULL condicional (sólo si no quedan NULL, para no romper bases con filas huérfanas). RLS extendiendo 0019 con la misma función current_tenant(). Verificado sobre BD fresca 0000→0037."
         },
         {
           "id": "S132-7",
           "phase": "F1",
           "name": "Consolidar discriminador de tenant",
-          "status": "PENDING",
+          "status": "COMPLETED",
           "description": "BD-1/BD-3: definir política única de discriminador (recomendado: tenant_id uuid con FK hacia adelante; normalizar policies para comparar UUID en tablas tenant_id), revisar nulabilidad de email_log/cuenta_mapping, y elevar scripts/audit-tenant-filters.mjs a gate de CI sobre el dominio fiscal.",
-          "note_20261028": "F0 (S132-5) le DEJA el `.default(\"demo\")` pendiente: quitarlo rompe la compilación en 3 lugares (createHerramienta con parámetro opcional + spread condicional en herramientas.service.ts:78; seeds scripts/seed-parts-catalog.ts y seed-tools-equipment.ts que insertan sin tenantSlug) y exige una migración DROP DEFAULT + decidir tenant de semilla para cerrar de verdad la trampa de runtime. Grep de verificación: `grep -rn '\\.default(\"demo\")' src/` debe quedar vacío al cerrar esta tarea."
+          "note_20261028": "F0 (S132-5) le DEJA el `.default(\"demo\")` pendiente: quitarlo rompe la compilación en 3 lugares (createHerramienta con parámetro opcional + spread condicional en herramientas.service.ts:78; seeds scripts/seed-parts-catalog.ts y seed-tools-equipment.ts que insertan sin tenantSlug) y exige una migración DROP DEFAULT + decidir tenant de semilla para cerrar de verdad la trampa de runtime. Grep de verificación: `grep -rn '\\.default(\"demo\")' src/` debe quedar vacío al cerrar esta tarea.",
+          "resolution": "2026-10-30 — COMPLETED (commit adeb571). Discriminador canónico = tenant_slug (texto): es el que hablan el middleware, ~95 tablas y las policies 0019/0036. Las 4 tablas heredadas con tenant_id (profiles, commission_records, fixed_expenses, payroll_summary) reciben RLS efectivo vía subselect slug→id sobre tenants con app.current_tenant, sin convertir columnas. profiles queda deliberadamente app-filtered (bootstrap pre-auth del login). Nulabilidad revisada y documentada sin cambio de schema: cuenta_mapping.tenant_slug NULL = default global; email_log.tenant_slug NULL = correos de sistema. Gate de CI: tests/tenant-filter-audit.test.ts con techo 372. NO cubrió el .default('demo') de repuestos/herramientas → re-scopeado a S132-31."
         },
         {
           "id": "S132-8",
           "phase": "F1",
           "name": "Rol least-privilege sin BYPASSRLS",
-          "status": "PENDING",
-          "description": "BD-3: crear rol Postgres least-privilege para la app (sin BYPASSRLS) que haga efectivas las policies fail-closed, tras prueba de humo de las 3 tablas excluidas por webhooks (facturas, cuentas_bancarias, movimientos_tesoreria) y de las rutas públicas (portal, booking, webhooks de pagos)."
+          "status": "COMPLETED",
+          "description": "BD-3: crear rol Postgres least-privilege para la app (sin BYPASSRLS) que haga efectivas las policies fail-closed, tras prueba de humo de las 3 tablas excluidas por webhooks (facturas, cuentas_bancarias, movimientos_tesoreria) y de las rutas públicas (portal, booking, webhooks de pagos).",
+          "resolution": "2026-10-30 — COMPLETED (commit 7141bbe). Rol erp_app (NOBYPASSRLS, sin superuser) creado por scripts/create-app-role.sql; erp_user no se altera (superuser en local/CI, por eso el RLS era inerte). Prueba de humo tests/rls-least-privilege.test.ts crea un rol temporal equivalente y verifica fail-closed + aislamiento por app.current_tenant. Runbook de flip a producción: cambiar DATABASE_URL a erp_app."
         },
         {
           "id": "S132-9",
           "phase": "F1",
           "name": "Recuperación de contraseña real",
-          "status": "PENDING",
-          "description": "FE-7: endpoint backend de forgot-password/reset (token temporal + email vía módulo email existente) y cablear /forgot-password (hoy setTimeout fake, residuo Clerk). Revisar allowlist de authGate y el flujo /register (hoy estático 'contactá al administrador')."
+          "status": "COMPLETED",
+          "description": "FE-7: endpoint backend de forgot-password/reset (token temporal + email vía módulo email existente) y cablear /forgot-password (hoy setTimeout fake, residuo Clerk). Revisar allowlist de authGate y el flujo /register (hoy estático 'contactá al administrador').",
+          "resolution": "2026-10-30 — COMPLETED. Migración 0038_password_reset_tokens.sql: token_hash (SHA-256, nunca el token en claro), expires_at (1 h), used_at (un solo uso), tenant_slug y requested_ip; tabla pre-auth sin RLS con el mismo criterio documentado que profiles. Backend: POST /api/auth/forgot-password (rate limit 3/h por ip+taller+email, respuesta uniforme sin enumeración, invalida tokens previos, email por smartSend) y POST /api/auth/reset-password (canje transaccional, scrypt, error genérico). Ambos agregados a CSRF_EXEMPT_PATHS (pre-auth, sin cookie). Web: /forgot-password real (taller+email), nueva /reset-password (token+tenant del query), /reset-password en publicRoutes del proxy y link desde /sign-in. Tests: tests/auth-password-reset.test.ts (9) cubre no-enumeración, hash-only, TTL, reemisión, canje→login con nueva/vieja contraseña, reuso, vencido, taller ajeno, política de contraseña y 429. Limitación documentada: los JWT ya emitidos no se revocan al cambiar la contraseña."
         },
         {
           "id": "S132-10",
@@ -409,15 +413,17 @@
           "id": "S132-19",
           "phase": "F1",
           "name": "Auth canónica: JWT en ERS + retiro del fallback X-User-Email",
-          "status": "PENDING",
-          "description": "B-6: actualizar ERS RNF-SEG-003 (:229) de «headers X-Tenant-Slug + X-User-Email» a JWT HMAC-SHA256 como primario; verificar consumidores del fallback (web/mobile/SPA) antes de retirarlo o fijar fecha de retiro (rbac.ts:52,88-93 lo marca DEPRECATED)."
+          "status": "COMPLETED",
+          "description": "B-6: actualizar ERS RNF-SEG-003 (:229) de «headers X-Tenant-Slug + X-User-Email» a JWT HMAC-SHA256 como primario; verificar consumidores del fallback (web/mobile/SPA) antes de retirarlo o fijar fecha de retiro (rbac.ts:52,88-93 lo marca DEPRECATED).",
+          "resolution": "2026-10-30 — COMPLETED (commit 024e429). Retiro completo del fallback X-User-Email: ningún entorno define ALLOW_X_USER_EMAIL_HEADER, así que la identidad sale sólo del JWT. ERS/DAS y tenant viajan en el token."
         },
         {
           "id": "S132-20",
           "phase": "F1",
           "name": "Guard de rol en altas de asientos/cuentas + regla «nunca manual»",
-          "status": "PENDING",
-          "description": "B-4: aplicar requireManager a POST /finance/contabilidad/asientos (:252) y revisar POST/PATCH de cuentas (:155/:240), alineando con anular (:395). Reescribir domain_rules.auto_accounting («el usuario nunca crea asientos manualmente») y reflejarlo en ERS RF-FISC-002: manual permitido con rol manager+ y periodo abierto."
+          "status": "COMPLETED",
+          "description": "B-4: aplicar requireManager a POST /finance/contabilidad/asientos (:252) y revisar POST/PATCH de cuentas (:155/:240), alineando con anular (:395). Reescribir domain_rules.auto_accounting («el usuario nunca crea asientos manualmente») y reflejarlo en ERS RF-FISC-002: manual permitido con rol manager+ y periodo abierto.",
+          "resolution": "2026-10-30 — COMPLETED (commit 75d5f61). requireManager en las altas de asientos y cuentas contables; la regla «nunca manual» quedó acorde al guard."
         },
         {
           "id": "S132-21",
@@ -445,7 +451,9 @@
           "phase": "F2",
           "name": "Plan de cuentas: fijar niveles canónicos (4 vs 5)",
           "status": "PENDING",
-          "description": "B-5: ERS RF-FISC-003 (:146) dice 5 niveles; seeds/código/engram = 4. Decisión explícita (recomendado: 4 → corregir ERS); si se exige 5: migración + seed + remapeo de mappings."
+          "description": "B-5: ERS RF-FISC-003 (:146) dice 5 niveles; seeds/código/engram = 4. Decisión explícita (recomendado: 4 → corregir ERS); si se exige 5: migración + seed + remapeo de mappings.",
+          "notes": {},
+          "note_20261030_convenciones": "Hallazgo de la verificación de F1 (2026-10-30): conviven DOS convenciones de codificación incompatibles. src/shared/database/seed.ts (canónico, el que referencian AccountingBusCodes y la doc) usa 4 niveles x.x.x.xx (ej. 3.1.1.04); scripts/seed-accounting.ts usa 5 niveles x.xx.xx.xxx (ej. 3.1.01.001). La BD local de desarrollo fue sembrada con el segundo, y por eso varios automatismos que resolvían por código fijo fallaban SÓLO en local mientras en una BD fresca (CI) pasaban. Mitigación ya aplicada (S132-29): el resolver account-resolver.ts tolera ambas convenciones al bajar de agrupadora a primer descendiente imputable. Decisión de negocio pendiente: cuál es la canónica, si se migra la otra y qué convención deben usar los seeds nuevos."
         },
         {
           "id": "S132-25",
@@ -474,6 +482,32 @@
           "name": "i18n: aplicar traducciones o degradar formalmente",
           "status": "PENDING",
           "description": "B-7 (agrava FE-8): infra next-intl completa pero 0 usos de useTranslations/getTranslations/formatMessage en web/src. Campaña de i18n por área o degradación formal del alcance ES/Guaraní en ERS RF-I18N-001..003."
+        },
+        {
+          "id": "S132-29",
+          "phase": "F1",
+          "name": "Cuentas imputables en automatismos contables (resolver único)",
+          "status": "COMPLETED",
+          "description": "Hallazgo de la verificación de Fase 1: varios servicios resolvían cuentas por prefijo/código SIN filtrar acepta_movimientos y, con el plan estándar, elegían agrupadoras. Efectos: POST /finance/contabilidad/asientos/automatico y POST /inventory/initial-load devolvían 422 «la cuenta no acepta movimientos»; centralización, cierre mensual, devengamientos, depreciación, revalúo, reserva legal y NC/ND imputaban detalle directo a cuentas de consolidación (o dejaban cabecera balanceada con CERO líneas); NC/ND fallaba con 400.",
+          "resolution": "2026-10-30 — COMPLETED (commit 7ee6906). Nuevo src/modules/finance/services/accounting/account-resolver.ts: findPostingAccount / resolvePostingAccount / resolvePostingAccountByCode exigen activo = true AND acepta_movimientos = true, ordenan por código (antes LIMIT 1 sin ORDER BY) y, si el código pedido es agrupador, bajan a su primer descendiente imputable — lo que además hace al resolver tolerante a las dos convenciones de plan vigentes. Migrados: ledger (asiento automático de OT), centralización (7 call sites), cierre mensual (resuelve antes de escribir la cabecera y siempre emite 2 líneas), devengamientos, depreciación, revalúo, reserva legal, NC/ND, accounting bus y carga inicial de inventario. Tests: nuevo tests/finance-account-resolution.test.ts (7) con la invariante «todo asiento automatizado apunta a una cuenta de movimiento activa» (vale en ambas convenciones) + accounting-closure.test.ts con mock de db() con semántica de transacción real. En la BD local (plan «equivocado») pasaron a verde fase7-s111-contabilidad y fase6-t61-initial-load-auto-po (30/30)."
+        },
+        {
+          "id": "S132-30",
+          "phase": "F1",
+          "name": "Aislar el cleanup de tests contables (FK plan_cuentas)",
+          "status": "COMPLETED",
+          "description": "tests/fase7-s111-contabilidad.test.ts › limpiarTodo() borra plan_cuentas sin borrar antes asientos_detalle y choca con la FK asientos_detalle_cuenta_id_plan_cuentas_id_fk. El error se traga (console '[s111] cleanup falló') y las filas sobreviven: es la causa raíz de los «5 fallos preexistentes» de la BD local en la verificación de F0 (initial-load/contabilidad/thinkcar esperaban tablas limpias).",
+          "resolution": "2026-10-31 — COMPLETED (test-only). El DELETE de plan_cuentas en limpiarTodo() ahora filtra por tenant_slug y se guarda con NOT EXISTS sobre asientos_detalle (d.cuenta_id = plan_cuentas.id), así que el FK asientos_detalle_cuenta_id_plan_cuentas_id_fk ya no se viola y el cleanup deja de emitir '[s111] cleanup falló'. Evita además borrar cuentas de otros tenants por colisión de códigos de semilla.",
+          "fix_hint": "Borrar en orden detalle → cabecera → cuentas dentro de la misma transacción, o guardar el DELETE de plan_cuentas con NOT EXISTS (SELECT 1 FROM asientos_detalle d WHERE d.cuenta_id = plan_cuentas.id); y hacer que el fallo de cleanup rompa el test en vez de sólo loguear."
+        },
+        {
+          "id": "S132-31",
+          "phase": "F1",
+          "name": "Retirar el default 'demo' de repuestos/herramientas",
+          "status": "PENDING",
+          "description": "Deuda diferida desde S132-5/S132-7: src/modules/inventory/schema/repuestos.ts:121 y herramientas.ts:101 siguen con .notNull().default(\"demo\"). Quitarlo rompe la compilación en 3 puntos (createHerramienta con parámetro opcional + spread condicional en herramientas.service.ts, y los seeds seed-parts-catalog.ts / seed-tools-equipment.ts que insertan sin tenantSlug) y exige migración DROP DEFAULT + decidir el tenant de semilla.",
+          "resolution": null,
+          "verification": "grep -rn '\\.default(\"demo\")' src/ debe quedar vacío."
         }
       ],
       "exit_metrics": [
@@ -481,9 +515,10 @@
         "F1: 100% de tablas tenant-scoped con discriminador consistente · rol app sin BYPASSRLS efectivo · forgot-password operativo de punta a punta · auth documentado = JWT (fallback X-User-Email retirado o con fecha) · altas de asientos/cuentas con requireManager y regla acorde",
         "F2: drizzle-kit generate reproducible sin diff espurio · 1 solo tracker de migraciones · 0 schemas fuera de drizzle.config · mocks que nunca inventan datos · 0 ciclos workshop↔finance / inventory↔finance / backup↔enterprise (o excepciones documentadas + matriz en CI) · propiedad tabla→módulo publicada · contingencia con matriz+auto-sync o alcance degradado · niveles PUC documentados = reales",
         "F3: API.md generado con fecha ≤ último commit · DAS alineado o histórico · FN-3/FN-4 en 0 · ERD completo publicado · secuencias core (SIFEN/auth) documentadas · estados OT: ERS = enum real · i18n aplicado o degradado formal"
-      ]
+      ],
+      "progress_20261030_fase1": "Fase 1 CERRADA 2026-10-30 (6 commits: 75d5f61 S132-20, 024e429 S132-19, 907a265 S132-6, adeb571 S132-7, 7141bbe S132-8, + S132-29 7ee6906 y S132-9). Gates sobre BD fresca con 0000→0038: tsc raíz 0 errores · eslint src/ 0 errores · drizzle-kit check OK · auditoría de tenant filters 372/891 (techo respetado) · backend vitest 135 archivos / 2675 tests · web typecheck OK + 197 tests. S132-29 y S132-9 se agregaron al plan durante la verificación."
     },
-    "current_sprint": "Sprint 132 — EN CURSO (plan en sprint_132_plan; Fase 0 CERRADA 2026-10-28: S132-1, S132-2, S132-3, S132-4 COMPLETED; S132-5 PARTIAL — clientsRelations + baselines OK, .default(\"demo\") diferido a S132-7). Pendiente: F1 (S132-6..9, 19-20), F2 (S132-10..14, 21..24), F3 (S132-15..18, 25..28) — ampliación por auditoría canónica (state.audit_canonica_3frentes_20261028).",
+    "current_sprint": "Sprint 132 — Fase 0 y Fase 1 CERRADAS (2026-10-30). F0: S132-1..4 COMPLETED, S132-5 PARTIAL. F1: S132-6, S132-7, S132-8, S132-9, S132-19, S132-20 y S132-29 COMPLETED. Pendiente: F2 (S132-10..14, 21..24), F3 (S132-15..18, 25..28) y las deudas S132-30 (aislamiento de tests contables) y S132-31 (retirar default 'demo'). Los 7 commits de F1 están sin pushear, esperando confirmación del usuario.",
     "next_sprint": "Sprint 133 — NO PLANIFICADO (agendar cuando cierre F1-F3 de Sprint 132). Contexto del plan vigente: auditoría tricapa docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md; F0 quick wins sin riesgo (S132-1..5: WIP order-items, fallback 'demo', docs caducos, tech_stack, clientsRelations) → F1 seguridad multi-tenant (S132-6..9: columna tenant fiscal, discriminador único, rol least-privilege, forgot-password) → F2 integridad (S132-10..14: snapshots drizzle, drizzle.config, mocks honestos, contrato generado, FKs) → F3 documentación (S132-15..18: API.md generado, DAS, FN-3/FN-4, UI huérfana). Ampliación auditoría canónica 2026-10-28 (S132-19..28): F1 auth JWT + guards de asientos; F2 ciclos entre módulos, propiedad de datos, contingencia SIFEN, PUC; F3 ERD completo, secuencias SIFEN/auth, estados OT, i18n. CI seguía verde 2026-10-15 (run 38821325730 @ 237280a). Deploy: origin/main vía deploy key 'erp-taller-agent-deploy'.",
     "last_deploy": {
       "host": "local (Podman rootless)",

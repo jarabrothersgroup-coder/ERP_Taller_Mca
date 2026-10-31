@@ -267,6 +267,13 @@
       "when": 1793236676197,
       "tag": "0037_rls_tenant_uuid",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1793411247371,
+      "tag": "0038_password_reset_tokens",
+      "breakpoints": true
     }
   ]
 }

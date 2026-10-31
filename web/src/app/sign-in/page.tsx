@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/components/providers/session-provider";
 import { Car, Loader2 } from "lucide-react";
 
@@ -120,6 +121,15 @@ export default function SignInPage() {
               )}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">

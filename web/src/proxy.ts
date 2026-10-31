@@ -22,6 +22,7 @@ const publicRoutes = [
   "/sign-up",
   "/register",
   "/forgot-password",
+  "/reset-password",
   "/booking",
   "/portal",
 ];

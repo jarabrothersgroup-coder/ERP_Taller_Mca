@@ -1,8 +1,10 @@
 /**
  * Auth routes — login and session management.
  *
- * POST /api/auth/login  — Authenticate user, return JWT token (with rate limiting)
- * POST /api/auth/logout — Client-side token invalidation (idempotent)
+ * POST /api/auth/login           — Authenticate user, return JWT token (with rate limiting)
+ * POST /api/auth/logout          — Client-side token invalidation (idempotent)
+ * POST /api/auth/forgot-password — Emit a 1-hour, single-use reset token (no enumeration)
+ * POST /api/auth/reset-password  — Consume the token and set the new password
  *
  * Security:
  *   - JWT token signed with HMAC-SHA256 (no password stored client-side)
@@ -22,8 +24,16 @@ import { BadRequestError, UnauthorizedError } from "../../../shared/errors/app-e
 import { verifyPassword } from "../services/auth-utils.js";
 import { generateToken } from "../../../shared/services/auth-jwt.js";
 import { checkRateLimit, recordAttempt, resetAttempts } from "../../../shared/services/rate-limiter.js";
-import { validateBody } from "../../../shared/schemas/validation.js";
-import { loginBodySchema } from "../../../shared/schemas/validation.js";
+import {
+  validateBody,
+  loginBodySchema,
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
+} from "../../../shared/schemas/validation.js";
+import {
+  requestPasswordReset,
+  resetPassword,
+} from "../services/password-reset.service.js";
 
 // ─── Rate limit config ─────────────────────────────
 const LOGIN_RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
@@ -97,5 +107,40 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   // ── POST /api/auth/logout ─────────────────────────────────────
   app.post("/api/auth/logout", async (_request, reply) => {
     return reply.send({ ok: true });
+  });
+
+  // ── POST /api/auth/forgot-password ────────────────────────────
+  // Respuesta uniforme exista o no la cuenta: no se puede enumerar
+  // usuarios por la diferencia entre «email enviado» y «no existe».
+  app.post("/api/auth/forgot-password", async (request, reply) => {
+    const { tenantSlug, email } = validateBody(
+      request.body,
+      forgotPasswordBodySchema,
+    );
+
+    await requestPasswordReset({ tenantSlug, email, ip: request.ip });
+
+    return reply.send({
+      ok: true,
+      message:
+        "Si existe una cuenta con ese email, enviamos las instrucciones para restablecer la contraseña.",
+    });
+  });
+
+  // ── POST /api/auth/reset-password ─────────────────────────────
+  // Token de un solo uso, 1 hora de vigencia. Error genérico ante
+  // inválido/vencido/usado (no se revela cuál falló).
+  app.post("/api/auth/reset-password", async (request, reply) => {
+    const { tenantSlug, token, password } = validateBody(
+      request.body,
+      resetPasswordBodySchema,
+    );
+
+    await resetPassword({ tenantSlug, token, password });
+
+    return reply.send({
+      ok: true,
+      message: "Contraseña actualizada. Ya podés iniciar sesión.",
+    });
   });
 }

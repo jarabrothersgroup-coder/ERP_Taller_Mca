@@ -8,6 +8,11 @@ export {
   type ProfileRole,
 } from "./profiles.js";
 export {
+  passwordResetTokens,
+  type PasswordResetToken,
+  type NewPasswordResetToken,
+} from "./password-reset-tokens.js";
+export {
   clients,
   type Client,
   type NewClient,

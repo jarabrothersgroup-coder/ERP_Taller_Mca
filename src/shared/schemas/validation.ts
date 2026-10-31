@@ -45,6 +45,22 @@ export const loginBodySchema = z.object({
 
 export const logoutBodySchema = z.object({}).strict();
 
+// S132-9 — recuperación de contraseña. El taller se pide igual que en el
+// login: el email es único POR taller, no globalmente (migration 0021).
+export const forgotPasswordBodySchema = z.object({
+  tenantSlug: tenantSlugSchema,
+  email: emailSchema,
+});
+
+export const resetPasswordBodySchema = z.object({
+  tenantSlug: tenantSlugSchema,
+  token: z
+    .string()
+    .min(20, "Token inválido")
+    .max(200, "Token inválido"),
+  password: passwordSchema,
+});
+
 // ─── Client Portal schemas ────────────────────────
 
 export const portalMagicLinkSchema = z.object({

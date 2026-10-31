@@ -412,3 +412,39 @@ export function trialEndingTemplate(data: TrialEndingTemplateData): string {
   `;
   return baseTemplate("⏰ Período de Prueba por Vencer", bodyHtml);
 }
+
+// ─── Password reset (S132-9) ──────────────────────
+
+export interface PasswordResetTemplateData {
+  /** Nombre del usuario que pidió el reset */
+  fullName: string;
+  /** Taller al que pertenece la cuenta */
+  tenantName: string;
+  /** URL de canje (incluye token y taller) */
+  resetUrl: string;
+  /** Vigencia del enlace, en minutos */
+  expiresMinutes: number;
+}
+
+/** Password reset email template (recuperación de contraseña) */
+export function passwordResetTemplate(data: PasswordResetTemplateData): string {
+  const bodyHtml = `
+    <p>Hola ${data.fullName}:</p>
+    <p>Recibimos un pedido para restablecer tu contraseña de <strong>${data.tenantName}</strong>.</p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${data.resetUrl}" class="button button-primary">Restablecer Contraseña</a>
+    </div>
+    <div class="details">
+      <dl>
+        <dt>Vigencia</dt>
+        <dd>${data.expiresMinutes} minutos</dd>
+        <dt>Usos</dt>
+        <dd>Un solo uso</dd>
+      </dl>
+    </div>
+    <p style="font-size:13px">Si el botón no abre, copiá este enlace en el navegador:</p>
+    <p style="font-size:12px;word-break:break-all;color:#71717a">${data.resetUrl}</p>
+    <p style="text-align:center;margin-top:16px;font-size:13px">Si no pediste el cambio, ignorá este mensaje: tu contraseña actual sigue funcionando.</p>
+  `;
+  return baseTemplate("Recuperación de contraseña", bodyHtml);
+}
