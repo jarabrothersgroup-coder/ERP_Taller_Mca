@@ -118,7 +118,7 @@ export const repuestos = pgTable(
     precioCompra: numeric("precio_compra", { precision: 12, scale: 2 }),
 
     /** Tenant slug for multi-tenant isolation */
-    tenantSlug: text("tenant_slug").notNull().default("demo"),
+    tenantSlug: text("tenant_slug").notNull(),
 
     // ─── Timestamps ─────────────────────────────
     createdAt: timestamp("created_at", { withTimezone: true })

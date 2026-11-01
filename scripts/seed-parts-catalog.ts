@@ -189,6 +189,7 @@ async function main() {
       continue;
     }
     await db().insert(repuestos).values({
+      tenantSlug: process.env.SEED_TENANT_SLUG ?? "demo",
       codigo: p.codigo,
       descripcion: p.descripcion,
       marca: p.marca,

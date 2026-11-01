@@ -39,7 +39,7 @@ import type {
  */
 export async function createHerramienta(
   data: CreateHerramientaRequest,
-  tenantSlug?: string,
+  tenantSlug: string,
 ) {
   // Validate unique codigo
   const codigoConditions = [eq(herramientas.codigo, data.codigo)];
@@ -75,7 +75,7 @@ export async function createHerramienta(
       categoriaContableId: data.categoriaContableId ?? null,
       activo: data.activo ?? true,
       imagenUrl: data.imagenUrl ?? null,
-      ...(tenantSlug ? { tenantSlug } : {}),
+      tenantSlug,
     })
     .returning();
 

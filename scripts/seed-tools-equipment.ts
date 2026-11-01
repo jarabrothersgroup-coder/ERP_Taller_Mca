@@ -131,6 +131,7 @@ async function main() {
       continue;
     }
     await db().insert(herramientas).values({
+      tenantSlug: process.env.SEED_TENANT_SLUG ?? "demo",
       codigo: t.codigo,
       nombre: t.nombre,
       descripcion: t.descripcion,

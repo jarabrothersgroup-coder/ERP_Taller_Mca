@@ -98,7 +98,7 @@ export const herramientas = pgTable(
     estadoCalibracion: text("estado_calibracion").notNull().default("NO_APLICA"),
 
     /** Tenant slug for multi-tenant isolation */
-    tenantSlug: text("tenant_slug").notNull().default("demo"),
+    tenantSlug: text("tenant_slug").notNull(),
 
     // ─── Timestamps ─────────────────────────────
     createdAt: timestamp("created_at", { withTimezone: true })
