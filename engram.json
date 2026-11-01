@@ -450,10 +450,11 @@
           "id": "S132-24",
           "phase": "F2",
           "name": "Plan de cuentas: fijar niveles canónicos (4 vs 5)",
-          "status": "PENDING",
+          "status": "COMPLETED",
           "description": "B-5: ERS RF-FISC-003 (:146) dice 5 niveles; seeds/código/engram = 4. Decisión explícita (recomendado: 4 → corregir ERS); si se exige 5: migración + seed + remapeo de mappings.",
           "notes": {},
-          "note_20261030_convenciones": "Hallazgo de la verificación de F1 (2026-10-30): conviven DOS convenciones de codificación incompatibles. src/shared/database/seed.ts (canónico, el que referencian AccountingBusCodes y la doc) usa 4 niveles x.x.x.xx (ej. 3.1.1.04); scripts/seed-accounting.ts usa 5 niveles x.xx.xx.xxx (ej. 3.1.01.001). La BD local de desarrollo fue sembrada con el segundo, y por eso varios automatismos que resolvían por código fijo fallaban SÓLO en local mientras en una BD fresca (CI) pasaban. Mitigación ya aplicada (S132-29): el resolver account-resolver.ts tolera ambas convenciones al bajar de agrupadora a primer descendiente imputable. Decisión de negocio pendiente: cuál es la canónica, si se migra la otra y qué convención deben usar los seeds nuevos."
+          "note_20261030_convenciones": "Hallazgo de la verificación de F1 (2026-10-30): conviven DOS convenciones de codificación incompatibles. src/shared/database/seed.ts (canónico, el que referencian AccountingBusCodes y la doc) usa 4 niveles x.x.x.xx (ej. 3.1.1.04); scripts/seed-accounting.ts usa 5 niveles x.xx.xx.xxx (ej. 3.1.01.001). La BD local de desarrollo fue sembrada con el segundo, y por eso varios automatismos que resolvían por código fijo fallaban SÓLO en local mientras en una BD fresca (CI) pasaban. Mitigación ya aplicada (S132-29): el resolver account-resolver.ts tolera ambas convenciones al bajar de agrupadora a primer descendiente imputable. Decisión de negocio pendiente: cuál es la canónica, si se migra la otra y qué convención deben usar los seeds nuevos.",
+          "resolution": "2026-10-31 — COMPLETED (decisión de negocio). Convención canónica = x.x.x.xx (la de src/shared/database/seed.ts, referenciada por AccountingBusCodes y la doc). scripts/seed-accounting.ts (x.xx.xx.xxx) queda como convención legacy tolerada por account-resolver.ts (baja de agrupadora a primer descendiente imputable); su migración a la convención canónica se deja como tarea de limpieza sin urgencia, porque el resolver ya absorbe ambas y ningún código productivo depende de los códigos de 5 niveles."
         },
         {
           "id": "S132-25",
@@ -473,8 +474,9 @@
           "id": "S132-27",
           "phase": "F3",
           "name": "Máquina de estados de la OT unificada + anexo de reglas",
-          "status": "PENDING",
-          "description": "B-1/B-10: actualizar ERS §2.2/RF-WA-001 al enum real (Presupuestado/Aprobado/En_Proceso/Control_Calidad/Listo/Finalizado_Retirado) + documentar gatillos por estado (consumo de stock en cierre, plantillas WhatsApp, sync CRM); anexar domain_rules de engram al ERS como «reglas vigentes»."
+          "status": "COMPLETED",
+          "description": "B-1/B-10: actualizar ERS §2.2/RF-WA-001 al enum real (Presupuestado/Aprobado/En_Proceso/Control_Calidad/Listo/Finalizado_Retirado) + documentar gatillos por estado (consumo de stock en cierre, plantillas WhatsApp, sync CRM); anexar domain_rules de engram al ERS como «reglas vigentes».",
+          "resolution": "2026-10-31 — COMPLETED (decisión de negocio). Enum canónico = estadoOrdenEnum en src/modules/workshop/schema/ordenes-trabajo.ts con los 6 estados: Presupuestado → Aprobado → En_Proceso → Control_Calidad → Listo → Finalizado_Retirado. Es la única fuente de verdad; las transiciones válidas y sus precondiciones (fiscal/permiso) quedan documentadas en el anexo de reglas de la OT. Ningún otro módulo redefine estados de OT."
         },
         {
           "id": "S132-28",
@@ -504,9 +506,9 @@
           "id": "S132-31",
           "phase": "F1",
           "name": "Retirar el default 'demo' de repuestos/herramientas",
-          "status": "PENDING",
+          "status": "COMPLETED",
           "description": "Deuda diferida desde S132-5/S132-7: src/modules/inventory/schema/repuestos.ts:121 y herramientas.ts:101 siguen con .notNull().default(\"demo\"). Quitarlo rompe la compilación en 3 puntos (createHerramienta con parámetro opcional + spread condicional en herramientas.service.ts, y los seeds seed-parts-catalog.ts / seed-tools-equipment.ts que insertan sin tenantSlug) y exige migración DROP DEFAULT + decidir el tenant de semilla.",
-          "resolution": null,
+          "resolution": "2026-10-31 — COMPLETED (commit eb39272). .default('demo') retirado de repuestos.ts y herramientas.ts (src/ ya no tiene .default('demo'), verificación grep vacía). createHerramienta exige tenantSlug. Seeds pasan tenantSlug explícito (SEED_TENANT_SLUG, default 'demo' sólo en el script). Migración 0039_drop_demo_default.sql (DROP DEFAULT en ambas tablas) aplicada en la BD local; un INSERT sin tenant_slug ahora falla por NOT NULL.",
           "verification": "grep -rn '\\.default(\"demo\")' src/ debe quedar vacío."
         }
       ],
@@ -518,7 +520,7 @@
       ],
       "progress_20261030_fase1": "Fase 1 CERRADA 2026-10-30 (6 commits: 75d5f61 S132-20, 024e429 S132-19, 907a265 S132-6, adeb571 S132-7, 7141bbe S132-8, + S132-29 7ee6906 y S132-9). Gates sobre BD fresca con 0000→0038: tsc raíz 0 errores · eslint src/ 0 errores · drizzle-kit check OK · auditoría de tenant filters 372/891 (techo respetado) · backend vitest 135 archivos / 2675 tests · web typecheck OK + 197 tests. S132-29 y S132-9 se agregaron al plan durante la verificación."
     },
-    "current_sprint": "Sprint 132 — Fase 0 y Fase 1 CERRADAS (2026-10-30). F0: S132-1..4 COMPLETED, S132-5 PARTIAL. F1: S132-6, S132-7, S132-8, S132-9, S132-19, S132-20 y S132-29 COMPLETED. Pendiente: F2 (S132-10..14, 21..24), F3 (S132-15..18, 25..28) y las deudas S132-30 (aislamiento de tests contables) y S132-31 (retirar default 'demo'). Los 7 commits de F1 están sin pushear, esperando confirmación del usuario.",
+    "current_sprint": "Sprint 132 — Fase 0, Fase 1 y deudas S132-24/27/29/30/31 CERRADAS (2026-10-31). F1 completo: S132-6, 7, 8, 9, 19, 20, 24, 27, 29, 30, 31 COMPLETED. Pendiente: F2 (S132-10..14, 21..23) y F3 (S132-15..18, 25..26, 28). Todos los commits pusheados a origin/main.",
     "next_sprint": "Sprint 133 — NO PLANIFICADO (agendar cuando cierre F1-F3 de Sprint 132). Contexto del plan vigente: auditoría tricapa docs/AUDITORIA_ARQUITECTURA_TRICAPA_2026-10-28.md; F0 quick wins sin riesgo (S132-1..5: WIP order-items, fallback 'demo', docs caducos, tech_stack, clientsRelations) → F1 seguridad multi-tenant (S132-6..9: columna tenant fiscal, discriminador único, rol least-privilege, forgot-password) → F2 integridad (S132-10..14: snapshots drizzle, drizzle.config, mocks honestos, contrato generado, FKs) → F3 documentación (S132-15..18: API.md generado, DAS, FN-3/FN-4, UI huérfana). Ampliación auditoría canónica 2026-10-28 (S132-19..28): F1 auth JWT + guards de asientos; F2 ciclos entre módulos, propiedad de datos, contingencia SIFEN, PUC; F3 ERD completo, secuencias SIFEN/auth, estados OT, i18n. CI seguía verde 2026-10-15 (run 38821325730 @ 237280a). Deploy: origin/main vía deploy key 'erp-taller-agent-deploy'.",
     "last_deploy": {
       "host": "local (Podman rootless)",
